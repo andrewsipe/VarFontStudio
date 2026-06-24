@@ -43,6 +43,7 @@ final class EditorViewModel: ObservableObject {
     @Published var project: ProjectDocument?
     @Published var selectedFontID: String?
     @Published var selectedInstanceKey: String?
+    @Published var selectedInstanceKeys: Set<String> = []
     @Published var selectedAxisStopID: String?
     @Published var searchText = ""
     @Published var instanceFilter: InstanceFilter = .all
@@ -84,6 +85,74 @@ final class EditorViewModel: ObservableObject {
         instanceListDisplay.groups.flatMap(\.instances)
     }
 
+    /// Keys currently highlighted in the instance list (multi- or single-select).
+    var activeInstanceSelection: Set<String> {
+        if !selectedInstanceKeys.isEmpty { return selectedInstanceKeys }
+        if let selectedInstanceKey { return [selectedInstanceKey] }
+        return []
+    }
+
+    func selectInstance(key: String, extend: Bool) {
+        if extend {
+            if selectedInstanceKeys.isEmpty, let selectedInstanceKey {
+                selectedInstanceKeys = [selectedInstanceKey]
+            }
+            if selectedInstanceKeys.contains(key) {
+                selectedInstanceKeys.remove(key)
+            } else {
+                selectedInstanceKeys.insert(key)
+            }
+            selectedInstanceKey = selectedInstanceKeys.contains(key) ? key : selectedInstanceKeys.sorted().first
+        } else {
+            selectedInstanceKeys = [key]
+            selectedInstanceKey = key
+        }
+    }
+
+    func setInstancesIncluded(keys: Set<String>, included: Bool) {
+        guard !keys.isEmpty else { return }
+        guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+            return
+        }
+
+        pushUndoSnapshot()
+        var font = project.fonts[fontIndex]
+        if included {
+            font.excludedInstanceKeys.removeAll { keys.contains($0) }
+        } else {
+            for key in keys where !font.excludedInstanceKeys.contains(key) {
+                font.excludedInstanceKeys.append(key)
+            }
+        }
+        font.dirty = true
+        project.fonts[fontIndex] = font
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    var allVisibleInstancesIncluded: Bool {
+        let visible = filteredInstances
+        guard !visible.isEmpty else { return false }
+        return visible.allSatisfy(\.included)
+    }
+
+    var hasMixedVisibleInclusion: Bool {
+        let visible = filteredInstances
+        guard !visible.isEmpty else { return false }
+        let includedCount = visible.filter(\.included).count
+        return includedCount > 0 && includedCount < visible.count
+    }
+
+    func setAllVisibleInstancesIncluded(_ included: Bool) {
+        setFilteredInstancesIncluded(included)
+    }
+
+    func toggleAllVisibleInstancesIncluded() {
+        setAllVisibleInstancesIncluded(!allVisibleInstancesIncluded)
+    }
+
     private func refreshInstanceListDisplay() {
         guard let instancePlan else {
             instanceListDisplay = .empty
@@ -95,7 +164,8 @@ final class EditorViewModel: ObservableObject {
         captions.reserveCapacity(instancePlan.instances.count)
         includedByKey.reserveCapacity(instancePlan.instances.count)
         for instance in instancePlan.instances {
-            captions[instance.key] = instanceCoordsCaption(instance)
+            let pairs = coordCaptionPairs(for: instance)
+            captions[instance.key] = StudioFormatting.truncatingCoordCaption(pairs: pairs)
             includedByKey[instance.key] = instance.included
         }
 
@@ -237,17 +307,12 @@ final class EditorViewModel: ObservableObject {
     }
 
     func instanceCoordsCaption(_ instance: PlannedInstance) -> String {
-        let tags: [String]
-        if let project {
-            let extra = instance.coords.keys.filter { !project.naming.order.contains($0) }.sorted()
-            tags = project.naming.order.filter { instance.coords[$0] != nil } + extra
-        } else {
-            tags = instance.coords.keys.sorted()
-        }
-        return tags.compactMap { tag -> String? in
-            guard let value = instance.coords[tag] else { return nil }
-            return "\(tag)=\(Self.formatCoordValue(value))"
-        }.joined(separator: " ")
+        coordCaptionPairs(for: instance).joined(separator: " ")
+    }
+
+    private func coordCaptionPairs(for instance: PlannedInstance) -> [String] {
+        let order = project?.naming.order ?? instance.coords.keys.sorted()
+        return StudioFormatting.coordPairs(coords: instance.coords, namingOrder: order)
     }
 
     func clearAxisStopFilter() {
@@ -345,6 +410,7 @@ final class EditorViewModel: ObservableObject {
             project = imported
             selectedFontID = imported.fonts.first?.id
             selectedInstanceKey = nil
+            selectedInstanceKeys = []
             selectedAxisStopID = nil
             clearUndoHistory()
             regeneratePlan()
@@ -377,6 +443,7 @@ final class EditorViewModel: ObservableObject {
     func selectFont(id: String) {
         selectedFontID = id
         selectedInstanceKey = nil
+        selectedInstanceKeys = []
         regeneratePlan()
     }
 

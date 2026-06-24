@@ -22,11 +22,11 @@ struct InspectorPanel: View {
     private func instanceInspector(_ instance: PlannedInstance) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: StudioSpacing.sectionGap + 4) {
-                StudioInspectorBlock(title: "Composed name") {
-                    Text(instance.composedName)
-                        .font(StudioTypography.emphasis)
-                        .textSelection(.enabled)
-                }
+                Text(instance.composedName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 2)
 
                 StudioInspectorBlock(title: "Naming chain") {
                     if instance.namingChain.isEmpty {

@@ -50,6 +50,30 @@ struct VarFontStudioApp: App {
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .disabled(!editor.canRedo)
             }
+
+            CommandMenu("Instances") {
+                Button("Include All Shown") {
+                    editor.setAllVisibleInstancesIncluded(true)
+                }
+                .disabled(editor.filteredInstances.isEmpty)
+
+                Button("Exclude All Shown") {
+                    editor.setAllVisibleInstancesIncluded(false)
+                }
+                .disabled(editor.filteredInstances.isEmpty)
+
+                Divider()
+
+                Button("Include Selection") {
+                    editor.setInstancesIncluded(keys: editor.activeInstanceSelection, included: true)
+                }
+                .disabled(editor.activeInstanceSelection.isEmpty)
+
+                Button("Exclude Selection") {
+                    editor.setInstancesIncluded(keys: editor.activeInstanceSelection, included: false)
+                }
+                .disabled(editor.activeInstanceSelection.isEmpty)
+            }
         }
     }
 }

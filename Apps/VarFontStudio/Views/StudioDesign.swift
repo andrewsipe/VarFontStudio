@@ -43,6 +43,8 @@ enum StudioColors {
     static let hoverFill = Color.primary.opacity(0.05)
     static let warningFill = Color.orange.opacity(0.12)
     static let warningFillHover = Color.orange.opacity(0.18)
+    /// Highlights filtered counts and summary figures in dense lists.
+    static let dataHighlight = Color(red: 0.90, green: 0.58, blue: 0.22)
 }
 
 enum StudioFormatting {
@@ -54,6 +56,31 @@ enum StudioFormatting {
         while text.last == "0" { text.removeLast() }
         if text.last == "." { text.removeLast() }
         return text
+    }
+
+    /// Builds `key=value` tokens in naming order for compact list display.
+    static func coordPairs(
+        coords: [String: Double],
+        namingOrder: [String]
+    ) -> [String] {
+        let extra = coords.keys.filter { !namingOrder.contains($0) }.sorted()
+        let tags = namingOrder.filter { coords[$0] != nil } + extra
+        return tags.compactMap { tag -> String? in
+            guard let value = coords[tag] else { return nil }
+            return "\(tag)=\(axisValue(value))"
+        }
+    }
+
+    /// Truncates at pair boundaries so list rows never cut mid-value (`wght=3…`).
+    static func truncatingCoordCaption(pairs: [String], maxLength: Int = 28) -> String {
+        var result = ""
+        for pair in pairs {
+            let candidate = result.isEmpty ? pair : "\(result) \(pair)"
+            if candidate.count > maxLength, !result.isEmpty { break }
+            if candidate.count > maxLength { return pair }
+            result = candidate
+        }
+        return result
     }
 }
 
@@ -95,51 +122,76 @@ struct StudioSectionLabel: View {
 }
 
 struct StudioFilterChip<Trailing: View>: View {
-  let icon: String
-  let label: String
-  @ViewBuilder var trailing: () -> Trailing
+    var icon: String? = "line.3.horizontal.decrease"
+    let label: String
+    @ViewBuilder var trailing: () -> Trailing
 
-  init(icon: String, label: String, @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }) {
-    self.icon = icon
-    self.label = label
-    self.trailing = trailing
-  }
-
-  var body: some View {
-    HStack(spacing: 4) {
-      Label(label, systemImage: icon)
-        .font(StudioTypography.meta)
-      trailing()
+    init(
+        icon: String? = "line.3.horizontal.decrease",
+        label: String,
+        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
+    ) {
+        self.icon = icon
+        self.label = label
+        self.trailing = trailing
     }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 3)
-    .background(.quaternary, in: Capsule())
-  }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let icon {
+                Label(label, systemImage: icon)
+                    .font(StudioTypography.meta)
+            } else {
+                Text(label)
+                    .font(StudioTypography.meta)
+            }
+            trailing()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(.quaternary, in: Capsule())
+    }
 }
 
 struct StudioIncludeCheckbox: View {
     let isOn: Bool
+    var isIndeterminate: Bool = false
     let action: () -> Void
 
     static let size: CGFloat = 13
+    static let hitSize: CGFloat = 16
 
     var body: some View {
         Button(action: action) {
             ZStack {
                 RoundedRectangle(cornerRadius: StudioRadius.small)
-                    .strokeBorder(Color.secondary.opacity(isOn ? 0.55 : 0.35), lineWidth: 1)
+                    .strokeBorder(
+                        Color.secondary.opacity(isOn || isIndeterminate ? 0.55 : 0.35),
+                        lineWidth: 1
+                    )
                     .frame(width: Self.size, height: Self.size)
-                if isOn {
+                if isIndeterminate {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.secondary.opacity(0.6))
+                        .frame(width: 6, height: 1.5)
+                } else if isOn {
                     Image(systemName: "checkmark")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 16, height: 16)
+            .frame(width: Self.hitSize, height: Self.hitSize)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(isOn ? "Exclude from export" : "Include in export")
+        .help(helpText)
+    }
+
+    private var helpText: String {
+        if isIndeterminate {
+            return "Mixed inclusion — click to include all"
+        }
+        return isOn ? "Exclude from export" : "Include in export"
     }
 }
 
@@ -153,7 +205,7 @@ struct StudioGroupHeader: View {
             Text("·")
                 .foregroundStyle(.tertiary)
             Text("\(count)")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StudioColors.dataHighlight)
         }
         .font(StudioTypography.columnLabel)
         .textCase(nil)
@@ -239,7 +291,7 @@ struct StudioRowBackground: View {
     let isSelected: Bool
     let isHovered: Bool
     var isWarning: Bool = false
-    var showsSelectionStroke: Bool = true
+    var showsSelectionStroke: Bool = false
 
     var body: some View {
         RoundedRectangle(cornerRadius: StudioRadius.row)

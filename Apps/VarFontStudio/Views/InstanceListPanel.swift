@@ -1,8 +1,11 @@
+import AppKit
 import SwiftUI
 import VarFontCore
 
 struct InstanceListPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
+
+    private let toolbarColumnWidth: CGFloat = 168
 
     private var display: InstanceListDisplay {
         editor.instanceListDisplay
@@ -64,46 +67,26 @@ struct InstanceListPanel: View {
             instance: instance,
             coordsCaption: display.coordCaptions[instance.key] ?? "",
             isIncluded: display.includedByKey[instance.key] ?? true,
-            isSelected: editor.selectedInstanceKey == instance.key,
-            onSelect: { editor.selectedInstanceKey = instance.key },
-            onIncludedChange: { editor.setInstanceIncluded(instance.key, included: $0) }
+            isSelected: editor.activeInstanceSelection.contains(instance.key),
+            onSelect: { extend in
+                editor.selectInstance(key: instance.key, extend: extend)
+            },
+            onIncludedChange: { editor.setInstanceIncluded(instance.key, included: $0) },
+            onSetSelectionIncluded: { included in
+                let keys = editor.activeInstanceSelection.contains(instance.key)
+                    ? editor.activeInstanceSelection
+                    : [instance.key]
+                editor.setInstancesIncluded(keys: keys, included: included)
+            }
         )
     }
 
     private var filterBar: some View {
         StudioCompactToolbar {
-            VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                HStack(spacing: StudioSpacing.controlGap) {
-                    TextField("Search names or coordinates", text: $editor.searchText)
-                        .textFieldStyle(.roundedBorder)
-                        .font(StudioTypography.caption)
-                        .controlSize(.small)
-
-                    Picker("Show", selection: $editor.instanceFilter) {
-                        ForEach(InstanceFilter.allCases) { filter in
-                            Text(filter.label).tag(filter)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .controlSize(.small)
-                    .fixedSize()
-
-                    Button("All") {
-                        editor.setFilteredInstancesIncluded(true)
-                    }
-                    .studioCompactControl()
-                    .disabled(editor.filteredInstances.isEmpty)
-
-                    Button("None") {
-                        editor.setFilteredInstancesIncluded(false)
-                    }
-                    .studioCompactControl()
-                    .disabled(editor.filteredInstances.isEmpty)
-                }
-
-                HStack(spacing: StudioSpacing.controlGap) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
                     if let label = display.axisStopFilterLabel {
-                        StudioFilterChip(icon: "line.3.horizontal.decrease", label: label) {
+                        StudioFilterChip(icon: nil, label: label) {
                             Button {
                                 editor.clearAxisStopFilter()
                             } label: {
@@ -116,22 +99,88 @@ struct InstanceListPanel: View {
                         }
                     }
 
-                    if let summary = display.summary {
-                        Text(summary)
-                            .font(StudioTypography.meta)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
                     Spacer(minLength: 0)
+
+                    toolbarSearchField
+                        .frame(width: toolbarColumnWidth, alignment: .trailing)
+                }
+
+                HStack(alignment: .center, spacing: 0) {
+                    includeAllRow
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    showFilterControl
+                        .frame(width: toolbarColumnWidth, alignment: .trailing)
 
                     if editor.selectedFont?.dirty == true {
                         Text("Edited")
                             .font(StudioTypography.meta)
                             .foregroundStyle(.secondary)
+                            .padding(.leading, StudioSpacing.controlGap)
                     }
                 }
+                .frame(minHeight: 28)
             }
+        }
+    }
+
+    private var toolbarSearchField: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "magnifyingglass")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.tertiary)
+            TextField("Search", text: $editor.searchText)
+                .textFieldStyle(.plain)
+                .font(StudioTypography.caption)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.quaternary.opacity(0.55), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+    }
+
+    private var includeAllRow: some View {
+        HStack(spacing: StudioSpacing.rowGap + 1) {
+            StudioIncludeCheckbox(
+                isOn: editor.allVisibleInstancesIncluded,
+                isIndeterminate: editor.hasMixedVisibleInclusion
+            ) {
+                editor.toggleAllVisibleInstancesIncluded()
+            }
+
+            Text("Include All")
+                .font(StudioTypography.caption)
+                .foregroundStyle(editor.filteredInstances.isEmpty ? .secondary : .primary)
+
+            if let summary = display.summary {
+                Text(summary)
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(StudioColors.dataHighlight)
+                    .lineLimit(1)
+                    .layoutPriority(-1)
+                    .padding(.leading, 2)
+            }
+        }
+        .opacity(editor.filteredInstances.isEmpty ? 0.45 : 1)
+        .allowsHitTesting(!editor.filteredInstances.isEmpty)
+        .help("Include or exclude every instance currently shown in the list")
+    }
+
+    private var showFilterControl: some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text("Show")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.tertiary)
+                .fixedSize()
+
+            Picker("Show", selection: $editor.instanceFilter) {
+                ForEach(InstanceFilter.allCases) { filter in
+                    Text(filter.label).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .controlSize(.mini)
+            .labelsHidden()
+            .frame(maxWidth: toolbarColumnWidth)
         }
     }
 
@@ -151,8 +200,9 @@ private struct InstanceRowView: View {
     let coordsCaption: String
     let isIncluded: Bool
     let isSelected: Bool
-    let onSelect: () -> Void
+    let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
+    let onSetSelectionIncluded: (Bool) -> Void
 
     @State private var isHovered = false
 
@@ -193,7 +243,17 @@ private struct InstanceRowView: View {
             )
         )
         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
-        .onTapGesture(perform: onSelect)
+        .onTapGesture {
+            onSelect(NSEvent.modifierFlags.contains(.command))
+        }
+        .contextMenu {
+            Button("Include") {
+                onSetSelectionIncluded(true)
+            }
+            Button("Exclude") {
+                onSetSelectionIncluded(false)
+            }
+        }
         .onHover { isHovered = $0 }
     }
 }
