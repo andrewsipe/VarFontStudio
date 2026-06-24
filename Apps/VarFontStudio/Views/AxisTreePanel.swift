@@ -132,7 +132,7 @@ struct AxisTreePanel: View {
                         isElidable: stop.elidable,
                         onSelect: {
                             editingStop = nil
-                            editor.selectedAxisStopID = stop.id
+                            editor.toggleAxisStopSelection(stopID: stop.id)
                         },
                         onBeginEdit: { field in
                             editor.selectedAxisStopID = stop.id

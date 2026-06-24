@@ -98,6 +98,58 @@ final class InstancePlannerTests: XCTestCase {
         XCTAssertTrue(plan.warnings.contains { $0.code == "conflicting_instance_keys" })
     }
 
+    func testStatOnlyAxisExcludedFromComposedNameAndGrid() {
+        let font = FontDocument(
+            id: "test",
+            sourcePath: "/tmp/test.ttf",
+            outputPath: nil,
+            analysisSnapshotID: nil,
+            dirty: false,
+            axes: [
+                AxisDefinition(
+                    tag: "opsz",
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "opsz-a", value: 5, name: "Micro", elidable: false),
+                        AxisValue(id: "opsz-b", value: 6, name: "Minuscule", elidable: false),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "wdth",
+                    default: 88,
+                    role: .statOnly,
+                    values: [
+                        AxisValue(id: "wdth-a", value: 88, name: "SemiCondensed", elidable: false),
+                        AxisValue(id: "wdth-b", value: 100, name: "Normal", elidable: true),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "wght",
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "wght-a", value: 400, name: "Regular", elidable: false),
+                    ]
+                ),
+            ],
+            options: CommitOptions(),
+            includedInstanceKeys: [],
+            excludedInstanceKeys: [],
+            overrides: InstanceOverrides()
+        )
+
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["opsz", "wdth", "wght"], elidedFallback: "Regular")
+        )
+
+        XCTAssertEqual(plan.formula.parts, [2, 1])
+        XCTAssertEqual(plan.instances.count, 2)
+        XCTAssertTrue(plan.instances.allSatisfy { !$0.composedName.contains("SemiCondensed") })
+        XCTAssertEqual(plan.instances[0].composedName, "Micro Regular")
+        XCTAssertEqual(plan.instances[0].coords["wdth"], 88)
+        XCTAssertEqual(plan.instances[0].namingChain.map(\NamingChainLink.tag), ["opsz", "wght"])
+    }
+
     func testCommitServiceDryRun() async throws {
         let request = try FixtureLoader.decode(CommitRequest.self, from: "playfair-roman-commit-request.json")
         let service = CommitService()

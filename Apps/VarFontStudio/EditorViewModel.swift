@@ -4,6 +4,40 @@ import Foundation
 import UniformTypeIdentifiers
 import VarFontCore
 
+enum InstanceFilter: String, CaseIterable, Identifiable {
+    case all
+    case included
+    case excluded
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all: "All"
+        case .included: "Included"
+        case .excluded: "Excluded"
+        }
+    }
+}
+
+struct InstanceGroup: Identifiable, Equatable {
+    var label: String
+    var instances: [PlannedInstance]
+
+    var id: String { label }
+}
+
+struct InstanceListDisplay: Equatable {
+    static let empty = InstanceListDisplay()
+
+    var groups: [InstanceGroup] = []
+    var isEmpty: Bool = true
+    var summary: String?
+    var axisStopFilterLabel: String?
+    var coordCaptions: [String: String] = [:]
+    var includedByKey: [String: Bool] = [:]
+}
+
 @MainActor
 final class EditorViewModel: ObservableObject {
     @Published var project: ProjectDocument?
@@ -11,16 +45,32 @@ final class EditorViewModel: ObservableObject {
     @Published var selectedInstanceKey: String?
     @Published var selectedAxisStopID: String?
     @Published var searchText = ""
-    @Published var showExcludedOnly = false
+    @Published var instanceFilter: InstanceFilter = .all
     @Published var instancePlan: InstancePlan?
     @Published var statusMessage: String?
     @Published var isBusy = false
+    @Published private(set) var instanceListDisplay = InstanceListDisplay.empty
 
     @Published private(set) var canSave = false
 
     private var debouncedPlanTask: Task<Void, Never>?
     private var undoStack: [ProjectDocument] = []
     private var redoStack: [ProjectDocument] = []
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        Publishers.CombineLatest4(
+            $instancePlan,
+            $selectedAxisStopID,
+            $instanceFilter,
+            $searchText
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _, _, _, _ in
+            self?.refreshInstanceListDisplay()
+        }
+        .store(in: &cancellables)
+    }
 
     var canUndo: Bool { !undoStack.isEmpty }
     var canRedo: Bool { !redoStack.isEmpty }
@@ -31,19 +81,219 @@ final class EditorViewModel: ObservableObject {
     }
 
     var filteredInstances: [PlannedInstance] {
-        guard let instancePlan else { return [] }
-        var rows = instancePlan.instances
-        if showExcludedOnly {
-            rows = rows.filter { !$0.included }
+        instanceListDisplay.groups.flatMap(\.instances)
+    }
+
+    private func refreshInstanceListDisplay() {
+        guard let instancePlan else {
+            instanceListDisplay = .empty
+            return
         }
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !query.isEmpty {
-            rows = rows.filter {
-                $0.composedName.localizedCaseInsensitiveContains(query)
-                    || $0.key.localizedCaseInsensitiveContains(query)
+
+        var captions: [String: String] = [:]
+        var includedByKey: [String: Bool] = [:]
+        captions.reserveCapacity(instancePlan.instances.count)
+        includedByKey.reserveCapacity(instancePlan.instances.count)
+        for instance in instancePlan.instances {
+            captions[instance.key] = instanceCoordsCaption(instance)
+            includedByKey[instance.key] = instance.included
+        }
+
+        let rows = computeFilteredInstances(from: instancePlan.instances, coordCaptions: captions)
+        let shouldGroup = instancePlan.instances.count > 24
+        let groups = computeGroupedInstances(from: rows, shouldGroup: shouldGroup)
+
+        instanceListDisplay = InstanceListDisplay(
+            groups: groups,
+            isEmpty: rows.isEmpty,
+            summary: computeInstanceListSummary(
+                filteredCount: rows.count,
+                totalCount: instancePlan.instances.count,
+                groups: groups,
+                plan: instancePlan
+            ),
+            axisStopFilterLabel: selectedAxisStopFilterLabelValue,
+            coordCaptions: captions,
+            includedByKey: includedByKey
+        )
+    }
+
+    private func computeFilteredInstances(
+        from rows: [PlannedInstance],
+        coordCaptions: [String: String]
+    ) -> [PlannedInstance] {
+        var filtered = rows
+
+        switch instanceFilter {
+        case .all:
+            break
+        case .included:
+            filtered = filtered.filter(\.included)
+        case .excluded:
+            filtered = filtered.filter { !$0.included }
+        }
+
+        if let stopFilter = selectedAxisStopFilter {
+            filtered = filtered.filter { instance in
+                guard let value = instance.coords[stopFilter.tag] else { return false }
+                return AxisCoordinate.valuesEqual(value, stopFilter.value)
             }
         }
-        return rows
+
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            filtered = filtered.filter { instance in
+                instance.composedName.localizedCaseInsensitiveContains(query)
+                    || instance.key.localizedCaseInsensitiveContains(query)
+                    || (coordCaptions[instance.key]?.localizedCaseInsensitiveContains(query) ?? false)
+            }
+        }
+        return filtered
+    }
+
+    private func computeGroupedInstances(
+        from rows: [PlannedInstance],
+        shouldGroup: Bool
+    ) -> [InstanceGroup] {
+        guard !rows.isEmpty else { return [] }
+        guard shouldGroup, let groupTag = instanceGroupByTag else {
+            return [InstanceGroup(label: "", instances: rows)]
+        }
+
+        var order: [String] = []
+        var buckets: [String: [PlannedInstance]] = [:]
+        for instance in rows {
+            let label = instanceGroupLabel(for: instance, axisTag: groupTag)
+            if buckets[label] == nil {
+                order.append(label)
+            }
+            buckets[label, default: []].append(instance)
+        }
+        return order.map { InstanceGroup(label: $0, instances: buckets[$0] ?? []) }
+    }
+
+    private func computeInstanceListSummary(
+        filteredCount: Int,
+        totalCount: Int,
+        groups: [InstanceGroup],
+        plan: InstancePlan
+    ) -> String {
+        let included = plan.formula.totalIncluded
+        let generated = plan.formula.totalGenerated
+        let hasNamedGroups = groups.count > 1 && groups.first?.label.isEmpty == false
+
+        if hasNamedGroups {
+            if filteredCount != totalCount {
+                return "\(groups.count) groups · \(filteredCount) of \(totalCount) shown · \(included) of \(generated) included"
+            }
+            return "\(groups.count) groups · \(included) of \(generated) included"
+        }
+
+        if filteredCount != totalCount {
+            return "\(filteredCount) of \(totalCount) shown · \(included) of \(generated) included"
+        }
+        return "\(included) of \(generated) included"
+    }
+
+    private var selectedAxisStopFilterLabelValue: String? {
+        guard let filter = selectedAxisStopFilter else { return nil }
+        if let name = filter.stopName {
+            return "\(name) (\(filter.tag))"
+        }
+        return filter.tag
+    }
+
+    private var selectedAxisStopFilter: (tag: String, value: Double, stopName: String?)? {
+        guard let stopID = selectedAxisStopID, let font = selectedFont else { return nil }
+        for axis in font.axes {
+            guard let stop = axis.values.first(where: { $0.id == stopID }) else { continue }
+            return (axis.tag, stop.value, stop.name)
+        }
+        return nil
+    }
+
+    private var instanceGroupByTag: String? {
+        guard let project, let font = selectedFont else { return nil }
+        let gridTags = Set(font.axes.filter { $0.role == .instance }.map(\.tag))
+        for tag in project.naming.order where gridTags.contains(tag) {
+            return tag
+        }
+        return font.axes.first { $0.role == .instance }?.tag
+    }
+
+    private func instanceGroupLabel(for instance: PlannedInstance, axisTag: String) -> String {
+        if let link = instance.namingChain.first(where: { $0.tag == axisTag }) {
+            return link.name
+        }
+        if let value = instance.coords[axisTag],
+           let axis = selectedFont?.axes.first(where: { $0.tag == axisTag }),
+           let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: value) {
+            return stop.name
+        }
+        if let value = instance.coords[axisTag] {
+            return Self.formatCoordValue(value)
+        }
+        return "Other"
+    }
+
+    func instanceCoordsCaption(_ instance: PlannedInstance) -> String {
+        let tags: [String]
+        if let project {
+            let extra = instance.coords.keys.filter { !project.naming.order.contains($0) }.sorted()
+            tags = project.naming.order.filter { instance.coords[$0] != nil } + extra
+        } else {
+            tags = instance.coords.keys.sorted()
+        }
+        return tags.compactMap { tag -> String? in
+            guard let value = instance.coords[tag] else { return nil }
+            return "\(tag)=\(Self.formatCoordValue(value))"
+        }.joined(separator: " ")
+    }
+
+    func clearAxisStopFilter() {
+        selectedAxisStopID = nil
+    }
+
+    func toggleAxisStopSelection(stopID: String) {
+        if selectedAxisStopID == stopID {
+            selectedAxisStopID = nil
+        } else {
+            selectedAxisStopID = stopID
+        }
+    }
+
+    func setFilteredInstancesIncluded(_ included: Bool) {
+        guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+            return
+        }
+        let keys = Set(filteredInstances.map(\.key))
+        guard !keys.isEmpty else { return }
+
+        pushUndoSnapshot()
+        var font = project.fonts[fontIndex]
+        if included {
+            font.excludedInstanceKeys.removeAll { keys.contains($0) }
+        } else {
+            for key in keys where !font.excludedInstanceKeys.contains(key) {
+                font.excludedInstanceKeys.append(key)
+            }
+        }
+        font.dirty = true
+        project.fonts[fontIndex] = font
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    private static func formatCoordValue(_ value: Double) -> String {
+        if value.rounded() == value {
+            return String(Int(value))
+        }
+        var text = String(value)
+        while text.last == "0" { text.removeLast() }
+        if text.last == "." { text.removeLast() }
+        return text
     }
 
     var selectedInstance: PlannedInstance? {
@@ -140,6 +390,7 @@ final class EditorViewModel: ObservableObject {
            instancePlan?.instances.contains(where: { $0.key == key }) != true {
             selectedInstanceKey = instancePlan?.instances.first?.key
         }
+        refreshInstanceListDisplay()
     }
 
     func setInstanceIncluded(_ key: String, included: Bool) {

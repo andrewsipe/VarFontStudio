@@ -49,14 +49,6 @@ struct MainEditorView: View {
             .disabled(!editor.canSave)
             .help("Write patched font (not yet implemented)")
         }
-
-        ToolbarItem(placement: .automatic) {
-            if let plan = editor.instancePlan {
-                Text("\(plan.formula.totalIncluded) of \(plan.formula.totalGenerated) instances")
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
-            }
-        }
     }
 
     private var statusBar: some View {

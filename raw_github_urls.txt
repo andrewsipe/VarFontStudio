@@ -34,6 +34,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Import/ProjectImporter.swift
 
 # Sources/VarFontCore/Plan/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisCoordinate.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/InstanceKeyBuilder.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/InstancePlanner.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/NamingComposer.swift
@@ -41,6 +42,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 # Sources/VarFontCore/Read/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/FontAnalysisReader.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/FvarParser.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/NamingOrderInference.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/OpenTypeBinary.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/OpenTypeNameTable.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Read/StatParser.swift
@@ -51,6 +53,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstanceKeyBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/InstancePlannerTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/LiveFontImportPlanTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ProjectImporterTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/SchemaDecodeTests.swift
 

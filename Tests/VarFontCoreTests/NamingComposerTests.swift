@@ -42,6 +42,34 @@ final class NamingComposerTests: XCTestCase {
         XCTAssertEqual(result.name, "Fallback")
         XCTAssertTrue(result.chain.isEmpty)
     }
+
+    func testComposeSkipsStatOnlyAxes() {
+        let opsz = AxisDefinition(
+            tag: "opsz",
+            role: .instance,
+            values: [
+                AxisValue(id: "opsz-a", value: 5, name: "Micro", elidable: false),
+            ]
+        )
+        let wdth = AxisDefinition(
+            tag: "wdth",
+            role: .statOnly,
+            values: [
+                AxisValue(id: "wdth-a", value: 88, name: "SemiCondensed", elidable: false),
+                AxisValue(id: "wdth-b", value: 100, name: "Normal", elidable: true),
+            ]
+        )
+        let naming = NamingPolicy(order: ["opsz", "wdth"], elidedFallback: "Regular")
+
+        let result = NamingComposer.compose(
+            coords: ["opsz": 5, "wdth": 88],
+            axes: [opsz, wdth],
+            naming: naming
+        )
+
+        XCTAssertEqual(result.name, "Micro")
+        XCTAssertEqual(result.chain.map(\.tag), ["opsz"])
+    }
 }
 
 final class NamingOrderInferenceTests: XCTestCase {

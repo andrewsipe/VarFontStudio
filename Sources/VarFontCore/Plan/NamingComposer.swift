@@ -20,6 +20,7 @@ public enum NamingComposer {
         for tag in naming.order {
             guard let value = coords[tag] else { continue }
             guard let axis = axisByTag[tag] else { continue }
+            guard axis.role == .instance else { continue }
             guard let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: value) else { continue }
 
             let elided = stop.elidable
