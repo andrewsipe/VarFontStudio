@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "request_id": "22222222-2222-2222-2222-222222222201",
+  "ok": true,
+  "output_path": "/Users/skymacbook/Downloads/PlayfairRomanVF-patched.woff2",
+  "dry_run": true,
+  "summary": {
+    "instances_written": 8,
+    "stat_values_written": 9,
+    "name_ids_allocated": [280, 296],
+    "wiped_instance_count": 252,
+    "protected_name_ids": []
+  },
+  "warnings": [
+    {
+      "code": "format_3_preserved",
+      "message": "Existing Format 3 weight link (Regular→Bold) preserved; not regenerated from grid."
+    }
+  ],
+  "errors": []
+}

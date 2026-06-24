@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "request_id": "22222222-2222-2222-2222-222222222201",
+  "source_path": "/Users/skymacbook/Downloads/PlayfairRomanVF.woff2",
+  "output_path": "/Users/skymacbook/Downloads/PlayfairRomanVF-patched.woff2",
+  "dry_run": true,
+  "options": {
+    "fix_fvar_default": true,
+    "allocate_postscript_names": true,
+    "preserve_stat_format_3": true
+  },
+  "naming": {
+    "order": ["opsz", "wdth", "wght", "ital"],
+    "elided_fallback": "Regular"
+  },
+  "axes": [
+    {
+      "tag": "opsz",
+      "display_name": "Optical size",
+      "min": 5,
+      "default": 5,
+      "max": 1200,
+      "role": "instance",
+      "values": [
+        { "id": "o1", "value": 5, "name": "Micro", "elidable": false, "stat_format": 1 },
+        { "id": "o2", "value": 12, "name": "Pica", "elidable": true, "stat_format": 1 }
+      ]
+    },
+    {
+      "tag": "wdth",
+      "display_name": "Width",
+      "min": 88,
+      "default": 88,
+      "max": 113,
+      "role": "instance",
+      "values": [
+        { "id": "d1", "value": 88, "name": "SemiCond", "elidable": false, "stat_format": 1 },
+        { "id": "d2", "value": 100, "name": "Normal", "elidable": true, "stat_format": 1 }
+      ]
+    },
+    {
+      "tag": "wght",
+      "display_name": "Weight",
+      "min": 360,
+      "default": 360,
+      "max": 900,
+      "role": "instance",
+      "values": [
+        { "id": "w1", "value": 400, "name": "Normal", "elidable": true, "stat_format": 3, "linked_value": 700 },
+        { "id": "w2", "value": 700, "name": "Bold", "elidable": false, "stat_format": 1 }
+      ]
+    },
+    {
+      "tag": "ital",
+      "display_name": "Italic",
+      "min": 0,
+      "default": 0,
+      "max": 1,
+      "role": "stat_only",
+      "values": [
+        { "id": "i0", "value": 0, "name": "Roman", "elidable": true, "stat_format": 3, "linked_value": 1 }
+      ]
+    }
+  ],
+  "included_instance_keys": []
+}

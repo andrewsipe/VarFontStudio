@@ -1,0 +1,398 @@
+# VarFont Editor — JSON schema (v1)
+
+Contract between the Swift app (read, plan, UI) and the write helper (`vfcommit`, future).
+
+**`schema_version`:** always `1` on top-level objects until a breaking change.
+
+## Pipeline
+
+```
+Font file ──analyze──► FontAnalysis
+                          │
+                          ▼ import
+                     ProjectDocument ◄──► .varfont (saved)
+                          │
+                          ▼ plan (Swift, live)
+                     InstancePlan
+                          │
+                          ▼ save
+                     CommitRequest ──vfcommit──► CommitResult
+                                                    │
+                                                    ▼
+                                              Patched font file
+```
+
+| Artifact | Mutable | Persisted | Owner |
+|----------|---------|-----------|--------|
+| `FontAnalysis` | No | No (refresh on open) | Read engine |
+| `ProjectDocument` | Yes | Yes | App |
+| `InstancePlan` | Derived | No | Plan engine |
+| `CommitRequest` | Per save | No | App → helper |
+| `CommitResult` | No | No | Helper → app |
+
+Build order without commit: **FontAnalysis → ProjectDocument → InstancePlan**. Wire `CommitRequest` / `vfcommit` when round-trip tests pass.
+
+---
+
+## Shared primitives
+
+### `axis_tag`
+
+Four-character OpenType axis tag (`"wght"`, `"opsz"`, `"GRAD"`).
+
+### `axis_role`
+
+| Value | Instance grid | STAT labels | Typical use |
+|-------|---------------|-------------|-------------|
+| `instance` | Multiplies combinations | Yes | wght, wdth, ital in static grids |
+| `stat_only` | Fixed at default in fvar | Yes | opsz/GRAD pinned in instances (Roboto) |
+| `parametric` | Off grid | Optional | XOPQ, YTLC, … |
+
+### `stat_format`
+
+`1` | `2` | `3` — v0 **write** supports 1–3. Format `4` is **read-only** until engine support exists.
+
+### `InstanceKey`
+
+Stable string for selection and prune sets. Tags sorted alphabetically:
+
+```
+"GRAD:0|opsz:14|slnt:0|wdth:100|wght:400"
+```
+
+Use the same rule in Swift and `vfcommit`.
+
+---
+
+## `AxisValue`
+
+Maps to FontCore `AxisValueDef`.
+
+```json
+{
+  "id": "w3",
+  "value": 700.0,
+  "name": "Bold",
+  "elidable": false,
+  "stat_format": 1,
+  "range_min": null,
+  "range_max": null,
+  "linked_value": null
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|--------|
+| `id` | yes | Stable UI id |
+| `value` | yes | Coordinate |
+| `name` | yes | Label for STAT and composed names |
+| `elidable` | yes | **At most one `true` per axis** |
+| `stat_format` | no | Default `1` |
+| `range_min`, `range_max` | if format `2` | Optical size ranges |
+| `linked_value` | if format `3` | Style-link target (e.g. Regular → Bold) |
+
+---
+
+## 1. `FontAnalysis`
+
+Read-only snapshot from a font file. See `fixtures/examples/playfair-roman-analysis.json`, `roboto-flex-analysis.json`.
+
+```json
+{
+  "schema_version": 1,
+  "source": {
+    "path": "/path/to/font.woff2",
+    "format": "woff2",
+    "family_name": "Playfair",
+    "full_name": "Playfair Micro SemiCond SemiLight",
+    "is_variable": true
+  },
+  "readiness": {
+    "has_fvar": true,
+    "has_stat": true,
+    "has_design_axis_record": true,
+    "writable": true,
+    "blockers": []
+  },
+  "axes": [],
+  "stat_values": [],
+  "instances_existing": [],
+  "instances_existing_meta": { "total": 252, "sample_count": 5 },
+  "name_audit": {
+    "free_start": 280,
+    "used": [],
+    "elided_fallback_id": 2,
+    "elided_fallback_name": "Regular"
+  },
+  "inferred": {
+    "is_italic_font": false,
+    "grid_axis_tags": ["opsz", "wdth", "wght"],
+    "naming_order_suggested": ["opsz", "wdth", "wght", "ital"]
+  }
+}
+```
+
+### `axes[]`
+
+```json
+{
+  "tag": "wght",
+  "display_name": "Weight",
+  "min": 360,
+  "default": 360,
+  "max": 900,
+  "ordering": 2,
+  "role_inferred": "instance",
+  "varies_in_existing_instances": true,
+  "values_existing": []
+}
+```
+
+`values_existing` entries mirror `stat_values` filtered to that axis (import into project on first open).
+
+### `stat_values[]`
+
+Flat STAT audit (all formats). Format 3 includes `linked_value`. Format 4 (future) adds `axis_values: [{ "tag", "value" }]`.
+
+### `instances_existing[]`
+
+Sample instances (fixtures truncate; `instances_existing_meta.total` is authoritative).
+
+### `name_audit.used[]`
+
+```json
+{ "id": 318, "description": "GPOS feature name", "protected": true }
+```
+
+---
+
+## 2. `ProjectDocument`
+
+Workspace state; multi-file tabs. Saved as `.varfont` JSON or package.
+
+```json
+{
+  "schema_version": 1,
+  "created": "2026-06-23T12:00:00Z",
+  "modified": "2026-06-23T12:00:00Z",
+  "family_label": "Playfair Display VF",
+  "naming": {
+    "order": ["opsz", "wdth", "wght", "ital"],
+    "elided_fallback": "Regular"
+  },
+  "template": { "axes": [], "sync_roles": true },
+  "fonts": []
+}
+```
+
+### `fonts[]` — per open file
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "source_path": "/path/to/PlayfairRomanVF.woff2",
+  "output_path": null,
+  "analysis_snapshot_id": "optional-hash-or-mtime",
+  "dirty": false,
+  "axes": [],
+  "options": {
+    "fix_fvar_default": true,
+    "allocate_postscript_names": true
+  },
+  "included_instance_keys": [],
+  "excluded_instance_keys": [],
+  "overrides": { "per_instance": [] }
+}
+```
+
+### `fonts[].axes[]`
+
+```json
+{
+  "tag": "wght",
+  "display_name": "Weight",
+  "min": 360,
+  "default": 360,
+  "max": 900,
+  "role": "instance",
+  "values": []
+}
+```
+
+### Prune semantics
+
+- Generate Cartesian product from axes where `role` is `instance`.
+- Pin `stat_only` and `parametric` axes to `default` (or per-axis first value) in every instance.
+- If `included_instance_keys` is **non-empty**: allow-list.
+- Else: all generated keys **minus** `excluded_instance_keys`.
+
+### `template`
+
+Shared axis stops for **Apply to all fonts** (Roman + Italic VF). See `fixtures/examples/playfair-family-project.json`.
+
+### `overrides.per_instance` (v1 placeholder)
+
+Per-instance axis participation (e.g. GRAD only at Text opsz). Empty in v0; schema reserved.
+
+```json
+{
+  "key": "opsz:14|wght:400|...",
+  "omit_axes_from_name": ["GRAD"],
+  "pin_coords": { "GRAD": 0 }
+}
+```
+
+---
+
+## 3. `InstancePlan`
+
+Derived preview; recomputed on every project edit. See `fixtures/examples/playfair-roman-instance-plan.json`.
+
+```json
+{
+  "schema_version": 1,
+  "font_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "formula": {
+    "parts": [12, 3, 7],
+    "total_generated": 252,
+    "total_included": 252,
+    "total_excluded": 0
+  },
+  "instances": [],
+  "warnings": [],
+  "name_plan_summary": {
+    "family_ps_prefix": "PlayfairDisplayVF",
+    "new_id_range": [280, 400],
+    "instance_count": 252
+  }
+}
+```
+
+### `instances[]`
+
+```json
+{
+  "key": "opsz:5|wdth:88|wght:360",
+  "composed_name": "Micro SemiCond SemiLight",
+  "coords": { "opsz": 5, "wdth": 88, "wght": 360, "ital": 0 },
+  "included": true,
+  "duplicate": false,
+  "naming_chain": [
+    { "tag": "opsz", "name": "Micro", "elided": false },
+    { "tag": "wdth", "name": "SemiCond", "elided": false },
+    { "tag": "wght", "name": "SemiLight", "elided": false }
+  ]
+}
+```
+
+### `warnings[]`
+
+```json
+{ "code": "multiple_elidable", "axis": "wght", "message": "Only one elidable value per axis." }
+{ "code": "duplicate_name", "name": "Regular", "keys": ["...", "..."] }
+{ "code": "default_not_in_stops", "axis": "wght", "default": 90 }
+```
+
+---
+
+## 4. `CommitRequest`
+
+Input to `vfcommit`. Subset of project + output paths.
+
+```json
+{
+  "schema_version": 1,
+  "request_id": "uuid",
+  "source_path": "/path/in.woff2",
+  "output_path": "/path/out-patched.woff2",
+  "dry_run": false,
+  "options": {
+    "fix_fvar_default": true,
+    "allocate_postscript_names": true,
+    "preserve_stat_format_3": true
+  },
+  "naming": {
+    "order": ["opsz", "wdth", "wght", "ital"],
+    "elided_fallback": "Regular"
+  },
+  "axes": [],
+  "included_instance_keys": []
+}
+```
+
+`axes` uses the same shape as `ProjectDocument.fonts[].axes`.  
+`dry_run: true` → `CommitResult` without writing a file.
+
+Alignment with TableEditor YAML: `axes[].values` = `AxisValue`; `options.fix_fvar_default` = `--no-fix-default` inverse.
+
+---
+
+## 5. `CommitResult`
+
+```json
+{
+  "schema_version": 1,
+  "request_id": "uuid",
+  "ok": true,
+  "output_path": "/path/out-patched.woff2",
+  "dry_run": false,
+  "summary": {
+    "instances_written": 252,
+    "stat_values_written": 22,
+    "name_ids_allocated": [280, 365],
+    "wiped_instance_count": 252,
+    "protected_name_ids": [318, 319]
+  },
+  "warnings": [],
+  "errors": []
+}
+```
+
+Failure:
+
+```json
+{
+  "ok": false,
+  "errors": [{ "code": "collision", "message": "..." }]
+}
+```
+
+Optional: `analysis_after` (`FontAnalysis` of output) for immediate UI refresh.
+
+---
+
+## v0 exclusions
+
+- STAT Format **4** write  
+- `overrides.per_instance` enforcement  
+- TTC  
+- Instancer / static export  
+- In-place overwrite (always `output_path` ≠ `source_path`)  
+
+---
+
+## Fixtures
+
+| File | Purpose |
+|------|---------|
+| `fixtures/examples/playfair-roman-analysis.json` | Read golden (252 instances) |
+| `fixtures/examples/playfair-italic-analysis.json` | Read golden (italic VF) |
+| `fixtures/examples/roboto-flex-analysis.json` | Axis roles (13 axes, 20 instances) |
+| `fixtures/examples/playfair-family-project.json` | Multi-file project |
+| `fixtures/examples/playfair-roman-instance-plan.json` | Plan sample (truncated instances) |
+| `fixtures/examples/playfair-roman-commit-request.json` | Save payload example |
+| `fixtures/examples/commit-result-success.json` | Helper response example |
+
+Generated analysis files may reference local paths under `~/Downloads/`; tests should rewrite `source.path` or load from bundled test fonts.
+
+---
+
+## Swift types (suggested)
+
+```
+FontAnalysis, ProjectDocument, FontDocument, AxisDefinition, AxisValue
+InstancePlan, PlannedInstance, PlanWarning
+CommitRequest, CommitOptions, CommitResult, CommitSummary
+```
+
+`Codable` + `schema_version` migration when v2 is needed.

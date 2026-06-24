@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "font_id": "11111111-1111-1111-1111-111111111101",
+  "formula": {
+    "parts": [3, 3, 3],
+    "total_generated": 27,
+    "total_included": 27,
+    "total_excluded": 0
+  },
+  "instances": [
+    {
+      "key": "ital:0|opsz:5|wdth:88|wght:360",
+      "composed_name": "Micro SemiCond SemiLight",
+      "coords": { "opsz": 5, "wdth": 88, "wght": 360, "ital": 0 },
+      "included": true,
+      "duplicate": false,
+      "naming_chain": [
+        { "tag": "opsz", "name": "Micro", "elided": false },
+        { "tag": "wdth", "name": "SemiCond", "elided": false },
+        { "tag": "wght", "name": "SemiLight", "elided": false }
+      ]
+    },
+    {
+      "key": "ital:0|opsz:5|wdth:100|wght:400",
+      "composed_name": "Micro",
+      "coords": { "opsz": 5, "wdth": 100, "wght": 400, "ital": 0 },
+      "included": true,
+      "duplicate": false,
+      "naming_chain": [
+        { "tag": "opsz", "name": "Micro", "elided": false },
+        { "tag": "wdth", "name": "Normal", "elided": true },
+        { "tag": "wght", "name": "Normal", "elided": true }
+      ]
+    },
+    {
+      "key": "ital:0|opsz:48|wdth:100|wght:700",
+      "composed_name": "Display Bold",
+      "coords": { "opsz": 48, "wdth": 100, "wght": 700, "ital": 0 },
+      "included": true,
+      "duplicate": false,
+      "naming_chain": [
+        { "tag": "opsz", "name": "Display", "elided": false },
+        { "tag": "wdth", "name": "Normal", "elided": true },
+        { "tag": "wght", "name": "Bold", "elided": false }
+      ]
+    }
+  ],
+  "warnings": [],
+  "name_plan_summary": {
+    "family_ps_prefix": "PlayfairDisplayVF",
+    "new_id_range": [280, 320],
+    "instance_count": 27,
+    "note": "Truncated sample; full Playfair grid is 12×3×7=252 with complete axis stops from analysis fixture"
+  }
+}

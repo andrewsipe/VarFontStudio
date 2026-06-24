@@ -1,0 +1,458 @@
+{
+  "schema_version": 1,
+  "source": {
+    "path": "/Users/skymacbook/Downloads/PlayfairRomanVF.woff2",
+    "format": "woff2",
+    "family_name": "Playfair Micro SmCond SmLight",
+    "full_name": "Playfair Micro SemiCond SemiLight",
+    "is_variable": true
+  },
+  "readiness": {
+    "has_fvar": true,
+    "has_stat": true,
+    "has_design_axis_record": true,
+    "writable": true,
+    "blockers": []
+  },
+  "axes": [
+    {
+      "tag": "opsz",
+      "display_name": "Optical size",
+      "min": 5.0,
+      "default": 5.0,
+      "max": 1200.0,
+      "ordering": 0,
+      "role_inferred": "instance",
+      "varies_in_existing_instances": true,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Micro",
+          "elidable": false,
+          "value": 5.0
+        },
+        {
+          "format": 1,
+          "name": "Minuscule",
+          "elidable": false,
+          "value": 6.0
+        },
+        {
+          "format": 1,
+          "name": "Miniature",
+          "elidable": false,
+          "value": 7.0
+        },
+        {
+          "format": 1,
+          "name": "Caption",
+          "elidable": false,
+          "value": 8.0
+        },
+        {
+          "format": 1,
+          "name": "Pica",
+          "elidable": true,
+          "value": 12.0
+        },
+        {
+          "format": 1,
+          "name": "SubHead",
+          "elidable": false,
+          "value": 16.0
+        },
+        {
+          "format": 1,
+          "name": "Trumpet",
+          "elidable": false,
+          "value": 21.0
+        },
+        {
+          "format": 1,
+          "name": "Headline",
+          "elidable": false,
+          "value": 32.0
+        },
+        {
+          "format": 1,
+          "name": "Display",
+          "elidable": false,
+          "value": 48.0
+        },
+        {
+          "format": 1,
+          "name": "Titling",
+          "elidable": false,
+          "value": 72.0
+        },
+        {
+          "format": 1,
+          "name": "Hairline",
+          "elidable": false,
+          "value": 96.0
+        },
+        {
+          "format": 1,
+          "name": "Needlepoint",
+          "elidable": false,
+          "value": 1200.0
+        }
+      ]
+    },
+    {
+      "tag": "wdth",
+      "display_name": "Width",
+      "min": 88.0,
+      "default": 88.0,
+      "max": 113.0,
+      "ordering": 1,
+      "role_inferred": "instance",
+      "varies_in_existing_instances": true,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "SemiCond",
+          "elidable": false,
+          "value": 88.0
+        },
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 100.0
+        },
+        {
+          "format": 1,
+          "name": "SemiExp",
+          "elidable": false,
+          "value": 113.0
+        }
+      ]
+    },
+    {
+      "tag": "wght",
+      "display_name": "Weight",
+      "min": 360.0,
+      "default": 360.0,
+      "max": 900.0,
+      "ordering": 2,
+      "role_inferred": "instance",
+      "varies_in_existing_instances": true,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "SemiLight",
+          "elidable": false,
+          "value": 360.0
+        },
+        {
+          "format": 3,
+          "name": "Normal",
+          "elidable": true,
+          "value": 400.0,
+          "linked_value": 700.0
+        },
+        {
+          "format": 1,
+          "name": "Medium",
+          "elidable": false,
+          "value": 500.0
+        },
+        {
+          "format": 1,
+          "name": "SemiBold",
+          "elidable": false,
+          "value": 600.0
+        },
+        {
+          "format": 1,
+          "name": "Bold",
+          "elidable": false,
+          "value": 700.0
+        },
+        {
+          "format": 1,
+          "name": "ExBold",
+          "elidable": false,
+          "value": 800.0
+        },
+        {
+          "format": 1,
+          "name": "Black",
+          "elidable": false,
+          "value": 900.0
+        }
+      ]
+    }
+  ],
+  "stat_values": [
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Micro",
+      "elidable": false,
+      "name_id": 273,
+      "value": 5.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Minuscule",
+      "elidable": false,
+      "name_id": 315,
+      "value": 6.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Miniature",
+      "elidable": false,
+      "name_id": 357,
+      "value": 7.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Caption",
+      "elidable": false,
+      "name_id": 399,
+      "value": 8.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Pica",
+      "elidable": true,
+      "name_id": 768,
+      "value": 12.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "SubHead",
+      "elidable": false,
+      "name_id": 482,
+      "value": 16.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Trumpet",
+      "elidable": false,
+      "name_id": 524,
+      "value": 21.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Headline",
+      "elidable": false,
+      "name_id": 566,
+      "value": 32.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Display",
+      "elidable": false,
+      "name_id": 608,
+      "value": 48.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Titling",
+      "elidable": false,
+      "name_id": 650,
+      "value": 72.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Hairline",
+      "elidable": false,
+      "name_id": 692,
+      "value": 96.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "Needlepoint",
+      "elidable": false,
+      "name_id": 734,
+      "value": 1200.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "SemiCond",
+      "elidable": false,
+      "name_id": 427,
+      "value": 88.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 760,
+      "value": 100.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "SemiExp",
+      "elidable": false,
+      "name_id": 454,
+      "value": 113.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "SemiLight",
+      "elidable": false,
+      "name_id": 439,
+      "value": 360.0
+    },
+    {
+      "format": 3,
+      "tag": "wght",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 760,
+      "value": 400.0,
+      "linked_value": 700.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Medium",
+      "elidable": false,
+      "name_id": 442,
+      "value": 500.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "SemiBold",
+      "elidable": false,
+      "name_id": 444,
+      "value": 600.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Bold",
+      "elidable": false,
+      "name_id": 446,
+      "value": 700.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "ExBold",
+      "elidable": false,
+      "name_id": 448,
+      "value": 800.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Black",
+      "elidable": false,
+      "name_id": 450,
+      "value": 900.0
+    },
+    {
+      "format": 3,
+      "tag": "ital",
+      "name": "Roman",
+      "elidable": true,
+      "name_id": 762,
+      "value": 0.0,
+      "linked_value": 1.0
+    }
+  ],
+  "instances_existing": [
+    {
+      "key": "opsz:5.0|wdth:88.0|wght:360.0",
+      "composed_name": "Micro SemiCond SemiLight",
+      "coords": {
+        "opsz": 5.0,
+        "wdth": 88.0,
+        "wght": 360.0
+      },
+      "subfamily_name_id": 17,
+      "postscript_name_id": 6
+    },
+    {
+      "key": "opsz:5.0|wdth:88.0|wght:400.0",
+      "composed_name": "Micro SemiCond",
+      "coords": {
+        "opsz": 5.0,
+        "wdth": 88.0,
+        "wght": 400.0
+      },
+      "subfamily_name_id": 259,
+      "postscript_name_id": 260
+    },
+    {
+      "key": "opsz:5.0|wdth:88.0|wght:500.0",
+      "composed_name": "Micro SemiCond Medium",
+      "coords": {
+        "opsz": 5.0,
+        "wdth": 88.0,
+        "wght": 500.0
+      },
+      "subfamily_name_id": 261,
+      "postscript_name_id": 262
+    },
+    {
+      "key": "opsz:5.0|wdth:88.0|wght:600.0",
+      "composed_name": "Micro SemiCond SemiBold",
+      "coords": {
+        "opsz": 5.0,
+        "wdth": 88.0,
+        "wght": 600.0
+      },
+      "subfamily_name_id": 263,
+      "postscript_name_id": 264
+    },
+    {
+      "key": "opsz:5.0|wdth:88.0|wght:700.0",
+      "composed_name": "Micro SemiCond Bold",
+      "coords": {
+        "opsz": 5.0,
+        "wdth": 88.0,
+        "wght": 700.0
+      },
+      "subfamily_name_id": 265,
+      "postscript_name_id": 266
+    }
+  ],
+  "instances_existing_meta": {
+    "total": 252,
+    "sample_count": 5
+  },
+  "name_audit": {
+    "free_start": 256,
+    "used": [],
+    "elided_fallback_id": 2,
+    "elided_fallback_name": "Regular"
+  },
+  "inferred": {
+    "is_italic_font": false,
+    "grid_axis_tags": [
+      "opsz",
+      "wdth",
+      "wght"
+    ],
+    "naming_order_suggested": [
+      "wdth",
+      "wght",
+      "opsz",
+      "slnt",
+      "ital"
+    ]
+  }
+}

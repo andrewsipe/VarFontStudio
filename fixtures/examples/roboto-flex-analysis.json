@@ -1,0 +1,968 @@
+{
+  "schema_version": 1,
+  "source": {
+    "path": "/Users/skymacbook/Downloads/RobotoFlex-VariableFont_GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght.ttf",
+    "format": "ttf",
+    "family_name": "Roboto Flex",
+    "full_name": "Roboto Flex Regular",
+    "is_variable": true
+  },
+  "readiness": {
+    "has_fvar": true,
+    "has_stat": true,
+    "has_design_axis_record": true,
+    "writable": true,
+    "blockers": []
+  },
+  "axes": [
+    {
+      "tag": "opsz",
+      "display_name": "Optical Size",
+      "min": 8.0,
+      "default": 14.0,
+      "max": 144.0,
+      "ordering": 0,
+      "role_inferred": "stat_only",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "8pt",
+          "elidable": false,
+          "value": 8.0
+        },
+        {
+          "format": 1,
+          "name": "9pt",
+          "elidable": false,
+          "value": 9.0
+        },
+        {
+          "format": 1,
+          "name": "10pt",
+          "elidable": false,
+          "value": 10.0
+        },
+        {
+          "format": 1,
+          "name": "11pt",
+          "elidable": false,
+          "value": 11.0
+        },
+        {
+          "format": 1,
+          "name": "12pt",
+          "elidable": false,
+          "value": 12.0
+        },
+        {
+          "format": 1,
+          "name": "14pt",
+          "elidable": true,
+          "value": 14.0
+        },
+        {
+          "format": 1,
+          "name": "16pt",
+          "elidable": false,
+          "value": 16.0
+        },
+        {
+          "format": 1,
+          "name": "17pt",
+          "elidable": false,
+          "value": 17.0
+        },
+        {
+          "format": 1,
+          "name": "18pt",
+          "elidable": false,
+          "value": 18.0
+        },
+        {
+          "format": 1,
+          "name": "20pt",
+          "elidable": false,
+          "value": 20.0
+        },
+        {
+          "format": 1,
+          "name": "24pt",
+          "elidable": false,
+          "value": 24.0
+        },
+        {
+          "format": 1,
+          "name": "28pt",
+          "elidable": false,
+          "value": 28.0
+        },
+        {
+          "format": 1,
+          "name": "36pt",
+          "elidable": false,
+          "value": 36.0
+        },
+        {
+          "format": 1,
+          "name": "48pt",
+          "elidable": false,
+          "value": 48.0
+        },
+        {
+          "format": 1,
+          "name": "60pt",
+          "elidable": false,
+          "value": 60.0
+        },
+        {
+          "format": 1,
+          "name": "72pt",
+          "elidable": false,
+          "value": 72.0
+        },
+        {
+          "format": 1,
+          "name": "96pt",
+          "elidable": false,
+          "value": 96.0
+        },
+        {
+          "format": 1,
+          "name": "120pt",
+          "elidable": false,
+          "value": 120.0
+        },
+        {
+          "format": 1,
+          "name": "144pt",
+          "elidable": false,
+          "value": 144.0
+        }
+      ]
+    },
+    {
+      "tag": "wght",
+      "display_name": "Weight",
+      "min": 100.0,
+      "default": 400.0,
+      "max": 1000.0,
+      "ordering": 1,
+      "role_inferred": "instance",
+      "varies_in_existing_instances": true,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Thin",
+          "elidable": false,
+          "value": 100.0
+        },
+        {
+          "format": 1,
+          "name": "ExtraLight",
+          "elidable": false,
+          "value": 200.0
+        },
+        {
+          "format": 1,
+          "name": "Light",
+          "elidable": false,
+          "value": 300.0
+        },
+        {
+          "format": 3,
+          "name": "Regular",
+          "elidable": true,
+          "value": 400.0,
+          "linked_value": 700.0
+        },
+        {
+          "format": 1,
+          "name": "Medium",
+          "elidable": false,
+          "value": 500.0
+        },
+        {
+          "format": 1,
+          "name": "SemiBold",
+          "elidable": false,
+          "value": 600.0
+        },
+        {
+          "format": 1,
+          "name": "Bold",
+          "elidable": false,
+          "value": 700.0
+        },
+        {
+          "format": 1,
+          "name": "ExtraBold",
+          "elidable": false,
+          "value": 800.0
+        },
+        {
+          "format": 1,
+          "name": "Black",
+          "elidable": false,
+          "value": 900.0
+        }
+      ]
+    },
+    {
+      "tag": "GRAD",
+      "display_name": "Grade",
+      "min": -200.0,
+      "default": 0.0,
+      "max": 150.0,
+      "ordering": 2,
+      "role_inferred": "stat_only",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "tag": "wdth",
+      "display_name": "Width",
+      "min": 25.0,
+      "default": 100.0,
+      "max": 151.0,
+      "ordering": 3,
+      "role_inferred": "stat_only",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "SuperCondensed",
+          "elidable": false,
+          "value": 25.0
+        },
+        {
+          "format": 1,
+          "name": "UltraCondensed",
+          "elidable": false,
+          "value": 50.0
+        },
+        {
+          "format": 1,
+          "name": "ExtraCondensed",
+          "elidable": false,
+          "value": 62.5
+        },
+        {
+          "format": 1,
+          "name": "Condensed",
+          "elidable": false,
+          "value": 75.0
+        },
+        {
+          "format": 1,
+          "name": "SemiCondensed",
+          "elidable": false,
+          "value": 87.5
+        },
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 100.0
+        },
+        {
+          "format": 1,
+          "name": "SemiExpanded",
+          "elidable": false,
+          "value": 112.5
+        },
+        {
+          "format": 1,
+          "name": "Expanded",
+          "elidable": false,
+          "value": 125.0
+        },
+        {
+          "format": 1,
+          "name": "ExtraExpanded",
+          "elidable": false,
+          "value": 150.0
+        }
+      ]
+    },
+    {
+      "tag": "slnt",
+      "display_name": "Slant",
+      "min": -10.0,
+      "default": 0.0,
+      "max": 0.0,
+      "ordering": 4,
+      "role_inferred": "instance",
+      "varies_in_existing_instances": true,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Default",
+          "elidable": true,
+          "value": 0.0
+        }
+      ]
+    },
+    {
+      "tag": "XOPQ",
+      "display_name": "Parametric Thick Stroke",
+      "min": 27.0,
+      "default": 96.0,
+      "max": 175.0,
+      "ordering": 5,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 88.0
+        }
+      ]
+    },
+    {
+      "tag": "YOPQ",
+      "display_name": "Parametric Thin Stroke",
+      "min": 25.0,
+      "default": 79.0,
+      "max": 135.0,
+      "ordering": 6,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 116.0
+        }
+      ]
+    },
+    {
+      "tag": "XTRA",
+      "display_name": "Parametric Counter Width",
+      "min": 323.0,
+      "default": 468.0,
+      "max": 603.0,
+      "ordering": 7,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 400.0
+        }
+      ]
+    },
+    {
+      "tag": "YTUC",
+      "display_name": "Parametric Uppercase Height",
+      "min": 528.0,
+      "default": 712.0,
+      "max": 760.0,
+      "ordering": 8,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 725.0
+        }
+      ]
+    },
+    {
+      "tag": "YTLC",
+      "display_name": "Parametric Lowercase Height",
+      "min": 416.0,
+      "default": 514.0,
+      "max": 570.0,
+      "ordering": 9,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 500.0
+        }
+      ]
+    },
+    {
+      "tag": "YTAS",
+      "display_name": "Parametric Ascender Height",
+      "min": 649.0,
+      "default": 750.0,
+      "max": 854.0,
+      "ordering": 10,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 750.0
+        }
+      ]
+    },
+    {
+      "tag": "YTDE",
+      "display_name": "Parametric Descender Depth",
+      "min": -305.0,
+      "default": -203.0,
+      "max": -98.0,
+      "ordering": 11,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": -250.0
+        }
+      ]
+    },
+    {
+      "tag": "YTFI",
+      "display_name": "Parametric Figure Height",
+      "min": 560.0,
+      "default": 738.0,
+      "max": 788.0,
+      "ordering": 12,
+      "role_inferred": "parametric",
+      "varies_in_existing_instances": false,
+      "values_existing": [
+        {
+          "format": 1,
+          "name": "Normal",
+          "elidable": true,
+          "value": 600.0
+        }
+      ]
+    }
+  ],
+  "stat_values": [
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "8pt",
+      "elidable": false,
+      "name_id": 289,
+      "value": 8.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "9pt",
+      "elidable": false,
+      "name_id": 290,
+      "value": 9.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "10pt",
+      "elidable": false,
+      "name_id": 291,
+      "value": 10.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "11pt",
+      "elidable": false,
+      "name_id": 292,
+      "value": 11.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "12pt",
+      "elidable": false,
+      "name_id": 293,
+      "value": 12.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "14pt",
+      "elidable": true,
+      "name_id": 294,
+      "value": 14.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "16pt",
+      "elidable": false,
+      "name_id": 295,
+      "value": 16.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "17pt",
+      "elidable": false,
+      "name_id": 296,
+      "value": 17.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "18pt",
+      "elidable": false,
+      "name_id": 297,
+      "value": 18.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "20pt",
+      "elidable": false,
+      "name_id": 298,
+      "value": 20.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "24pt",
+      "elidable": false,
+      "name_id": 299,
+      "value": 24.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "28pt",
+      "elidable": false,
+      "name_id": 300,
+      "value": 28.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "36pt",
+      "elidable": false,
+      "name_id": 301,
+      "value": 36.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "48pt",
+      "elidable": false,
+      "name_id": 302,
+      "value": 48.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "60pt",
+      "elidable": false,
+      "name_id": 303,
+      "value": 60.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "72pt",
+      "elidable": false,
+      "name_id": 304,
+      "value": 72.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "96pt",
+      "elidable": false,
+      "name_id": 305,
+      "value": 96.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "120pt",
+      "elidable": false,
+      "name_id": 306,
+      "value": 120.0
+    },
+    {
+      "format": 1,
+      "tag": "opsz",
+      "name": "144pt",
+      "elidable": false,
+      "name_id": 307,
+      "value": 144.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Thin",
+      "elidable": false,
+      "name_id": 269,
+      "value": 100.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "ExtraLight",
+      "elidable": false,
+      "name_id": 270,
+      "value": 200.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Light",
+      "elidable": false,
+      "name_id": 271,
+      "value": 300.0
+    },
+    {
+      "format": 3,
+      "tag": "wght",
+      "name": "Regular",
+      "elidable": true,
+      "name_id": 2,
+      "value": 400.0,
+      "linked_value": 700.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Medium",
+      "elidable": false,
+      "name_id": 273,
+      "value": 500.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "SemiBold",
+      "elidable": false,
+      "name_id": 274,
+      "value": 600.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Bold",
+      "elidable": false,
+      "name_id": 275,
+      "value": 700.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "ExtraBold",
+      "elidable": false,
+      "name_id": 276,
+      "value": 800.0
+    },
+    {
+      "format": 1,
+      "tag": "wght",
+      "name": "Black",
+      "elidable": false,
+      "name_id": 277,
+      "value": 900.0
+    },
+    {
+      "format": 1,
+      "tag": "GRAD",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 0.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "SuperCondensed",
+      "elidable": false,
+      "name_id": 309,
+      "value": 25.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "UltraCondensed",
+      "elidable": false,
+      "name_id": 310,
+      "value": 50.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "ExtraCondensed",
+      "elidable": false,
+      "name_id": 311,
+      "value": 62.5
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "Condensed",
+      "elidable": false,
+      "name_id": 312,
+      "value": 75.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "SemiCondensed",
+      "elidable": false,
+      "name_id": 313,
+      "value": 87.5
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 100.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "SemiExpanded",
+      "elidable": false,
+      "name_id": 314,
+      "value": 112.5
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "Expanded",
+      "elidable": false,
+      "name_id": 315,
+      "value": 125.0
+    },
+    {
+      "format": 1,
+      "tag": "wdth",
+      "name": "ExtraExpanded",
+      "elidable": false,
+      "name_id": 316,
+      "value": 150.0
+    },
+    {
+      "format": 1,
+      "tag": "slnt",
+      "name": "Default",
+      "elidable": true,
+      "name_id": 317,
+      "value": 0.0
+    },
+    {
+      "format": 1,
+      "tag": "XOPQ",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 88.0
+    },
+    {
+      "format": 1,
+      "tag": "YOPQ",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 116.0
+    },
+    {
+      "format": 1,
+      "tag": "XTRA",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 400.0
+    },
+    {
+      "format": 1,
+      "tag": "YTUC",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 725.0
+    },
+    {
+      "format": 1,
+      "tag": "YTLC",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 500.0
+    },
+    {
+      "format": 1,
+      "tag": "YTAS",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 750.0
+    },
+    {
+      "format": 1,
+      "tag": "YTDE",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": -250.0
+    },
+    {
+      "format": 1,
+      "tag": "YTFI",
+      "name": "Normal",
+      "elidable": true,
+      "name_id": 308,
+      "value": 600.0
+    }
+  ],
+  "instances_existing": [
+    {
+      "key": "GRAD:0.0|XOPQ:96.0|XTRA:468.0|YOPQ:79.0|YTAS:750.0|YTDE:-203.0|YTFI:738.0|YTLC:514.0|YTUC:712.0|opsz:14.0|slnt:0.0|wdth:100.0|wght:100.0",
+      "composed_name": "Thin",
+      "coords": {
+        "opsz": 14.0,
+        "wght": 100.0,
+        "GRAD": 0.0,
+        "wdth": 100.0,
+        "slnt": 0.0,
+        "XOPQ": 96.0,
+        "YOPQ": 79.0,
+        "XTRA": 468.0,
+        "YTUC": 712.0,
+        "YTLC": 514.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0
+      },
+      "subfamily_name_id": 269,
+      "postscript_name_id": 65535
+    },
+    {
+      "key": "GRAD:0.0|XOPQ:96.0|XTRA:468.0|YOPQ:79.0|YTAS:750.0|YTDE:-203.0|YTFI:738.0|YTLC:514.0|YTUC:712.0|opsz:14.0|slnt:0.0|wdth:100.0|wght:200.0",
+      "composed_name": "ExtraLight",
+      "coords": {
+        "opsz": 14.0,
+        "wght": 200.0,
+        "GRAD": 0.0,
+        "wdth": 100.0,
+        "slnt": 0.0,
+        "XOPQ": 96.0,
+        "YOPQ": 79.0,
+        "XTRA": 468.0,
+        "YTUC": 712.0,
+        "YTLC": 514.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0
+      },
+      "subfamily_name_id": 270,
+      "postscript_name_id": 65535
+    },
+    {
+      "key": "GRAD:0.0|XOPQ:96.0|XTRA:468.0|YOPQ:79.0|YTAS:750.0|YTDE:-203.0|YTFI:738.0|YTLC:514.0|YTUC:712.0|opsz:14.0|slnt:0.0|wdth:100.0|wght:300.0",
+      "composed_name": "Light",
+      "coords": {
+        "opsz": 14.0,
+        "wght": 300.0,
+        "GRAD": 0.0,
+        "wdth": 100.0,
+        "slnt": 0.0,
+        "XOPQ": 96.0,
+        "YOPQ": 79.0,
+        "XTRA": 468.0,
+        "YTUC": 712.0,
+        "YTLC": 514.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0
+      },
+      "subfamily_name_id": 271,
+      "postscript_name_id": 65535
+    },
+    {
+      "key": "GRAD:0.0|XOPQ:96.0|XTRA:468.0|YOPQ:79.0|YTAS:750.0|YTDE:-203.0|YTFI:738.0|YTLC:514.0|YTUC:712.0|opsz:14.0|slnt:0.0|wdth:100.0|wght:400.0",
+      "composed_name": "Regular",
+      "coords": {
+        "opsz": 14.0,
+        "wght": 400.0,
+        "GRAD": 0.0,
+        "wdth": 100.0,
+        "slnt": 0.0,
+        "XOPQ": 96.0,
+        "YOPQ": 79.0,
+        "XTRA": 468.0,
+        "YTUC": 712.0,
+        "YTLC": 514.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0
+      },
+      "subfamily_name_id": 272,
+      "postscript_name_id": 65535
+    },
+    {
+      "key": "GRAD:0.0|XOPQ:96.0|XTRA:468.0|YOPQ:79.0|YTAS:750.0|YTDE:-203.0|YTFI:738.0|YTLC:514.0|YTUC:712.0|opsz:14.0|slnt:0.0|wdth:100.0|wght:500.0",
+      "composed_name": "Medium",
+      "coords": {
+        "opsz": 14.0,
+        "wght": 500.0,
+        "GRAD": 0.0,
+        "wdth": 100.0,
+        "slnt": 0.0,
+        "XOPQ": 96.0,
+        "YOPQ": 79.0,
+        "XTRA": 468.0,
+        "YTUC": 712.0,
+        "YTLC": 514.0,
+        "YTAS": 750.0,
+        "YTDE": -203.0,
+        "YTFI": 738.0
+      },
+      "subfamily_name_id": 273,
+      "postscript_name_id": 65535
+    }
+  ],
+  "instances_existing_meta": {
+    "total": 20,
+    "sample_count": 5
+  },
+  "name_audit": {
+    "free_start": 256,
+    "used": [],
+    "elided_fallback_id": 2,
+    "elided_fallback_name": "Regular"
+  },
+  "inferred": {
+    "is_italic_font": false,
+    "grid_axis_tags": [
+      "slnt",
+      "wght"
+    ],
+    "naming_order_suggested": [
+      "wdth",
+      "wght",
+      "opsz",
+      "slnt",
+      "ital"
+    ]
+  }
+}

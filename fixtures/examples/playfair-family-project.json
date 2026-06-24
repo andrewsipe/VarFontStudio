@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "created": "2026-06-23T12:00:00Z",
+  "modified": "2026-06-23T12:00:00Z",
+  "family_label": "Playfair Display VF",
+  "naming": {
+    "order": ["opsz", "wdth", "wght", "ital"],
+    "elided_fallback": "Regular"
+  },
+  "template": {
+    "sync_roles": true,
+    "axes": [
+      {
+        "tag": "opsz",
+        "role": "instance",
+        "values": [
+          { "id": "o1", "value": 5, "name": "Micro", "elidable": false, "stat_format": 1 },
+          { "id": "o2", "value": 12, "name": "Pica", "elidable": true, "stat_format": 1 },
+          { "id": "o3", "value": 48, "name": "Display", "elidable": false, "stat_format": 1 }
+        ]
+      },
+      {
+        "tag": "wdth",
+        "role": "instance",
+        "values": [
+          { "id": "d1", "value": 88, "name": "SemiCond", "elidable": false, "stat_format": 1 },
+          { "id": "d2", "value": 100, "name": "Normal", "elidable": true, "stat_format": 1 },
+          { "id": "d3", "value": 113, "name": "SemiExp", "elidable": false, "stat_format": 1 }
+        ]
+      },
+      {
+        "tag": "wght",
+        "role": "instance",
+        "values": [
+          { "id": "w1", "value": 360, "name": "SemiLight", "elidable": false, "stat_format": 1 },
+          { "id": "w2", "value": 400, "name": "Normal", "elidable": true, "stat_format": 3, "linked_value": 700 },
+          { "id": "w3", "value": 700, "name": "Bold", "elidable": false, "stat_format": 1 }
+        ]
+      }
+    ]
+  },
+  "fonts": [
+    {
+      "id": "11111111-1111-1111-1111-111111111101",
+      "source_path": "/Users/skymacbook/Downloads/PlayfairRomanVF.woff2",
+      "output_path": null,
+      "analysis_snapshot_id": "playfair-roman-v1",
+      "dirty": false,
+      "options": {
+        "fix_fvar_default": true,
+        "allocate_postscript_names": true
+      },
+      "included_instance_keys": [],
+      "excluded_instance_keys": [],
+      "overrides": { "per_instance": [] },
+      "axes": [
+        {
+          "tag": "opsz",
+          "display_name": "Optical size",
+          "min": 5,
+          "default": 5,
+          "max": 1200,
+          "role": "instance",
+          "values": [
+            { "id": "o1", "value": 5, "name": "Micro", "elidable": false, "stat_format": 1 },
+            { "id": "o2", "value": 12, "name": "Pica", "elidable": true, "stat_format": 1 },
+            { "id": "o3", "value": 48, "name": "Display", "elidable": false, "stat_format": 1 }
+          ]
+        },
+        {
+          "tag": "wdth",
+          "display_name": "Width",
+          "min": 88,
+          "default": 88,
+          "max": 113,
+          "role": "instance",
+          "values": [
+            { "id": "d1", "value": 88, "name": "SemiCond", "elidable": false, "stat_format": 1 },
+            { "id": "d2", "value": 100, "name": "Normal", "elidable": true, "stat_format": 1 },
+            { "id": "d3", "value": 113, "name": "SemiExp", "elidable": false, "stat_format": 1 }
+          ]
+        },
+        {
+          "tag": "wght",
+          "display_name": "Weight",
+          "min": 360,
+          "default": 360,
+          "max": 900,
+          "role": "instance",
+          "values": [
+            { "id": "w1", "value": 360, "name": "SemiLight", "elidable": false, "stat_format": 1 },
+            { "id": "w2", "value": 400, "name": "Normal", "elidable": true, "stat_format": 3, "linked_value": 700 },
+            { "id": "w3", "value": 700, "name": "Bold", "elidable": false, "stat_format": 1 }
+          ]
+        },
+        {
+          "tag": "ital",
+          "display_name": "Italic",
+          "min": 0,
+          "default": 0,
+          "max": 1,
+          "role": "stat_only",
+          "values": [
+            { "id": "i0", "value": 0, "name": "Roman", "elidable": true, "stat_format": 3, "linked_value": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "11111111-1111-1111-1111-111111111102",
+      "source_path": "/Users/skymacbook/Downloads/PlayfairItalicVF.woff2",
+      "output_path": null,
+      "analysis_snapshot_id": "playfair-italic-v1",
+      "dirty": false,
+      "options": {
+        "fix_fvar_default": true,
+        "allocate_postscript_names": true
+      },
+      "included_instance_keys": [],
+      "excluded_instance_keys": [],
+      "overrides": { "per_instance": [] },
+      "axes": [
+        {
+          "tag": "opsz",
+          "display_name": "Optical size",
+          "min": 5,
+          "default": 5,
+          "max": 1200,
+          "role": "instance",
+          "values": [
+            { "id": "o1", "value": 5, "name": "Micro", "elidable": false, "stat_format": 1 },
+            { "id": "o2", "value": 12, "name": "Pica", "elidable": true, "stat_format": 1 },
+            { "id": "o3", "value": 48, "name": "Display", "elidable": false, "stat_format": 1 }
+          ]
+        },
+        {
+          "tag": "wdth",
+          "display_name": "Width",
+          "min": 88,
+          "default": 88,
+          "max": 113,
+          "role": "instance",
+          "values": [
+            { "id": "d1", "value": 88, "name": "SemiCond", "elidable": false, "stat_format": 1 },
+            { "id": "d2", "value": 100, "name": "Normal", "elidable": true, "stat_format": 1 },
+            { "id": "d3", "value": 113, "name": "SemiExp", "elidable": false, "stat_format": 1 }
+          ]
+        },
+        {
+          "tag": "wght",
+          "display_name": "Weight",
+          "min": 360,
+          "default": 360,
+          "max": 900,
+          "role": "instance",
+          "values": [
+            { "id": "w1", "value": 360, "name": "SemiLight", "elidable": false, "stat_format": 1 },
+            { "id": "w2", "value": 400, "name": "Normal", "elidable": true, "stat_format": 3, "linked_value": 700 },
+            { "id": "w3", "value": 700, "name": "Bold", "elidable": false, "stat_format": 1 }
+          ]
+        },
+        {
+          "tag": "ital",
+          "display_name": "Italic",
+          "min": 0,
+          "default": 1,
+          "max": 1,
+          "role": "stat_only",
+          "values": [
+            { "id": "i1", "value": 1, "name": "Italic", "elidable": false, "stat_format": 1 }
+          ]
+        }
+      ]
+    }
+  ]
+}

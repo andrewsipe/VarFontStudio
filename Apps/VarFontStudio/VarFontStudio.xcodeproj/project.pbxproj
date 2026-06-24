@@ -1,0 +1,298 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B2000001 /* VarFontStudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000001 /* VarFontStudioApp.swift */; };
+		B2000002 /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000002 /* EditorViewModel.swift */; };
+		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
+		B2000004 /* FontFileTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000004 /* FontFileTabs.swift */; };
+		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
+		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
+		B2000007 /* InspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* InspectorPanel.swift */; };
+		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
+		B2000009 /* VarFontCore in Frameworks */ = {isa = PBXBuildFile; productRef = P2000001 /* VarFontCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		E2000001 /* VarFontStudio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VarFontStudio.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2000001 /* VarFontStudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontStudioApp.swift; sourceTree = "<group>"; };
+		F2000002 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
+		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
+		F2000004 /* FontFileTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontFileTabs.swift; sourceTree = "<group>"; };
+		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
+		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
+		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
+		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C2000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2000009 /* VarFontCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G2000001 = {
+			isa = PBXGroup;
+			children = (
+				F2000001 /* VarFontStudioApp.swift */,
+				F2000002 /* EditorViewModel.swift */,
+				G2000005 /* Views */,
+				F2000008 /* Assets.xcassets */,
+				G2000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G2000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E2000001 /* VarFontStudio.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		G2000005 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F2000003 /* MainEditorView.swift */,
+				F2000004 /* FontFileTabs.swift */,
+				F2000005 /* AxisTreePanel.swift */,
+				F2000006 /* InstanceListPanel.swift */,
+				F2000007 /* InspectorPanel.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T2000001 /* VarFontStudio */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = X2000003 /* Build configuration list for PBXNativeTarget "VarFontStudio" */;
+			buildPhases = (
+				S2000001 /* Sources */,
+				C2000001 /* Frameworks */,
+				R2000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VarFontStudio;
+			packageProductDependencies = (
+				P2000001 /* VarFontCore */,
+			);
+			productName = VarFontStudio;
+			productReference = E2000001 /* VarFontStudio.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PR200001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					T2000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = X2000001 /* Build configuration list for PBXProject "VarFontStudio" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G2000001;
+			packageReferences = (
+				PKG20001 /* XCLocalSwiftPackageReference "VarFontEditor" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = G2000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T2000001 /* VarFontStudio */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		R2000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2000008 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		S2000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2000001 /* VarFontStudioApp.swift in Sources */,
+				B2000002 /* EditorViewModel.swift in Sources */,
+				B2000003 /* MainEditorView.swift in Sources */,
+				B2000004 /* FontFileTabs.swift in Sources */,
+				B2000005 /* AxisTreePanel.swift in Sources */,
+				B2000006 /* InstanceListPanel.swift in Sources */,
+				B2000007 /* InspectorPanel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		XC200001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		XC200002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		XC200003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "VarFont Studio";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
+				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.goodfontscripts.VarFontStudio;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		XC200004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "VarFont Studio";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
+				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.goodfontscripts.VarFontStudio;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		X2000001 /* Build configuration list for PBXProject "VarFontStudio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				XC200001 /* Debug */,
+				XC200002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		X2000003 /* Build configuration list for PBXNativeTarget "VarFontStudio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				XC200003 /* Debug */,
+				XC200004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		PKG20001 /* XCLocalSwiftPackageReference "VarFontEditor" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		P2000001 /* VarFontCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = PKG20001 /* XCLocalSwiftPackageReference "VarFontEditor" */;
+			productName = VarFontCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = PR200001 /* Project object */;
+}
