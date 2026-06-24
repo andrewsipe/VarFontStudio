@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VarFont Studio — v3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      /* Warm palette — carried from v2 */
+      --bg:       #f5f0e8;
+      --sf:       #ede7da;
+      --s2:       #e4ded2;
+      --s3:       #cec7b8;
+      --input-bg: #fffcf7;
+      --bd:       #cfc8ba;
+      --bd-dk:    #b8b0a0;
+      --tx:       #2b2926;
+      --mu:       #5a5449;
+      --label:    #3e3930;
+
+      /* Accent — purple primary */
+      --pr:       #6b50a0;
+      --pr-dk:    #513c82;
+      --pr-lt:    #8a6ec0;
+      --on-pr:    #f5f0e8;
+      --tint-pr:  rgba(107,80,160,.10);
+      --tint-pr-b:rgba(107,80,160,.28);
+
+      /* Teal / info */
+      --te:       #5b9ba4;
+      --te-dk:    #3f7880;
+      --tint-te:  rgba(91,155,164,.12);
+      --tint-te-b:rgba(91,155,164,.30);
+
+      /* Amber / warning */
+      --am:       #b86a1a;
+      --am-dk:    #8a4e10;
+      --tint-am:  rgba(184,106,26,.10);
+      --tint-am-b:rgba(184,106,26,.30);
+
+      /* Red / error */
+      --er:       #c96040;
+      --er-dk:    #a44a2e;
+      --tint-er:  rgba(201,96,64,.10);
+      --tint-er-b:rgba(201,96,64,.28);
+
+      /* Green / ok */
+      --gn:       #4e8a6c;
+      --gn-dk:    #32634a;
+      --tint-gn:  rgba(78,138,108,.10);
+      --tint-gn-b:rgba(78,138,108,.28);
+
+      /* Purple note bg */
+      --nb:  rgba(107,80,160,.08);
+      --nbl: rgba(107,80,160,.35);
+
+      /* Geometry */
+      --r-inp:  3px;
+      --r-ctrl: 4px;
+      --r-card: 6px;
+
+      /* Type */
+      --ui: 'IBM Plex Sans', system-ui, sans-serif;
+      --mo: 'IBM Plex Mono', ui-monospace, monospace;
+
+      /* Layout */
+      --tree-w: 272px;
+      --insp-w: 310px;
+      --chain-h: 58px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--ui);
+      font-size: 13px;
+      color: var(--tx);
+      background: var(--bg);
+      line-height: 1.45;
+    }
+
+    /* ── App shell ──────────────────────────────────────────────── */
+    .app { display: flex; flex-direction: column; height: 100vh; min-height: 680px; }
+
+    /* ── Topbar ─────────────────────────────────────────────────── */
+    .topbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px; height: 42px;
+      background: var(--sf); border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 7px;
+      font-weight: 600; font-size: 13px; color: var(--tx);
+    }
+    .logo svg { color: var(--pr); flex-shrink: 0; }
+    .logo-ver { font-size: 10px; font-weight: 400; color: var(--mu); font-family: var(--mo); }
+    .divider-v { width: 1px; height: 20px; background: var(--bd); flex-shrink: 0; }
+    .sp { flex: 1; }
+
+    /* File tabs */
+    .file-tabs { display: flex; align-items: stretch; gap: 0; height: 100%; }
+    .file-tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 12px; font-size: 11px; font-weight: 500;
+      color: var(--mu); border-bottom: 2px solid transparent;
+      cursor: pointer; user-select: none; white-space: nowrap;
+      position: relative;
+    }
+    .file-tab:hover { color: var(--tx); }
+    .file-tab.active {
+      color: var(--pr); border-bottom-color: var(--pr);
+      background: var(--tint-pr);
+    }
+    .file-tab .badge {
+      font-size: 9px; font-family: var(--mo);
+      padding: 1px 4px; border-radius: 2px;
+      background: var(--s2); color: var(--mu);
+    }
+    .file-tab.active .badge { background: var(--tint-pr-b); color: var(--pr-dk); }
+    .file-tab-add {
+      display: flex; align-items: center; padding: 0 10px;
+      font-size: 16px; color: var(--mu); cursor: pointer;
+      border: none; background: transparent; font-family: var(--ui);
+    }
+    .file-tab-add:hover { color: var(--pr); }
+
+    /* Status pills */
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 999px; font-size: 11px;
+      border: 1px solid var(--bd); color: var(--mu); background: var(--bg);
+      white-space: nowrap;
+    }
+    .pill strong { color: var(--tx); font-weight: 600; }
+    .pill.ok   { background: var(--tint-gn); border-color: var(--tint-gn-b); color: var(--gn-dk); }
+    .pill.warn { background: var(--tint-am); border-color: var(--tint-am-b); color: var(--am-dk); }
+    .pill.err  { background: var(--tint-er); border-color: var(--tint-er-b); color: var(--er-dk); }
+
+    /* ── Context bar ────────────────────────────────────────────── */
+    .ctx-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px; height: 36px;
+      background: var(--s2); border-bottom: 1px solid var(--bd);
+      flex-shrink: 0; font-size: 11px;
+    }
+    .ctx-label { color: var(--mu); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .ctx-formula { font-family: var(--mo); font-size: 11px; color: var(--tx); }
+    .ctx-formula .op { color: var(--am); }
+    .ctx-formula .total { color: var(--pr); font-weight: 600; }
+
+    .ctx-action {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; font: inherit; font-size: 11px;
+      border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+      background: var(--input-bg); cursor: pointer; color: var(--mu);
+    }
+    .ctx-action:hover { border-color: var(--pr); color: var(--pr); }
+    .ctx-action.primary {
+      background: var(--pr); color: var(--on-pr); border-color: var(--pr-dk);
+    }
+    .ctx-action.primary:hover { background: var(--pr-dk); }
+
+    /* ── Three panel area ───────────────────────────────────────── */
+    .panels { display: flex; flex: 1; min-height: 0; }
+    .panel { display: flex; flex-direction: column; min-height: 0; }
+    .panel + .panel { border-left: 1px solid var(--bd); }
+
+    .panel-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 10px; height: 32px; flex-shrink: 0;
+      background: var(--s2); border-bottom: 1px solid var(--bd);
+      font-size: 10px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--label);
+    }
+    .panel-head-action {
+      margin-left: auto; font-size: 10px; font-weight: 500;
+      text-transform: none; letter-spacing: 0;
+      color: var(--mu); cursor: pointer; font-family: var(--ui);
+      border: none; background: transparent; padding: 0;
+    }
+    .panel-head-action:hover { color: var(--pr); }
+    .panel-body { flex: 1; overflow: auto; }
+
+    /* ── Axis tree panel ────────────────────────────────────────── */
+    .axis-tree { width: var(--tree-w); flex-shrink: 0; background: var(--sf); }
+    .axis-body { padding: 4px 6px; }
+
+    .axis-block { margin-bottom: 1px; }
+    .axis-head {
+      display: flex; align-items: center; gap: 5px;
+      width: 100%; padding: 5px 6px;
+      border: none; background: transparent;
+      font: inherit; text-align: left; cursor: pointer;
+      border-radius: var(--r-ctrl);
+    }
+    .axis-head:hover { background: var(--s2); }
+    .chev { font-size: 8px; color: var(--mu); width: 10px; transition: transform .12s; }
+    .axis-head.collapsed .chev { transform: rotate(-90deg); }
+
+    .ax-tag {
+      font-family: var(--mo); font-size: 9px;
+      padding: 2px 5px; border-radius: var(--r-inp);
+      background: var(--tint-te); border: 1px solid var(--tint-te-b);
+      color: var(--te-dk); letter-spacing: .03em;
+    }
+    .ax-tag.off-grid {
+      background: var(--s2); border-color: var(--bd);
+      color: var(--mu); text-decoration: line-through;
+    }
+    .ax-name { font-size: 12px; font-weight: 500; }
+    .ax-range { font-size: 10px; color: var(--mu); margin-left: auto; font-family: var(--mo); }
+    .grid-tog {
+      font-size: 9px; padding: 1px 5px;
+      border: 1px solid var(--bd); border-radius: var(--r-inp);
+      background: var(--input-bg); cursor: pointer; color: var(--mu);
+      font-family: var(--ui);
+    }
+    .grid-tog.on { color: var(--gn-dk); border-color: var(--gn); background: var(--tint-gn); }
+
+    .value-list { padding: 2px 6px 6px 22px; }
+    .value-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 6px; margin: 1px 0;
+      border-radius: var(--r-ctrl); cursor: pointer;
+      border: 1px solid transparent; font-size: 12px;
+    }
+    .value-row:hover { background: var(--s2); }
+    .value-row.selected { background: var(--tint-pr); border-color: var(--tint-pr-b); }
+    .value-row.linked { box-shadow: inset 3px 0 0 var(--pr); }
+    .val-num { font-family: var(--mo); font-size: 10px; color: var(--am); min-width: 34px; }
+    .val-name { flex: 1; }
+    .elid-badge {
+      font-size: 9px; padding: 1px 4px; border-radius: 2px;
+      background: var(--tint-pr); color: var(--pr-dk);
+      border: 1px solid var(--tint-pr-b);
+      opacity: 0; pointer-events: none;
+    }
+    .value-row.elidable .elid-badge { opacity: 1; }
+
+    .add-stop {
+      display: flex; align-items: center; gap: 5px;
+      margin: 4px 6px 4px 22px; padding: 4px 6px;
+      border: 1px dashed var(--bd); border-radius: var(--r-ctrl);
+      font-size: 11px; color: var(--mu); cursor: pointer;
+      background: transparent;
+    }
+    .add-stop:hover { border-color: var(--pr); color: var(--pr); background: var(--tint-pr); }
+
+    .axis-divider { margin: 6px 6px; border: none; border-top: 1px solid var(--bd); }
+
+    /* ── Instances panel ────────────────────────────────────────── */
+    .instances-panel { flex: 1; background: var(--bg); min-width: 260px; }
+    .inst-toolbar {
+      display: flex; gap: 6px; align-items: center;
+      padding: 6px 8px; border-bottom: 1px solid var(--bd);
+      background: var(--sf); flex-shrink: 0;
+    }
+    .inst-search {
+      flex: 1; min-width: 100px; font: inherit; font-size: 12px;
+      padding: 4px 8px; border: 1px solid var(--bd);
+      border-radius: var(--r-ctrl); background: var(--input-bg);
+      color: var(--tx);
+    }
+    .inst-search:focus { outline: none; border-color: var(--pr); box-shadow: 0 0 0 2px var(--tint-pr); }
+    .inst-btn {
+      font: inherit; font-size: 11px; padding: 4px 8px;
+      border: 1px solid var(--bd); border-radius: var(--r-ctrl);
+      background: var(--input-bg); cursor: pointer; color: var(--mu);
+    }
+    .inst-btn:hover { border-color: var(--pr); color: var(--pr); }
+
+    .inst-list-body { padding: 4px 6px; }
+    .inst-group-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--label); padding: 4px 6px; margin: 10px 0 2px;
+      background: var(--s2); border-radius: var(--r-ctrl);
+      position: sticky; top: 0; z-index: 1;
+    }
+    .inst-row {
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 7px; margin: 1px 0;
+      border-radius: var(--r-ctrl); cursor: pointer;
+      border: 1px solid transparent; font-size: 12px;
+    }
+    .inst-row:hover { background: var(--s2); }
+    .inst-row.selected { background: var(--tint-pr); border-color: var(--tint-pr-b); }
+    .inst-row.excluded { opacity: .42; }
+    .inst-row.excluded .inst-name { text-decoration: line-through; }
+    .inst-row.dup { background: var(--tint-er); border-color: var(--tint-er-b); }
+    .inst-row.dup:hover { background: var(--tint-er); }
+    .inst-chk { accent-color: var(--pr); flex-shrink: 0; cursor: pointer; }
+    .inst-name { flex: 1; font-weight: 500; }
+    .inst-source { font-size: 9px; padding: 1px 4px; border-radius: 2px; font-family: var(--mo); }
+    .inst-source.existing { background: var(--tint-te); color: var(--te-dk); }
+    .inst-source.generated { background: var(--tint-pr); color: var(--pr-dk); }
+    .inst-coords { font-family: var(--mo); font-size: 9px; color: var(--mu); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Inspector panel ────────────────────────────────────────── */
+    .inspector { width: var(--insp-w); flex-shrink: 0; background: var(--sf); }
+    .insp-body { padding: 10px; }
+
+    .insp-empty {
+      padding: 32px 16px; text-align: center;
+      color: var(--mu); font-size: 12px; line-height: 1.7;
+    }
+    .insp-empty svg { display: block; margin: 0 auto 12px; opacity: .35; }
+
+    .insp-section { margin-bottom: 14px; }
+    .insp-section-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--label); margin-bottom: 6px;
+    }
+    .composed-name {
+      font-family: var(--ui); font-size: 17px; font-weight: 600;
+      padding: 8px 10px; background: var(--nb);
+      border-left: 3px solid var(--nbl);
+      border-radius: 0 var(--r-ctrl) var(--r-ctrl) 0;
+      color: var(--tx); margin-bottom: 4px;
+    }
+    .composed-sub { font-size: 11px; color: var(--mu); margin-bottom: 10px; }
+
+    /* Chain mini in inspector */
+    .chain-mini { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .chain-chip {
+      font-size: 11px; padding: 3px 8px;
+      background: var(--tint-pr); border: 1px solid var(--tint-pr-b);
+      border-radius: 999px; color: var(--pr-dk);
+    }
+    .chain-chip.off { opacity: .32; text-decoration: line-through; background: var(--s2); border-color: var(--bd); color: var(--mu); }
+    .chain-arrow { color: var(--mu); font-size: 10px; }
+
+    /* Name table ID cross-reference */
+    .name-ids { display: flex; flex-direction: column; gap: 3px; }
+    .name-id-row {
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 4px 7px; border-radius: var(--r-ctrl);
+      background: var(--bg); border: 1px solid var(--bd);
+      font-size: 11px;
+    }
+    .name-id-row.linked-id { border-color: var(--tint-pr-b); background: var(--tint-pr); }
+    .name-id-row.conflict  { border-color: var(--tint-am-b); background: var(--tint-am); }
+    .id-num { font-family: var(--mo); font-size: 10px; color: var(--mu); min-width: 26px; }
+    .id-role { font-size: 10px; color: var(--mu); min-width: 70px; }
+    .id-val { flex: 1; font-weight: 500; color: var(--tx); }
+    .id-badge {
+      font-size: 9px; padding: 1px 4px; border-radius: 2px;
+      background: var(--tint-te); color: var(--te-dk);
+    }
+    .id-badge.conflict { background: var(--tint-am); color: var(--am-dk); }
+    .id-badge.ok { background: var(--tint-gn); color: var(--gn-dk); }
+
+    /* Axis coord table */
+    .coord-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .coord-table td { padding: 3px 5px; }
+    .coord-table td:first-child { font-family: var(--mo); font-size: 10px; color: var(--te-dk); width: 40px; }
+    .coord-table td:nth-child(2) { font-family: var(--mo); font-size: 10px; color: var(--am); width: 44px; }
+    .coord-table td:nth-child(3) { color: var(--tx); font-weight: 500; }
+    .coord-table tr:nth-child(even) td { background: var(--s2); }
+    .coord-table td:first-child { border-radius: var(--r-inp) 0 0 var(--r-inp); }
+    .coord-table td:last-child { border-radius: 0 var(--r-inp) var(--r-inp) 0; }
+
+    /* ── Naming chain footer ────────────────────────────────────── */
+    .chain-footer {
+      flex-shrink: 0;
+      border-top: 1px solid var(--bd);
+      background: var(--sf);
+    }
+    .chain-footer-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 14px; height: 30px;
+      border-bottom: 1px solid var(--bd);
+      font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--label);
+    }
+    .chain-footer-body {
+      display: flex; align-items: center; gap: 0;
+      padding: 8px 14px; height: var(--chain-h);
+      overflow-x: auto;
+    }
+    .chain-node {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; flex-shrink: 0;
+      background: var(--input-bg); border: 1px solid var(--tint-pr-b);
+      border-radius: var(--r-ctrl); cursor: grab; user-select: none;
+      transition: box-shadow .12s, opacity .12s;
+    }
+    .chain-node:active { cursor: grabbing; }
+    .chain-node.dragging { opacity: .4; box-shadow: 0 4px 14px rgba(43,41,38,.15); }
+    .chain-node.off { opacity: .38; border-style: dashed; background: var(--s2); border-color: var(--bd); }
+    .chain-node-tag { font-family: var(--mo); font-size: 10px; color: var(--te-dk); }
+    .chain-node-name { font-size: 12px; font-weight: 500; }
+    .chain-node-tog { width: 13px; height: 13px; accent-color: var(--pr); cursor: pointer; flex-shrink: 0; }
+    .chain-connector {
+      width: 24px; height: 2px; flex-shrink: 0;
+      background: var(--nbl); position: relative;
+    }
+    .chain-connector::before {
+      content: ''; position: absolute; right: -4px; top: -3px;
+      border: 4px solid transparent;
+      border-left-color: var(--nbl);
+    }
+    .chain-connector.off { background: var(--bd); }
+    .chain-connector.off::before { border-left-color: var(--bd); }
+    .chain-preview-strip {
+      margin-left: auto; flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+      padding-left: 16px;
+    }
+    .chain-preview-label { font-size: 10px; color: var(--mu); white-space: nowrap; }
+    .chain-preview-val {
+      font-family: var(--ui); font-size: 13px; font-weight: 600;
+      color: var(--tx); background: var(--nb); padding: 3px 10px;
+      border-radius: var(--r-ctrl); border-left: 2px solid var(--nbl);
+      white-space: nowrap;
+    }
+
+    /* ── Alert / warning bars ───────────────────────────────────── */
+    .alert-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 10px; font-size: 11px;
+      border-radius: var(--r-ctrl); margin: 6px;
+    }
+    .alert-bar.warn { background: var(--tint-am); color: var(--am-dk); border: 1px solid var(--tint-am-b); }
+    .alert-bar.err  { background: var(--tint-er); color: var(--er-dk); border: 1px solid var(--tint-er-b); }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--bd-dk); }
+
+    /* ── Elide violation flag ───────────────────────────────────── */
+    .elide-warn {
+      font-size: 11px; color: var(--er-dk);
+      background: var(--tint-er); border: 1px solid var(--tint-er-b);
+      border-radius: var(--r-ctrl); padding: 5px 9px; margin: 6px;
+    }
+  </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+(() => {
+
+  /* ── Preset data ──────────────────────────────────────────────── */
+  function buildMullerAxes() {
+    const weights = [
+      [10,'Hairline'],[20,'Thin'],[30,'ExtraLight'],[40,'Light'],[50,'Book'],
+      [60,'Medium'],[70,'SemiBold'],[80,'Bold'],[85,'ExtraBold'],[90,'Heavy'],[95,'Ultra'],[100,'Black']
+    ].map(([value,name],i) => ({ id:`w${i}`, value, name, elidable: name==='Book' }));
+    const widths = [
+      [75,'UltraCondensed'],[87.5,'Condensed'],[100,'Normal'],[112.5,'SemiExtended'],[125,'Extended']
+    ].map(([value,name],i) => ({ id:`d${i}`, value, name, elidable: /normal/i.test(name) }));
+    return [
+      { tag:'wght', name:'Weight', min:10, max:100, default:80, expanded:false, inGrid:true, values:weights },
+      { tag:'wdth', name:'Width',  min:75, max:125, default:100, expanded:false, inGrid:true, values:widths },
+      { tag:'ital', name:'Italic', min:0,  max:1,   default:0,  expanded:false, inGrid:true,
+        values:[{id:'i0',value:0,name:'Roman',elidable:true},{id:'i1',value:1,name:'Italic',elidable:false}] },
+    ];
+  }
+
+  const PRESETS = {
+    simple: {
+      label:'Simple  3×3×2', filename:'Demo-VF.ttf',
+      axes:[
+        { tag:'wght', name:'Weight', min:100, max:700, default:400, expanded:true, inGrid:true,
+          values:[{id:'w1',value:100,name:'Thin',elidable:false},{id:'w2',value:400,name:'Regular',elidable:true},{id:'w3',value:700,name:'Bold',elidable:false}]},
+        { tag:'wdth', name:'Width', min:75, max:125, default:100, expanded:true, inGrid:true,
+          values:[{id:'d1',value:75,name:'Condensed',elidable:false},{id:'d2',value:100,name:'Normal',elidable:true},{id:'d3',value:125,name:'Extended',elidable:false}]},
+        { tag:'ital', name:'Italic', min:0, max:1, default:0, expanded:true, inGrid:true,
+          values:[{id:'i1',value:0,name:'Roman',elidable:true},{id:'i2',value:1,name:'Italic',elidable:false}]},
+      ],
+    },
+    muller: {
+      label:'Muller-scale  12×5×2', filename:'MullerNext-VF.ttf',
+      axes: buildMullerAxes(),
+    },
+    crowded: {
+      label:'Crowded  + opsz slnt', filename:'Complex-VF.ttf',
+      axes:[
+        ...buildMullerAxes().slice(0,2),
+        { tag:'opsz', name:'Optical Size', min:8, max:72, default:14, expanded:true, inGrid:true,
+          values:[{id:'o1',value:8,name:'Caption',elidable:false},{id:'o2',value:14,name:'Text',elidable:true},{id:'o3',value:24,name:'Display',elidable:false},{id:'o4',value:72,name:'Poster',elidable:false}]},
+        { tag:'slnt', name:'Slant', min:0, max:-12, default:0, expanded:true, inGrid:false,
+          values:[{id:'s0',value:0,name:'Upright',elidable:true},{id:'s1',value:-10,name:'Oblique',elidable:false}]},
+        buildMullerAxes()[2],
+      ],
+    },
+  };
+
+  /* Simulated name table IDs per instance (for inspector demo) */
+  function mockNameIds(inst) {
+    if (!inst) return [];
+    const fullName = inst.name;
+    const isItalic = inst.combo.some(c => c.axisTag==='ital' && c.value===1);
+    const styleSubfam = inst.combo.find(c=>c.axisTag==='wght')?.name || 'Regular';
+    const postscript = `DemoVF-${fullName.replace(/\s+/g,'')}`;
+    const rows = [
+      { id:1,  role:'Family',         val:'Demo Variable Font', linked:'fvar', status:'ok'     },
+      { id:2,  role:'Subfamily',      val: isItalic ? 'Italic' : 'Regular', linked:'fvar', status: isItalic ? 'ok' : 'conflict', note: !isItalic ? 'links ID 2 → fvar; consider ID 17' : null },
+      { id:4,  role:'Full name',      val:`Demo Variable Font ${fullName}`, linked:null, status:'ok' },
+      { id:6,  role:'PostScript',     val:postscript, linked:null, status:'ok'     },
+      { id:16, role:'Pref family',    val:'Demo Variable Font', linked:'STAT', status:'ok'     },
+      { id:17, role:'Pref subfamily', val:fullName, linked:'STAT', status:'ok'     },
+      { id:256,role:'Var inst',       val:fullName, linked:'fvar', status:'ok'     },
+    ];
+    return rows;
+  }
+
+  /* ── State ────────────────────────────────────────────────────── */
+  const state = {
+    preset: 'simple',
+    files: [
+      { id:'f1', label:'Demo-VF.ttf',       badge:'upright', active:true  },
+      { id:'f2', label:'DemoItalic-VF.ttf', badge:'italic',  active:false },
+    ],
+    axes: JSON.parse(JSON.stringify(PRESETS.simple.axes)),
+    filename: PRESETS.simple.filename,
+    namingChain: ['wdth','wght','opsz','slnt','ital'],
+    chainInName: { wdth:true, wght:true, opsz:true, slnt:false, ital:true },
+    excluded: new Set(),
+    selectedValueId: null,
+    selectedInstanceKey: null,
+    search: '',
+    groupByTag: 'wdth',
+    nextId: 500,
+  };
+
+  /* ── Core logic ───────────────────────────────────────────────── */
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+  function fmt(n) { return Number.isInteger(n)||Math.abs(n-Math.round(n))<.001?String(Math.round(n)):n.toFixed(1); }
+
+  function gridAxes() { return state.axes.filter(a => a.inGrid!==false && a.values.length>0); }
+
+  function cartesian(arrays) {
+    if (!arrays.length) return [[]];
+    return arrays.reduce((acc,curr)=>acc.flatMap(a=>curr.map(b=>a.concat([b]))),[ [] ]);
+  }
+
+  function composeName(combo) {
+    const order = state.namingChain.filter(t => state.chainInName[t]!==false);
+    const ital = combo.find(c => c.axisTag==='ital');
+    const parts = [];
+    for (const tag of order) {
+      if (tag==='ital') continue;
+      const av = combo.find(c => c.axisTag===tag);
+      if (!av) continue;
+      if (tag==='slnt' && av.value===0) continue;
+      if (ital && ital.value===1 && tag==='slnt') continue;
+      if (av.elidable && combo.length>1) continue;
+      if (av.name) parts.push(av.name);
+    }
+    if (state.chainInName.ital!==false && ital && ital.value===1) parts.push(ital.name||'Italic');
+    return parts.join(' ')||'Regular';
+  }
+
+  function instanceKey(coords) { return state.axes.map(a=>`${a.tag}:${coords[a.tag]??'_'}`).join('|'); }
+
+  function generateInstances() {
+    const axes = gridAxes();
+    if (!axes.length) return [];
+    const combos = cartesian(axes.map(axis=>axis.values.map(v=>({
+      axisTag:axis.tag, axisName:axis.name, value:v.value, name:v.name, elidable:v.elidable, valueId:v.id,
+    }))));
+    const instances = combos.map(combo => {
+      const coords = {};
+      state.axes.forEach(a => {
+        const c = combo.find(x=>x.axisTag===a.tag);
+        coords[a.tag] = c ? c.value : (a.values[0]?.value ?? a.default);
+      });
+      const name = composeName(combo);
+      return { combo, coords, name, key:instanceKey(coords) };
+    });
+    const counts = {};
+    instances.forEach(i=>{ counts[i.name]=(counts[i.name]||0)+1; });
+    instances.forEach(i=>{ i.duplicate=counts[i.name]>1; });
+    return instances;
+  }
+
+  function countFormula() {
+    const parts = gridAxes().map(a=>a.values.length);
+    const total = parts.length ? parts.reduce((a,b)=>a*b,1) : 0;
+    return {parts,total};
+  }
+
+  function elideViolations() {
+    const issues = [];
+    for (const axis of state.axes) {
+      const elided = axis.values.filter(v=>v.elidable);
+      if (elided.length>1) issues.push(`${axis.tag}: ${elided.length} elidable values (${elided.map(v=>v.name).join(', ')})`);
+    }
+    return issues;
+  }
+
+  function renderChainPreview() {
+    const sample = [
+      {tag:'wdth',name:'Condensed'},{tag:'wght',name:'Bold'},
+      {tag:'opsz',name:'Display'},{tag:'ital',name:'Italic'},
+    ].filter(s=>state.chainInName[s.tag]!==false);
+    const ordered = state.namingChain
+      .filter(t=>state.chainInName[t]!==false)
+      .map(t=>sample.find(s=>s.tag===t)).filter(Boolean);
+    return ordered.map(o=>o.name).join(' ')||'Regular';
+  }
+
+  function findVal(id) {
+    for (const axis of state.axes) {
+      const value = axis.values.find(v=>v.id===id);
+      if (value) return { axis, value };
+    }
+    return null;
+  }
+
+  /* ── Renderers ────────────────────────────────────────────────── */
+
+  function renderTopbar() {
+    const formula = countFormula();
+    const all = generateInstances();
+    const included = all.filter(i=>!state.excluded.has(i.key));
+    const dups = all.filter(i=>i.duplicate).length;
+    return `
+      <header class="topbar">
+        <div class="logo">
+          <svg width="15" height="15" viewBox="0 0 17 17" fill="none">
+            <rect x=".75" y=".75" width="15.5" height="15.5" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M4 13L6.5 4.5L8.5 9.5L10 7L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          VarFont Studio
+          <span class="logo-ver">v3</span>
+        </div>
+        <div class="divider-v"></div>
+        <nav class="file-tabs" id="fileTabs">
+          ${state.files.map(f=>`
+            <div class="file-tab ${f.active?'active':''}" data-action="switch-file" data-id="${f.id}">
+              ${esc(f.label)}
+              <span class="badge">${esc(f.badge)}</span>
+            </div>
+          `).join('')}
+          <button class="file-tab-add" data-action="add-file" title="Open another font file">+</button>
+        </nav>
+        <div class="sp"></div>
+        <span class="pill ${formula.total>60?'warn':'ok'}"><strong>${formula.total}</strong> instances</span>
+        <span class="pill ok"><strong>${included.length}</strong> included</span>
+        ${dups ? `<span class="pill err"><strong>${dups}</strong> duplicate${dups!==1?'s':''}</span>` : ''}
+        ${state.excluded.size ? `<span class="pill"><strong>${state.excluded.size}</strong> pruned</span>` : ''}
+      </header>`;
+  }
+
+  function renderCtxBar() {
+    const formula = countFormula();
+    return `
+      <div class="ctx-bar">
+        <span class="ctx-label">Grid</span>
+        <span class="ctx-formula">${formula.parts.join('<span class="op"> × </span>')}<span class="op"> = </span><span class="total">${formula.total}</span></span>
+        <div class="sp"></div>
+        <select class="inst-btn" id="presetSelect" style="cursor:pointer">
+          ${Object.entries(PRESETS).map(([k,p])=>`<option value="${k}" ${state.preset===k?'selected':''}>${esc(p.label)}</option>`).join('')}
+        </select>
+        <button class="ctx-action" data-action="prune-dups">Prune duplicates</button>
+        <button class="ctx-action" data-action="restore-all">Restore all</button>
+        <button class="ctx-action primary" data-action="export">Export instances</button>
+      </div>`;
+  }
+
+  function renderAxisTree(linked) {
+    const violations = elideViolations();
+    return `
+      <aside class="panel axis-tree">
+        <div class="panel-head">
+          Axis tree
+          <button class="panel-head-action" data-action="add-axis">+ axis</button>
+        </div>
+        <div class="panel-body axis-body">
+          ${violations.map(m=>`<div class="elide-warn">⚠ ${esc(m)}</div>`).join('')}
+          ${state.axes.map(axis=>`
+            <div class="axis-block">
+              <button type="button" class="axis-head ${axis.expanded?'':'collapsed'}" data-action="toggle-axis" data-tag="${axis.tag}">
+                <span class="chev">▼</span>
+                <span class="ax-tag ${axis.inGrid===false?'off-grid':''}">${esc(axis.tag)}</span>
+                <span class="ax-name">${esc(axis.name)}</span>
+                <span class="ax-range">${fmt(axis.min)}–${fmt(axis.max)}</span>
+                <button type="button" class="grid-tog ${axis.inGrid!==false?'on':''}" data-action="toggle-grid" data-tag="${axis.tag}" title="${axis.inGrid!==false?'Remove from instance grid':'Add to instance grid'}">${axis.inGrid!==false?'grid':'off'}</button>
+              </button>
+              ${axis.expanded ? `
+                <div class="value-list">
+                  ${axis.values.map(v=>`
+                    <div class="value-row ${v.elidable?'elidable':''} ${state.selectedValueId===v.id?'selected':''} ${linked.has(v.id)?'linked':''}"
+                         data-action="select-value" data-id="${v.id}">
+                      <span class="val-num">${fmt(v.value)}</span>
+                      <span class="val-name">${esc(v.name)}</span>
+                      <span class="elid-badge">elide</span>
+                    </div>
+                  `).join('')}
+                  <button class="add-stop" data-action="add-stop" data-tag="${axis.tag}">
+                    <span style="font-size:14px;line-height:1">+</span> Add stop
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+            <hr class="axis-divider" />
+          `).join('')}
+        </div>
+      </aside>`;
+  }
+
+  function renderInstances(list, all) {
+    const groups = new Map();
+    const gtag = state.groupByTag;
+    for (const inst of list) {
+      const av = inst.combo.find(c=>c.axisTag===gtag);
+      const title = av ? av.name : 'All';
+      if (!groups.has(title)) groups.set(title,[]);
+      groups.get(title).push(inst);
+    }
+    const showGroups = list.length > 24;
+    const chunks = showGroups ? [...groups.entries()] : [['',list]];
+
+    const rows = chunks.map(([title,items])=>`
+      ${title ? `<div class="inst-group-label">${esc(title)} · ${items.length}</div>` : ''}
+      ${items.map(inst=>`
+        <div class="inst-row ${inst.duplicate?'dup':''} ${state.excluded.has(inst.key)?'excluded':''} ${state.selectedInstanceKey===inst.key?'selected':''}"
+             data-action="select-instance" data-key="${esc(inst.key)}">
+          <input type="checkbox" class="inst-chk" data-action="toggle-include" data-key="${esc(inst.key)}"
+                 ${state.excluded.has(inst.key)?'':'checked'} />
+          <span class="inst-name">${esc(inst.name)}</span>
+          <span class="inst-coords">${Object.entries(inst.coords).map(([t,v])=>t+'='+fmt(v)).join(' ')}</span>
+        </div>
+      `).join('')}
+    `).join('');
+
+    return `
+      <section class="panel instances-panel">
+        <div class="panel-head">
+          Instances
+          <button class="panel-head-action" data-action="sort-toggle">Group by ${state.groupByTag}</button>
+        </div>
+        <div class="inst-toolbar">
+          <input class="inst-search" type="search" placeholder="Filter by name or axis…" value="${esc(state.search)}" id="searchInput" />
+          <button class="inst-btn" data-action="select-all">All</button>
+          <button class="inst-btn" data-action="select-none">None</button>
+        </div>
+        <div class="panel-body">
+          <div class="inst-list-body">
+            ${list.length ? rows : '<p style="padding:20px;text-align:center;color:var(--mu);font-size:12px">No instances match.</p>'}
+          </div>
+        </div>
+      </section>`;
+  }
+
+  function renderInspector(inst) {
+    if (!inst) {
+      return `
+        <aside class="panel inspector">
+          <div class="panel-head">Inspector</div>
+          <div class="panel-body">
+            <div class="insp-empty">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35M11 8v3M11 14h.01"/>
+              </svg>
+              Select an instance to inspect its naming chain and name table ID cross-references.
+            </div>
+          </div>
+        </aside>`;
+    }
+
+    const chips = state.namingChain
+      .filter(t => state.chainInName[t]!==false)
+      .map(t => {
+        const c = inst.combo.find(x=>x.axisTag===t);
+        if (!c) return `<span class="chain-chip off">${t}</span>`;
+        const skip = c.elidable && inst.combo.length>1 && t!=='ital';
+        return `<span class="chain-chip ${skip?'off':''}">${esc(c.name)}</span>`;
+      }).filter(Boolean);
+
+    const nameIds = mockNameIds(inst);
+    const conflicts = nameIds.filter(r=>r.status==='conflict');
+
+    return `
+      <aside class="panel inspector">
+        <div class="panel-head">
+          Inspector
+          ${conflicts.length ? `<span class="pill err" style="margin-left:auto">${conflicts.length} conflict${conflicts.length!==1?'s':''}</span>` : ''}
+        </div>
+        <div class="panel-body insp-body">
+
+          <div class="insp-section">
+            <div class="insp-section-label">Composed name</div>
+            <div class="composed-name">${esc(inst.name)}</div>
+            <div class="composed-sub">
+              ${inst.duplicate
+                ? '<span style="color:var(--er-dk)">⚠ Duplicate — reorder chain or adjust elision</span>'
+                : state.excluded.has(inst.key)
+                  ? '<span style="color:var(--mu)">Pruned from export</span>'
+                  : '<span style="color:var(--gn-dk)">✓ Included in export</span>'}
+            </div>
+            <div class="chain-mini">
+              ${chips.join('<span class="chain-arrow">→</span>')}
+            </div>
+          </div>
+
+          <div class="insp-section">
+            <div class="insp-section-label">Axis coordinates</div>
+            <table class="coord-table">
+              ${inst.combo.map(c=>`
+                <tr>
+                  <td>${esc(c.axisTag)}</td>
+                  <td>${fmt(c.value)}</td>
+                  <td>${esc(c.name)}</td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+
+          <div class="insp-section">
+            <div class="insp-section-label">Name table IDs</div>
+            <div class="name-ids">
+              ${nameIds.map(row=>`
+                <div class="name-id-row ${row.status==='conflict'?'conflict':row.linked?'linked-id':''}">
+                  <span class="id-num">${row.id}</span>
+                  <span class="id-role">${esc(row.role)}</span>
+                  <span class="id-val">${esc(row.val)}</span>
+                  ${row.linked ? `<span class="id-badge ${row.status==='conflict'?'conflict':''}">${esc(row.linked)}</span>` : ''}
+                  ${row.status==='ok' && row.linked ? `<span class="id-badge ok">✓</span>` : ''}
+                </div>
+                ${row.note ? `<div style="font-size:10px;color:var(--am-dk);padding:2px 6px 4px 6px">⚠ ${esc(row.note)}</div>` : ''}
+              `).join('')}
+            </div>
+          </div>
+
+        </div>
+      </aside>`;
+  }
+
+  function renderChainFooter() {
+    const tags = state.axes.map(a=>a.tag);
+    const chain = state.namingChain.filter(t=>tags.includes(t));
+    const rest = tags.filter(t=>!chain.includes(t));
+    const ordered = [...chain,...rest];
+    const nodes = ordered.map((tag,i,arr)=>{
+      const axis = state.axes.find(a=>a.tag===tag);
+      const on = state.chainInName[tag]!==false;
+      const node = `<div class="chain-node ${on?'':'off'}" draggable="true" data-chain-tag="${tag}">
+        <input type="checkbox" class="chain-node-tog" data-action="chain-tog" data-tag="${tag}" ${on?'checked':''}>
+        <span class="chain-node-tag">${esc(tag)}</span>
+        <span class="chain-node-name">${axis?axis.name:tag}</span>
+      </div>`;
+      const arrow = i<arr.length-1 ? `<div class="chain-connector ${on?'':'off'}"></div>` : '';
+      return node+arrow;
+    }).join('');
+
+    return `
+      <div class="chain-footer">
+        <div class="chain-footer-head">
+          Naming order
+          <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--mu)">Drag to reorder · toggle to include/exclude from composed name</span>
+        </div>
+        <div class="chain-footer-body" id="chainTrack">
+          ${nodes}
+          <div class="chain-preview-strip">
+            <span class="chain-preview-label">Example</span>
+            <span class="chain-preview-val">${esc(renderChainPreview())}</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /* ── Main render ──────────────────────────────────────────────── */
+  function render() {
+    const all = generateInstances();
+    const selInst = state.selectedInstanceKey ? all.find(i=>i.key===state.selectedInstanceKey) : null;
+    const linked = selInst ? new Set(selInst.combo.map(c=>c.valueId)) : new Set();
+
+    let list = [...all];
+    if (state.selectedValueId) {
+      const sel = findVal(state.selectedValueId);
+      if (sel) list = list.filter(i=>i.combo.some(c=>c.valueId===sel.value.id));
+    }
+    if (state.search.trim()) {
+      const q = state.search.trim().toLowerCase();
+      list = list.filter(i=>i.name.toLowerCase().includes(q)||Object.entries(i.coords).some(([t,v])=>`${t}${v}`.includes(q)));
+    }
+
+    document.getElementById('app').innerHTML = `
+      ${renderTopbar()}
+      ${renderCtxBar()}
+      <div class="panels">
+        ${renderAxisTree(linked)}
+        ${renderInstances(list, all)}
+        ${renderInspector(selInst)}
+      </div>
+      ${renderChainFooter()}
+    `;
+    bindEvents();
+  }
+
+  /* ── Event binding ────────────────────────────────────────────── */
+  function bindEvents() {
+    /* Preset select */
+    document.getElementById('presetSelect')?.addEventListener('change', e=>{
+      const key = e.target.value;
+      const p = PRESETS[key];
+      state.preset = key;
+      state.axes = JSON.parse(JSON.stringify(p.axes));
+      state.filename = p.filename;
+      state.excluded = new Set();
+      state.selectedValueId = null;
+      state.selectedInstanceKey = null;
+      state.search = '';
+      render();
+    });
+
+    /* Search */
+    document.getElementById('searchInput')?.addEventListener('input', e=>{
+      state.search = e.target.value; render();
+    });
+
+    /* File tabs */
+    document.querySelectorAll('[data-action="switch-file"]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        state.files.forEach(f=>f.active = f.id===el.dataset.id);
+        render();
+      });
+    });
+
+    /* Axis toggle expand */
+    document.querySelectorAll('[data-action="toggle-axis"]').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        if (e.target.closest('.grid-tog')) return;
+        const axis = state.axes.find(a=>a.tag===btn.dataset.tag);
+        if (axis) axis.expanded = !axis.expanded;
+        render();
+      });
+    });
+
+    /* Grid toggle */
+    document.querySelectorAll('[data-action="toggle-grid"]').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const axis = state.axes.find(a=>a.tag===btn.dataset.tag);
+        if (axis) axis.inGrid = axis.inGrid===false ? true : false;
+        render();
+      });
+    });
+
+    /* Select value */
+    document.querySelectorAll('[data-action="select-value"]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        state.selectedValueId = state.selectedValueId===el.dataset.id ? null : el.dataset.id;
+        state.selectedInstanceKey = null;
+        render();
+      });
+    });
+
+    /* Add stop stub */
+    document.querySelectorAll('[data-action="add-stop"]').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const axis = state.axes.find(a=>a.tag===btn.dataset.tag);
+        if (!axis) return;
+        const newVal = prompt(`New stop value for ${axis.name} (${axis.min}–${axis.max}):`);
+        if (!newVal || isNaN(Number(newVal))) return;
+        const newName = prompt(`Name for this stop:`);
+        if (!newName) return;
+        const id = 'v' + (state.nextId++);
+        axis.values.push({ id, value:Number(newVal), name:newName.trim(), elidable:false });
+        axis.values.sort((a,b)=>a.value-b.value);
+        render();
+      });
+    });
+
+    /* Select instance */
+    document.querySelectorAll('[data-action="select-instance"]').forEach(el=>{
+      el.addEventListener('click', e=>{
+        if (e.target.classList.contains('inst-chk')) return;
+        state.selectedInstanceKey = el.dataset.key;
+        render();
+      });
+    });
+
+    /* Toggle include */
+    document.querySelectorAll('[data-action="toggle-include"]').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        if (cb.checked) state.excluded.delete(cb.dataset.key);
+        else state.excluded.add(cb.dataset.key);
+        render();
+      });
+    });
+
+    /* Chain toggle */
+    document.querySelectorAll('[data-action="chain-tog"]').forEach(cb=>{
+      cb.addEventListener('change', e=>{
+        e.stopPropagation();
+        state.chainInName[cb.dataset.tag] = cb.checked;
+        render();
+      });
+    });
+
+    /* Prune dups */
+    document.querySelector('[data-action="prune-dups"]')?.addEventListener('click', ()=>{
+      const all = generateInstances();
+      const seen = new Set();
+      all.forEach(inst=>{
+        if (seen.has(inst.name)) state.excluded.add(inst.key);
+        else seen.add(inst.name);
+      });
+      render();
+    });
+
+    /* Restore all */
+    document.querySelector('[data-action="restore-all"]')?.addEventListener('click', ()=>{
+      state.excluded.clear(); render();
+    });
+
+    /* Select all / none */
+    document.querySelector('[data-action="select-all"]')?.addEventListener('click', ()=>{
+      state.excluded.clear(); render();
+    });
+    document.querySelector('[data-action="select-none"]')?.addEventListener('click', ()=>{
+      generateInstances().forEach(i=>state.excluded.add(i.key)); render();
+    });
+
+    /* Export stub */
+    document.querySelector('[data-action="export"]')?.addEventListener('click', ()=>{
+      const all = generateInstances();
+      const included = all.filter(i=>!state.excluded.has(i.key));
+      alert(`Export ${included.length} instances from ${state.filename}\n\n${included.slice(0,8).map(i=>i.name).join('\n')}${included.length>8?`\n…and ${included.length-8} more`:''}`);
+    });
+
+    /* Chain drag-to-reorder */
+    const track = document.getElementById('chainTrack');
+    if (!track) return;
+    let dragTag = null;
+    track.querySelectorAll('.chain-node').forEach(node=>{
+      node.addEventListener('dragstart', e=>{
+        dragTag = node.dataset.chainTag;
+        node.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      node.addEventListener('dragend', ()=>{ node.classList.remove('dragging'); dragTag=null; });
+      node.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+      node.addEventListener('drop', e=>{
+        e.preventDefault();
+        const targetTag = node.dataset.chainTag;
+        if (!dragTag||dragTag===targetTag) return;
+        const chain = [...state.namingChain];
+        const from = chain.indexOf(dragTag);
+        const to = chain.indexOf(targetTag);
+        if (from<0||to<0) return;
+        chain.splice(from,1); chain.splice(to,0,dragTag);
+        state.namingChain = chain;
+        render();
+      });
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
