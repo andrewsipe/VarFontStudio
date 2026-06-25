@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct VarFontStudioApp: App {
     @StateObject private var editor = EditorViewModel()
+    @StateObject private var layout = EditorLayoutPreferences()
 
     init() {
         NSWindow.allowsAutomaticWindowTabbing = false
@@ -13,6 +14,7 @@ struct VarFontStudioApp: App {
         WindowGroup {
             MainEditorView()
                 .environmentObject(editor)
+                .environmentObject(layout)
                 .frame(minWidth: 960, minHeight: 620)
         }
         .commands {
@@ -49,6 +51,17 @@ struct VarFontStudioApp: App {
                 }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .disabled(!editor.canRedo)
+            }
+
+            CommandGroup(replacing: .sidebar) {
+                Toggle("Axis Tree", isOn: $layout.showAxisTree)
+                    .keyboardShortcut("1", modifiers: [.command, .control])
+
+                Toggle("Instances", isOn: $layout.showInstances)
+                    .keyboardShortcut("2", modifiers: [.command, .control])
+
+                Toggle("Inspector", isOn: $layout.showInspector)
+                    .keyboardShortcut("3", modifiers: [.command, .control])
             }
 
             CommandMenu("Instances") {

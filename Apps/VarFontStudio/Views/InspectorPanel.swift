@@ -5,18 +5,23 @@ struct InspectorPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
 
     var body: some View {
-        Group {
-            if let instance = editor.selectedInstance {
-                instanceInspector(instance)
-            } else {
-                ContentUnavailableView(
-                    "No Instance Selected",
-                    systemImage: "sidebar.right",
-                    description: Text("Select a row in the instance list to inspect naming and coordinates.")
-                )
+        VStack(spacing: 0) {
+            StudioPanelHeader(title: "Inspector")
+
+            Group {
+                if let instance = editor.selectedInstance {
+                    instanceInspector(instance)
+                } else {
+                    ContentUnavailableView(
+                        "No Instance Selected",
+                        systemImage: "sidebar.right",
+                        description: Text("Select a row in the instance list to inspect naming and coordinates.")
+                    )
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle("Inspector")
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func instanceInspector(_ instance: PlannedInstance) -> some View {

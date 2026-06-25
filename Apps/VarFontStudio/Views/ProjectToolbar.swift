@@ -15,28 +15,14 @@ struct ProjectToolbar: View {
 
     var body: some View {
         HStack(spacing: StudioSpacing.controlGap) {
-            if editor.hasOpenProjects {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
-                        ForEach(editor.openProjects) { openProject in
-                            projectTab(openProject)
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(editor.openProjects) { openProject in
+                        projectTab(openProject)
                     }
-                    .padding(.vertical, 2)
                 }
+                .padding(.vertical, 2)
             }
-
-            Button {
-                editor.presentOpenPanel()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
-            }
-            .buttonStyle(.plain)
-            .help("New project — open a variable font")
 
             Spacer(minLength: 0)
         }

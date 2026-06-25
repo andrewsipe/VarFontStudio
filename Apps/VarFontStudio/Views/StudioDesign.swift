@@ -123,6 +123,33 @@ struct StudioSectionLabel: View {
     }
 }
 
+struct StudioPanelHeader<Trailing: View>: View {
+    let title: String
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(
+        title: String,
+        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
+    ) {
+        self.title = title
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        HStack(spacing: StudioSpacing.controlGap) {
+            StudioSectionLabel(title: title)
+            Spacer(minLength: 0)
+            trailing()
+        }
+        .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
+        .frame(height: 32)
+        .background(.bar.opacity(0.65))
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
+}
+
 struct StudioFilterChip<Trailing: View>: View {
     var icon: String? = "line.3.horizontal.decrease"
     let label: String

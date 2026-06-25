@@ -3,7 +3,6 @@ import VarFontCore
 
 struct MainEditorView: View {
     @EnvironmentObject private var editor: EditorViewModel
-    @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var isDropTargeted = false
     @State private var activeDropZone: WorkspaceDropZone = .none
     @State private var openProjectMenuID: String?
@@ -108,24 +107,14 @@ struct MainEditorView: View {
 
     private var editorChrome: some View {
         VStack(spacing: 0) {
-            ProjectToolbar(openMenuProjectID: $openProjectMenuID)
-                .environmentObject(editor)
-
-            ProjectFileSubBar()
-                .environmentObject(editor)
+            if editor.hasOpenProjects {
+                projectChrome
+                Divider()
+            }
 
             Group {
                 if editor.hasOpenProjects {
-                    NavigationSplitView(columnVisibility: $columnVisibility) {
-                        AxisTreePanel()
-                            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
-                    } content: {
-                        InstanceListPanel()
-                            .navigationSplitViewColumnWidth(min: 320, ideal: 420)
-                    } detail: {
-                        InspectorPanel()
-                            .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
-                    }
+                    StudioPanelSplitView()
                 } else if !isDropTargeted {
                     EmptyWorkspaceView()
                 } else {
@@ -133,13 +122,13 @@ struct MainEditorView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle(activeNavigationTitle)
             .toolbar { toolbarItems }
 
             if editor.hasOpenProjects {
                 editorFooter
             }
         }
+        .navigationTitle(activeNavigationTitle)
         .overlayPreferenceValue(ProjectTabAnchorKey.self) { anchors in
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
@@ -170,6 +159,17 @@ struct MainEditorView: View {
         }
     }
 
+    private var projectChrome: some View {
+        VStack(spacing: 0) {
+            ProjectToolbar(openMenuProjectID: $openProjectMenuID)
+                .environmentObject(editor)
+
+            ProjectFileSubBar()
+                .environmentObject(editor)
+        }
+        .background(.bar)
+    }
+
     private var activeNavigationTitle: String {
         if let id = editor.activeProjectID,
            let openProject = editor.openProjects.first(where: { $0.id == id }) {
@@ -195,7 +195,7 @@ struct MainEditorView: View {
             Button("Open…", systemImage: "folder") {
                 editor.presentOpenPanel()
             }
-            .help("New project — open a variable font")
+            .help("Open a variable font — creates a new project tab")
         }
 
         ToolbarItem {

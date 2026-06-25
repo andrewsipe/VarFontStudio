@@ -12,26 +12,28 @@ struct AxisTreePanel: View {
     @State private var editingStop: (id: String, field: StopEditField)?
 
     var body: some View {
-        List {
-            if editor.selectedFont != nil {
-                gridSummarySection
-                if !editor.axisPlanWarnings.isEmpty {
-                    warningsSection
-                }
-                axesSection
-            }
-        }
-        .listStyle(.sidebar)
-        .navigationTitle("Axis Tree")
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
+        VStack(spacing: 0) {
+            StudioPanelHeader(title: "Axis tree") {
                 if let font = editor.selectedFont {
                     Text("\(font.axes.count) axes")
                         .font(StudioTypography.meta)
                         .foregroundStyle(.secondary)
                 }
             }
+
+            List {
+                if editor.selectedFont != nil {
+                    gridSummarySection
+                    if !editor.axisPlanWarnings.isEmpty {
+                        warningsSection
+                    }
+                    axesSection
+                }
+            }
+            .listStyle(.inset)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .clipped()
         .onChange(of: editor.selectedFontID) {
             editingStop = nil
             resetExpansion()
@@ -84,16 +86,12 @@ struct AxisTreePanel: View {
     private var axesSection: some View {
         Section {
             if let font = editor.selectedFont {
-                ForEach(Array(font.axes.enumerated()), id: \.element.id) { index, axis in
-                    if index > 0 {
-                        Divider()
-                            .padding(.leading, 8)
-                    }
-
+                ForEach(font.axes) { axis in
                     axisBlock(axis)
                 }
             }
         }
+        .listSectionSeparator(.hidden)
     }
 
     @ViewBuilder
@@ -115,7 +113,8 @@ struct AxisTreePanel: View {
                     .opacity(isInstanceAxis ? 1 : 0.4)
             }
         }
-        .listRowInsets(EdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 8))
+        .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+        .listRowSeparator(.hidden)
     }
 
     // MARK: - Axis detail
@@ -254,6 +253,8 @@ private struct AxisTreeAxisHeader: View {
 
             Spacer(minLength: 4)
 
+            stopCountBadge
+
             Toggle("Instance axis", isOn: $isInstanceAxis)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
@@ -263,8 +264,6 @@ private struct AxisTreeAxisHeader: View {
                         + "When off, the axis stays at its default value for every instance."
                 )
                 .accessibilityLabel("Instance axis")
-
-            stopCountBadge
         }
     }
 
@@ -273,7 +272,7 @@ private struct AxisTreeAxisHeader: View {
             .font(StudioTypography.meta.weight(.medium))
             .monospacedDigit()
             .foregroundStyle(isInstanceAxis ? .secondary : .tertiary)
-            .padding(.horizontal, 7)
+            .frame(width: AxisBlockLayout.stopCountBadgeWidth)
             .padding(.vertical, 2)
             .background(.quaternary.opacity(isInstanceAxis ? 1 : 0.6), in: Capsule())
             .help(
@@ -312,6 +311,9 @@ private enum AxisBlockLayout {
     static let valueColumnWidth: CGFloat = 40
     static let nameGap: CGFloat = 12
     static let elidableWidth: CGFloat = 52
+
+    /// Fixed width for stop-count badge so instance toggles align across axes.
+    static let stopCountBadgeWidth: CGFloat = 28
 
     /// Gutter between the badge (highlight left edge) and the Value column.
     static var removeGutterWidth: CGFloat {

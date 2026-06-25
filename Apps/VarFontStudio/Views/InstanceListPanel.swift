@@ -11,6 +11,14 @@ struct InstanceListPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            StudioPanelHeader(title: "Instances") {
+                if !display.isEmpty {
+                    Text("\(visibleInstanceCount) shown")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             filterBar
 
             if editor.selectedFont == nil {
@@ -31,7 +39,11 @@ struct InstanceListPanel: View {
                 instanceList
             }
         }
-        .navigationTitle("Instances")
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var visibleInstanceCount: Int {
+        display.groups.reduce(0) { $0 + $1.instances.count }
     }
 
     private var instanceList: some View {
