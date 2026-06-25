@@ -23,7 +23,7 @@ struct ProjectFileSubBar: View {
                 }
                 .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
                 .padding(.vertical, 5)
-                .background(.bar.opacity(0.65))
+                .background(.bar)
             }
         }
     }

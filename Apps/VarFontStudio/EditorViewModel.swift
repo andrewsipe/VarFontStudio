@@ -57,7 +57,7 @@ final class EditorViewModel: ObservableObject {
     @Published var confirmRemoveFont: FontRemovalRequest?
     /// Project workspace tab id pending close confirmation.
     @Published var confirmCloseProjectID: String?
-    /// After drop on teal zone with multiple projects — pick target.
+    /// After drop on add-to-project zone with multiple projects — pick target.
     @Published var pendingDropURLs: [URL]?
     @Published var pendingAddFontProjectID: String?
 

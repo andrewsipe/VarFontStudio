@@ -140,9 +140,8 @@ struct ProjectDropdownMenu: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, StudioSpacing.panelHorizontal)
         .padding(.vertical, 8)
-        .padding(.horizontal, 6)
         .padding(.top, 6)
     }
 

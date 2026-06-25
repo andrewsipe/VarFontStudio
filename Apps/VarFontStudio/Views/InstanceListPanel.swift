@@ -256,10 +256,7 @@ private struct InstanceRowView: View {
                 .lineLimit(1)
 
             if instance.duplicate {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.orange)
-                    .help("Duplicate composed name")
+                StudioWarningBadge(help: "Duplicate composed name")
             }
 
             Spacer(minLength: StudioSpacing.controlGap)

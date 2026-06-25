@@ -138,7 +138,7 @@ struct NamingOrderChainFooter: View {
                 .textSelection(.enabled)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
                 .overlay(alignment: .leading) {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .fill(Color.accentColor.opacity(0.35))

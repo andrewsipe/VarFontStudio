@@ -35,18 +35,21 @@ enum StudioRadius {
 }
 
 enum StudioColors {
-    static let tagForeground = Color.teal
-    static let tagBackground = Color.teal.opacity(0.15)
+    /// Neutral axis/key tags — accent is reserved for selection and interaction.
+    static let tagForeground = Color.secondary
+    static let tagBackground = Color.secondary.opacity(0.12)
     static let axisValue = Color.orange.opacity(0.85)
     static let selectionFill = Color.accentColor.opacity(0.15)
     static let selectionStroke = Color.accentColor.opacity(0.35)
     static let hoverFill = Color.primary.opacity(0.05)
     static let warningFill = Color.orange.opacity(0.12)
     static let warningFillHover = Color.orange.opacity(0.18)
+    static let warningForeground = Color.orange
     /// Highlights filtered counts and summary figures in dense lists.
     static let dataHighlight = Color(red: 0.90, green: 0.58, blue: 0.22)
-    static let dropAddExisting = Color.teal
-    static let dropNewProject = Color.accentColor
+    /// Drop zones: accent = add to open project; muted green = start fresh.
+    static let dropAddExisting = Color.accentColor
+    static let dropNewProject = Color(red: 0.32, green: 0.58, blue: 0.42)
 }
 
 enum StudioFormatting {
@@ -143,10 +146,24 @@ struct StudioPanelHeader<Trailing: View>: View {
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
         .frame(height: 32)
-        .background(.bar.opacity(0.65))
+        .background(.bar)
         .overlay(alignment: .bottom) {
             Divider()
         }
+    }
+}
+
+struct StudioWarningBadge: View {
+    let help: String
+    var systemImage: String = "exclamationmark.triangle.fill"
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(StudioTypography.meta)
+            .foregroundStyle(StudioColors.warningForeground)
+            .padding(3)
+            .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+            .help(help)
     }
 }
 
@@ -247,6 +264,7 @@ struct StudioGroupHeader: View {
                 .padding(.horizontal, -StudioSpacing.listInset)
         }
         .background {
+            // Tinted layer over `.background` so headers read on grouped list chrome.
             RoundedRectangle(cornerRadius: StudioRadius.chip)
                 .fill(.quaternary.opacity(0.5))
                 .padding(.horizontal, -StudioSpacing.listInset)

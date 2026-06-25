@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shown after drop on teal zone when multiple projects are open.
+/// Shown after drop on the add-to-project zone when multiple projects are open.
 struct ProjectPickerSheet: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(\.dismiss) private var dismiss
