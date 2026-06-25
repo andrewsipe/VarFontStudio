@@ -52,26 +52,30 @@ struct VarFontStudioApp: App {
             }
 
             CommandMenu("Instances") {
-                Button("Include All Shown") {
+                Button(InstanceInclusionCommands.includeAllShownTitle) {
                     editor.setAllVisibleInstancesIncluded(true)
                 }
+                .keyboardShortcut(InstanceInclusionCommands.includeAllShownShortcut)
                 .disabled(editor.filteredInstances.isEmpty)
 
-                Button("Exclude All Shown") {
+                Button(InstanceInclusionCommands.excludeAllShownTitle) {
                     editor.setAllVisibleInstancesIncluded(false)
                 }
+                .keyboardShortcut(InstanceInclusionCommands.excludeAllShownShortcut)
                 .disabled(editor.filteredInstances.isEmpty)
 
                 Divider()
 
-                Button("Include Selection") {
+                Button(InstanceInclusionCommands.includeSelectionTitle) {
                     editor.setInstancesIncluded(keys: editor.activeInstanceSelection, included: true)
                 }
+                .keyboardShortcut(InstanceInclusionCommands.includeSelectionShortcut)
                 .disabled(editor.activeInstanceSelection.isEmpty)
 
-                Button("Exclude Selection") {
+                Button(InstanceInclusionCommands.excludeSelectionTitle) {
                     editor.setInstancesIncluded(keys: editor.activeInstanceSelection, included: false)
                 }
+                .keyboardShortcut(InstanceInclusionCommands.excludeSelectionShortcut)
                 .disabled(editor.activeInstanceSelection.isEmpty)
             }
         }

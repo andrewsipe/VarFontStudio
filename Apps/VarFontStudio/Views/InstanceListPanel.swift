@@ -5,8 +5,6 @@ import VarFontCore
 struct InstanceListPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
 
-    private let toolbarColumnWidth: CGFloat = 168
-
     private var display: InstanceListDisplay {
         editor.instanceListDisplay
     }
@@ -25,7 +23,7 @@ struct InstanceListPanel: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if display.isEmpty {
                 ContentUnavailableView(
-                    "No Matching Instances",
+                    emptyListTitle,
                     systemImage: "line.3.horizontal.decrease.circle",
                     description: Text(emptyListMessage)
                 )
@@ -81,92 +79,110 @@ struct InstanceListPanel: View {
         )
     }
 
+    // MARK: - Filter bar
+
     private var filterBar: some View {
-        StudioCompactToolbar {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
-                    if let label = display.axisStopFilterLabel {
-                        StudioFilterChip(icon: nil, label: label) {
-                            Button {
-                                editor.clearAxisStopFilter()
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(StudioTypography.meta)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Clear axis stop filter")
+        VStack(alignment: .leading, spacing: 0) {
+            // Row 1: navigation
+            HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
+                if let label = display.axisStopFilterLabel {
+                    StudioFilterChip(icon: nil, label: label) {
+                        Button {
+                            editor.clearAxisStopFilter()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(StudioTypography.meta)
+                                .foregroundStyle(.secondary)
                         }
+                        .buttonStyle(.plain)
+                        .help("Clear axis stop filter")
                     }
-
-                    Spacer(minLength: 0)
-
-                    toolbarSearchField
-                        .frame(width: toolbarColumnWidth, alignment: .trailing)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
 
-                HStack(alignment: .center, spacing: 0) {
-                    includeAllRow
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
 
-                    showFilterControl
-                        .frame(width: toolbarColumnWidth, alignment: .trailing)
-
-                    if editor.selectedFont?.dirty == true {
-                        Text("Edited")
-                            .font(StudioTypography.meta)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, StudioSpacing.controlGap)
-                    }
-                }
-                .frame(minHeight: 28)
+                searchField
+                    .frame(width: 180)
             }
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.top, StudioSpacing.toolbarVertical)
+            .padding(.bottom, StudioSpacing.rowGap - 1)
+            .animation(.easeOut(duration: 0.15), value: display.axisStopFilterLabel)
+
+            // Row 2: action + status
+            HStack(alignment: .center, spacing: 0) {
+                StudioIncludeCheckbox(
+                    isOn: editor.allVisibleInstancesIncluded,
+                    isIndeterminate: editor.hasMixedVisibleInclusion
+                ) {
+                    editor.toggleAllVisibleInstancesIncluded()
+                }
+                .disabled(editor.filteredInstances.isEmpty)
+
+                Text("Include all")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(editor.filteredInstances.isEmpty ? .tertiary : .secondary)
+                    .padding(.leading, StudioSpacing.rowGap - 1)
+                    .lineLimit(1)
+
+                if let summary = display.summary {
+                    Text("·")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.quaternary)
+                        .padding(.horizontal, 5)
+
+                    Text(summary)
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(StudioColors.dataHighlight)
+                        .lineLimit(1)
+                        .layoutPriority(-1)
+                }
+
+                Spacer(minLength: StudioSpacing.controlGap)
+
+                showFilterPicker
+                    .frame(width: 180, alignment: .trailing)
+            }
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.bottom, StudioSpacing.toolbarVertical)
+            .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
+
+            Divider()
         }
     }
 
-    private var toolbarSearchField: some View {
+    private var searchField: some View {
         HStack(spacing: 4) {
             Image(systemName: "magnifyingglass")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
-            TextField("Search", text: $editor.searchText)
+
+            TextField("Search names or coordinates", text: $editor.searchText)
                 .textFieldStyle(.plain)
                 .font(StudioTypography.caption)
+
+            if !editor.searchText.isEmpty {
+                Button {
+                    editor.searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 7)
         .padding(.vertical, 4)
-        .background(.quaternary.opacity(0.55), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+        .background(
+            .quaternary.opacity(0.55),
+            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+        )
     }
 
-    private var includeAllRow: some View {
-        HStack(spacing: StudioSpacing.rowGap + 1) {
-            StudioIncludeCheckbox(
-                isOn: editor.allVisibleInstancesIncluded,
-                isIndeterminate: editor.hasMixedVisibleInclusion
-            ) {
-                editor.toggleAllVisibleInstancesIncluded()
-            }
-
-            Text("Include All")
-                .font(StudioTypography.caption)
-                .foregroundStyle(editor.filteredInstances.isEmpty ? .secondary : .primary)
-
-            if let summary = display.summary {
-                Text(summary)
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(StudioColors.dataHighlight)
-                    .lineLimit(1)
-                    .layoutPriority(-1)
-                    .padding(.leading, 2)
-            }
-        }
-        .opacity(editor.filteredInstances.isEmpty ? 0.45 : 1)
-        .allowsHitTesting(!editor.filteredInstances.isEmpty)
-        .help("Include or exclude every instance currently shown in the list")
-    }
-
-    private var showFilterControl: some View {
-        VStack(alignment: .trailing, spacing: 1) {
+    private var showFilterPicker: some View {
+        HStack(spacing: 4) {
             Text("Show")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
@@ -180,13 +196,23 @@ struct InstanceListPanel: View {
             .pickerStyle(.segmented)
             .controlSize(.mini)
             .labelsHidden()
-            .frame(maxWidth: toolbarColumnWidth)
+            .fixedSize()
         }
+    }
+
+    private var emptyListTitle: String {
+        if editor.instanceFilter == .excluded && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
+            return "No Excluded Instances"
+        }
+        return "No Matching Instances"
     }
 
     private var emptyListMessage: String {
         if display.axisStopFilterLabel != nil {
             return "No instances match the selected axis stop. Click the stop again to clear the filter."
+        }
+        if editor.instanceFilter == .excluded && editor.searchText.isEmpty {
+            return "No excluded instances — all are included in this export."
         }
         if !editor.searchText.isEmpty || editor.instanceFilter != .all {
             return "Try clearing the search or switching the inclusion filter."
@@ -247,12 +273,10 @@ private struct InstanceRowView: View {
             onSelect(NSEvent.modifierFlags.contains(.command))
         }
         .contextMenu {
-            Button("Include") {
-                onSetSelectionIncluded(true)
-            }
-            Button("Exclude") {
-                onSetSelectionIncluded(false)
-            }
+            InstanceSelectionContextMenu(
+                includeAction: { onSetSelectionIncluded(true) },
+                excludeAction: { onSetSelectionIncluded(false) }
+            )
         }
         .onHover { isHovered = $0 }
     }

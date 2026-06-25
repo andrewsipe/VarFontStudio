@@ -153,6 +153,66 @@ final class EditorViewModel: ObservableObject {
         setAllVisibleInstancesIncluded(!allVisibleInstancesIncluded)
     }
 
+    // MARK: - Naming order chain
+
+    var namingChainTags: [String] {
+        guard let project, let font = selectedFont else { return [] }
+        return Self.mergedNamingOrder(projectOrder: project.naming.order, axisTags: font.axes.map(\.tag))
+    }
+
+    var namingChainSummary: String {
+        namingChainTags.joined(separator: " → ")
+    }
+
+    var namingChainPreviewName: String {
+        if let name = selectedInstance?.composedName, !name.isEmpty {
+            return name
+        }
+        if let name = instancePlan?.instances.first?.composedName, !name.isEmpty {
+            return name
+        }
+        return project?.naming.elidedFallback ?? "Regular"
+    }
+
+    func axisDisplayName(for tag: String) -> String {
+        if let name = selectedFont?.axes.first(where: { $0.tag == tag })?.displayName, !name.isEmpty {
+            return name
+        }
+        return tag
+    }
+
+    func setNamingOrder(_ tags: [String]) {
+        guard var project, let font = selectedFont else { return }
+        let axisTags = font.axes.map(\.tag)
+        let normalized = Self.mergedNamingOrder(projectOrder: tags, axisTags: axisTags)
+        guard normalized != project.naming.order else { return }
+
+        pushUndoSnapshot()
+        project.naming.order = normalized
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    func reorderNamingChain(moving draggedTag: String, before anchorTag: String) {
+        var tags = namingChainTags
+        guard draggedTag != anchorTag,
+              let fromIndex = tags.firstIndex(of: draggedTag),
+              let anchorIndex = tags.firstIndex(of: anchorTag) else { return }
+
+        tags.remove(at: fromIndex)
+        let insertIndex = fromIndex < anchorIndex ? anchorIndex - 1 : anchorIndex
+        tags.insert(draggedTag, at: insertIndex)
+        setNamingOrder(tags)
+    }
+
+    static func mergedNamingOrder(projectOrder: [String], axisTags: [String]) -> [String] {
+        let ordered = projectOrder.filter { axisTags.contains($0) }
+        let remainder = axisTags.filter { !ordered.contains($0) }
+        return ordered + remainder
+    }
+
     private func refreshInstanceListDisplay() {
         guard let instancePlan else {
             instanceListDisplay = .empty

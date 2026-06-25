@@ -17,6 +17,8 @@
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
 		B2000009 /* VarFontCore in Frameworks */ = {isa = PBXBuildFile; productRef = P2000001 /* VarFontCore */; };
 		B2000010 /* StudioDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000009 /* StudioDesign.swift */; };
+		B2000011 /* InstanceInclusionCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000010 /* InstanceInclusionCommands.swift */; };
+		B2000012 /* NamingOrderChainFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000011 /* NamingOrderChainFooter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +32,8 @@
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2000009 /* StudioDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDesign.swift; sourceTree = "<group>"; };
+		F2000010 /* InstanceInclusionCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceInclusionCommands.swift; sourceTree = "<group>"; };
+		F2000011 /* NamingOrderChainFooter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NamingOrderChainFooter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +76,8 @@
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
 				F2000009 /* StudioDesign.swift */,
+				F2000010 /* InstanceInclusionCommands.swift */,
+				F2000011 /* NamingOrderChainFooter.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -159,6 +165,8 @@
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,
+				B2000011 /* InstanceInclusionCommands.swift in Sources */,
+				B2000012 /* NamingOrderChainFooter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

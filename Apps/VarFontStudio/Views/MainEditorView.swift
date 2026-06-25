@@ -16,21 +16,34 @@ struct MainEditorView: View {
     }
 
     private var editorChrome: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            AxisTreePanel()
-                .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
-        } content: {
-            InstanceListPanel()
-                .navigationSplitViewColumnWidth(min: 320, ideal: 420)
-        } detail: {
-            InspectorPanel()
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
+        VStack(spacing: 0) {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                AxisTreePanel()
+                    .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
+            } content: {
+                InstanceListPanel()
+                    .navigationSplitViewColumnWidth(min: 320, ideal: 420)
+            } detail: {
+                InspectorPanel()
+                    .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle(editor.project?.familyLabel ?? "VarFont Studio")
+            .toolbar { toolbarItems }
+
+            editorFooter
         }
-        .navigationTitle(editor.project?.familyLabel ?? "VarFont Studio")
-        .toolbar { toolbarItems }
-        .safeAreaInset(edge: .bottom) {
+    }
+
+    /// Bottom chrome: naming-order chain + status row.
+    private var editorFooter: some View {
+        VStack(spacing: 0) {
+            Divider()
+            NamingOrderChainFooter()
+            Divider()
             statusBar
         }
+        .background(.bar)
     }
 
     @ToolbarContentBuilder
@@ -63,7 +76,6 @@ struct MainEditorView: View {
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
         .padding(.vertical, 4)
-        .background(.bar)
     }
 
     private var loadingOverlay: some View {
