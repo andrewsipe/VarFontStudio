@@ -141,7 +141,7 @@ struct NamingOrderChainFooter: View {
                 .background(.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
                 .overlay(alignment: .leading) {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .fill(Color.accentColor.opacity(0.35))
+                        .fill(Color.accentColor.opacity(0.5))
                         .frame(width: 2)
                         .padding(.vertical, 2)
                 }

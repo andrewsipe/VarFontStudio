@@ -45,11 +45,11 @@ enum StudioColors {
     static let warningFill = Color.orange.opacity(0.12)
     static let warningFillHover = Color.orange.opacity(0.18)
     static let warningForeground = Color.orange
-    /// Highlights filtered counts and summary figures in dense lists.
-    static let dataHighlight = Color(red: 0.90, green: 0.58, blue: 0.22)
-    /// Drop zones: accent = add to open project; muted green = start fresh.
+    /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
+    static let computedHighlight = Color.accentColor
+    /// Drop zones: accent intensity distinguishes add vs new project (spatial split is primary).
     static let dropAddExisting = Color.accentColor
-    static let dropNewProject = Color(red: 0.32, green: 0.58, blue: 0.42)
+    static let dropNewProject = Color.accentColor.opacity(0.55)
 }
 
 enum StudioFormatting {
@@ -251,7 +251,7 @@ struct StudioGroupHeader: View {
             Text("·")
                 .foregroundStyle(.tertiary)
             Text("\(count)")
-                .foregroundStyle(StudioColors.dataHighlight)
+                .foregroundStyle(StudioColors.computedHighlight)
         }
         .font(StudioTypography.columnLabel)
         .textCase(nil)

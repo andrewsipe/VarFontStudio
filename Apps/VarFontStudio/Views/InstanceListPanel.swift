@@ -13,9 +13,7 @@ struct InstanceListPanel: View {
         VStack(spacing: 0) {
             StudioPanelHeader(title: "Instances") {
                 if !display.isEmpty {
-                    Text("\(visibleInstanceCount) shown")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.secondary)
+                    instanceHeaderCounts
                 }
             }
 
@@ -44,6 +42,26 @@ struct InstanceListPanel: View {
 
     private var visibleInstanceCount: Int {
         display.groups.reduce(0) { $0 + $1.instances.count }
+    }
+
+    private var instanceHeaderCounts: some View {
+        HStack(spacing: 3) {
+            Text("\(visibleInstanceCount)")
+                .foregroundStyle(StudioColors.computedHighlight)
+            Text("shown")
+                .foregroundStyle(.secondary)
+
+            if let plan = editor.instancePlan {
+                Text("·")
+                    .foregroundStyle(.quaternary)
+                Text("\(plan.formula.totalIncluded)")
+                    .foregroundStyle(StudioColors.computedHighlight)
+                Text("included")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(StudioTypography.meta)
+        .lineLimit(1)
     }
 
     private var instanceList: some View {
@@ -93,72 +111,48 @@ struct InstanceListPanel: View {
     // MARK: - Filter bar
 
     private var filterBar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Row 1: navigation
-            HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
-                if let label = display.axisStopFilterLabel {
-                    StudioFilterChip(icon: nil, label: label) {
-                        Button {
-                            editor.clearAxisStopFilter()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(StudioTypography.meta)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Clear axis stop filter")
+        HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
+            if let label = display.axisStopFilterLabel {
+                StudioFilterChip(icon: nil, label: label) {
+                    Button {
+                        editor.clearAxisStopFilter()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.secondary)
                     }
-                    .transition(.opacity.combined(with: .move(edge: .leading)))
+                    .buttonStyle(.plain)
+                    .help("Clear axis stop filter")
                 }
-
-                Spacer(minLength: 0)
-
-                searchField
-                    .frame(width: 180)
+                .transition(.opacity.combined(with: .move(edge: .leading)))
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.top, StudioSpacing.toolbarVertical)
-            .padding(.bottom, StudioSpacing.rowGap - 1)
-            .animation(.easeOut(duration: 0.15), value: display.axisStopFilterLabel)
 
-            // Row 2: action + status
-            HStack(alignment: .center, spacing: 0) {
-                StudioIncludeCheckbox(
-                    isOn: editor.allVisibleInstancesIncluded,
-                    isIndeterminate: editor.hasMixedVisibleInclusion
-                ) {
-                    editor.toggleAllVisibleInstancesIncluded()
-                }
-                .disabled(editor.filteredInstances.isEmpty)
-
-                Text("Include all")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(editor.filteredInstances.isEmpty ? .tertiary : .secondary)
-                    .padding(.leading, StudioSpacing.rowGap - 1)
-                    .lineLimit(1)
-
-                if let summary = display.summary {
-                    Text("·")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.quaternary)
-                        .padding(.horizontal, 5)
-
-                    Text(summary)
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(StudioColors.dataHighlight)
-                        .lineLimit(1)
-                        .layoutPriority(-1)
-                }
-
-                Spacer(minLength: StudioSpacing.controlGap)
-
-                showFilterPicker
-                    .frame(width: 180, alignment: .trailing)
+            StudioIncludeCheckbox(
+                isOn: editor.allVisibleInstancesIncluded,
+                isIndeterminate: editor.hasMixedVisibleInclusion
+            ) {
+                editor.toggleAllVisibleInstancesIncluded()
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.bottom, StudioSpacing.toolbarVertical)
-            .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
+            .disabled(editor.filteredInstances.isEmpty)
 
+            Text("Include all")
+                .font(StudioTypography.meta)
+                .foregroundStyle(editor.filteredInstances.isEmpty ? .tertiary : .secondary)
+                .lineLimit(1)
+
+            Spacer(minLength: StudioSpacing.controlGap)
+
+            searchField
+                .frame(width: 180)
+
+            showFilterPicker
+                .frame(width: 180, alignment: .trailing)
+        }
+        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.vertical, StudioSpacing.toolbarVertical)
+        .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
+        .animation(.easeOut(duration: 0.15), value: display.axisStopFilterLabel)
+        .overlay(alignment: .bottom) {
             Divider()
         }
     }

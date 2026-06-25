@@ -109,7 +109,6 @@ struct MainEditorView: View {
         VStack(spacing: 0) {
             if editor.hasOpenProjects {
                 projectChrome
-                Divider()
             }
 
             Group {
@@ -166,6 +165,8 @@ struct MainEditorView: View {
 
             ProjectFileSubBar()
                 .environmentObject(editor)
+
+            Divider()
         }
         .background(.bar)
     }

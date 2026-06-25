@@ -67,7 +67,7 @@ struct AxisTreePanel: View {
             Spacer()
             Text(value)
                 .font(monospaced ? StudioTypography.monoMeta : StudioTypography.caption)
-                .foregroundStyle(.primary)
+                .foregroundStyle(monospaced ? StudioColors.computedHighlight : .primary)
         }
     }
 
