@@ -64,7 +64,9 @@ final class EditorViewModel: ObservableObject {
     /// Bumps when the axis tree should expand and scroll to a stop (inspector / warnings).
     @Published var axisTreeFocusRequest: AxisTreeFocusRequest?
     @Published var conflictResolverRequest: AxisConflictResolverSession?
-    @Published var commitPreflightSession: CommitPreflightSession?
+    @Published var commitDiffSession: CommitPreflightSession?
+    @Published var presentCommitDiffSheet = false
+    @Published private(set) var saveReviewWindowToken = UUID()
     @Published var searchText = ""
     @Published var instanceFilter: InstanceFilter = .all
     @Published var instancePlan: InstancePlan?
@@ -96,6 +98,7 @@ final class EditorViewModel: ObservableObject {
     private var statusMessageDismissTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private let commitService = CommitService()
+    private var sourceBookmarks: [String: Data] = [:]
 
     private static let statusMessageDisplayDuration: TimeInterval = 4
 
@@ -120,7 +123,32 @@ final class EditorViewModel: ObservableObject {
         (project?.fonts.count ?? 0) >= 2
     }
 
-    /// Active project document (compatibility shim for existing panel code).
+    var saveReviewWindowTitle: String {
+        if let font = selectedFont {
+            return "Save Review — \(fontBasename(for: font))"
+        }
+        return "Save Review"
+    }
+
+    func presentSaveReviewWindow() {
+        refreshCommitDiffPreview()
+        saveReviewWindowToken = UUID()
+    }
+
+    private func registerSourceBookmark(url: URL, fontID: String) {
+        if let bookmark = SourceFontAccess.makeBookmark(for: url) {
+            sourceBookmarks[fontID] = bookmark
+        }
+    }
+
+    private func removeSourceBookmark(fontID: String) {
+        sourceBookmarks.removeValue(forKey: fontID)
+    }
+
+    var canPreviewSaveReview: Bool {
+        selectedFont != nil && project != nil && instancePlan != nil
+    }
+
     var project: ProjectDocument? {
         get { activeOpenProject?.document }
         set {
@@ -1062,6 +1090,9 @@ final class EditorViewModel: ObservableObject {
             let analysis = try FontAnalysisReader.analyze(url: url)
             try validateVariableFont(analysis)
             let imported = ProjectImporter.newProject(from: analysis, sourceURL: url)
+            if let fontID = imported.fonts.first?.id {
+                registerSourceBookmark(url: url, fontID: fontID)
+            }
             let open = OpenProject(document: imported, selectedFontID: imported.fonts.first?.id)
             openProjects.append(open)
             activateProject(id: open.id)
@@ -1110,6 +1141,9 @@ final class EditorViewModel: ObservableObject {
             guard let idx = openProjects.firstIndex(where: { $0.id == targetID }) else { return }
             ProjectImporter.addFont(analysis, sourceURL: url, to: &openProjects[idx].document)
             let newFontID = openProjects[idx].document.fonts.last?.id
+            if let newFontID {
+                registerSourceBookmark(url: url, fontID: newFontID)
+            }
             activateProject(id: targetID)
             if let newFontID {
                 selectFont(id: newFontID)
@@ -1200,6 +1234,7 @@ final class EditorViewModel: ObservableObject {
     func removeFont(id fontID: String, fromProjectID projectID: String) {
         guard let pIdx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
         openProjects[pIdx].document.fonts.removeAll { $0.id == fontID }
+        removeSourceBookmark(fontID: fontID)
 
         if openProjects[pIdx].document.fonts.isEmpty {
             closeProject(id: projectID, force: true)
@@ -1877,8 +1912,19 @@ final class EditorViewModel: ObservableObject {
     }
 
     func saveCopy() {
+        refreshCommitDiffPreview(presentSheet: true)
+    }
+
+    func dismissCommitDiffSheet() {
+        presentCommitDiffSheet = false
+    }
+
+    /// Re-read the source font and run vfcommit dry-run to build the save review diff.
+    func refreshCommitDiffPreview(presentSheet: Bool = false) {
         guard let font = selectedFont, let project, let plan = instancePlan else {
-            postStatusMessage("Nothing to save — open a font first.")
+            if presentSheet {
+                postStatusMessage("Nothing to save — open a font first.")
+            }
             return
         }
 
@@ -1893,8 +1939,9 @@ final class EditorViewModel: ObservableObject {
             return
         }
 
+        let bookmark = sourceBookmarks[font.id]
         let placeholderOutput = CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
-        let request = CommitRequestBuilder.make(
+        var dryRunRequest = CommitRequestBuilder.make(
             font: font,
             naming: project.naming,
             plan: plan,
@@ -1906,19 +1953,43 @@ final class EditorViewModel: ObservableObject {
         Task {
             defer { isBusy = false }
             do {
-                let result = try await commitService.commit(request)
+                let analysis = try SourceFontAccess.withReadableSourceURL(
+                    bookmark: bookmark,
+                    fallbackPath: font.sourcePath
+                ) { sourceURL in
+                    try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+                }
+                let helperSourcePath = try SourceFontAccess.helperSourcePath(
+                    bookmark: bookmark,
+                    fallbackPath: font.sourcePath,
+                    fontID: font.id
+                )
+                dryRunRequest.sourcePath = helperSourcePath
+                let result = try await commitService.commit(dryRunRequest)
                 if result.ok {
-                    let writeRequest = CommitRequestBuilder.make(
+                    let diffReport = CommitDiffBuilder.build(
+                        analysis: analysis,
+                        font: font,
+                        plan: plan,
+                        result: result
+                    )
+                    var writeRequest = CommitRequestBuilder.make(
                         font: font,
                         naming: project.naming,
                         plan: plan,
                         outputPath: placeholderOutput,
                         dryRun: false
                     )
-                    commitPreflightSession = CommitPreflightSession(
+                    writeRequest.sourcePath = helperSourcePath
+                    commitDiffSession = CommitPreflightSession(
+                        dryRunRequest: dryRunRequest,
                         baseRequest: writeRequest,
-                        preflight: result
+                        preflight: result,
+                        diffReport: diffReport
                     )
+                    if presentSheet {
+                        presentCommitDiffSheet = true
+                    }
                 } else {
                     let message = result.errors.first?.message ?? "Save preview failed."
                     postStatusMessage(message)
@@ -1926,6 +1997,44 @@ final class EditorViewModel: ObservableObject {
             } catch {
                 postStatusMessage(commitFailureMessage(error))
             }
+        }
+    }
+
+    func exportCommitJSON(session: CommitPreflightSession) {
+        let panel = NSOpenPanel()
+        panel.title = "Export Commit JSON"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        panel.message = "Choose a folder for CommitRequest, CommitResult, and CommitDiffReport JSON files."
+
+        panel.begin { [weak self] response in
+            guard response == .OK, let directory = panel.url else { return }
+            Task { @MainActor in
+                self?.writeCommitJSON(session: session, to: directory)
+            }
+        }
+    }
+
+    private func writeCommitJSON(session: CommitPreflightSession, to directory: URL) {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+
+        do {
+            try encoder.encode(session.dryRunRequest).write(
+                to: directory.appendingPathComponent("\(stamp)-commit-request.json")
+            )
+            try encoder.encode(session.preflight).write(
+                to: directory.appendingPathComponent("\(stamp)-commit-result.json")
+            )
+            try encoder.encode(session.diffReport).write(
+                to: directory.appendingPathComponent("\(stamp)-commit-diff-report.json")
+            )
+            postStatusMessage("Exported commit JSON to \(directory.lastPathComponent)")
+        } catch {
+            postStatusMessage("JSON export failed: \(error.localizedDescription)")
         }
     }
 
@@ -1975,7 +2084,8 @@ final class EditorViewModel: ObservableObject {
             project.fonts[fontIndex].outputPath = outputURL.path
             project.fonts[fontIndex].dirty = false
             self.project = project
-            commitPreflightSession = nil
+            commitDiffSession = nil
+            presentCommitDiffSheet = false
             refreshCanSave()
 
             if let count = result.summary?.instancesWritten {
@@ -1997,7 +2107,13 @@ final class EditorViewModel: ObservableObject {
         case let CommitServiceError.helperFailed(detail):
             "Save helper failed: \(detail)"
         case let CommitServiceError.invalidHelperOutput(detail):
-            "Save helper returned invalid output: \(detail)"
+            if detail.localizedCaseInsensitiveContains("fonttools")
+                || detail.localizedCaseInsensitiveContains("fontTools")
+            {
+                "Save helper needs fontTools for Python 3 — run: pip3 install fonttools. (\(detail))"
+            } else {
+                "Save helper returned invalid output: \(detail)"
+            }
         default:
             "Save failed: \(error.localizedDescription)"
         }

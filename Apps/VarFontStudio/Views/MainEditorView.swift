@@ -3,6 +3,8 @@ import VarFontCore
 
 struct MainEditorView: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var layout: EditorLayoutPreferences
+    @Environment(\.openWindow) private var openWindow
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @State private var isDropTargeted = false
     @State private var activeDropZone: WorkspaceDropZone = .none
@@ -86,9 +88,14 @@ struct MainEditorView: View {
             AxisConflictResolverSheet(bundle: session.bundle)
                 .environmentObject(editor)
         }
-        .sheet(item: $editor.commitPreflightSession) { session in
-            CommitPreflightSheet(session: session)
-                .environmentObject(editor)
+        .onChange(of: editor.saveReviewWindowToken) { _, _ in
+            openWindow(id: "save-review")
+        }
+        .sheet(isPresented: $editor.presentCommitDiffSheet) {
+            if let session = editor.commitDiffSession {
+                CommitDiffSheet(session: session)
+                    .environmentObject(editor)
+            }
         }
         .confirmationDialog(
             "Remove font?",

@@ -24,6 +24,7 @@ from vfcommit_lib.stat_builder import (
     build_protected_name_ids,
     default_fix_summary,
 )
+from vfcommit_lib.diff_export import build_commit_diff
 
 
 def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
@@ -139,7 +140,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         )
         working.save(output_path)
 
-    return {
+    result: Dict[str, Any] = {
         "schema_version": 1,
         "request_id": request_id,
         "ok": True,
@@ -155,6 +156,9 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         "warnings": warnings,
         "errors": [],
     }
+    if dry_run:
+        result["diff"] = build_commit_diff(plan, axis_defs)
+    return result
 
 
 def _error_result(

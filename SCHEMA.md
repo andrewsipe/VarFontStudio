@@ -348,14 +348,27 @@ Alignment with TableEditor YAML: `axes[].values` = `AxisValue`; `options.fix_fva
 }
 ```
 
-Failure:
+`diff` is present on **dry-run** responses only. Omitted on successful writes.
 
 ```json
-{
-  "ok": false,
-  "errors": [{ "code": "collision", "message": "..." }]
+"diff": {
+  "family_ps_prefix": "MyFamilyVF",
+  "elided_fallback_name": "Regular",
+  "elided_fallback_id": 295,
+  "name_id_range": [280, 295],
+  "name_records_planned": [
+    { "id": 280, "string": "Bold", "role": "instance_subfamily" }
+  ],
+  "stat_values_planned": [
+    { "tag": "wght", "value": 400, "name": "Normal", "elidable": true, "stat_format": 1, "name_id": 281 }
+  ],
+  "instances_planned": [
+    { "composed_name": "Micro Normal", "subfamily_name_id": 282, "postscript_name": "MyFamilyVF-MicroNormal", "postscript_name_id": 283 }
+  ]
 }
 ```
+
+Swift merges `FontAnalysis` (before) + `InstancePlan` + `CommitResult.diff` into `CommitDiffReport` for the Save review UI.
 
 Optional: `analysis_after` (`FontAnalysis` of output) for immediate UI refresh.
 
@@ -392,7 +405,10 @@ Generated analysis files may reference local paths under `~/Downloads/`; tests s
 ```
 FontAnalysis, ProjectDocument, FontDocument, AxisDefinition, AxisValue
 InstancePlan, PlannedInstance, PlanWarning
-CommitRequest, CommitOptions, CommitResult, CommitSummary
+CommitRequest, CommitOptions, CommitResult, CommitSummary, CommitDiff
+CommitDiffStatValuePlanned, CommitDiffInstancePlanned, CommitNameRecordPlanned
+CommitDiffReport, CommitDiffStatRow, CommitDiffInstanceRow, CommitDiffNameIDRow
+CommitDiffChangeKind
 ```
 
 `Codable` + `schema_version` migration when v2 is needed.

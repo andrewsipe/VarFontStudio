@@ -321,7 +321,16 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public struct NameIDUse: Codable, Equatable, Sendable {
             public var id: Int
             public var description: String
+            /// Resolved name-table string when available.
+            public var string: String?
             public var protected: Bool?
+
+            public init(id: Int, description: String, string: String? = nil, protected: Bool? = nil) {
+                self.id = id
+                self.description = description
+                self.string = string
+                self.protected = protected
+            }
         }
     }
 
@@ -592,6 +601,7 @@ public struct CommitResult: Codable, Equatable, Sendable {
     public var outputPath: String?
     public var dryRun: Bool
     public var summary: CommitSummary?
+    public var diff: CommitDiff?
     public var warnings: [PlanWarning]
     public var errors: [CommitError]
 
@@ -601,7 +611,153 @@ public struct CommitResult: Codable, Equatable, Sendable {
         case ok
         case outputPath = "output_path"
         case dryRun = "dry_run"
-        case summary, warnings, errors
+        case summary, diff, warnings, errors
+    }
+}
+
+public struct CommitDiff: Codable, Equatable, Sendable {
+    public var familyPSPrefix: String?
+    public var elidedFallbackName: String?
+    public var elidedFallbackID: Int?
+    public var nameIDRange: [Int]?
+    public var nameRecordsPlanned: [CommitNameRecordPlanned]
+    public var statValuesPlanned: [CommitDiffStatValuePlanned]
+    public var instancesPlanned: [CommitDiffInstancePlanned]
+
+    enum CodingKeys: String, CodingKey {
+        case familyPSPrefix = "family_ps_prefix"
+        case elidedFallbackName = "elided_fallback_name"
+        case elidedFallbackID = "elided_fallback_id"
+        case nameIDRange = "name_id_range"
+        case nameRecordsPlanned = "name_records_planned"
+        case statValuesPlanned = "stat_values_planned"
+        case instancesPlanned = "instances_planned"
+    }
+
+    public init(
+        familyPSPrefix: String? = nil,
+        elidedFallbackName: String? = nil,
+        elidedFallbackID: Int? = nil,
+        nameIDRange: [Int]? = nil,
+        nameRecordsPlanned: [CommitNameRecordPlanned] = [],
+        statValuesPlanned: [CommitDiffStatValuePlanned] = [],
+        instancesPlanned: [CommitDiffInstancePlanned] = []
+    ) {
+        self.familyPSPrefix = familyPSPrefix
+        self.elidedFallbackName = elidedFallbackName
+        self.elidedFallbackID = elidedFallbackID
+        self.nameIDRange = nameIDRange
+        self.nameRecordsPlanned = nameRecordsPlanned
+        self.statValuesPlanned = statValuesPlanned
+        self.instancesPlanned = instancesPlanned
+    }
+}
+
+public struct CommitNameRecordPlanned: Codable, Equatable, Sendable {
+    public var id: Int
+    public var string: String
+    public var role: String
+}
+
+public struct CommitDiffStatValuePlanned: Codable, Equatable, Sendable {
+    public var tag: String
+    public var value: Double
+    public var name: String
+    public var elidable: Bool
+    public var statFormat: Int
+    public var nameID: Int?
+    public var linkedValue: Double?
+    public var rangeMin: Double?
+    public var rangeMax: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case tag, value, name, elidable
+        case statFormat = "stat_format"
+        case nameID = "name_id"
+        case linkedValue = "linked_value"
+        case rangeMin = "range_min"
+        case rangeMax = "range_max"
+    }
+}
+
+public struct CommitDiffInstancePlanned: Codable, Equatable, Sendable {
+    public var composedName: String
+    public var subfamilyNameID: Int
+    public var postscriptName: String?
+    public var postscriptNameID: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case composedName = "composed_name"
+        case subfamilyNameID = "subfamily_name_id"
+        case postscriptName = "postscript_name"
+        case postscriptNameID = "postscript_name_id"
+    }
+}
+
+public enum CommitDiffChangeKind: String, Codable, Equatable, Sendable {
+    case added
+    case removed
+    case changed
+    case unchanged
+}
+
+public struct CommitDiffStatRow: Codable, Equatable, Sendable, Identifiable {
+    public var tag: String
+    public var value: Double
+    public var beforeName: String?
+    public var afterName: String?
+    public var beforeNameID: Int?
+    public var afterNameID: Int?
+    public var change: CommitDiffChangeKind
+
+    public var id: String { "\(tag):\(value)" }
+}
+
+public struct CommitDiffInstanceRow: Codable, Equatable, Sendable, Identifiable {
+    public var key: String
+    public var beforeName: String?
+    public var afterName: String?
+    public var coords: [String: Double]?
+    public var change: CommitDiffChangeKind
+
+    public var id: String { key }
+}
+
+public struct CommitDiffNameIDRow: Codable, Equatable, Sendable, Identifiable {
+    public var beforeID: Int?
+    public var afterID: Int?
+    public var beforeDescription: String?
+    public var beforeString: String?
+    public var afterString: String?
+    public var afterRole: String?
+    public var change: CommitDiffChangeKind
+
+    public var id: String {
+        if let beforeID, let afterID {
+            return "\(beforeID)→\(afterID)"
+        }
+        if let afterID {
+            return "+\(afterID)"
+        }
+        return "-\(beforeID ?? 0)"
+    }
+}
+
+public struct CommitDiffReport: Codable, Equatable, Sendable {
+    public var statRows: [CommitDiffStatRow]
+    public var instanceRows: [CommitDiffInstanceRow]
+    public var nameIDRows: [CommitDiffNameIDRow]
+
+    public var statChangedCount: Int {
+        statRows.filter { $0.change != .unchanged }.count
+    }
+
+    public var instanceChangedCount: Int {
+        instanceRows.filter { $0.change != .unchanged }.count
+    }
+
+    public var nameIDChangedCount: Int {
+        nameIDRows.filter { $0.change != .unchanged }.count
     }
 }
 

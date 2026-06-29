@@ -19,6 +19,19 @@ struct VarFontStudioApp: App {
                 .frame(minWidth: 960, minHeight: 620)
         }
         .commands {
+            mainWindowCommands
+        }
+
+        Window("Save Review", id: "save-review") {
+            SaveReviewWindow()
+                .environmentObject(editor)
+                .environmentObject(layout)
+        }
+        .defaultSize(width: 960, height: 720)
+    }
+
+    @CommandsBuilder
+    private var mainWindowCommands: some Commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open Font…") {
                     editor.presentOpenPanel()
@@ -63,6 +76,14 @@ struct VarFontStudioApp: App {
 
                 Toggle("Inspector", isOn: $layout.showInspector)
                     .keyboardShortcut("3", modifiers: [.command, .control])
+
+                Divider()
+
+                Button("Save Review Window") {
+                    editor.presentSaveReviewWindow()
+                }
+                .keyboardShortcut("4", modifiers: [.command, .control])
+                .disabled(!editor.canPreviewSaveReview)
             }
 
             CommandMenu("Instances") {
@@ -92,6 +113,5 @@ struct VarFontStudioApp: App {
                 .keyboardShortcut(InstanceInclusionCommands.excludeSelectionShortcut)
                 .disabled(editor.activeInstanceSelection.isEmpty)
             }
-        }
     }
 }

@@ -16,6 +16,15 @@ public enum FontAnalysisReader {
     private static let postTag = OpenTypeBinary.tag("post")
 
     public static func analyze(url: URL) throws -> FontAnalysis {
+        try analyze(url: url, includeAllInstances: false)
+    }
+
+    /// Full fvar instance list for save-time diff (no 5-instance sample cap).
+    public static func analyzeForCommitDiff(url: URL) throws -> FontAnalysis {
+        try analyze(url: url, includeAllInstances: true)
+    }
+
+    private static func analyze(url: URL, includeAllInstances: Bool) throws -> FontAnalysis {
         guard let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor],
               let descriptor = descriptors.first else {
             throw FontAnalysisReaderError.unreadableFont(url)
@@ -138,8 +147,9 @@ public enum FontAnalysisReader {
             )
         }
 
-        let sampleCount = min(5, fvar.instances.count)
-        let instancesExisting = fvar.instances.prefix(sampleCount).map { instance in
+        let instanceSlice = includeAllInstances ? fvar.instances : Array(fvar.instances.prefix(min(5, fvar.instances.count)))
+        let sampleCount = includeAllInstances ? fvar.instances.count : min(5, fvar.instances.count)
+        let instancesExisting = instanceSlice.map { instance in
             FontAnalysis.ExistingInstance(
                 key: InstanceKeyBuilder.makeKey(coords: instance.coordinates),
                 composedName: OpenTypeNameTable.name(id: instance.subfamilyNameID, from: font) ?? "",
@@ -186,7 +196,7 @@ public enum FontAnalysisReader {
             ),
             axes: axes,
             statValues: statValues,
-            instancesExisting: Array(instancesExisting),
+            instancesExisting: instancesExisting,
             instancesExistingMeta: FontAnalysis.InstancesMeta(
                 total: fvar.instances.count,
                 sampleCount: sampleCount
@@ -235,9 +245,11 @@ public enum FontAnalysisReader {
         }
 
         let used = usedIDs.sorted().map { id in
-            FontAnalysis.NameAudit.NameIDUse(
+            let string = nameData.flatMap { OpenTypeNameTable.bestName(id: id, in: $0) }
+            return FontAnalysis.NameAudit.NameIDUse(
                 id: id,
                 description: labels[id] ?? "name table record",
+                string: string,
                 protected: (0...6).contains(id) ? true : nil
             )
         }

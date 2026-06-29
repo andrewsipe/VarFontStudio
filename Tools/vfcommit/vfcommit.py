@@ -18,10 +18,14 @@ _TOOLS_DIR = Path(__file__).resolve().parent
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
 
-from vfcommit_lib.engine import run_commit  # noqa: E402
-
 
 def main(argv: list[str] | None = None) -> int:
+    try:
+        from vfcommit_lib.engine import run_commit  # noqa: E402
+    except Exception as exc:  # noqa: BLE001
+        _emit_error("import_error", f"{type(exc).__name__}: {exc}")
+        return 1
+
     parser = argparse.ArgumentParser(description="VarFontStudio commit helper")
     parser.add_argument(
         "request",
@@ -48,7 +52,12 @@ def main(argv: list[str] | None = None) -> int:
         _emit_error("io_error", str(exc))
         return 2
 
-    result = run_commit(request)
+    try:
+        result = run_commit(request)
+    except Exception as exc:  # noqa: BLE001 — always return CommitResult JSON on stdout
+        _emit_error("helper_exception", f"{type(exc).__name__}: {exc}")
+        return 1
+
     indent = 2 if args.pretty else None
     json.dump(result, sys.stdout, indent=indent)
     sys.stdout.write("\n")

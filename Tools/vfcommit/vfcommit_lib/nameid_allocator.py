@@ -199,19 +199,29 @@ def build_allocation_plan(
     """Produce nameID allocation plan without modifying the font."""
     grid_axes = instance_axis_defs if instance_axis_defs is not None else axis_defs
     used = audit_nameids(font, ot_labels)
-    protected = dict(used)
+    ot_protected_ids: Set[int] = {rec.name_id for rec in ot_labels if rec.name_id >= 256}
+    # Only OpenType feature labels must survive wipe; fvar/STAT instance IDs are reclaimed from 256.
+    protected = {nid: used[nid] for nid in ot_protected_ids if nid in used}
 
-    free_start = (max(protected.keys()) + 1) if protected else 256
-    cursor = free_start
+    cursor = 256
+
+    def alloc_id() -> int:
+        nonlocal cursor
+        while cursor in ot_protected_ids:
+            cursor += 1
+        nid = cursor
+        cursor += 1
+        return nid
+
+    free_start = cursor
 
     # 1. Axis display names (reallocated fresh at 256+, decoupled from 2/6/17)
     axis_name_ids: Dict[str, int] = {}
     axis_names: Dict[str, str] = {}
     for axis_def in axis_defs:
         if axis_def.tag not in axis_name_ids:
-            axis_name_ids[axis_def.tag] = cursor
+            axis_name_ids[axis_def.tag] = alloc_id()
             axis_names[axis_def.tag] = axis_def.display_name or axis_def.tag
-            cursor += 1
 
     # 2. STAT axis value names
     axis_value_ids: Dict[Tuple[str, float], int] = {}
@@ -219,8 +229,7 @@ def build_allocation_plan(
         for av_def in axis_def.values:
             key = (axis_def.tag, av_def.value)
             if key not in axis_value_ids:
-                axis_value_ids[key] = cursor
-                cursor += 1
+                axis_value_ids[key] = alloc_id()
 
     family_prefix = derive_family_ps_prefix(font) if allocate_postscript_names else ""
     instance_ids: Dict[str, int] = {}
@@ -230,8 +239,7 @@ def build_allocation_plan(
 
     for composed_name in enumerate_instance_names(grid_axes, elided_fallback_name):
         if composed_name not in instance_ids:
-            instance_ids[composed_name] = cursor
-            cursor += 1
+            instance_ids[composed_name] = alloc_id()
 
         if not allocate_postscript_names:
             continue
@@ -239,8 +247,7 @@ def build_allocation_plan(
         ps_name = compose_postscript_instance_name(family_prefix, composed_name)
         instance_postscript_names[composed_name] = ps_name
         if ps_name not in ps_string_to_id:
-            ps_string_to_id[ps_name] = cursor
-            cursor += 1
+            ps_string_to_id[ps_name] = alloc_id()
         instance_postscript_ids[composed_name] = ps_string_to_id[ps_name]
 
     # Elided fallback name: reuse the all-elided instance ID when present,
@@ -248,8 +255,7 @@ def build_allocation_plan(
     if elided_fallback_name in instance_ids:
         elided_fallback_id = instance_ids[elided_fallback_name]
     else:
-        elided_fallback_id = cursor
-        cursor += 1
+        elided_fallback_id = alloc_id()
 
     if cursor <= free_start:
         free_end = free_start - 1

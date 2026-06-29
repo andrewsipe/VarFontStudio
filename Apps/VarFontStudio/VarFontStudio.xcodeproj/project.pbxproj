@@ -30,8 +30,9 @@
 		B2000022 /* WorkspaceDragSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000021 /* WorkspaceDragSession.swift */; };
 		B2000023 /* InspectorSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000022 /* InspectorSupport.swift */; };
 		B2000024 /* AxisConflictResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000023 /* AxisConflictResolverSheet.swift */; };
-		B2000025 /* CommitPreflightSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000024 /* CommitPreflightSheet.swift */; };
+        B2000025 /* CommitDiffSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000024 /* CommitDiffSheet.swift */; };
 		B2000026 /* CommitPreflightSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000025 /* CommitPreflightSession.swift */; };
+		B2000027 /* SourceFontAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000026 /* SourceFontAccess.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,8 +59,9 @@
 		F2000021 /* WorkspaceDragSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDragSession.swift; sourceTree = "<group>"; };
 		F2000022 /* InspectorSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorSupport.swift; sourceTree = "<group>"; };
 		F2000023 /* AxisConflictResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisConflictResolverSheet.swift; sourceTree = "<group>"; };
-		F2000024 /* CommitPreflightSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSheet.swift; sourceTree = "<group>"; };
+		F2000024 /* CommitDiffSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitDiffSheet.swift; sourceTree = "<group>"; };
 		F2000025 /* CommitPreflightSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSession.swift; sourceTree = "<group>"; };
+		F2000026 /* SourceFontAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontAccess.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +82,7 @@
 				F2000001 /* VarFontStudioApp.swift */,
 				F2000002 /* EditorViewModel.swift */,
 				F2000025 /* CommitPreflightSession.swift */,
+				F2000026 /* SourceFontAccess.swift */,
 				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
 				F2000012 /* OpenProject.swift */,
@@ -111,7 +114,7 @@
 				F2000019 /* StudioPanelSplitView.swift */,
 				F2000005 /* AxisTreePanel.swift */,
 				F2000023 /* AxisConflictResolverSheet.swift */,
-				F2000024 /* CommitPreflightSheet.swift */,
+				F2000024 /* CommitDiffSheet.swift */,
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
 				F2000009 /* StudioDesign.swift */,
@@ -130,6 +133,7 @@
 			buildPhases = (
 				S2000001 /* Sources */,
 				C2000001 /* Frameworks */,
+				SH200001 /* Bundle vfcommit */,
 				R2000001 /* Resources */,
 			);
 			buildRules = (
@@ -191,6 +195,25 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		SH200001 /* Bundle vfcommit */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle vfcommit";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/vfcommit/vfcommit.py",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "VFCOMMIT_SRC=\"${SRCROOT}/../../Tools/vfcommit\"\nVFCOMMIT_DST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/vfcommit\"\nif [ -d \"$VFCOMMIT_SRC\" ]; then\n  rm -rf \"$VFCOMMIT_DST\"\n  mkdir -p \"$(dirname \"$VFCOMMIT_DST\")\"\n  cp -R \"$VFCOMMIT_SRC\" \"$VFCOMMIT_DST\"\n  find \"$VFCOMMIT_DST\" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		S2000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -212,8 +235,9 @@
 				B2000020 /* StudioPanelSplitView.swift in Sources */,
 				B2000005 /* AxisTreePanel.swift in Sources */,
 				B2000024 /* AxisConflictResolverSheet.swift in Sources */,
-				B2000025 /* CommitPreflightSheet.swift in Sources */,
+				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
+				B2000027 /* SourceFontAccess.swift in Sources */,
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,

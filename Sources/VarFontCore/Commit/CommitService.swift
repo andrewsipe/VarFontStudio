@@ -12,32 +12,116 @@ public struct CommitService: Sendable {
     public var helperURL: URL?
     public var pythonExecutable: String
 
-    public init(helperURL: URL? = nil, pythonExecutable: String = "/usr/bin/env") {
+    public init(helperURL: URL? = nil, pythonExecutable: String? = nil) {
         self.helperURL = helperURL ?? Self.defaultHelperURL()
-        self.pythonExecutable = pythonExecutable
+        self.pythonExecutable = pythonExecutable ?? Self.defaultPythonExecutable()
     }
 
-    /// Repo-relative `Tools/vfcommit/vfcommit.py` when running from a checkout.
-    public static func defaultHelperURL() -> URL? {
+    /// Prefer Homebrew / usr-local interpreters; GUI apps often lack them on `PATH` for `/usr/bin/env`.
+    public static func defaultPythonExecutable() -> String {
         let candidates = [
-            URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent() // Commit
-                .deletingLastPathComponent() // VarFontCore
-                .deletingLastPathComponent() // Sources
-                .deletingLastPathComponent() // VarFontEditor
-                .appendingPathComponent("Tools/vfcommit/vfcommit.py"),
-            Bundle.main.bundleURL
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Tools/vfcommit/vfcommit.py"),
+            "/opt/homebrew/bin/python3",
+            "/usr/local/bin/python3",
+            "/usr/bin/python3",
         ]
-        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
-            ?? candidates.first { FileManager.default.fileExists(atPath: $0.path) }
+        for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
+            if canImportFontTools(using: path) {
+                return path
+            }
+        }
+        return "/usr/bin/env"
+    }
+
+    private static func canImportFontTools(using pythonPath: String) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: pythonPath)
+        process.arguments = ["-c", "import fontTools"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
+    }
+
+    /// Bundled `Tools/vfcommit/vfcommit.py`, or a copy under the app cache (never run Python directly out of ~/Documents).
+    public static func defaultHelperURL() -> URL? {
+        if let bundled = bundledHelperURL(),
+           FileManager.default.fileExists(atPath: bundled.path) {
+            return installedHelperURL(preferredSource: bundled.deletingLastPathComponent())
+        }
+        return installedHelperURL(preferredSource: developmentSourceDirectory())
+    }
+
+    private static func bundledHelperURL() -> URL? {
+        Bundle.main.resourceURL?.appendingPathComponent("vfcommit/vfcommit.py")
+    }
+
+    private static func developmentSourceDirectory() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // Commit
+            .deletingLastPathComponent() // VarFontCore
+            .deletingLastPathComponent() // Sources
+            .deletingLastPathComponent() // VarFontEditor
+            .appendingPathComponent("Tools/vfcommit", isDirectory: true)
+    }
+
+    private static func cacheDirectory() -> URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("VarFontStudio/vfcommit", isDirectory: true)
+    }
+
+    /// Copy vfcommit into the app cache so the Python subprocess only reads container paths.
+    private static func installedHelperURL(preferredSource: URL) -> URL? {
+        let cacheDir = cacheDirectory()
+        let helper = cacheDir.appendingPathComponent("vfcommit.py")
+        do {
+            try syncHelper(from: preferredSource, to: cacheDir)
+            return helper
+        } catch {
+            return FileManager.default.fileExists(atPath: helper.path) ? helper : nil
+        }
+    }
+
+    private static func syncHelper(from source: URL, to cache: URL) throws {
+        let sourceScript = source.appendingPathComponent("vfcommit.py")
+        guard FileManager.default.fileExists(atPath: sourceScript.path) else {
+            throw CommitServiceError.helperNotFound
+        }
+
+        let cacheScript = cache.appendingPathComponent("vfcommit.py")
+        if FileManager.default.fileExists(atPath: cacheScript.path),
+           let sourceDate = try sourceScript.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+           let cacheDate = try cacheScript.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+           cacheDate >= sourceDate {
+            return
+        }
+
+        if FileManager.default.fileExists(atPath: cache.path) {
+            try FileManager.default.removeItem(at: cache)
+        }
+        try FileManager.default.createDirectory(at: cache.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: source, to: cache)
+        removePythonCaches(under: cache)
+    }
+
+    private static func removePythonCaches(under root: URL) {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return }
+        for case let url as URL in enumerator where url.lastPathComponent == "__pycache__" {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     public func commit(_ request: CommitRequest) async throws -> CommitResult {
-        guard let helperURL else {
+        guard let helperURL = helperURL ?? Self.defaultHelperURL() else {
             throw CommitServiceError.helperNotFound
         }
         guard FileManager.default.fileExists(atPath: helperURL.path) else {
@@ -88,12 +172,21 @@ public struct CommitService: Sendable {
         }
 
         do {
-            return try JSONDecoder().decode(CommitResult.self, from: stdoutData)
+            return try VarFontJSON.decode(CommitResult.self, from: stdoutData)
         } catch {
-            let snippet = String(data: stdoutData.prefix(400), encoding: .utf8) ?? ""
-            throw CommitServiceError.invalidHelperOutput(
-                snippet.isEmpty ? error.localizedDescription : snippet
-            )
+            let stderrText = String(data: stderrData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let stdoutText = String(data: stdoutData.prefix(400), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let detail: String
+            if !stdoutText.isEmpty {
+                detail = stdoutText
+            } else if !stderrText.isEmpty {
+                detail = stderrText
+            } else {
+                detail = error.localizedDescription
+            }
+            throw CommitServiceError.invalidHelperOutput(detail)
         }
     }
 }

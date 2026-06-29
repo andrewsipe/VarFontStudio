@@ -1,9 +1,11 @@
 import Foundation
 import VarFontCore
 
-/// Dry-run result shown before writing a patched font copy.
+/// Dry-run result and diff report shown before writing a patched font copy.
 struct CommitPreflightSession: Identifiable {
     let id = UUID()
+    let dryRunRequest: CommitRequest
     let baseRequest: CommitRequest
     let preflight: CommitResult
+    let diffReport: CommitDiffReport
 }

@@ -11,11 +11,21 @@
     "wiped_instance_count": 252,
     "protected_name_ids": []
   },
-  "warnings": [
-    {
-      "code": "format_3_preserved",
-      "message": "Existing Format 3 weight link (Regular→Bold) preserved; not regenerated from grid."
-    }
-  ],
-  "errors": []
+  "warnings": [],
+  "errors": [],
+  "diff": {
+    "family_ps_prefix": "PlayfairVF",
+    "elided_fallback_name": "Regular",
+    "elided_fallback_id": 295,
+    "name_id_range": [280, 295],
+    "name_records_planned": [
+      { "id": 280, "string": "Bold", "role": "instance_subfamily" }
+    ],
+    "stat_values_planned": [
+      { "tag": "wght", "value": 400, "name": "Normal", "elidable": true, "stat_format": 1, "name_id": 281 }
+    ],
+    "instances_planned": [
+      { "composed_name": "Micro Normal", "subfamily_name_id": 282, "postscript_name": "PlayfairVF-MicroNormal", "postscript_name_id": 283 }
+    ]
+  }
 }
