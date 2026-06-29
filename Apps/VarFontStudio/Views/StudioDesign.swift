@@ -50,6 +50,8 @@ enum StudioColors {
     static let warningFill = Color.orange.opacity(0.12)
     static let warningFillHover = Color.orange.opacity(0.18)
     static let warningForeground = Color.orange
+    static let warningStroke = Color.orange.opacity(0.45)
+    static let successStroke = Color.green.opacity(0.45)
     /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
     static let computedHighlight = Color.accentColor
     /// Drop zone half fills — always visible during drag (top = add, bottom = new).
@@ -162,16 +164,17 @@ struct StudioPanelHeader<Trailing: View>: View {
 }
 
 struct StudioWarningBadge: View {
+    static let slotSize: CGFloat = 16
+
     let help: String
     var systemImage: String = "exclamationmark.triangle.fill"
     var action: (() -> Void)?
 
     var body: some View {
         let icon = Image(systemName: systemImage)
-            .font(StudioTypography.meta)
+            .font(.system(size: 9))
             .foregroundStyle(StudioColors.warningForeground)
-            .padding(3)
-            .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+            .frame(width: Self.slotSize, height: Self.slotSize)
 
         if let action {
             Button(action: action) { icon }
@@ -407,95 +410,29 @@ struct StudioInspectorConflictBadge: View {
     }
 }
 
-struct InspectorWarningsDrawer: View {
-    let instance: PlannedInstance
-    let warnings: [PlanWarning]
-    let conflictCount: Int
-    @Binding var isExpanded: Bool
-    var onShowDuplicates: () -> Void
+struct StudioConflictAlert: View {
+    let message: String
+    var actionTitle: String = "Resolve…"
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            if isExpanded {
-                HStack {
-                    StudioSectionLabel(title: "Warnings")
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
-                .frame(height: 32)
-                .background(.bar)
-                .overlay(alignment: .bottom) {
-                    Divider()
-                }
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if instance.duplicate {
-                            duplicateCallout
-                        }
-
-                        ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
-                            if warning.code != "duplicate_composed_name" || !instance.duplicate {
-                                Label(warning.message, systemImage: "exclamationmark.triangle")
-                                    .font(StudioTypography.meta)
-                                    .foregroundStyle(StudioColors.warningForeground)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
-                    .padding(.vertical, StudioSpacing.controlGap)
-                }
-                .frame(maxHeight: 140)
-
-                Divider()
-            }
-
-            Button {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: StudioSpacing.controlGap) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.warningForeground)
-
-                    Text("\(conflictCount) conflict\(conflictCount == 1 ? "" : "s")")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.primary)
-
-                    Spacer(minLength: 0)
-
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
-                .padding(.vertical, StudioSpacing.toolbarVertical)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .background(StudioColors.warningFill.opacity(isExpanded ? 0.22 : 0.14))
-        }
-        .overlay(alignment: .top) {
-            Divider()
-        }
-    }
-
-    private var duplicateCallout: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Duplicate composed name")
-                .font(StudioTypography.bodyMedium)
-            Text("Another instance shares this style name.")
+        HStack(spacing: StudioSpacing.controlGap) {
+            Image(systemName: "exclamationmark.triangle.fill")
                 .font(StudioTypography.meta)
-                .foregroundStyle(.secondary)
-            Button("Show duplicates", action: onShowDuplicates)
+                .foregroundStyle(StudioColors.warningForeground)
+
+            Text(message)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+
+            Spacer(minLength: 0)
+
+            Button(actionTitle, action: action)
                 .studioCompactControl()
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
     }
 }

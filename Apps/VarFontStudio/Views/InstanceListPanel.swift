@@ -74,13 +74,14 @@ struct InstanceListPanel: View {
                     if group.label.isEmpty {
                         ForEach(group.instances) { instance in
                             instanceRow(instance)
+                                .id("\(instance.key)-\(instance.duplicate)-\(editor.planRevision)")
                         }
                     } else {
                         Section {
-                            // Nested LazyVStack inside Section inflates section height (phantom inter-section gaps).
-                            VStack(spacing: 1) {
+                            VStack(spacing: 0) {
                                 ForEach(group.instances) { instance in
                                     instanceRow(instance)
+                                        .id("\(instance.key)-\(instance.duplicate)-\(editor.planRevision)")
                                 }
                             }
                             .padding(.top, StudioSpacing.groupHeaderBelow)
@@ -106,11 +107,13 @@ struct InstanceListPanel: View {
     }
 
     private func instanceRow(_ instance: PlannedInstance) -> some View {
-        InstanceRowView(
+        let hasConflict = editor.instanceAffectedByUnresolvedConflict(instance)
+        return InstanceRowView(
             instance: instance,
             coordsCaption: display.coordCaptions[instance.key] ?? "",
             isIncluded: display.includedByKey[instance.key] ?? true,
             isSelected: editor.activeInstanceSelection.contains(instance.key),
+            hasConflict: hasConflict,
             onSelect: { extend in
                 editor.selectInstance(key: instance.key, extend: extend)
             },
@@ -121,8 +124,10 @@ struct InstanceListPanel: View {
                     : [instance.key]
                 editor.setInstancesIncluded(keys: keys, included: included)
             },
-            onWarningTap: instance.duplicate ? {
-                editor.revealInspectorWarnings(selecting: instance.key)
+            onWarningTap: hasConflict ? {
+                if let bundle = editor.primaryConflictAxis(for: instance) {
+                    editor.presentConflictResolver(bundle: bundle)
+                }
             } : nil
         )
     }
@@ -267,6 +272,7 @@ private struct InstanceRowView: View {
     let coordsCaption: String
     let isIncluded: Bool
     let isSelected: Bool
+    var hasConflict: Bool = false
     let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
     let onSetSelectionIncluded: (Bool) -> Void
@@ -286,11 +292,15 @@ private struct InstanceRowView: View {
                 .strikethrough(!isIncluded, color: .secondary)
                 .lineLimit(1)
 
-            if instance.duplicate {
-                StudioWarningBadge(help: "Duplicate composed name — show in inspector") {
-                    onWarningTap?()
+            Color.clear
+                .frame(width: StudioWarningBadge.slotSize, height: StudioWarningBadge.slotSize)
+                .overlay {
+                    if hasConflict {
+                        StudioWarningBadge(help: "Naming conflict — show in inspector") {
+                            onWarningTap?()
+                        }
+                    }
                 }
-            }
 
             Spacer(minLength: StudioSpacing.controlGap)
 
@@ -302,13 +312,13 @@ private struct InstanceRowView: View {
         }
         .studioRowInsets()
         .opacity(isIncluded ? 1 : 0.45)
-        .background(
+        .background {
             StudioRowBackground(
                 isSelected: isSelected,
                 isHovered: isHovered,
-                isWarning: instance.duplicate
+                isWarning: false
             )
-        )
+        }
         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
         .onTapGesture {
             onSelect(NSEvent.modifierFlags.contains(.command))

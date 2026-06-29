@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VarFontCore
 
@@ -6,10 +7,19 @@ private enum StopEditField: Equatable {
     case name
 }
 
+private struct AddAxisStopRequest: Identifiable {
+    let axisTag: String
+    var id: String { axisTag }
+}
+
 struct AxisTreePanel: View {
     @EnvironmentObject private var editor: EditorViewModel
     @State private var expandedAxes: Set<String> = []
     @State private var editingStop: (id: String, field: StopEditField)?
+    @State private var addStopRequest: AddAxisStopRequest?
+    @State private var tabKeyMonitor: TabKeyMonitor?
+    @State private var activeTabNavigation: ((Bool) -> Void)?
+    @State private var activeTabStopID: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,20 +39,25 @@ struct AxisTreePanel: View {
                 List {
                     if editor.selectedFont != nil {
                         gridSummarySection
-                        if !editor.axisPlanWarnings.isEmpty {
-                            warningsSection
-                        }
                         axesSection
                     }
                 }
                 .listStyle(.inset)
+                .onChange(of: editor.axisTreeFocusRequest) { _, request in
+                    guard let request else { return }
+                    scrollToAxisStop(
+                        scrollProxy: scrollProxy,
+                        axisTag: request.axisTag,
+                        stopID: request.stopID
+                    )
+                }
                 .onChange(of: editor.inspectorFocusedAxisTag) { _, tag in
                     if let tag {
                         expandedAxes.insert(tag)
                     }
                 }
                 .onChange(of: editor.selectedAxisStopID) { _, stopID in
-                    guard let stopID else { return }
+                    guard let stopID, editor.axisTreeFocusRequest == nil else { return }
                     expandAxisContaining(stopID: stopID)
                     DispatchQueue.main.async {
                         withAnimation(.easeOut(duration: 0.2)) {
@@ -58,9 +73,25 @@ struct AxisTreePanel: View {
             editingStop = nil
             resetExpansion()
         }
+        .onChange(of: editingStop?.id) { _, stopID in
+            if stopID == nil {
+                tabKeyMonitor?.stop()
+                tabKeyMonitor = nil
+                activeTabNavigation = nil
+                activeTabStopID = nil
+            }
+        }
         .onAppear {
             if expandedAxes.isEmpty {
                 resetExpansion()
+            }
+        }
+        .sheet(item: $addStopRequest) { request in
+            if let axis = editor.selectedFont?.axes.first(where: { $0.tag == request.axisTag }) {
+                AddAxisStopSheet(axis: axis) {
+                    addStopRequest = nil
+                }
+                .environmentObject(editor)
             }
         }
     }
@@ -77,6 +108,7 @@ struct AxisTreePanel: View {
                 }
                 .padding(.bottom, StudioSpacing.rowGap)
             }
+            .listSectionSeparator(.hidden, edges: .bottom)
         }
     }
 
@@ -93,16 +125,12 @@ struct AxisTreePanel: View {
         }
     }
 
-    private var warningsSection: some View {
-        Section {
-            ForEach(Array(editor.axisPlanWarnings.enumerated()), id: \.offset) { _, warning in
-                Label(warning.message, systemImage: "exclamationmark.triangle.fill")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.orange)
-            }
-        } header: {
-            Text("Warnings")
+    private var conflictAlertMessage: String {
+        let count = editor.unresolvedAxisConflictCount
+        if count == 1, let bundle = editor.axisConflictBundles.first {
+            return "Naming conflict on \(bundle.axisLabel) (\(bundle.axisTag))"
         }
+        return "\(count) axes need attention"
     }
 
     private var axesSection: some View {
@@ -110,7 +138,20 @@ struct AxisTreePanel: View {
             if let font = editor.selectedFont {
                 ForEach(font.axes) { axis in
                     axisBlock(axis)
+                        .id(axis.tag)
                 }
+            }
+        } header: {
+            if editor.unresolvedAxisConflictCount > 0 {
+                StudioConflictAlert(
+                    message: conflictAlertMessage,
+                    actionTitle: editor.unresolvedAxisConflictCount == 1 ? "Resolve…" : "Review…"
+                ) {
+                    editor.presentFirstConflictResolver()
+                }
+                .textCase(nil)
+                .padding(.top, 4)
+                .padding(.bottom, 2)
             }
         }
         .listSectionSeparator(.hidden)
@@ -125,8 +166,12 @@ struct AxisTreePanel: View {
             AxisTreeAxisHeader(
                 axis: axis,
                 isExpanded: isExpanded,
+                hasConflict: editor.bundle(for: axis.tag) != nil,
                 isInstanceAxis: instanceAxisBinding(for: axis.tag),
-                onToggleExpansion: { toggleExpansion(for: axis.tag) }
+                onToggleExpansion: { toggleExpansion(for: axis.tag) },
+                onResolveConflict: {
+                    editor.presentConflictResolver(for: axis.tag)
+                }
             )
 
             if isExpanded {
@@ -160,14 +205,31 @@ struct AxisTreePanel: View {
                         showElidable: axis.role == .instance,
                         isElidable: stop.elidable,
                         onSelect: {
-                            editingStop = nil
+                            scheduleClearEdit()
                             editor.toggleAxisStopSelection(stopID: stop.id)
                         },
                         onBeginEdit: { field in
-                            editor.selectedAxisStopID = stop.id
-                            editingStop = (stop.id, field)
+                            Task { @MainActor in
+                                editor.selectedAxisStopID = stop.id
+                                editingStop = (stop.id, field)
+                            }
                         },
-                        onEndEdit: { editingStop = nil },
+                        onEndEdit: { scheduleClearEdit() },
+                        onRegisterTabNavigation: { handler in
+                            registerTabNavigation(for: stop.id, handler: handler)
+                        },
+                        onTabForwardFromValue: {
+                            scheduleEditingStop(stopID: stop.id, field: .name)
+                        },
+                        onTabForwardFromName: {
+                            advanceEditForward(axis: axis, afterStopID: stop.id)
+                        },
+                        onTabBackwardFromName: {
+                            scheduleEditingStop(stopID: stop.id, field: .value)
+                        },
+                        onTabBackwardFromValue: {
+                            advanceEditBackward(axis: axis, beforeStopID: stop.id)
+                        },
                         onRemove: { editor.removeAxisStop(axisTag: axis.tag, stopID: stop.id) },
                         onCommitValue: { editor.updateAxisStopValue(axisTag: axis.tag, stopID: stop.id, value: $0) },
                         onCommitName: { editor.updateAxisStopName(axisTag: axis.tag, stopID: stop.id, name: $0) },
@@ -179,10 +241,7 @@ struct AxisTreePanel: View {
 
             if axis.role == .instance {
                 Button {
-                    editor.addAxisStop(axisTag: axis.tag)
-                    if let newID = editor.selectedAxisStopID {
-                        editingStop = (newID, .name)
-                    }
+                    addStopRequest = AddAxisStopRequest(axisTag: axis.tag)
                 } label: {
                     Label("Add Stop", systemImage: "plus")
                         .font(.system(size: 12))
@@ -240,9 +299,118 @@ struct AxisTreePanel: View {
         }
     }
 
+    private func scrollToAxisStop(scrollProxy: ScrollViewProxy, axisTag: String, stopID: String) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            expandedAxes = [axisTag]
+        }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.2)) {
+                scrollProxy.scrollTo(axisTag, anchor: .top)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    scrollProxy.scrollTo(stopID, anchor: .center)
+                }
+            }
+        }
+    }
+
     private func gridFormulaText(_ plan: InstancePlan) -> String {
         let parts = plan.formula.parts.map(String.init).joined(separator: " × ")
         return "\(parts) = \(plan.formula.totalGenerated)"
+    }
+
+    private func scheduleEditingStop(stopID: String, field: StopEditField) {
+        Task { @MainActor in
+            editingStop = (stopID, field)
+            editor.selectedAxisStopID = stopID
+        }
+    }
+
+    private func scheduleClearEdit() {
+        Task { @MainActor in
+            editingStop = nil
+            tabKeyMonitor?.stop()
+            tabKeyMonitor = nil
+            activeTabNavigation = nil
+            activeTabStopID = nil
+        }
+    }
+
+    private func registerTabNavigation(for stopID: String, handler: ((Bool) -> Void)?) {
+        if let handler {
+            guard editingStop?.id == stopID else { return }
+            activeTabNavigation = handler
+            activeTabStopID = stopID
+            guard tabKeyMonitor == nil else { return }
+            let monitor = TabKeyMonitor { shift in
+                activeTabNavigation?(!shift)
+            }
+            monitor.start()
+            tabKeyMonitor = monitor
+        } else if activeTabStopID == stopID {
+            activeTabNavigation = nil
+            activeTabStopID = nil
+        }
+    }
+
+    private func advanceEditForward(axis: AxisDefinition, afterStopID: String) {
+        guard let font = editor.selectedFont else {
+            scheduleClearEdit()
+            return
+        }
+
+        let stops = axis.values
+        if let index = stops.firstIndex(where: { $0.id == afterStopID }),
+           index + 1 < stops.count {
+            let next = stops[index + 1]
+            scheduleEditingStop(stopID: next.id, field: .value)
+            return
+        }
+
+        guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axis.tag }) else {
+            scheduleClearEdit()
+            return
+        }
+
+        for nextAxis in font.axes[(axisIndex + 1)...] where !nextAxis.values.isEmpty {
+            let first = nextAxis.values[0]
+            Task { @MainActor in
+                expandedAxes.insert(nextAxis.tag)
+                editingStop = (first.id, .value)
+                editor.selectedAxisStopID = first.id
+            }
+            return
+        }
+
+        scheduleClearEdit()
+    }
+
+    private func advanceEditBackward(axis: AxisDefinition, beforeStopID: String) {
+        guard let font = editor.selectedFont else { return }
+
+        let stops = axis.values
+        if let index = stops.firstIndex(where: { $0.id == beforeStopID }),
+           index > 0 {
+            let previous = stops[index - 1]
+            scheduleEditingStop(stopID: previous.id, field: .name)
+            return
+        }
+
+        guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axis.tag }),
+              axisIndex > 0 else {
+            return
+        }
+
+        for previousAxis in font.axes[..<axisIndex].reversed() where !previousAxis.values.isEmpty {
+            let last = previousAxis.values[previousAxis.values.count - 1]
+            Task { @MainActor in
+                expandedAxes.insert(previousAxis.tag)
+                editingStop = (last.id, .name)
+                editor.selectedAxisStopID = last.id
+            }
+            return
+        }
     }
 }
 
@@ -251,13 +419,22 @@ struct AxisTreePanel: View {
 private struct AxisTreeAxisHeader: View {
     let axis: AxisDefinition
     let isExpanded: Bool
+    var hasConflict: Bool = false
     @Binding var isInstanceAxis: Bool
     let onToggleExpansion: () -> Void
+    var onResolveConflict: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 8) {
             Button(action: onToggleExpansion) {
                 HStack(spacing: AxisBlockLayout.tagNameSpacing) {
+                    if hasConflict {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(StudioColors.warningForeground)
+                            .help("Naming conflict on this axis")
+                    }
+
                     StudioTagPill(text: axis.tag)
                         .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
 
@@ -265,6 +442,7 @@ private struct AxisTreeAxisHeader: View {
                         HStack(spacing: 4) {
                             Text(axis.displayName ?? axis.tag)
                                 .font(StudioTypography.body)
+                                .lineLimit(1)
                             Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(.tertiary)
@@ -283,6 +461,13 @@ private struct AxisTreeAxisHeader: View {
             .buttonStyle(.plain)
 
             Spacer(minLength: 4)
+
+            if hasConflict, let onResolveConflict {
+                Button("Resolve", action: onResolveConflict)
+                    .font(StudioTypography.meta)
+                    .controlSize(.small)
+                    .help("Open conflict resolver for this axis")
+            }
 
             stopCountBadge
 
@@ -408,6 +593,11 @@ private struct AxisTreeStopRow: View {
     let onSelect: () -> Void
     let onBeginEdit: (StopEditField) -> Void
     let onEndEdit: () -> Void
+    let onRegisterTabNavigation: (((Bool) -> Void)?) -> Void
+    let onTabForwardFromValue: () -> Void
+    let onTabForwardFromName: () -> Void
+    let onTabBackwardFromName: () -> Void
+    let onTabBackwardFromValue: () -> Void
     let onRemove: () -> Void
     let onCommitValue: (Double) -> Void
     let onCommitName: (String) -> Void
@@ -453,13 +643,23 @@ private struct AxisTreeStopRow: View {
         .onChange(of: stop.name) { _, _ in syncDrafts() }
         .onChange(of: editingField) { _, field in
             syncDrafts()
-            focusedField = field
-        }
-        .onChange(of: focusedField) { _, field in
-            if field == nil, editingField != nil {
-                commitCurrentEdit()
-                onEndEdit()
+            if let field {
+                onRegisterTabNavigation { forward in
+                    navigateTab(forward: forward)
+                }
+                Task { @MainActor in
+                    focusedField = field
+                }
+            } else {
+                onRegisterTabNavigation(nil)
+                focusedField = nil
             }
+        }
+        .onKeyPress(.escape) {
+            guard editingField != nil else { return .ignored }
+            commitCurrentEdit()
+            onEndEdit()
+            return .handled
         }
         .alert("Remove Stop?", isPresented: $confirmRemove) {
             Button("Remove", role: .destructive, action: onRemove)
@@ -507,7 +707,7 @@ private struct AxisTreeStopRow: View {
                 .foregroundStyle(StudioColors.axisValue)
                 .multilineTextAlignment(.trailing)
                 .focused($focusedField, equals: .value)
-                .onSubmit(commitValue)
+                .onSubmit { navigateTab(forward: true) }
         } else {
             Text(StudioFormatting.axisValue(stop.value))
                 .font(StudioTypography.monoValue)
@@ -521,11 +721,14 @@ private struct AxisTreeStopRow: View {
     @ViewBuilder
     private var nameColumn: some View {
         if editingField == .name {
-            TextField("Name", text: $editingName)
+            TextField("Stop name", text: $editingName)
                 .textFieldStyle(.plain)
                 .font(StudioTypography.body)
                 .focused($focusedField, equals: .name)
-                .onSubmit(commitName)
+                .onSubmit {
+                    commitName()
+                    navigateTab(forward: true)
+                }
         } else {
             Text(stop.name)
                 .font(StudioTypography.body)
@@ -577,7 +780,11 @@ private struct AxisTreeStopRow: View {
             syncDrafts()
             return
         }
-        onCommitValue(value)
+        guard !AxisCoordinate.valuesEqual(value, stop.value) else { return }
+        let commit = onCommitValue
+        Task { @MainActor in
+            commit(value)
+        }
     }
 
     private func commitName() {
@@ -586,7 +793,31 @@ private struct AxisTreeStopRow: View {
             syncDrafts()
             return
         }
-        onCommitName(trimmed)
+        guard trimmed != stop.name else { return }
+        let commit = onCommitName
+        Task { @MainActor in
+            commit(trimmed)
+        }
+    }
+
+    private func navigateTab(forward: Bool) {
+        guard editingField != nil else { return }
+
+        switch (editingField, forward) {
+        case (.value, true):
+            commitValue()
+            onTabForwardFromValue()
+        case (.name, true):
+            commitName()
+            onTabForwardFromName()
+        case (.name, false):
+            onTabBackwardFromName()
+        case (.value, false):
+            commitValue()
+            onTabBackwardFromValue()
+        case (nil, _):
+            break
+        }
     }
 }
 
@@ -626,5 +857,172 @@ private struct ElidableDot: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Add stop sheet
+
+private struct AddAxisStopSheet: View {
+    @EnvironmentObject private var editor: EditorViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    let axis: AxisDefinition
+    let onComplete: () -> Void
+
+    @State private var valueText = ""
+    @State private var nameText = ""
+    @State private var tabKeyMonitor: TabKeyMonitor?
+    @FocusState private var focusedField: Field?
+
+    private enum Field: Hashable {
+        case value
+        case name
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+            Text("Add Stop")
+                .font(StudioTypography.emphasis)
+
+            Text(axisSubtitle)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+
+            Form {
+                TextField("Value", text: $valueText)
+                    .focused($focusedField, equals: .value)
+                    .font(StudioTypography.monoValue)
+                    .onSubmit { focusedField = .name }
+
+                TextField("Name", text: $nameText)
+                    .focused($focusedField, equals: .name)
+                    .onSubmit(addStopIfValid)
+            }
+            .formStyle(.grouped)
+            .frame(maxHeight: 140)
+
+            if let validationMessage {
+                Text(validationMessage)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    onComplete()
+                    dismiss()
+                }
+                Button("Add Stop") {
+                    addStopIfValid()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canAdd)
+            }
+        }
+        .padding(20)
+        .frame(width: 340)
+        .onAppear {
+            let suggested = editor.suggestedNewStopValue(for: axis)
+            valueText = StudioFormatting.axisValue(suggested)
+            nameText = "Name"
+            focusedField = .value
+            let monitor = TabKeyMonitor { shift in
+                if shift {
+                    if focusedField == .name {
+                        focusedField = .value
+                    }
+                } else if focusedField == .value {
+                    focusedField = .name
+                }
+            }
+            monitor.start()
+            tabKeyMonitor = monitor
+        }
+        .onDisappear {
+            tabKeyMonitor?.stop()
+            tabKeyMonitor = nil
+        }
+    }
+
+    private var axisSubtitle: String {
+        let title = axis.displayName ?? axis.tag
+        if let min = axis.min, let max = axis.max {
+            let minText = StudioFormatting.axisValue(min)
+            let maxText = StudioFormatting.axisValue(max)
+            if let defaultValue = axis.default {
+                return "\(title) · allowed \(minText) – \(StudioFormatting.axisValue(defaultValue)) – \(maxText)"
+            }
+            return "\(title) · allowed \(minText) – \(maxText)"
+        }
+        return title
+    }
+
+    private var parsedValue: Double? {
+        let trimmed = valueText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return Double(trimmed)
+    }
+
+    private var trimmedName: String {
+        nameText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var validationMessage: String? {
+        guard let value = parsedValue else {
+            return valueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil
+                : "Enter a valid number."
+        }
+        if trimmedName.isEmpty {
+            return "Name is required."
+        }
+        return editor.validateAxisStopValue(value, for: axis)
+    }
+
+    private var canAdd: Bool {
+        guard let value = parsedValue, !trimmedName.isEmpty else { return false }
+        return editor.validateAxisStopValue(value, for: axis) == nil
+    }
+
+    private func addStopIfValid() {
+        guard canAdd, let value = parsedValue else { return }
+        let name = trimmedName
+        let tag = axis.tag
+        onComplete()
+        dismiss()
+        Task { @MainActor in
+            editor.insertAxisStop(axisTag: tag, value: value, name: name)
+        }
+    }
+}
+
+// MARK: - Tab key monitor
+
+/// Intercepts Tab before AppKit text fields resign first responder (SwiftUI onKeyPress is too late).
+@MainActor
+private final class TabKeyMonitor {
+    private var monitor: Any?
+    private let handler: (Bool) -> Void
+
+    init(handler: @escaping (Bool) -> Void) {
+        self.handler = handler
+    }
+
+    func start() {
+        guard monitor == nil else { return }
+        let tabHandler = handler
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.keyCode == 48 else { return event }
+            tabHandler(event.modifierFlags.contains(.shift))
+            return nil
+        }
+    }
+
+    func stop() {
+        if let monitor {
+            NSEvent.removeMonitor(monitor)
+            self.monitor = nil
+        }
     }
 }

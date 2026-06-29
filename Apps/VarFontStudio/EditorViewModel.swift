@@ -41,6 +41,17 @@ struct InstanceListDisplay: Equatable {
     var includedByKey: [String: Bool] = [:]
 }
 
+struct AxisTreeFocusRequest: Equatable {
+    let axisTag: String
+    let stopID: String
+    let token: UUID
+}
+
+struct AxisConflictResolverSession: Identifiable {
+    let id = UUID()
+    let bundle: AxisConflictBundle
+}
+
 @MainActor
 final class EditorViewModel: ObservableObject {
     @Published var openProjects: [OpenProject] = []
@@ -50,11 +61,14 @@ final class EditorViewModel: ObservableObject {
     @Published var selectedAxisStopID: String?
     /// Axis tag to expand when inspector navigates to a stop.
     @Published var inspectorFocusedAxisTag: String?
-    /// Inspector bottom warnings drawer — expanded shows full conflict detail.
-    @Published var inspectorWarningsDrawerExpanded = false
+    /// Bumps when the axis tree should expand and scroll to a stop (inspector / warnings).
+    @Published var axisTreeFocusRequest: AxisTreeFocusRequest?
+    @Published var conflictResolverRequest: AxisConflictResolverSession?
+    @Published var commitPreflightSession: CommitPreflightSession?
     @Published var searchText = ""
     @Published var instanceFilter: InstanceFilter = .all
     @Published var instancePlan: InstancePlan?
+    @Published private(set) var planRevision = 0
     @Published var statusMessage: String?
     @Published var isBusy = false
     @Published private(set) var instanceListDisplay = InstanceListDisplay.empty
@@ -81,6 +95,7 @@ final class EditorViewModel: ObservableObject {
     private var debouncedPlanTask: Task<Void, Never>?
     private var statusMessageDismissTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+    private let commitService = CommitService()
 
     private static let statusMessageDisplayDuration: TimeInterval = 4
 
@@ -135,7 +150,9 @@ final class EditorViewModel: ObservableObject {
     }
 
     private func publishOpenProjects() {
-        openProjects = openProjects
+        Task { @MainActor in
+            openProjects = openProjects
+        }
     }
 
     func postStatusMessage(_ message: String, dismissAfter seconds: TimeInterval? = nil) {
@@ -708,42 +725,96 @@ final class EditorViewModel: ObservableObject {
             ?? true
     }
 
-    func warnings(for instance: PlannedInstance) -> [PlanWarning] {
-        guard let instancePlan else { return [] }
-        let chainTags = Set(instance.namingChain.map(\.tag))
+    func instanceAffectedByUnresolvedConflict(_ instance: PlannedInstance) -> Bool {
+        primaryConflictAxis(for: instance) != nil
+    }
 
-        return instancePlan.warnings.filter { warning in
-            switch warning.code {
-            case "duplicate_composed_name":
-                guard let keys = warning.keys else { return instance.duplicate }
-                return keys.contains(instance.key)
-            case "multiple_elidable", "empty_instance_axis":
-                guard let axis = warning.axis else { return false }
-                return chainTags.contains(axis)
-            default:
-                if let keys = warning.keys {
-                    return keys.contains(instance.key)
-                }
-                return false
-            }
+    private func instanceParticipates(inStopID stopID: String, instance: PlannedInstance) -> Bool {
+        guard let font = selectedFont else { return false }
+        for axis in font.axes {
+            guard let stop = axis.values.first(where: { $0.id == stopID }) else { continue }
+            guard let coord = instance.coords[axis.tag] else { return false }
+            return AxisCoordinate.valuesEqual(coord, stop.value)
+        }
+        return false
+    }
+
+    func primaryConflictAxis(for instance: PlannedInstance) -> AxisConflictBundle? {
+        axisConflictBundles.first { bundle in
+            bundle.involvedStopIDs.contains { instanceParticipates(inStopID: $0, instance: instance) }
         }
     }
 
-    func inspectorConflictCount(for instance: PlannedInstance) -> Int {
-        let planWarnings = warnings(for: instance)
-        if !planWarnings.isEmpty { return planWarnings.count }
-        return instance.duplicate ? 1 : 0
-    }
-
-    func revealInspectorWarnings(selecting key: String? = nil) {
-        if let key {
-            selectInstance(key: key, extend: false)
+    var axisConflictBundles: [AxisConflictBundle] {
+        guard let instancePlan, let font = selectedFont, let project else { return [] }
+        return AxisConflictBundler.bundles(
+            warnings: instancePlan.warnings,
+            axes: font.axes,
+            namingOrder: project.naming.order
+        ).map { bundle in
+            var updated = bundle
+            updated.symptomSummary = ConflictResolver.symptomSummary(
+                for: bundle,
+                font: font,
+                naming: project.naming
+            )
+            return updated
         }
-        inspectorWarningsDrawerExpanded = true
     }
 
-    func toggleInspectorWarningsDrawer() {
-        inspectorWarningsDrawerExpanded.toggle()
+    var unresolvedAxisConflictCount: Int { axisConflictBundles.count }
+
+    func bundle(for axisTag: String) -> AxisConflictBundle? {
+        axisConflictBundles.first { $0.axisTag == axisTag }
+    }
+
+    func presentConflictResolver(for axisTag: String) {
+        guard let bundle = bundle(for: axisTag) else { return }
+        presentConflictResolver(bundle: bundle)
+    }
+
+    func presentConflictResolver(bundle: AxisConflictBundle) {
+        conflictResolverRequest = AxisConflictResolverSession(bundle: bundle)
+        focusConflictAxis(bundle)
+    }
+
+    func presentFirstConflictResolver() {
+        guard let first = axisConflictBundles.first else { return }
+        presentConflictResolver(bundle: first)
+    }
+
+    func dismissConflictResolver() {
+        conflictResolverRequest = nil
+    }
+
+    func applyConflictFix(_ action: ConflictFixAction, axisTag: String) {
+        guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+            return
+        }
+        pushUndoSnapshot()
+        ConflictResolver.apply(action, axisTag: axisTag, to: &project.fonts[fontIndex])
+        project.fonts[fontIndex].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        conflictResolverRequest = nil
+        regeneratePlan()
+        if let sameAxis = axisConflictBundles.first(where: { $0.axisTag == axisTag }) {
+            presentConflictResolver(bundle: sameAxis)
+        } else if let next = axisConflictBundles.first {
+            presentConflictResolver(bundle: next)
+        }
+    }
+
+    private func focusConflictAxis(_ bundle: AxisConflictBundle) {
+        inspectorFocusedAxisTag = bundle.axisTag
+        guard let stopID = bundle.involvedStopIDs.first else { return }
+        selectedAxisStopID = stopID
+        axisTreeFocusRequest = AxisTreeFocusRequest(
+            axisTag: bundle.axisTag,
+            stopID: stopID,
+            token: UUID()
+        )
     }
 
     func axisStop(for instance: PlannedInstance, tag: String) -> (axisTag: String, stopID: String)? {
@@ -759,6 +830,16 @@ final class EditorViewModel: ObservableObject {
     func focusInspectorAxisStop(tag: String, stopID: String) {
         inspectorFocusedAxisTag = tag
         selectedAxisStopID = stopID
+    }
+
+    func axisTag(forStopID stopID: String) -> String? {
+        selectedFont?.axes.first { axis in
+            axis.values.contains { $0.id == stopID }
+        }?.tag
+    }
+
+    var conflictStopIDs: Set<String> {
+        Set(axisConflictBundles.flatMap(\.involvedStopIDs))
     }
 
     func focusInspectorAxis(for instance: PlannedInstance, tag: String) {
@@ -894,10 +975,44 @@ final class EditorViewModel: ObservableObject {
         searchText = instance.composedName
     }
 
-    var axisPlanWarnings: [PlanWarning] {
-        guard let instancePlan else { return [] }
-        let axisCodes: Set<String> = ["multiple_elidable", "empty_instance_axis"]
-        return instancePlan.warnings.filter { axisCodes.contains($0.code) }
+    func suggestedNewStopValue(for axis: AxisDefinition) -> Double {
+        AxisStopSuggestions.suggestedValue(for: axis)
+    }
+
+    func conflictProposals(for bundle: AxisConflictBundle) -> [ConflictResolutionProposal] {
+        guard let axis = selectedFont?.axes.first(where: { $0.tag == bundle.axisTag }) else { return [] }
+        return ConflictResolver.proposals(for: bundle, axis: axis)
+    }
+
+    func conflictPreview(
+        for bundle: AxisConflictBundle,
+        applying action: ConflictFixAction
+    ) -> ConflictFixPreview? {
+        guard let font = selectedFont, let project else { return nil }
+        return ConflictResolver.previewPlan(
+            font: font,
+            naming: project.naming,
+            bundle: bundle,
+            applying: action
+        )
+    }
+
+    func currentConflictPreview(for bundle: AxisConflictBundle) -> ConflictFixPreview? {
+        guard let font = selectedFont, let project else { return nil }
+        let plan = InstancePlanner.plan(font: font, naming: project.naming)
+        let bundles = AxisConflictBundler.bundles(
+            warnings: plan.warnings,
+            axes: font.axes,
+            namingOrder: project.naming.order
+        )
+        let remaining = bundles.filter { $0.axisTag == bundle.axisTag }.count
+        return ConflictFixPreview(
+            totalInstances: plan.instances.count,
+            duplicateInstanceCount: plan.instances.filter(\.duplicate).count,
+            remainingAxisConflicts: remaining,
+            sampleComposedNames: Array(plan.instances.prefix(3).map(\.composedName)),
+            resolvesConflict: remaining == 0
+        )
     }
 
     func presentAddFontPanel(projectID: String? = nil) {
@@ -1534,6 +1649,7 @@ final class EditorViewModel: ObservableObject {
             return
         }
         instancePlan = InstancePlanner.plan(project: project, fontID: selectedFontID!)
+        planRevision += 1
         if let key = selectedInstanceKey,
            instancePlan?.instances.contains(where: { $0.key == key }) != true {
             selectedInstanceKey = instancePlan?.instances.first?.key
@@ -1664,17 +1780,19 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
-    func addAxisStop(axisTag: String) {
+    func suggestedNewStopValue(for axis: AxisDefinition, excludingStopID: String) -> Double {
+        AxisStopSuggestions.suggestedValue(for: axis, excludingStopIDs: [excludingStopID])
+    }
+
+    func insertAxisStop(axisTag: String, value: Double, name: String) {
         var addedStopID: String?
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
-            let axis = font.axes[axisIndex]
-            let value = suggestedNewStopValue(for: axis)
             let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
             let stop = AxisValue(
                 id: stopID,
                 value: value,
-                name: "New Stop",
+                name: name,
                 elidable: false,
                 statFormat: 1
             )
@@ -1685,17 +1803,20 @@ final class EditorViewModel: ObservableObject {
         selectedAxisStopID = addedStopID
     }
 
-    private func suggestedNewStopValue(for axis: AxisDefinition) -> Double {
-        if let max = axis.max, let min = axis.min {
-            if let last = axis.values.map(\.value).max() {
-                return Swift.min(last + 1, max)
-            }
-            return axis.default ?? min
+    func validateAxisStopValue(_ value: Double, for axis: AxisDefinition, excludingStopID: String? = nil) -> String? {
+        if let min = axis.min, value < min {
+            return "Value must be at least \(StudioFormatting.axisValue(min))."
         }
-        if let last = axis.values.last?.value {
-            return last + 1
+        if let max = axis.max, value > max {
+            return "Value must be at most \(StudioFormatting.axisValue(max))."
         }
-        return axis.default ?? 0
+        let duplicate = axis.values.contains { stop in
+            stop.id != excludingStopID && AxisCoordinate.valuesEqual(stop.value, value)
+        }
+        if duplicate {
+            return "Another stop already uses this value."
+        }
+        return nil
     }
 
     private func mutateSelectedFont(
@@ -1712,13 +1833,16 @@ final class EditorViewModel: ObservableObject {
         mutate(&project.fonts[fontIndex])
         project.fonts[fontIndex].dirty = true
         project.modified = Date()
-        self.project = project
-        canSave = true
-        if debouncePlan {
-            scheduleDebouncedPlanRegeneration()
-        } else {
-            debouncedPlanTask?.cancel()
-            regeneratePlan()
+        let shouldDebouncePlan = debouncePlan
+        Task { @MainActor in
+            self.project = project
+            self.canSave = true
+            if shouldDebouncePlan {
+                self.scheduleDebouncedPlanRegeneration()
+            } else {
+                self.debouncedPlanTask?.cancel()
+                self.regeneratePlan()
+            }
         }
     }
 
@@ -1753,7 +1877,130 @@ final class EditorViewModel: ObservableObject {
     }
 
     func saveCopy() {
-        postStatusMessage("Save is not wired yet — vfcommit helper coming next.")
+        guard let font = selectedFont, let project, let plan = instancePlan else {
+            postStatusMessage("Nothing to save — open a font first.")
+            return
+        }
+
+        let duplicateIncluded = plan.instances.filter { $0.included && $0.duplicate }
+        if !duplicateIncluded.isEmpty {
+            postStatusMessage("Resolve duplicate instance names before saving.")
+            return
+        }
+
+        guard FileManager.default.fileExists(atPath: font.sourcePath) else {
+            postStatusMessage("Source font file is missing — re-open the original file.")
+            return
+        }
+
+        let placeholderOutput = CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
+        let request = CommitRequestBuilder.make(
+            font: font,
+            naming: project.naming,
+            plan: plan,
+            outputPath: placeholderOutput,
+            dryRun: true
+        )
+
+        isBusy = true
+        Task {
+            defer { isBusy = false }
+            do {
+                let result = try await commitService.commit(request)
+                if result.ok {
+                    let writeRequest = CommitRequestBuilder.make(
+                        font: font,
+                        naming: project.naming,
+                        plan: plan,
+                        outputPath: placeholderOutput,
+                        dryRun: false
+                    )
+                    commitPreflightSession = CommitPreflightSession(
+                        baseRequest: writeRequest,
+                        preflight: result
+                    )
+                } else {
+                    let message = result.errors.first?.message ?? "Save preview failed."
+                    postStatusMessage(message)
+                }
+            } catch {
+                postStatusMessage(commitFailureMessage(error))
+            }
+        }
+    }
+
+    func presentSavePanel(for session: CommitPreflightSession) {
+        guard let font = selectedFont else { return }
+
+        let panel = NSSavePanel()
+        panel.title = "Save Patched Font Copy"
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = URL(fileURLWithPath: session.baseRequest.outputPath).lastPathComponent
+        let sourceURL = URL(fileURLWithPath: font.sourcePath)
+        panel.directoryURL = sourceURL.deletingLastPathComponent()
+        let ext = sourceURL.pathExtension
+        if !ext.isEmpty, let type = UTType(filenameExtension: ext) {
+            panel.allowedContentTypes = [type]
+        }
+
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                await self?.performSaveCopy(session: session, to: url)
+            }
+        }
+    }
+
+    func performSaveCopy(session: CommitPreflightSession, to outputURL: URL) async {
+        guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+            return
+        }
+
+        var request = session.baseRequest
+        request.outputPath = outputURL.path
+        request.dryRun = false
+        request.requestID = UUID().uuidString.lowercased()
+
+        isBusy = true
+        defer { isBusy = false }
+
+        do {
+            let result = try await commitService.commit(request)
+            guard result.ok else {
+                let message = result.errors.first?.message ?? "Save failed."
+                postStatusMessage(message)
+                return
+            }
+
+            project.fonts[fontIndex].outputPath = outputURL.path
+            project.fonts[fontIndex].dirty = false
+            self.project = project
+            commitPreflightSession = nil
+            refreshCanSave()
+
+            if let count = result.summary?.instancesWritten {
+                postStatusMessage("Saved \(count) instances to \(outputURL.lastPathComponent)")
+            } else {
+                postStatusMessage("Saved \(outputURL.lastPathComponent)")
+            }
+        } catch {
+            postStatusMessage(commitFailureMessage(error))
+        }
+    }
+
+    private func commitFailureMessage(_ error: Error) -> String {
+        switch error {
+        case CommitServiceError.helperNotFound:
+            "Save helper not found — vfcommit.py is missing from Tools/vfcommit."
+        case let CommitServiceError.helperUnavailable(path):
+            "Save helper unavailable at \(path)."
+        case let CommitServiceError.helperFailed(detail):
+            "Save helper failed: \(detail)"
+        case let CommitServiceError.invalidHelperOutput(detail):
+            "Save helper returned invalid output: \(detail)"
+        default:
+            "Save failed: \(error.localizedDescription)"
+        }
     }
 
     func importDroppedFonts(_ urls: [URL]) async {

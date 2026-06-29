@@ -29,6 +29,9 @@
 		B2000021 /* ProjectTargetPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000020 /* ProjectTargetPickerSheet.swift */; };
 		B2000022 /* WorkspaceDragSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000021 /* WorkspaceDragSession.swift */; };
 		B2000023 /* InspectorSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000022 /* InspectorSupport.swift */; };
+		B2000024 /* AxisConflictResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000023 /* AxisConflictResolverSheet.swift */; };
+		B2000025 /* CommitPreflightSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000024 /* CommitPreflightSheet.swift */; };
+		B2000026 /* CommitPreflightSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000025 /* CommitPreflightSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +57,9 @@
 		F2000020 /* ProjectTargetPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTargetPickerSheet.swift; sourceTree = "<group>"; };
 		F2000021 /* WorkspaceDragSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDragSession.swift; sourceTree = "<group>"; };
 		F2000022 /* InspectorSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorSupport.swift; sourceTree = "<group>"; };
+		F2000023 /* AxisConflictResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisConflictResolverSheet.swift; sourceTree = "<group>"; };
+		F2000024 /* CommitPreflightSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSheet.swift; sourceTree = "<group>"; };
+		F2000025 /* CommitPreflightSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +79,7 @@
 			children = (
 				F2000001 /* VarFontStudioApp.swift */,
 				F2000002 /* EditorViewModel.swift */,
+				F2000025 /* CommitPreflightSession.swift */,
 				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
 				F2000012 /* OpenProject.swift */,
@@ -103,6 +110,8 @@
 				F2000017 /* WorkspaceDropOverlay.swift */,
 				F2000019 /* StudioPanelSplitView.swift */,
 				F2000005 /* AxisTreePanel.swift */,
+				F2000023 /* AxisConflictResolverSheet.swift */,
+				F2000024 /* CommitPreflightSheet.swift */,
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
 				F2000009 /* StudioDesign.swift */,
@@ -202,6 +211,9 @@
 				B2000018 /* WorkspaceDropOverlay.swift in Sources */,
 				B2000020 /* StudioPanelSplitView.swift in Sources */,
 				B2000005 /* AxisTreePanel.swift in Sources */,
+				B2000024 /* AxisConflictResolverSheet.swift in Sources */,
+				B2000025 /* CommitPreflightSheet.swift in Sources */,
+				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,

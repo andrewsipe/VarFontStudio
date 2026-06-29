@@ -522,7 +522,29 @@ public struct PlanWarning: Codable, Equatable, Sendable {
     public var axis: String?
     public var name: String?
     public var keys: [String]?
+    /// Axis stop IDs involved in this warning (for axis-tree navigation).
+    public var stopIDs: [String]?
     public var message: String
+    /// Short guidance on how to resolve the warning in the axis tree.
+    public var hint: String?
+
+    public init(
+        code: String,
+        axis: String? = nil,
+        name: String? = nil,
+        keys: [String]? = nil,
+        stopIDs: [String]? = nil,
+        message: String,
+        hint: String? = nil
+    ) {
+        self.code = code
+        self.axis = axis
+        self.name = name
+        self.keys = keys
+        self.stopIDs = stopIDs
+        self.message = message
+        self.hint = hint
+    }
 }
 
 public struct NamePlanSummary: Codable, Equatable, Sendable {

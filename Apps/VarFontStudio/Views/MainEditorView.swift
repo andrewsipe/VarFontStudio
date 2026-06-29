@@ -82,6 +82,14 @@ struct MainEditorView: View {
             ProjectTargetPickerSheet(mode: mode)
                 .environmentObject(editor)
         }
+        .sheet(item: $editor.conflictResolverRequest) { session in
+            AxisConflictResolverSheet(bundle: session.bundle)
+                .environmentObject(editor)
+        }
+        .sheet(item: $editor.commitPreflightSession) { session in
+            CommitPreflightSheet(session: session)
+                .environmentObject(editor)
+        }
         .confirmationDialog(
             "Remove font?",
             isPresented: removeFontConfirmBinding,
@@ -342,7 +350,7 @@ struct MainEditorView: View {
                 editor.saveCopy()
             }
             .disabled(!editor.canSave)
-            .help("Write patched font (not yet implemented)")
+            .help("Preview and save a patched copy of the font")
         }
     }
 

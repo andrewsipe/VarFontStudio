@@ -8,29 +8,34 @@ struct InspectorPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             StudioPanelHeader(title: "Inspector") {
-                if let instance = editor.inspectorInspectableInstance {
-                    let conflicts = editor.inspectorConflictCount(for: instance)
-                    if conflicts > 0 {
-                        StudioInspectorConflictBadge(count: conflicts) {
-                            editor.toggleInspectorWarningsDrawer()
-                        }
+                if let instance = resolvedInspectorInstance,
+                   let bundle = editor.primaryConflictAxis(for: instance) {
+                    StudioInspectorConflictBadge(count: 1) {
+                        editor.presentConflictResolver(bundle: bundle)
                     }
+                    .help("Open conflict resolver for \(bundle.axisLabel)")
                 }
             }
 
             Group {
-                if let instance = editor.inspectorInspectableInstance {
+                if let instance = resolvedInspectorInstance {
                     instanceInspector(instance)
                 } else {
                     emptyInspector
                 }
             }
+            .id(editor.planRevision)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onChange(of: editor.inspectorInspectableInstance?.key) {
-            editor.inspectorWarningsDrawerExpanded = false
+    }
+
+    private var resolvedInspectorInstance: PlannedInstance? {
+        guard let key = editor.inspectorInspectableInstance?.key,
+              let live = editor.instancePlan?.instances.first(where: { $0.key == key }) else {
+            return editor.inspectorInspectableInstance
         }
+        return live
     }
 
     private var emptyInspector: some View {
@@ -46,36 +51,30 @@ struct InspectorPanel: View {
     }
 
     private func instanceInspector(_ instance: PlannedInstance) -> some View {
-        let conflicts = editor.inspectorConflictCount(for: instance)
-
-        return VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: StudioSpacing.sectionGap + 4) {
-                    StudioComposedNameCallout(
-                        name: instance.composedName,
-                        isDuplicate: instance.duplicate
-                    )
-
-                    inclusionSection(instance)
-                    namingChainSection(instance)
-                    axisCoordinatesSection(instance)
-                    nameTableSection(instance)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .studioPanelPadding()
-            }
-
-            if conflicts > 0 {
-                InspectorWarningsDrawer(
-                    instance: instance,
-                    warnings: editor.warnings(for: instance),
-                    conflictCount: conflicts,
-                    isExpanded: $editor.inspectorWarningsDrawerExpanded,
-                    onShowDuplicates: {
-                        editor.showDuplicateInstances(matching: instance)
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: StudioSpacing.sectionGap + 4) {
+                StudioComposedNameCallout(
+                    name: instance.composedName,
+                    isDuplicate: instance.duplicate
                 )
+
+                inclusionSection(instance)
+                namingChainSection(instance)
+                axisCoordinatesSection(instance)
+
+                if let bundle = editor.primaryConflictAxis(for: instance) {
+                    StudioConflictAlert(
+                        message: "Naming conflict on \(bundle.axisLabel) affects this instance.",
+                        actionTitle: "Resolve…"
+                    ) {
+                        editor.presentConflictResolver(bundle: bundle)
+                    }
+                }
+
+                nameTableSection(instance)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .studioPanelPadding()
         }
     }
 

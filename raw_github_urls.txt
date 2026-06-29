@@ -8,8 +8,10 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype-projec
 # Apps/VarFontStudio/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/EditorLayoutPreferences.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/EditorViewModel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/InspectorSupport.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/OpenProject.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudioApp.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/WorkspaceDragSession.swift
 
 # Apps/VarFontStudio/Assets.xcassets/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Assets.xcassets/Contents.json
@@ -30,6 +32,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectDropdownMenu.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectFileSubBar.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectPickerSheet.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectTargetPickerSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectToolbar.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/StudioDesign.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/StudioPanelSplitView.swift

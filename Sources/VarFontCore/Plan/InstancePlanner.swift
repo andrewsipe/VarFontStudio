@@ -21,6 +21,7 @@ public enum InstancePlanner {
         let includedWhitelist = Set(font.includedInstanceKeys)
 
         var warnings = validateAxes(font.axes)
+        warnings.append(contentsOf: AxisStopValidator.validate(axes: font.axes))
         warnings.append(contentsOf: validateInstanceKeySets(font))
         var instances: [PlannedInstance] = []
         var seenNames: [String: String] = [:]
@@ -51,13 +52,16 @@ public enum InstancePlanner {
             var duplicate = false
             if options.detectDuplicates, let priorKey = seenNames[composed.name] {
                 duplicate = true
+                let priorCoords = instances.first { $0.key == priorKey }?.coords ?? [:]
                 warnings.append(
-                    PlanWarning(
-                        code: "duplicate_composed_name",
-                        axis: nil,
-                        name: composed.name,
-                        keys: [priorKey, key],
-                        message: "Composed name '\(composed.name)' appears more than once."
+                    NamingConflictAnalyzer.composedNameDuplicateWarning(
+                        composedName: composed.name,
+                        priorKey: priorKey,
+                        priorCoords: priorCoords,
+                        currentKey: key,
+                        currentCoords: coords,
+                        axes: font.axes,
+                        naming: naming
                     )
                 )
             } else {
@@ -75,6 +79,8 @@ public enum InstancePlanner {
                 )
             )
         }
+
+        markAllDuplicateComposedNames(in: &instances)
 
         let totalGenerated = instances.count
         let totalIncluded = instances.filter(\.included).count
@@ -141,9 +147,9 @@ public enum InstancePlanner {
                     PlanWarning(
                         code: "multiple_elidable",
                         axis: axis.tag,
-                        name: nil,
-                        keys: nil,
-                        message: "Axis '\(axis.tag)' has \(elidable.count) elidable stops; at most one is allowed."
+                        stopIDs: elidable.map(\.id),
+                        message: "Axis '\(axis.tag)' has \(elidable.count) elidable stops; at most one is allowed.",
+                        hint: "Clear elision on all but one stop for this axis."
                     )
                 )
             }
@@ -152,14 +158,25 @@ public enum InstancePlanner {
                     PlanWarning(
                         code: "empty_instance_axis",
                         axis: axis.tag,
-                        name: nil,
-                        keys: nil,
-                        message: "Instance axis '\(axis.tag)' has no stops."
+                        message: "Instance axis '\(axis.tag)' has no stops.",
+                        hint: "Add at least one stop or turn off instance axis for this axis."
                     )
                 )
             }
         }
         return warnings
+    }
+
+    private static func markAllDuplicateComposedNames(in instances: inout [PlannedInstance]) {
+        var counts: [String: Int] = [:]
+        for instance in instances {
+            counts[instance.composedName, default: 0] += 1
+        }
+        for index in instances.indices {
+            if counts[instances[index].composedName, default: 0] > 1 {
+                instances[index].duplicate = true
+            }
+        }
     }
 
     private static func validateInstanceKeySets(_ font: FontDocument) -> [PlanWarning] {
