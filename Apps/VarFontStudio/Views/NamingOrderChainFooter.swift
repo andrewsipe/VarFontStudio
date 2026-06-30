@@ -275,7 +275,7 @@ struct NamingOrderChainFooter: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(
-                inGrid ? Color.primary.opacity(0.04) : Color.clear,
+                inGrid ? StudioColors.surfaceMuted : Color.clear,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
             .overlay {
@@ -413,7 +413,7 @@ struct NamingOrderChainFooter: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .background(
-                Color.primary.opacity(0.06),
+                StudioColors.surfaceInset,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
         }

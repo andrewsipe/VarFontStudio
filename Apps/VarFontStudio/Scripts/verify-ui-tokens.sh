@@ -1,9 +1,22 @@
 #!/usr/bin/env bash
-# Regression grep for VarFontStudio Stable Chrome tokens (HIG polish checklist).
+# Regression grep for VarFontStudio Stable Chrome tokens (HIG polish + token propagation).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 FAIL=0
+
+# Paths allowed to use raw system fonts / one-off literals (documented exceptions).
+ALLOW_FONTS=(
+  --glob '!StudioDesign.swift'
+  --glob '!WorkspaceDropOverlay.swift'
+  --glob '!AxisTreePanel.swift'
+  --glob '!ProjectToolbar.swift'
+  --glob '!NamingOrderChainFooter.swift'
+)
+ALLOW_SURFACES=(
+  --glob '!StudioDesign.swift'
+  --glob '!ProjectDropdownMenu.swift'
+)
 
 check() {
   local label="$1"
@@ -30,5 +43,14 @@ check "no padding.top 1 hacks" \
 
 check "no showsSelectionStroke" \
   rg -q 'showsSelectionStroke' Views
+
+check "no Color(red: literals outside StudioDesign" \
+  rg -q 'Color\(red:' Views --glob '!StudioDesign.swift'
+
+check "no raw .font(.system outside allowlist" \
+  rg -q '\.font\(\.system' Views "${ALLOW_FONTS[@]}"
+
+check "no primary.opacity surfaces outside allowlist" \
+  rg -q 'primary\.opacity\(0\.' Views "${ALLOW_SURFACES[@]}"
 
 exit "$FAIL"

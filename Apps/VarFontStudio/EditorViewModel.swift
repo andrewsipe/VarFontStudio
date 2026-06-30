@@ -1878,6 +1878,12 @@ final class EditorViewModel: ObservableObject {
         selectedFileRole?.kind == .master
     }
 
+    /// Clarifiers are per-file naming tokens. Editable on variants and on the sole file in a project;
+    /// read-only on the master when multiple files share a project (variants carry clarifiers).
+    var areFileClarifiersEditable: Bool {
+        !isSelectedFontMaster || !projectHasMultipleFiles
+    }
+
     func clarifierLabels(for fontID: String) -> [FileClarifier] {
         fileRole(for: fontID)?.clarifiers ?? []
     }
@@ -1950,6 +1956,21 @@ final class EditorViewModel: ObservableObject {
         regeneratePlan()
     }
 
+    func clearFileClarifiers(for fontID: String) {
+        guard var project, let index = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
+        guard !(project.fonts[index].fileRole?.clarifiers.isEmpty ?? true) else { return }
+        pushUndoSnapshot()
+        var role = project.fonts[index].fileRole ?? .master()
+        role.clarifiers = []
+        role.elidedFallbackOverride = nil
+        project.fonts[index].fileRole = role
+        project.fonts[index].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
     func familyPSPrefix(for fontID: String) -> String {
         font(forProjectID: activeProjectID ?? "", fontID: fontID)?.options.familyPSPrefix ?? ""
     }
@@ -1983,8 +2004,15 @@ final class EditorViewModel: ObservableObject {
         pushUndoSnapshot()
         guard var project, let index = project.fonts.firstIndex(where: { $0.id == font.id }) else { return }
         var role = project.fonts[index].fileRole ?? .variant(masterFontID: masterFontID(for: projectID) ?? "")
-        role.clarifiers = inferred.clarifiers
-        role.elidedFallbackOverride = inferred.elidedFallbackOverride
+        let isMultiFileMaster = role.kind == .master && project.fonts.count > 1
+        if isMultiFileMaster {
+            // Clarifiers belong on variant files — master keeps axis tree only.
+            role.clarifiers = []
+            role.elidedFallbackOverride = nil
+        } else {
+            role.clarifiers = inferred.clarifiers
+            role.elidedFallbackOverride = inferred.elidedFallbackOverride
+        }
         if project.fonts[index].options.familyPSPrefix?.isEmpty != false,
            let prefix = analysis?.source.familyPSPrefix, !prefix.isEmpty {
             project.fonts[index].options.familyPSPrefix = prefix

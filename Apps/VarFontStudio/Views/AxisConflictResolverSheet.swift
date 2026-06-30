@@ -200,7 +200,7 @@ struct AxisConflictResolverSheet: View {
                 }
             }
             .padding(.vertical, 8)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         }
     }
 
@@ -409,7 +409,7 @@ struct AxisConflictResolverSheet: View {
                     }
                 }
                 .padding(.vertical, 8)
-                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
                 .overlay {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(

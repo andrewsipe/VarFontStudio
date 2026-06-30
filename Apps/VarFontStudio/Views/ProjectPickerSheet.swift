@@ -29,7 +29,7 @@ struct ProjectPickerSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(10)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
 
             HStack {
                 Spacer()

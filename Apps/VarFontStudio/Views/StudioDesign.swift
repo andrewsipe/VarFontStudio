@@ -16,6 +16,12 @@ enum StudioTypography {
     static let monoValue = Font.system(size: 11, design: .monospaced)
     static let monoMeta = Font.system(size: 10, design: .monospaced)
     static let emphasis = Font.system(size: 13, weight: .semibold)
+    /// Save Review summary metric value.
+    static let statValue = Font.system(size: 16, weight: .medium)
+    /// Diff section pill labels.
+    static let pillLabel = Font.system(size: 9, weight: .semibold)
+    /// Disclosure / expand chevrons in axis headers and diff sections.
+    static let disclosureChevron = Font.system(size: 10, weight: .semibold)
 }
 
 enum StudioSpacing {
@@ -49,6 +55,7 @@ enum StudioRadius {
 /// - Selection: default `StudioRowSelectionStyle.fillOnly` — no stroke on list rows.
 /// - Chips: use `StudioTabChip` for project/file/save-review tabs (fixed padding, stable height).
 /// - Typography: `bodyMedium` (12pt) for compact UI rows; `body` (13pt) for axis stop names and inspector prose.
+/// - `StudioKeyValueRow` is for simple inspector key/value rows only — not axis coordinate tables.
 enum StudioFieldMetrics {
     static let horizontalPadding: CGFloat = 6
     static let toolbarIconPointSize: CGFloat = 14
@@ -100,6 +107,21 @@ enum StudioColors {
     static let warningForeground = Color.orange
     static let warningStroke = Color.orange.opacity(0.45)
     static let successStroke = Color.green.opacity(0.45)
+    static let successForeground = Color.green
+    static let errorForeground = Color.red
+    static let errorStroke = Color.red.opacity(0.5)
+    /// Save Review diff semantics.
+    static let diffRemoved = Color(red: 0.97, green: 0.44, blue: 0.44)
+    static let diffAdded = Color(red: 0.29, green: 0.87, blue: 0.50)
+    static let diffReflowed = Color(red: 0.65, green: 0.55, blue: 0.98)
+    static let diffProtected = Color(red: 0.38, green: 0.65, blue: 0.98)
+    /// Neutral panel surfaces.
+    static let surfaceSubtle = Color.primary.opacity(0.03)
+    static let surfaceMuted = Color.primary.opacity(0.04)
+    static let surfaceLight = Color.primary.opacity(0.05)
+    static let surfaceInset = Color.primary.opacity(0.06)
+    static let surfaceStroke = Color.primary.opacity(0.08)
+    static let surfaceStrokeStrong = Color.primary.opacity(0.10)
     /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
     static let computedHighlight = Color.accentColor
     /// Per-file clarifier labels — metadata, not axis coordinates.
@@ -744,6 +766,17 @@ struct StudioInspectorConflictBadge: View {
         } else {
             label
         }
+    }
+}
+
+/// Simple warning caption row for lists (Save Review warnings, etc.).
+struct StudioWarningMessage: View {
+    let message: String
+
+    var body: some View {
+        Text(message)
+            .font(StudioTypography.caption)
+            .foregroundStyle(StudioColors.warningForeground)
     }
 }
 

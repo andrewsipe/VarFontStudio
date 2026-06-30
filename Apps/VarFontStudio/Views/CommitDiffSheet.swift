@@ -13,9 +13,6 @@ struct CommitDiffReviewView: View {
     @State private var showInstances = true
     @State private var showNameIDs = true
 
-    private static let reflowColor = Color(red: 0.65, green: 0.55, blue: 0.98)
-    private static let phaseColor = Color(red: 0.38, green: 0.65, blue: 0.98)
-
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
             header
@@ -118,10 +115,10 @@ struct CommitDiffReviewView: View {
     private func summaryMetric(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 16, weight: .medium, design: .default))
+                .font(StudioTypography.statValue)
                 .monospacedDigit()
             Text(label)
-                .font(.system(size: 9, weight: .medium))
+                .font(StudioTypography.gridSummaryValue)
                 .textCase(.uppercase)
                 .tracking(0.4)
                 .foregroundStyle(.tertiary)
@@ -129,10 +126,10 @@ struct CommitDiffReviewView: View {
         .frame(minWidth: 72)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
+        .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+                .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
         )
     }
 
@@ -158,12 +155,12 @@ struct CommitDiffReviewView: View {
 
         var foreground: Color {
             switch self {
-            case .removed: Color(red: 0.97, green: 0.44, blue: 0.44)
-            case .added: Color(red: 0.29, green: 0.87, blue: 0.50)
+            case .removed: StudioColors.diffRemoved
+            case .added: StudioColors.diffAdded
             case .changed: StudioColors.warningForeground
-            case .reflowed: CommitDiffReviewView.reflowColor
+            case .reflowed: StudioColors.diffReflowed
             case .unchanged: .secondary
-            case .protected: CommitDiffReviewView.phaseColor
+            case .protected: StudioColors.diffProtected
             }
         }
 
@@ -185,7 +182,7 @@ struct CommitDiffReviewView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: isExpanded.wrappedValue ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(StudioTypography.disclosureChevron)
                         .foregroundStyle(.tertiary)
                         .frame(width: 12)
                     VStack(alignment: .leading, spacing: 2) {
@@ -199,7 +196,7 @@ struct CommitDiffReviewView: View {
                     HStack(spacing: 4) {
                         ForEach(pills) { pill in
                             Text(pill.text)
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(StudioTypography.pillLabel)
                                 .foregroundStyle(pill.foreground)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -216,7 +213,7 @@ struct CommitDiffReviewView: View {
             }
         }
         .padding(10)
-        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: StudioRadius.row))
     }
 
     private func statSectionDetail(_ rows: [CommitDiffStatRow]) -> String {
@@ -280,11 +277,11 @@ struct CommitDiffReviewView: View {
 
     private var diffLegend: some View {
         HStack(spacing: 14) {
-            legendSwatch(color: .red, label: "Removed")
-            legendSwatch(color: .green, label: "Added")
-            legendSwatch(color: Self.reflowColor, label: "ID reflowed")
+            legendSwatch(color: StudioColors.diffRemoved, label: "Removed")
+            legendSwatch(color: StudioColors.diffAdded, label: "Added")
+            legendSwatch(color: StudioColors.diffReflowed, label: "ID reflowed")
             legendSwatch(color: StudioColors.warningForeground, label: "Renamed")
-            legendSwatch(color: Self.phaseColor, label: "Protected OT")
+            legendSwatch(color: StudioColors.diffProtected, label: "Protected OT")
             legendSwatch(color: .secondary, label: "Same")
         }
         .font(StudioTypography.meta)
@@ -416,7 +413,7 @@ struct CommitDiffReviewView: View {
     private func ttxPhaseHeader(_ title: String) -> some View {
         HStack(spacing: 6) {
             Text(title)
-                .font(.system(size: 9, weight: .semibold))
+                .font(StudioTypography.sectionLabel)
                 .textCase(.uppercase)
                 .tracking(0.4)
                 .foregroundStyle(.tertiary)
@@ -424,7 +421,7 @@ struct CommitDiffReviewView: View {
                 .padding(.vertical, 6)
             Spacer(minLength: 0)
         }
-        .background(Color.primary.opacity(0.04))
+        .background(StudioColors.surfaceMuted)
         .overlay(alignment: .bottom) {
             Divider()
         }
@@ -465,16 +462,16 @@ struct CommitDiffReviewView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(Color.primary.opacity(0.04))
+            .background(StudioColors.surfaceMuted)
 
             VStack(spacing: 0) {
                 content()
             }
         }
-        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         .overlay(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                .strokeBorder(StudioColors.surfaceStroke, lineWidth: 0.5)
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -508,7 +505,7 @@ struct CommitDiffReviewView: View {
                                 .font(StudioTypography.meta)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 1)
-                                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3))
+                                .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: 3))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
@@ -609,13 +606,13 @@ struct CommitDiffReviewView: View {
         reflow: Bool = false,
         protected: Bool = false
     ) -> Color {
-        if protected { return Self.phaseColor }
-        if reflow { return Self.reflowColor }
+        if protected { return StudioColors.diffProtected }
+        if reflow { return StudioColors.diffReflowed }
         switch change {
         case .added:
-            return side == .after ? .green : .clear
+            return side == .after ? StudioColors.diffAdded : .clear
         case .removed:
-            return side == .before ? .red : .clear
+            return side == .before ? StudioColors.diffRemoved : .clear
         case .changed:
             return StudioColors.warningForeground
         case .unchanged:
@@ -629,13 +626,13 @@ struct CommitDiffReviewView: View {
         reflow: Bool = false,
         protected: Bool = false
     ) -> Color {
-        if protected { return Self.phaseColor }
-        if reflow { return Self.reflowColor }
+        if protected { return StudioColors.diffProtected }
+        if reflow { return StudioColors.diffReflowed }
         switch change {
         case .added:
-            return side == .after ? .green : .primary
+            return side == .after ? StudioColors.diffAdded : .primary
         case .removed:
-            return side == .before ? .red : .primary
+            return side == .before ? StudioColors.diffRemoved : .primary
         case .changed:
             return StudioColors.warningForeground
         case .unchanged:
@@ -650,9 +647,7 @@ struct CommitDiffReviewView: View {
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
             ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
-                Text(warning.message)
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.orange)
+                StudioWarningMessage(message: warning.message)
             }
         }
         .padding(10)
@@ -671,13 +666,13 @@ struct CommitDiffReviewView: View {
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
                 Text(error.message)
                     .font(StudioTypography.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(StudioColors.errorForeground)
             }
         }
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(Color.red.opacity(0.5), lineWidth: 1)
+                .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
         )
     }
 }

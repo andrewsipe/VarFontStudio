@@ -74,7 +74,7 @@ struct FileClarifiersBar: View {
         if !prefix.isEmpty {
             parts.append("PS: \(prefix)")
         }
-        if editor.isSelectedFontMaster {
+        if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
             parts.append("Master file")
         } else {
             let labels = editor.clarifierLabels(for: font.id).map(\.label)
@@ -95,6 +95,15 @@ struct FileClarifiersBar: View {
                 }
                 .font(StudioTypography.meta)
                 .help("Copy master axis stops to all other files in this project")
+            }
+
+            if editor.isSelectedFontMaster, editor.projectHasMultipleFiles,
+               !editor.clarifierLabels(for: font.id).isEmpty {
+                Button("Clear clarifiers") {
+                    editor.clearFileClarifiers(for: font.id)
+                }
+                .font(StudioTypography.meta)
+                .help("Remove clarifiers stored on the master file (they belong on variant files)")
             }
 
             if !editor.isSelectedFontMaster {
@@ -134,19 +143,24 @@ struct FileClarifiersBar: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 92, alignment: .leading)
 
-            if editor.isSelectedFontMaster {
+            if editor.areFileClarifiersEditable {
+                StudioTextField(
+                    placeholder: categoryPlaceholder(category),
+                    text: binding(for: category, fontID: fontID)
+                )
+                .help(clarifierFieldHelp)
+            } else {
                 StudioFieldLabel(
                     text: clarifierDisplayValue(category: category, fontID: fontID),
                     foreground: .secondary
                 )
                 .help("Set on variant files in this project")
-            } else {
-                StudioTextField(
-                    placeholder: categoryPlaceholder(category),
-                    text: binding(for: category, fontID: fontID)
-                )
             }
         }
+    }
+
+    private var clarifierFieldHelp: String {
+        "File-level naming token appended before axis stop names. Clear a field to omit that clarifier."
     }
 
     private func clarifierDisplayValue(category: FileClarifierCategory, fontID: String) -> String {
@@ -182,7 +196,7 @@ struct FileClarifiersBar: View {
     }
 
     private func syncExpansion(for font: FontDocument) {
-        if editor.isSelectedFontMaster {
+        if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
             isExpanded = !editor.familyPSPrefix(for: font.id).isEmpty
         } else {
             isExpanded = !editor.clarifierLabels(for: font.id).isEmpty

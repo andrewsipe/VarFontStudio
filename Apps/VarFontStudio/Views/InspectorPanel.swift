@@ -85,7 +85,7 @@ struct InspectorPanel: View {
             let included = editor.isInstanceIncluded(instance.key)
             HStack(spacing: StudioSpacing.controlGap) {
                 Image(systemName: included ? "checkmark.circle.fill" : "minus.circle.fill")
-                    .foregroundStyle(included ? Color.green : Color.orange)
+                    .foregroundStyle(included ? StudioColors.successForeground : StudioColors.warningForeground)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(included ? "Included in export" : "Excluded (pruned)")
                         .font(StudioTypography.bodyMedium)
@@ -96,14 +96,11 @@ struct InspectorPanel: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Toggle("Included", isOn: Binding(
-                    get: { editor.isInstanceIncluded(instance.key) },
-                    set: { editor.setInstanceIncluded(instance.key, included: $0) }
-                ))
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
+                StudioIncludeCheckbox(isOn: included) {
+                    editor.setInstanceIncluded(instance.key, included: !included)
+                }
             }
+            .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
         }
     }
 
@@ -119,32 +116,33 @@ struct InspectorPanel: View {
         let rows = editor.inspectorAxisCoordRows(for: instance)
         let showsElidableColumn = rows.contains(where: \.showsElisionToggle)
 
-        return VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-            HStack(spacing: StudioSpacing.controlGap) {
-                StudioSectionLabel(title: "Axis coordinates")
-                Spacer(minLength: 0)
+        return StudioInspectorBlock(title: "Axis coordinates") {
+            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
                 if showsElidableColumn {
-                    Text("Elidable")
-                        .font(StudioTypography.columnLabel)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .frame(width: 52, alignment: .center)
+                    HStack(spacing: StudioSpacing.controlGap) {
+                        Spacer(minLength: 0)
+                        Text("Elidable")
+                            .font(StudioTypography.columnLabel)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(width: 52, alignment: .center)
+                    }
                 }
-            }
 
-            InspectorAxisCoordinatesView(
-                rows: rows,
-                selectedStopID: editor.selectedAxisStopID,
-                onRowTap: { row in
-                    guard let stopID = row.stopID else { return }
-                    editor.focusInspectorAxisStop(tag: row.tag, stopID: stopID)
-                },
-                onElisionToggle: { row in
-                    guard let stopID = row.stopID else { return }
-                    editor.toggleAxisStopElidable(axisTag: row.tag, stopID: stopID)
-                }
-            )
+                InspectorAxisCoordinatesView(
+                    rows: rows,
+                    selectedStopID: editor.selectedAxisStopID,
+                    onRowTap: { row in
+                        guard let stopID = row.stopID else { return }
+                        editor.focusInspectorAxisStop(tag: row.tag, stopID: stopID)
+                    },
+                    onElisionToggle: { row in
+                        guard let stopID = row.stopID else { return }
+                        editor.toggleAxisStopElidable(axisTag: row.tag, stopID: stopID)
+                    }
+                )
+            }
         }
     }
 

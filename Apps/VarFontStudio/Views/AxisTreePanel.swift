@@ -194,7 +194,7 @@ struct AxisTreePanel: View {
         VStack(alignment: .leading, spacing: StudioSpacing.instanceRowGap) {
             if axis.values.isEmpty {
                 Text("No STAT stops on this axis")
-                    .font(.caption)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             } else {
                 AxisStopTableHeader(showElidable: axis.role == .instance)
@@ -247,7 +247,7 @@ struct AxisTreePanel: View {
                     addStopRequest = AddAxisStopRequest(axisTag: axis.tag)
                 } label: {
                     Label("Add Stop", systemImage: "plus")
-                        .font(.system(size: 12))
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, AxisBlockLayout.valueColumnLeading)
@@ -433,7 +433,7 @@ private struct AxisTreeAxisHeader: View {
                 HStack(spacing: AxisBlockLayout.tagNameSpacing) {
                     if hasConflict {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 10))
+                            .font(StudioTypography.meta)
                             .foregroundStyle(StudioColors.warningForeground)
                             .help("Naming conflict on this axis")
                     }
@@ -447,7 +447,7 @@ private struct AxisTreeAxisHeader: View {
                                 .font(StudioTypography.body)
                                 .lineLimit(1)
                             Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(StudioTypography.disclosureChevron)
                                 .foregroundStyle(.tertiary)
                         }
                         if let range = axisRangeText {
