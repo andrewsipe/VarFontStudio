@@ -7,19 +7,20 @@ public enum ProjectImporter {
   }
 
   public static func newProject(from analysis: FontAnalysis, sourceURL: URL) -> ProjectDocument {
-    let font = fontDocument(from: analysis, sourceURL: sourceURL)
+    let font = fontDocument(from: analysis, sourceURL: sourceURL, isMaster: true, masterFontID: nil)
     let familyLabel = analysis.source.familyName.isEmpty
       ? sourceURL.deletingPathExtension().lastPathComponent
       : analysis.source.familyName
 
+    let axisOrder = analysis.inferred.namingOrderSuggested
     return ProjectDocument(
       schemaVersion: 1,
       created: Date(),
       modified: Date(),
       familyLabel: familyLabel,
       naming: NamingPolicy(
-        order: analysis.inferred.namingOrderSuggested,
-        inferredOrder: analysis.inferred.namingOrderSuggested,
+        order: NamingPolicy.orderWithDefaultClarifiers(axisOrder: axisOrder),
+        inferredOrder: axisOrder,
         elidedFallback: analysis.nameAudit.elidedFallbackName ?? "Regular"
       ),
       template: ProjectTemplate(syncRoles: true, axes: []),
@@ -28,14 +29,28 @@ public enum ProjectImporter {
   }
 
   public static func addFont(_ analysis: FontAnalysis, sourceURL: URL, to project: inout ProjectDocument) {
-    let font = fontDocument(from: analysis, sourceURL: sourceURL)
+    let masterID = project.fonts.first { $0.fileRole?.kind == .master }?.id ?? project.fonts.first?.id
+    let font = fontDocument(
+      from: analysis,
+      sourceURL: sourceURL,
+      isMaster: project.fonts.isEmpty,
+      masterFontID: masterID
+    )
     project.fonts.append(font)
+    if project.fonts.count > 1 {
+      project.naming.order = NamingPolicy.orderWithDefaultClarifiers(axisOrder: project.naming.order)
+    }
     project.modified = Date()
   }
 
   // MARK: - Private
 
-  private static func fontDocument(from analysis: FontAnalysis, sourceURL: URL) -> FontDocument {
+  private static func fontDocument(
+    from analysis: FontAnalysis,
+    sourceURL: URL,
+    isMaster: Bool,
+    masterFontID: String?
+  ) -> FontDocument {
     let axes = analysis.axes.map { axis in
       AxisDefinition(
         tag: axis.tag,
@@ -60,14 +75,38 @@ public enum ProjectImporter {
       )
     }
 
-    return FontDocument(
+  let placeholder = FontDocument(
       id: UUID().uuidString,
+      sourcePath: sourceURL.path,
+      dirty: false,
+      axes: axes
+    )
+    let inferred = FileClarifierInference.infer(
+      sourceURL: sourceURL,
+      analysis: analysis,
+      font: placeholder
+    )
+
+    let fileRole: FileRole
+    if isMaster {
+      fileRole = .master()
+    } else {
+      fileRole = .variant(
+        masterFontID: masterFontID ?? "",
+        clarifiers: inferred.clarifiers,
+        elidedFallbackOverride: inferred.elidedFallbackOverride
+      )
+    }
+
+    return FontDocument(
+      id: placeholder.id,
       sourcePath: sourceURL.path,
       outputPath: nil,
       analysisSnapshotID: nil,
       dirty: false,
+      fileRole: fileRole,
       axes: axes,
-      options: CommitOptions(),
+      options: CommitOptions(familyPSPrefix: analysis.source.familyPSPrefix),
       includedInstanceKeys: [],
       excludedInstanceKeys: [],
       overrides: InstanceOverrides()
@@ -78,8 +117,10 @@ public enum ProjectImporter {
     _ stop: FontAnalysis.StatValueSnapshot,
     axis: FontAnalysis.AnalyzedAxis
   ) -> Double {
-    if let value = stop.value { return value }
-    if let nominal = stop.nominal { return nominal }
-    return axis.default
+    let raw: Double
+    if let value = stop.value { raw = value }
+    else if let nominal = stop.nominal { raw = nominal }
+    else { raw = axis.default }
+    return AxisCoordinateFormat.canonical(raw)
   }
 }

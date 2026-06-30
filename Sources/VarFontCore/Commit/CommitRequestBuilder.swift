@@ -15,8 +15,9 @@ public enum CommitRequestBuilder {
             sourcePath: font.sourcePath,
             outputPath: outputPath,
             dryRun: dryRun,
-            options: font.options,
-            naming: namingForCommit(naming),
+            options: commitOptions(from: font.options),
+            naming: namingForCommit(naming, axisTags: font.axes.map(\.tag)),
+            fileRole: font.fileRole,
             axes: orderedAxes(font.axes, naming: naming),
             includedInstanceKeys: includedInstanceKeys(font: font, plan: plan)
         )
@@ -54,7 +55,17 @@ public enum CommitRequestBuilder {
         return []
     }
 
-    private static func namingForCommit(_ naming: NamingPolicy) -> NamingPolicy {
-        NamingPolicy(order: naming.order, elidedFallback: naming.elidedFallback)
+    private static func namingForCommit(_ naming: NamingPolicy, axisTags: [String]) -> NamingPolicy {
+        NamingPolicy(
+            order: NamingPolicy.mergedOrder(projectOrder: naming.order, axisTags: axisTags),
+            elidedFallback: naming.elidedFallback
+        )
+    }
+
+    /// vfcommit auto-fix for fvar default is off until axis default pinning exists in the UI.
+    private static func commitOptions(from options: CommitOptions) -> CommitOptions {
+        var commit = options
+        commit.fixFvarDefault = false
+        return commit
     }
 }

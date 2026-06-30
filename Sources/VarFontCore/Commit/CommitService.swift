@@ -94,10 +94,10 @@ public struct CommitService: Sendable {
         }
 
         let cacheScript = cache.appendingPathComponent("vfcommit.py")
+        let sourceFingerprint = helperFingerprint(at: source)
+        let cacheFingerprint = helperFingerprint(at: cache)
         if FileManager.default.fileExists(atPath: cacheScript.path),
-           let sourceDate = try sourceScript.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-           let cacheDate = try cacheScript.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-           cacheDate >= sourceDate {
+           sourceFingerprint == cacheFingerprint {
             return
         }
 
@@ -107,6 +107,37 @@ public struct CommitService: Sendable {
         try FileManager.default.createDirectory(at: cache.deletingLastPathComponent(), withIntermediateDirectories: true)
         try FileManager.default.copyItem(at: source, to: cache)
         removePythonCaches(under: cache)
+    }
+
+    /// Fingerprint the helper tree so stale cache copies refresh when vfcommit changes.
+    private static func helperFingerprint(at root: URL) -> String {
+        let script = root.appendingPathComponent("vfcommit.py")
+        let lib = root.appendingPathComponent("vfcommit_lib")
+        var parts: [String] = []
+
+        if let values = try? script.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]),
+           let modified = values.contentModificationDate,
+           let size = values.fileSize {
+            parts.append("vfcommit.py:\(size):\(modified.timeIntervalSince1970)")
+        }
+
+        guard let enumerator = FileManager.default.enumerator(
+            at: lib,
+            includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return parts.joined(separator: "|")
+        }
+
+        for case let url as URL in enumerator where url.pathExtension == "py" {
+            guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]),
+                  let modified = values.contentModificationDate,
+                  let size = values.fileSize else { continue }
+            let relative = url.lastPathComponent
+            parts.append("\(relative):\(size):\(modified.timeIntervalSince1970)")
+        }
+
+        return parts.sorted().joined(separator: "|")
     }
 
     private static func removePythonCaches(under root: URL) {

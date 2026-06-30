@@ -33,6 +33,8 @@
         B2000025 /* CommitDiffSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000024 /* CommitDiffSheet.swift */; };
 		B2000026 /* CommitPreflightSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000025 /* CommitPreflightSession.swift */; };
 		B2000027 /* SourceFontAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000026 /* SourceFontAccess.swift */; };
+		B2000028 /* SaveReviewWindowLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000027 /* SaveReviewWindowLifecycle.swift */; };
+		B2000029 /* FileClarifiersBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000028 /* FileClarifiersBar.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -62,6 +64,8 @@
 		F2000024 /* CommitDiffSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitDiffSheet.swift; sourceTree = "<group>"; };
 		F2000025 /* CommitPreflightSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSession.swift; sourceTree = "<group>"; };
 		F2000026 /* SourceFontAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontAccess.swift; sourceTree = "<group>"; };
+		F2000027 /* SaveReviewWindowLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewWindowLifecycle.swift; sourceTree = "<group>"; };
+		F2000028 /* FileClarifiersBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClarifiersBar.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +87,7 @@
 				F2000002 /* EditorViewModel.swift */,
 				F2000025 /* CommitPreflightSession.swift */,
 				F2000026 /* SourceFontAccess.swift */,
+				F2000027 /* SaveReviewWindowLifecycle.swift */,
 				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
 				F2000012 /* OpenProject.swift */,
@@ -108,6 +113,7 @@
 				F2000013 /* ProjectToolbar.swift */,
 				F2000014 /* ProjectDropdownMenu.swift */,
 				F2000015 /* ProjectFileSubBar.swift */,
+				F2000028 /* FileClarifiersBar.swift */,
 				F2000016 /* ProjectPickerSheet.swift */,
 				F2000020 /* ProjectTargetPickerSheet.swift */,
 				F2000017 /* WorkspaceDropOverlay.swift */,
@@ -238,6 +244,8 @@
 				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000027 /* SourceFontAccess.swift in Sources */,
+				B2000028 /* SaveReviewWindowLifecycle.swift in Sources */,
+				B2000029 /* FileClarifiersBar.swift in Sources */,
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,

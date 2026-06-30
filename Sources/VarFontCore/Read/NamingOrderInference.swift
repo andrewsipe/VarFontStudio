@@ -1,28 +1,41 @@
 import Foundation
 
 enum NamingOrderInference {
-    static let fallbackTags = ["wdth", "wght", "opsz", "slnt", "ital"]
+    /// Preferred ordering for common instance axes when present in the font.
+    static let canonicalAxisOrder = ["opsz", "wdth", "wght", "slnt", "ital"]
 
     static func suggest(
         designAxes: [StatDesignAxis],
-        additionalTags: [String] = []
+        fvarAxisTags: [String] = []
     ) -> [String] {
+        let knownTags = Set(designAxes.map(\.tag)).union(fvarAxisTags)
         var order: [String] = []
         var seen = Set<String>()
 
         for axis in designAxes.sorted(by: { $0.ordering < $1.ordering }) {
-            guard seen.insert(axis.tag).inserted else { continue }
+            guard knownTags.contains(axis.tag), seen.insert(axis.tag).inserted else { continue }
             order.append(axis.tag)
         }
 
-        for tag in fallbackTags where seen.insert(tag).inserted {
+        let fvarSet = Set(fvarAxisTags)
+        let canonicalFvar = canonicalAxisOrder.filter { fvarSet.contains($0) }
+        let otherFvar = fvarAxisTags.filter { !canonicalAxisOrder.contains($0) }.sorted()
+
+        for tag in canonicalFvar + otherFvar where seen.insert(tag).inserted {
             order.append(tag)
         }
 
-        for tag in additionalTags where seen.insert(tag).inserted {
-            order.append(tag)
-        }
+        return enforceSlntBeforeItal(order)
+    }
 
-        return order
+    /// When both slope axes are present, prefer `slnt` before `ital`.
+    private static func enforceSlntBeforeItal(_ order: [String]) -> [String] {
+        guard let slntIndex = order.firstIndex(of: "slnt"),
+              let italIndex = order.firstIndex(of: "ital"),
+              slntIndex > italIndex else { return order }
+        var result = order
+        result.remove(at: slntIndex)
+        result.insert("slnt", at: italIndex)
+        return result
     }
 }

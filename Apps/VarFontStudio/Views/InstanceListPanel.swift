@@ -69,16 +69,18 @@ struct InstanceListPanel: View {
 
     private var instanceList: some View {
         ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(spacing: StudioSpacing.instanceRowGap, pinnedViews: [.sectionHeaders]) {
                 ForEach(Array(display.groups.enumerated()), id: \.element.id) { index, group in
                     if group.label.isEmpty {
-                        ForEach(group.instances) { instance in
-                            instanceRow(instance)
-                                .id("\(instance.key)-\(instance.duplicate)-\(editor.planRevision)")
+                        VStack(spacing: StudioSpacing.instanceRowGap) {
+                            ForEach(group.instances) { instance in
+                                instanceRow(instance)
+                                    .id("\(instance.key)-\(instance.duplicate)-\(editor.planRevision)")
+                            }
                         }
                     } else {
                         Section {
-                            VStack(spacing: 0) {
+                            VStack(spacing: StudioSpacing.instanceRowGap) {
                                 ForEach(group.instances) { instance in
                                     instanceRow(instance)
                                         .id("\(instance.key)-\(instance.duplicate)-\(editor.planRevision)")
@@ -193,31 +195,9 @@ struct InstanceListPanel: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "magnifyingglass")
-                .font(StudioTypography.meta)
-                .foregroundStyle(.tertiary)
-
-            TextField("Search names or coordinates", text: $editor.searchText)
-                .textFieldStyle(.plain)
-                .font(StudioTypography.caption)
-
-            if !editor.searchText.isEmpty {
-                Button {
-                    editor.searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 4)
-        .background(
-            .quaternary.opacity(0.55),
-            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+        StudioSearchField(
+            text: $editor.searchText,
+            placeholder: "Search names or coordinates"
         )
     }
 
@@ -310,6 +290,7 @@ private struct InstanceRowView: View {
                 .lineLimit(1)
                 .frame(maxWidth: 140, alignment: .trailing)
         }
+        .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
         .studioRowInsets()
         .opacity(isIncluded ? 1 : 0.45)
         .background {

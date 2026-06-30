@@ -51,43 +51,47 @@ struct NamingOrderChainFooter: View {
     }
 
     private var disclosureLabel: some View {
-        HStack(spacing: StudioSpacing.controlGap) {
-            HStack(spacing: 4) {
-                Text("Naming order")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
-
-                if editor.projectHasMultipleFiles {
-                    Text("· project")
+        StudioDisclosureLabelRow {
+            HStack(spacing: StudioSpacing.controlGap) {
+                HStack(spacing: 4) {
+                    Text("Naming order")
                         .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+
+                    if editor.projectHasMultipleFiles {
+                        Text("· project")
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .help("Drag a chip to reorder; drop into the outlined gap. Use Hide STAT-only to focus on instance naming axes.")
+
+                if !isExpanded {
+                    Text(editor.namingChainSummary(hideStatOnly: hideStatOnly))
+                        .font(StudioTypography.meta)
                         .foregroundStyle(.tertiary)
+                        .lineLimit(1)
                 }
             }
-            .help("Drag a chip to reorder; drop into the outlined gap. Use Hide STAT-only to focus on instance naming axes.")
-
-            if !isExpanded {
-                Text(editor.namingChainSummary(hideStatOnly: hideStatOnly))
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-
-            if isExpanded {
+        } trailing: {
+            HStack(spacing: StudioSpacing.controlGap) {
                 hideStatOnlyControl
+                    .opacity(isExpanded ? 1 : 0)
+                    .allowsHitTesting(isExpanded)
 
                 disclosureToolbarDivider
+                    .opacity(isExpanded ? 1 : 0)
 
                 restoreButton
-            }
+                    .opacity(isExpanded ? 1 : 0)
+                    .allowsHitTesting(isExpanded)
 
-            if !isExpanded {
                 Text(editor.namingChainPreviewName)
                     .font(StudioTypography.caption)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .frame(maxWidth: 220, alignment: .trailing)
+                    .opacity(isExpanded ? 0 : 1)
             }
         }
     }
@@ -253,30 +257,58 @@ struct NamingOrderChainFooter: View {
     // MARK: - Chips
 
     private func chainChip(tag: String) -> some View {
+        if editor.isClarifierNamingToken(tag) {
+            return AnyView(clarifierChainChip(tag: tag))
+        }
         let inGrid = editor.axisParticipatesInInstanceGrid(tag: tag)
         let isDragging = session.draggingTag == tag
 
-        return HStack(spacing: 5) {
-            StudioIncludeCheckbox(isOn: inGrid) {
-                editor.setAxisInstanceGridEnabled(tag: tag, enabled: !inGrid)
-            }
+        return AnyView(
+            HStack(spacing: 5) {
+                StudioIncludeCheckbox(isOn: inGrid) {
+                    editor.setAxisInstanceGridEnabled(tag: tag, enabled: !inGrid)
+                }
 
-            chainChipBody(tag: tag, inGrid: inGrid)
-        }
-        .fixedSize(horizontal: true, vertical: false)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(
-            inGrid ? Color.primary.opacity(0.04) : Color.clear,
-            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
-        )
-        .overlay {
-            if !inGrid {
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(.quaternary, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                chainChipBody(tag: tag, inGrid: inGrid)
             }
-        }
-        .opacity(isDragging ? 0.3 : 1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                inGrid ? Color.primary.opacity(0.04) : Color.clear,
+                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            )
+            .overlay {
+                if !inGrid {
+                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        .strokeBorder(.quaternary, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                }
+            }
+            .opacity(isDragging ? 0.3 : 1)
+        )
+    }
+
+    private func clarifierChainChip(tag: String) -> some View {
+        let isDragging = session.draggingTag == tag
+        let label = editor.clarifierLabels(for: editor.selectedFontID ?? "").first {
+            NamingToken.clarifierCategory(for: tag) == $0.category
+        }?.label ?? editor.axisDisplayName(for: tag)
+
+        return Text(label)
+            .font(StudioTypography.caption)
+            .foregroundStyle(StudioColors.clarifierForeground)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(StudioColors.clarifierBackground.opacity(0.5), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .overlay {
+                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    .strokeBorder(StudioColors.clarifierStroke, lineWidth: 0.5)
+            }
+            .opacity(isDragging ? 0.3 : 1)
+            .contentShape(Rectangle())
+            .gesture(dragGesture(for: tag))
     }
 
     /// The draggable portion of a chip (tag pill + label). The checkbox is excluded
@@ -297,20 +329,42 @@ struct NamingOrderChainFooter: View {
         .gesture(dragGesture(for: tag))
     }
 
-    private var placeholderChip: some View {
-        HStack(spacing: 5) {
-            if let tag = session.draggingTag {
-                StudioTagPill(text: tag, compact: true)
-                    .opacity(0.4)
+    private func chainChipLabel(for tag: String) -> String {
+        if editor.isClarifierNamingToken(tag),
+           let fontID = editor.selectedFontID,
+           let label = editor.clarifierLabels(for: fontID).first(where: {
+               NamingToken.clarifierCategory(for: tag) == $0.category
+           })?.label {
+            return label
+        }
+        return editor.axisDisplayName(for: tag)
+    }
 
-                Text(editor.axisDisplayName(for: tag))
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
+    private var placeholderChip: some View {
+        Group {
+            if let tag = session.draggingTag {
+                if editor.isClarifierNamingToken(tag) {
+                    Text(chainChipLabel(for: tag))
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(StudioColors.clarifierForeground.opacity(0.5))
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                } else {
+                    HStack(spacing: 5) {
+                        StudioTagPill(text: tag, compact: true)
+                            .opacity(0.4)
+
+                        Text(chainChipLabel(for: tag))
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                }
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.chip)
                 .strokeBorder(Color.accentColor.opacity(0.5), style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
@@ -321,29 +375,47 @@ struct NamingOrderChainFooter: View {
     private var ghostOverlay: some View {
         Group {
             if let tag = session.draggingTag {
-                HStack(spacing: 5) {
-                    StudioTagPill(text: tag, compact: true)
+                ghostChip(for: tag)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: StudioRadius.chip)
+                            .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 1)
+                    }
+                    .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+                    .opacity(0.9)
+                    .position(session.ghostPosition)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
 
-                    Text(editor.axisDisplayName(for: tag))
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                }
+    @ViewBuilder
+    private func ghostChip(for tag: String) -> some View {
+        if editor.isClarifierNamingToken(tag) {
+            Text(chainChipLabel(for: tag))
+                .font(StudioTypography.caption)
+                .foregroundStyle(StudioColors.clarifierForeground)
+                .lineLimit(1)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(
-                    Color.primary.opacity(0.06),
+                    StudioColors.clarifierBackground.opacity(0.5),
                     in: RoundedRectangle(cornerRadius: StudioRadius.chip)
                 )
-                .overlay {
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
-                .opacity(0.9)
-                .position(session.ghostPosition)
-                .allowsHitTesting(false)
+        } else {
+            HStack(spacing: 5) {
+                StudioTagPill(text: tag, compact: true)
+
+                Text(chainChipLabel(for: tag))
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                Color.primary.opacity(0.06),
+                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            )
         }
     }
 

@@ -64,9 +64,12 @@ final class EditorViewModel: ObservableObject {
     /// Bumps when the axis tree should expand and scroll to a stop (inspector / warnings).
     @Published var axisTreeFocusRequest: AxisTreeFocusRequest?
     @Published var conflictResolverRequest: AxisConflictResolverSession?
-    @Published var commitDiffSession: CommitPreflightSession?
+    @Published private(set) var saveReviewSessionsByKey: [String: CommitPreflightSession] = [:]
     @Published var presentCommitDiffSheet = false
-    @Published private(set) var saveReviewWindowToken = UUID()
+    @Published private(set) var saveReviewOpenRequest: SaveReviewOpenRequest?
+    @Published private(set) var saveReviewLoadingKeys: Set<String> = []
+    @Published private(set) var saveReviewSelectedFontIDByProjectID: [String: String] = [:]
+    @Published private(set) var saveReviewExplicitlyOpenedProjectIDs: Set<String> = []
     @Published var searchText = ""
     @Published var instanceFilter: InstanceFilter = .all
     @Published var instancePlan: InstancePlan?
@@ -124,15 +127,138 @@ final class EditorViewModel: ObservableObject {
     }
 
     var saveReviewWindowTitle: String {
-        if let font = selectedFont {
-            return "Save Review — \(fontBasename(for: font))"
+        guard let activeProjectID else { return "Save Review" }
+        return saveReviewWindowTitle(forProjectID: activeProjectID)
+    }
+
+    func saveReviewWindowTitle(forProjectID projectID: String) -> String {
+        if let open = openProject(for: projectID) {
+            return "Save Review — \(projectTabLabel(for: open))"
         }
         return "Save Review"
     }
 
-    func presentSaveReviewWindow() {
-        refreshCommitDiffPreview()
-        saveReviewWindowToken = UUID()
+    func fontsForSaveReview(projectID: String) -> [FontDocument] {
+        openProject(for: projectID)?.document.fonts ?? []
+    }
+
+    func saveReviewSelectedFontID(forProjectID projectID: String) -> String? {
+        if let selected = saveReviewSelectedFontIDByProjectID[projectID] {
+            return selected
+        }
+        return openProject(for: projectID)?.selectedFontID
+    }
+
+    func saveReviewSession(forProjectID projectID: String, fontID: String? = nil) -> CommitPreflightSession? {
+        guard let fontID = fontID ?? saveReviewSelectedFontID(forProjectID: projectID) else { return nil }
+        return saveReviewSessionsByKey[saveReviewSessionKey(projectID: projectID, fontID: fontID)]
+    }
+
+    func isSaveReviewLoading(forProjectID projectID: String, fontID: String? = nil) -> Bool {
+        if let fontID {
+            return saveReviewLoadingKeys.contains(saveReviewSessionKey(projectID: projectID, fontID: fontID))
+        }
+        return saveReviewLoadingKeys.contains { $0.hasPrefix("\(projectID)|") }
+    }
+
+    func selectSaveReviewFont(projectID: String, fontID: String) {
+        saveReviewSelectedFontIDByProjectID[projectID] = fontID
+        if saveReviewSession(forProjectID: projectID, fontID: fontID) == nil,
+           canPreviewSaveReview(forProjectID: projectID, fontID: fontID) {
+            refreshCommitDiffPreview(forProjectID: projectID, fontID: fontID)
+        }
+    }
+
+    func saveReviewWasExplicitlyOpened(forProjectID projectID: String) -> Bool {
+        saveReviewExplicitlyOpenedProjectIDs.contains(projectID)
+    }
+
+    func presentSaveReviewWindow(forProjectID projectID: String? = nil) {
+        let targetID = projectID ?? activeProjectID
+        guard let targetID else {
+            postStatusMessage("Open a project first.")
+            return
+        }
+        guard canPreviewSaveReview(forProjectID: targetID) else {
+            postStatusMessage("Nothing to preview — select a font in this project first.")
+            return
+        }
+        if saveReviewSelectedFontIDByProjectID[targetID] == nil,
+           let fontID = selectedFont(forProjectID: targetID)?.id {
+            saveReviewSelectedFontIDByProjectID[targetID] = fontID
+        }
+        let fontID = saveReviewSelectedFontID(forProjectID: targetID)
+        refreshCommitDiffPreview(forProjectID: targetID, fontID: fontID, presentSheet: false)
+        saveReviewExplicitlyOpenedProjectIDs.insert(targetID)
+        saveReviewOpenRequest = SaveReviewOpenRequest(projectID: targetID, token: UUID())
+    }
+
+    /// Drop save-review payload when quitting or closing a restored auxiliary window.
+    func clearSaveReviewState(forProjectID projectID: String? = nil, fontID: String? = nil) {
+        if let projectID, let fontID {
+            let key = saveReviewSessionKey(projectID: projectID, fontID: fontID)
+            saveReviewSessionsByKey.removeValue(forKey: key)
+            saveReviewLoadingKeys.remove(key)
+        } else if let projectID {
+            for key in saveReviewSessionsByKey.keys where key.hasPrefix("\(projectID)|") {
+                saveReviewSessionsByKey.removeValue(forKey: key)
+            }
+            for key in saveReviewLoadingKeys where key.hasPrefix("\(projectID)|") {
+                saveReviewLoadingKeys.remove(key)
+            }
+            saveReviewSelectedFontIDByProjectID.removeValue(forKey: projectID)
+            saveReviewExplicitlyOpenedProjectIDs.remove(projectID)
+        } else {
+            saveReviewSessionsByKey.removeAll()
+            saveReviewLoadingKeys.removeAll()
+            saveReviewSelectedFontIDByProjectID.removeAll()
+            saveReviewExplicitlyOpenedProjectIDs.removeAll()
+        }
+        presentCommitDiffSheet = false
+    }
+
+    private func saveReviewSessionKey(projectID: String, fontID: String) -> String {
+        "\(projectID)|\(fontID)"
+    }
+
+    func openProject(for id: String) -> OpenProject? {
+        openProjects.first { $0.id == id }
+    }
+
+    func font(forProjectID projectID: String, fontID: String) -> FontDocument? {
+        openProject(for: projectID)?.document.fonts.first { $0.id == fontID }
+    }
+
+    func selectedFont(forProjectID projectID: String) -> FontDocument? {
+        guard let open = openProject(for: projectID),
+              let fontID = open.selectedFontID else { return nil }
+        return open.document.fonts.first { $0.id == fontID }
+    }
+
+    func instancePlan(forProjectID projectID: String, fontID: String? = nil) -> InstancePlan? {
+        guard let open = openProject(for: projectID) else { return nil }
+        let resolvedFontID = fontID ?? open.selectedFontID
+        guard let resolvedFontID else { return nil }
+        if projectID == activeProjectID, resolvedFontID == selectedFontID, let instancePlan {
+            return instancePlan
+        }
+        return InstancePlanner.plan(project: open.document, fontID: resolvedFontID)
+    }
+
+    func canPreviewSaveReview(forProjectID projectID: String, fontID: String) -> Bool {
+        guard let open = openProject(for: projectID),
+              open.document.fonts.contains(where: { $0.id == fontID }) else { return false }
+        return instancePlan(forProjectID: projectID, fontID: fontID) != nil
+    }
+
+    func canPreviewSaveReview(forProjectID projectID: String) -> Bool {
+        guard let open = openProject(for: projectID) else { return false }
+        return open.document.fonts.contains { canPreviewSaveReview(forProjectID: projectID, fontID: $0.id) }
+    }
+
+    var canPreviewSaveReview: Bool {
+        guard let activeProjectID else { return false }
+        return canPreviewSaveReview(forProjectID: activeProjectID)
     }
 
     private func registerSourceBookmark(url: URL, fontID: String) {
@@ -143,10 +269,6 @@ final class EditorViewModel: ObservableObject {
 
     private func removeSourceBookmark(fontID: String) {
         sourceBookmarks.removeValue(forKey: fontID)
-    }
-
-    var canPreviewSaveReview: Bool {
-        selectedFont != nil && project != nil && instancePlan != nil
     }
 
     var project: ProjectDocument? {
@@ -389,14 +511,26 @@ final class EditorViewModel: ObservableObject {
         namingChainTags.joined(separator: " → ")
     }
 
-    /// Full naming order filtered to axes that participate in instance naming.
+    /// Full naming order filtered to axes that participate in instance naming plus clarifier tokens.
     var namingChainInstanceTags: [String] {
-        namingChainTags.filter { axisParticipatesInInstanceGrid(tag: $0) }
+        namingChainTags.filter { NamingToken.isClarifier($0) || axisParticipatesInInstanceGrid(tag: $0) }
     }
 
-    /// Tags shown in the chain footer; STAT-only axes are hidden when requested.
+    /// Tags shown in the chain footer; STAT-only axes and empty clarifiers are hidden when requested.
     func visibleNamingChainTags(hideStatOnly: Bool) -> [String] {
-        hideStatOnly ? namingChainInstanceTags : namingChainTags
+        let base = hideStatOnly ? namingChainInstanceTags : namingChainTags
+        guard let fontID = selectedFontID else { return base }
+        return base.filter { tag in
+            if NamingToken.isClarifier(tag) {
+                return clarifierHasValue(for: tag, fontID: fontID)
+            }
+            return true
+        }
+    }
+
+    func clarifierHasValue(for token: String, fontID: String) -> Bool {
+        guard let category = NamingToken.clarifierCategory(for: token) else { return false }
+        return fileRole(for: fontID)?.label(for: category) != nil
     }
 
     func namingChainSummary(hideStatOnly: Bool) -> String {
@@ -415,7 +549,7 @@ final class EditorViewModel: ObservableObject {
             return min(max(0, visibleInsertBefore), fullTags.count)
         }
 
-        let visibleTags = namingChainInstanceTags
+        let visibleTags = visibleNamingChainTags(hideStatOnly: true)
         if visibleInsertBefore >= visibleTags.count {
             // Append after the last visible axis: land just past it in the full order.
             if let lastVisible = visibleTags.last,
@@ -440,10 +574,17 @@ final class EditorViewModel: ObservableObject {
     }
 
     func axisDisplayName(for tag: String) -> String {
+        if let clarifier = NamingToken.clarifierDisplayName[tag] {
+            return clarifier
+        }
         if let name = selectedFont?.axes.first(where: { $0.tag == tag })?.displayName, !name.isEmpty {
             return name
         }
         return tag
+    }
+
+    func isClarifierNamingToken(_ tag: String) -> Bool {
+        NamingToken.isClarifier(tag)
     }
 
     func setNamingOrder(_ tags: [String]) {
@@ -519,9 +660,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     static func mergedNamingOrder(projectOrder: [String], axisTags: [String]) -> [String] {
-        let ordered = projectOrder.filter { axisTags.contains($0) }
-        let remainder = axisTags.filter { !ordered.contains($0) }
-        return ordered + remainder
+        NamingPolicy.mergedOrder(projectOrder: projectOrder, axisTags: axisTags)
     }
 
     private func refreshInstanceListDisplay() {
@@ -1478,6 +1617,7 @@ final class EditorViewModel: ObservableObject {
         }
 
         openProjects.remove(at: idx)
+        clearSaveReviewState(forProjectID: id)
 
         if openProjects.isEmpty {
             activeProjectID = nil
@@ -1719,7 +1859,201 @@ final class EditorViewModel: ObservableObject {
     }
 
     func axisParticipatesInInstanceGrid(tag: String) -> Bool {
-        selectedFont?.axes.first(where: { $0.tag == tag })?.role == .instance
+        if NamingToken.isClarifier(tag) { return false }
+        return selectedFont?.axes.first(where: { $0.tag == tag })?.role == .instance
+    }
+
+    // MARK: - File clarifiers
+
+    func fileRole(for fontID: String) -> FileRole? {
+        project?.fonts.first { $0.id == fontID }?.fileRole
+    }
+
+    var selectedFileRole: FileRole? {
+        guard let selectedFontID else { return nil }
+        return fileRole(for: selectedFontID)
+    }
+
+    var isSelectedFontMaster: Bool {
+        selectedFileRole?.kind == .master
+    }
+
+    func clarifierLabels(for fontID: String) -> [FileClarifier] {
+        fileRole(for: fontID)?.clarifiers ?? []
+    }
+
+    func masterFontID(for projectID: String) -> String? {
+        guard let open = openProject(for: projectID) else { return nil }
+        return open.document.fonts.first { $0.fileRole?.kind == .master }?.id
+            ?? open.document.fonts.first?.id
+    }
+
+    func setFontAsMaster(fontID: String) {
+        guard var project else { return }
+        pushUndoSnapshot()
+        for index in project.fonts.indices {
+            if project.fonts[index].id == fontID {
+                project.fonts[index].fileRole = .master()
+            } else {
+                var role = project.fonts[index].fileRole ?? .variant(masterFontID: fontID)
+                role.kind = .variant
+                role.masterFontID = fontID
+                project.fonts[index].fileRole = role
+            }
+            project.fonts[index].dirty = true
+        }
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    func setFileClarifiers(_ clarifiers: [FileClarifier], for fontID: String) {
+        mutateFont(id: fontID) { font in
+            var role = font.fileRole ?? .variant(masterFontID: masterFontID(for: activeProjectID ?? "") ?? "")
+            if role.kind == .master, !clarifiers.isEmpty {
+                role.kind = .variant
+                role.masterFontID = masterFontID(for: activeProjectID ?? "")
+            }
+            role.clarifiers = clarifiers
+            font.fileRole = role
+        }
+    }
+
+    func setFileClarifier(category: FileClarifierCategory, label: String, for fontID: String) {
+        guard var project, let index = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
+        pushUndoSnapshot()
+        var role = project.fonts[index].fileRole ?? .variant(masterFontID: masterFontID(for: activeProjectID ?? "") ?? "")
+        role.clarifiers.removeAll { $0.category == category }
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            role.clarifiers.append(FileClarifier(category: category, label: trimmed))
+        }
+        project.fonts[index].fileRole = role
+        project.fonts[index].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    func removeFileClarifier(category: FileClarifierCategory, for fontID: String) {
+        guard var project, let index = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
+        pushUndoSnapshot()
+        var role = project.fonts[index].fileRole ?? .master()
+        role.clarifiers.removeAll { $0.category == category }
+        project.fonts[index].fileRole = role
+        project.fonts[index].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    func familyPSPrefix(for fontID: String) -> String {
+        font(forProjectID: activeProjectID ?? "", fontID: fontID)?.options.familyPSPrefix ?? ""
+    }
+
+    func setFamilyPSPrefix(_ value: String, for fontID: String) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        mutateFont(id: fontID) { font in
+            font.options.familyPSPrefix = trimmed.isEmpty ? nil : trimmed
+        }
+    }
+
+    func setElidedFallbackOverride(_ value: String?, for fontID: String) {
+        mutateFont(id: fontID) { font in
+            var role = font.fileRole ?? .master()
+            role.elidedFallbackOverride = {
+                let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return trimmed.isEmpty ? nil : trimmed
+            }()
+            font.fileRole = role
+        }
+    }
+
+    func inferFileClarifiersForSelectedFont() {
+        guard let font = selectedFont, let projectID = activeProjectID else { return }
+        let analysis = try? FontAnalysisReader.analyze(url: URL(fileURLWithPath: font.sourcePath))
+        let inferred = FileClarifierInference.infer(
+            sourceURL: URL(fileURLWithPath: font.sourcePath),
+            analysis: analysis,
+            font: font
+        )
+        pushUndoSnapshot()
+        guard var project, let index = project.fonts.firstIndex(where: { $0.id == font.id }) else { return }
+        var role = project.fonts[index].fileRole ?? .variant(masterFontID: masterFontID(for: projectID) ?? "")
+        role.clarifiers = inferred.clarifiers
+        role.elidedFallbackOverride = inferred.elidedFallbackOverride
+        if project.fonts[index].options.familyPSPrefix?.isEmpty != false,
+           let prefix = analysis?.source.familyPSPrefix, !prefix.isEmpty {
+            project.fonts[index].options.familyPSPrefix = prefix
+        }
+        project.fonts[index].fileRole = role
+        project.fonts[index].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    func pushMasterAxisTreeToAllFonts() {
+        guard let project, let projectID = activeProjectID,
+              let masterID = masterFontID(for: projectID),
+              let masterFont = project.fonts.first(where: { $0.id == masterID }) else { return }
+        pushUndoSnapshot()
+        guard var updated = self.project else { return }
+        for index in updated.fonts.indices where updated.fonts[index].id != masterID {
+            updated.fonts[index].axes = mergeAxesFromMaster(
+                master: masterFont.axes,
+                into: updated.fonts[index].axes,
+                syncRoles: updated.template.syncRoles
+            )
+            updated.fonts[index].dirty = true
+        }
+        updated.template.axes = masterFont.axes
+        updated.modified = Date()
+        self.project = updated
+        canSave = true
+        regeneratePlan()
+        postStatusMessage("Pushed axis tree from master to \(updated.fonts.count - 1) file(s)")
+    }
+
+    private func mergeAxesFromMaster(
+        master: [AxisDefinition],
+        into target: [AxisDefinition],
+        syncRoles: Bool
+    ) -> [AxisDefinition] {
+        let targetByTag = Dictionary(uniqueKeysWithValues: target.map { ($0.tag, $0) })
+        var merged: [AxisDefinition] = []
+        for masterAxis in master {
+            guard var existing = targetByTag[masterAxis.tag] else { continue }
+            existing.displayName = masterAxis.displayName
+            existing.values = masterAxis.values.map { stop in
+                var copy = stop
+                copy.id = "\(masterAxis.tag)-\(UUID().uuidString.prefix(8))"
+                return copy
+            }
+            if syncRoles {
+                existing.role = masterAxis.role
+            }
+            merged.append(existing)
+        }
+        for axis in target where !master.contains(where: { $0.tag == axis.tag }) {
+            merged.append(axis)
+        }
+        return merged
+    }
+
+    private func mutateFont(id fontID: String, _ mutate: (inout FontDocument) -> Void) {
+        guard var project, let index = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
+        pushUndoSnapshot()
+        mutate(&project.fonts[index])
+        project.fonts[index].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
     }
 
     func updateAxisRole(tag: String, role: AxisRole) {
@@ -1915,88 +2249,192 @@ final class EditorViewModel: ObservableObject {
         refreshCommitDiffPreview(presentSheet: true)
     }
 
+    /// Write to `font.outputPath` when set; otherwise open Save Review (same as Save Copy).
+    func save() {
+        guard canSave else {
+            postStatusMessage("Nothing to save — make an edit first.")
+            return
+        }
+        Task {
+            await saveActiveFontUsingRememberedPathOrReview()
+        }
+    }
+
+    func canSaveToRememberedPath(forProjectID projectID: String, fontID: String) -> Bool {
+        rememberedOutputURL(forProjectID: projectID, fontID: fontID) != nil
+    }
+
+    var canSaveToRememberedPathForSelection: Bool {
+        guard let projectID = activeProjectID, let fontID = selectedFontID else { return false }
+        return canSaveToRememberedPath(forProjectID: projectID, fontID: fontID)
+    }
+
+    func savedOutputLabel(for font: FontDocument) -> String? {
+        guard let outputPath = font.outputPath else { return nil }
+        return URL(fileURLWithPath: outputPath).lastPathComponent
+    }
+
+    private func rememberedOutputURL(forProjectID projectID: String, fontID: String) -> URL? {
+        guard let font = font(forProjectID: projectID, fontID: fontID),
+              let path = font.outputPath else { return nil }
+        let url = URL(fileURLWithPath: path)
+        var isDirectory: ObjCBool = false
+        let parent = url.deletingLastPathComponent()
+        guard FileManager.default.fileExists(atPath: parent.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return nil
+        }
+        return url
+    }
+
+    @MainActor
+    private func saveActiveFontUsingRememberedPathOrReview() async {
+        guard let projectID = activeProjectID, let fontID = selectedFontID else { return }
+
+        if let outputURL = rememberedOutputURL(forProjectID: projectID, fontID: fontID) {
+            guard let session = await ensureSaveReviewSession(projectID: projectID, fontID: fontID) else { return }
+            guard session.preflight.ok else {
+                postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+                return
+            }
+            await performSave(session: session, to: outputURL)
+            return
+        }
+
+        saveCopy()
+    }
+
+    @MainActor
+    func ensureSaveReviewSession(projectID: String, fontID: String) async -> CommitPreflightSession? {
+        if let session = saveReviewSession(forProjectID: projectID, fontID: fontID),
+           session.preflight.ok {
+            return session
+        }
+        return await refreshCommitDiffPreviewAsync(forProjectID: projectID, fontID: fontID)
+    }
+
+    @discardableResult
+    @MainActor
+    func refreshCommitDiffPreviewAsync(
+        forProjectID projectID: String? = nil,
+        fontID: String? = nil,
+        presentSheet: Bool = false
+    ) async -> CommitPreflightSession? {
+        let targetProjectID = projectID ?? activeProjectID
+        guard let targetProjectID,
+              let open = openProject(for: targetProjectID) else {
+            if presentSheet {
+                postStatusMessage("Nothing to save — open a font first.")
+            }
+            return nil
+        }
+
+        let targetFontID = fontID
+            ?? saveReviewSelectedFontID(forProjectID: targetProjectID)
+            ?? open.selectedFontID
+        guard let targetFontID,
+              let font = open.document.fonts.first(where: { $0.id == targetFontID }),
+              let plan = instancePlan(forProjectID: targetProjectID, fontID: targetFontID) else {
+            if presentSheet {
+                postStatusMessage("Nothing to save — open a font first.")
+            }
+            return nil
+        }
+
+        let projectDoc = open.document
+
+        let duplicateIncluded = plan.instances.filter { $0.included && $0.duplicate }
+        if !duplicateIncluded.isEmpty {
+            postStatusMessage("Resolve duplicate instance names before saving.")
+            return nil
+        }
+
+        guard FileManager.default.fileExists(atPath: font.sourcePath) else {
+            postStatusMessage("Source font file is missing — re-open the original file.")
+            return nil
+        }
+
+        let bookmark = sourceBookmarks[font.id]
+        let outputPath = font.outputPath ?? CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
+        var dryRunRequest = CommitRequestBuilder.make(
+            font: font,
+            naming: projectDoc.naming,
+            plan: plan,
+            outputPath: outputPath,
+            dryRun: true
+        )
+
+        let sessionKey = saveReviewSessionKey(projectID: targetProjectID, fontID: targetFontID)
+        saveReviewLoadingKeys.insert(sessionKey)
+        defer { saveReviewLoadingKeys.remove(sessionKey) }
+
+        do {
+            let analysis = try SourceFontAccess.withReadableSourceURL(
+                bookmark: bookmark,
+                fallbackPath: font.sourcePath
+            ) { sourceURL in
+                try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+            }
+            let helperSourcePath = try SourceFontAccess.helperSourcePath(
+                bookmark: bookmark,
+                fallbackPath: font.sourcePath,
+                fontID: font.id
+            )
+            dryRunRequest.sourcePath = helperSourcePath
+            let result = try await commitService.commit(dryRunRequest)
+            if result.ok {
+                let diffReport = CommitDiffBuilder.build(
+                    analysis: analysis,
+                    font: font,
+                    plan: plan,
+                    result: result
+                )
+                var writeRequest = CommitRequestBuilder.make(
+                    font: font,
+                    naming: projectDoc.naming,
+                    plan: plan,
+                    outputPath: outputPath,
+                    dryRun: false
+                )
+                writeRequest.sourcePath = helperSourcePath
+                let session = CommitPreflightSession(
+                    projectID: targetProjectID,
+                    fontID: font.id,
+                    dryRunRequest: dryRunRequest,
+                    baseRequest: writeRequest,
+                    preflight: result,
+                    diffReport: diffReport
+                )
+                saveReviewSessionsByKey[sessionKey] = session
+                if presentSheet {
+                    presentCommitDiffSheet = true
+                }
+                return session
+            }
+            let message = result.errors.first?.message ?? "Save preview failed."
+            postStatusMessage(message)
+            return nil
+        } catch {
+            postStatusMessage(commitFailureMessage(error))
+            return nil
+        }
+    }
+
     func dismissCommitDiffSheet() {
         presentCommitDiffSheet = false
     }
 
     /// Re-read the source font and run vfcommit dry-run to build the save review diff.
-    func refreshCommitDiffPreview(presentSheet: Bool = false) {
-        guard let font = selectedFont, let project, let plan = instancePlan else {
-            if presentSheet {
-                postStatusMessage("Nothing to save — open a font first.")
-            }
-            return
-        }
-
-        let duplicateIncluded = plan.instances.filter { $0.included && $0.duplicate }
-        if !duplicateIncluded.isEmpty {
-            postStatusMessage("Resolve duplicate instance names before saving.")
-            return
-        }
-
-        guard FileManager.default.fileExists(atPath: font.sourcePath) else {
-            postStatusMessage("Source font file is missing — re-open the original file.")
-            return
-        }
-
-        let bookmark = sourceBookmarks[font.id]
-        let placeholderOutput = CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
-        var dryRunRequest = CommitRequestBuilder.make(
-            font: font,
-            naming: project.naming,
-            plan: plan,
-            outputPath: placeholderOutput,
-            dryRun: true
-        )
-
-        isBusy = true
+    func refreshCommitDiffPreview(
+        forProjectID projectID: String? = nil,
+        fontID: String? = nil,
+        presentSheet: Bool = false
+    ) {
         Task {
-            defer { isBusy = false }
-            do {
-                let analysis = try SourceFontAccess.withReadableSourceURL(
-                    bookmark: bookmark,
-                    fallbackPath: font.sourcePath
-                ) { sourceURL in
-                    try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
-                }
-                let helperSourcePath = try SourceFontAccess.helperSourcePath(
-                    bookmark: bookmark,
-                    fallbackPath: font.sourcePath,
-                    fontID: font.id
-                )
-                dryRunRequest.sourcePath = helperSourcePath
-                let result = try await commitService.commit(dryRunRequest)
-                if result.ok {
-                    let diffReport = CommitDiffBuilder.build(
-                        analysis: analysis,
-                        font: font,
-                        plan: plan,
-                        result: result
-                    )
-                    var writeRequest = CommitRequestBuilder.make(
-                        font: font,
-                        naming: project.naming,
-                        plan: plan,
-                        outputPath: placeholderOutput,
-                        dryRun: false
-                    )
-                    writeRequest.sourcePath = helperSourcePath
-                    commitDiffSession = CommitPreflightSession(
-                        dryRunRequest: dryRunRequest,
-                        baseRequest: writeRequest,
-                        preflight: result,
-                        diffReport: diffReport
-                    )
-                    if presentSheet {
-                        presentCommitDiffSheet = true
-                    }
-                } else {
-                    let message = result.errors.first?.message ?? "Save preview failed."
-                    postStatusMessage(message)
-                }
-            } catch {
-                postStatusMessage(commitFailureMessage(error))
-            }
+            await refreshCommitDiffPreviewAsync(
+                forProjectID: projectID,
+                fontID: fontID,
+                presentSheet: presentSheet
+            )
         }
     }
 
@@ -2039,7 +2477,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func presentSavePanel(for session: CommitPreflightSession) {
-        guard let font = selectedFont else { return }
+        guard let font = font(forProjectID: session.projectID, fontID: session.fontID) else { return }
 
         let panel = NSSavePanel()
         panel.title = "Save Patched Font Copy"
@@ -2055,13 +2493,133 @@ final class EditorViewModel: ObservableObject {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
-                await self?.performSaveCopy(session: session, to: url)
+                await self?.performSave(session: session, to: url)
             }
         }
     }
 
-    func performSaveCopy(session: CommitPreflightSession, to outputURL: URL) async {
-        guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+    func save(session: CommitPreflightSession) {
+        Task {
+            await save(session: session, usingRememberedPath: true)
+        }
+    }
+
+    @MainActor
+    private func save(session: CommitPreflightSession, usingRememberedPath: Bool) async {
+        guard session.preflight.ok else {
+            postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+            return
+        }
+
+        if usingRememberedPath, let url = rememberedOutputURL(forProjectID: session.projectID, fontID: session.fontID) {
+            await performSave(session: session, to: url)
+            return
+        }
+
+        presentSavePanel(for: session)
+    }
+
+    func saveAllFiles(inProjectID projectID: String? = nil) {
+        Task {
+            await saveAllFilesAsync(inProjectID: projectID)
+        }
+    }
+
+    @MainActor
+    private func saveAllFilesAsync(inProjectID projectID: String? = nil) async {
+        guard let projectID = projectID ?? activeProjectID,
+              let open = openProject(for: projectID) else { return }
+
+        let fontsToWrite = open.document.fonts.filter(\.dirty)
+        let targets = fontsToWrite.isEmpty ? open.document.fonts : fontsToWrite
+        guard !targets.isEmpty else {
+            postStatusMessage("Nothing to save.")
+            return
+        }
+
+        for font in targets {
+            guard let plan = instancePlan(forProjectID: projectID, fontID: font.id) else {
+                postStatusMessage("Cannot save \(fontBasename(for: font)) — planning failed.")
+                return
+            }
+            if plan.instances.contains(where: { $0.included && $0.duplicate }) {
+                postStatusMessage("Resolve duplicate instance names in \(fontBasename(for: font)) before saving.")
+                return
+            }
+        }
+
+        var sessions: [String: CommitPreflightSession] = [:]
+        for font in targets {
+            guard let session = await ensureSaveReviewSession(projectID: projectID, fontID: font.id) else {
+                postStatusMessage("Save preview failed for \(fontBasename(for: font)).")
+                return
+            }
+            guard session.preflight.ok else {
+                postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+                return
+            }
+            sessions[font.id] = session
+        }
+
+        var outputURLs: [String: URL] = [:]
+        for font in targets {
+            if let url = rememberedOutputURL(forProjectID: projectID, fontID: font.id) {
+                outputURLs[font.id] = url
+            }
+        }
+
+        var outputDirectory: URL?
+        if targets.contains(where: { outputURLs[$0.id] == nil }) {
+            guard let directory = await chooseOutputDirectory(
+                title: "Save All Files",
+                message: "Choose a folder for patched font copies."
+            ) else { return }
+            outputDirectory = directory
+            for font in targets where outputURLs[font.id] == nil {
+                let suggested = CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
+                let name = URL(fileURLWithPath: suggested).lastPathComponent
+                outputURLs[font.id] = directory.appendingPathComponent(name)
+            }
+        }
+
+        isBusy = true
+        defer { isBusy = false }
+
+        for font in targets {
+            guard let session = sessions[font.id], let url = outputURLs[font.id] else { continue }
+            await performSave(session: session, to: url, manageBusyState: false)
+        }
+
+        let folderLabel = outputDirectory?.lastPathComponent
+            ?? outputURLs.values.first?.deletingLastPathComponent().lastPathComponent
+            ?? "output folder"
+        postStatusMessage("Saved \(targets.count) files to \(folderLabel)")
+    }
+
+    private func chooseOutputDirectory(title: String, message: String) async -> URL? {
+        await withCheckedContinuation { continuation in
+            let panel = NSOpenPanel()
+            panel.title = title
+            panel.message = message
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.canCreateDirectories = true
+            panel.prompt = "Choose Folder"
+            panel.begin { response in
+                continuation.resume(returning: response == .OK ? panel.url : nil)
+            }
+        }
+    }
+
+    var isSaveActionBlocked: Bool {
+        if isBusy { return true }
+        guard let projectID = activeProjectID else { return false }
+        return isSaveReviewLoading(forProjectID: projectID)
+    }
+
+    func performSave(session: CommitPreflightSession, to outputURL: URL, manageBusyState: Bool = true) async {
+        guard let projectIndex = openProjects.firstIndex(where: { $0.id == session.projectID }),
+              let fontIndex = openProjects[projectIndex].document.fonts.firstIndex(where: { $0.id == session.fontID }) else {
             return
         }
 
@@ -2070,8 +2628,8 @@ final class EditorViewModel: ObservableObject {
         request.dryRun = false
         request.requestID = UUID().uuidString.lowercased()
 
-        isBusy = true
-        defer { isBusy = false }
+        if manageBusyState { isBusy = true }
+        defer { if manageBusyState { isBusy = false } }
 
         do {
             let result = try await commitService.commit(request)
@@ -2081,12 +2639,17 @@ final class EditorViewModel: ObservableObject {
                 return
             }
 
+            var project = openProjects[projectIndex].document
             project.fonts[fontIndex].outputPath = outputURL.path
             project.fonts[fontIndex].dirty = false
-            self.project = project
-            commitDiffSession = nil
+            openProjects[projectIndex].document = project
+            publishOpenProjects()
+            if activeProjectID == session.projectID {
+                self.project = project
+                refreshCanSave()
+            }
+            clearSaveReviewState(forProjectID: session.projectID, fontID: session.fontID)
             presentCommitDiffSheet = false
-            refreshCanSave()
 
             if let count = result.summary?.instancesWritten {
                 postStatusMessage("Saved \(count) instances to \(outputURL.lastPathComponent)")

@@ -43,16 +43,22 @@ struct ProjectFileSubBar: View {
                 editor.selectFont(id: font.id)
             }
         ) {
-            Text(name)
-                .font(StudioTypography.caption)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(
-                    isSelected ? StudioColors.selectionFill : Color.primary.opacity(0.04),
-                    in: Capsule()
-                )
+            StudioTabChip(isSelected: isSelected) {
+                Text(name)
+                    .font(StudioTypography.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .lineLimit(1)
+            } trailing: {
+                if let savedName = editor.savedOutputLabel(for: font) {
+                    Text("→")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+                    Text(savedName)
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
         }
     }
 }

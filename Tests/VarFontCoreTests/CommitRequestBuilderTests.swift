@@ -44,4 +44,18 @@ final class CommitRequestBuilderTests: XCTestCase {
         )
         XCTAssertEqual(path, "/Users/test/PlayfairRomanVF-patched.woff2")
     }
+
+    func testCommitNamingPrunesPhantomTokens() {
+        let order = NamingPolicy.mergedOrder(
+            projectOrder: [
+                "opsz", "wdth", "wght", "ital", "slnt",
+                "@width", "@slope", "@optical", "@custom",
+            ],
+            axisTags: ["wght"]
+        )
+
+        XCTAssertEqual(order, ["wght", "@width", "@slope", "@optical", "@custom"])
+        XCTAssertFalse(order.contains("slnt"))
+        XCTAssertFalse(order.contains("ital"))
+    }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct VarFontStudioApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var editor = EditorViewModel()
     @StateObject private var layout = EditorLayoutPreferences()
 
@@ -22,10 +23,12 @@ struct VarFontStudioApp: App {
             mainWindowCommands
         }
 
-        Window("Save Review", id: "save-review") {
-            SaveReviewWindow()
-                .environmentObject(editor)
-                .environmentObject(layout)
+        WindowGroup(id: "save-review", for: String.self) { $projectID in
+            if let projectID {
+                SaveReviewWindow(projectID: projectID)
+                    .environmentObject(editor)
+                    .environmentObject(layout)
+            }
         }
         .defaultSize(width: 960, height: 720)
     }
@@ -46,11 +49,34 @@ struct VarFontStudioApp: App {
             }
 
             CommandGroup(after: .saveItem) {
+                Button("Save") {
+                    editor.save()
+                }
+                .keyboardShortcut("s", modifiers: .command)
+                .disabled(!editor.canSave || editor.isSaveActionBlocked)
+
                 Button("Save Copy…") {
                     editor.saveCopy()
                 }
-                .keyboardShortcut("s", modifiers: .command)
-                .disabled(!editor.canSave)
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .disabled(!editor.canSave || editor.isSaveActionBlocked)
+
+                if let projectID = editor.activeProjectID,
+                   editor.openProjects.first(where: { $0.id == projectID })?.document.fonts.count ?? 0 > 1 {
+                    Button("Save All Files…") {
+                        editor.saveAllFiles(inProjectID: projectID)
+                    }
+                    .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                    .help("Write every file in this project that has unsaved edits")
+                }
+
+                Divider()
+
+                Button("Open Save Review Window") {
+                    editor.presentSaveReviewWindow()
+                }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(!editor.canPreviewSaveReview)
             }
 
             CommandGroup(replacing: .undoRedo) {
@@ -113,5 +139,15 @@ struct VarFontStudioApp: App {
                 .keyboardShortcut(InstanceInclusionCommands.excludeSelectionShortcut)
                 .disabled(editor.activeInstanceSelection.isEmpty)
             }
+    }
+}
+
+private final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        SaveReviewWindowLifecycle.closeRestoredWindows()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        SaveReviewWindowLifecycle.scheduleCloseRestoredWindows()
     }
 }

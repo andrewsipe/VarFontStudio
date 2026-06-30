@@ -70,47 +70,29 @@ struct ProjectDropdownMenu: View {
     }
 
     private var projectHeader: some View {
-        HStack(alignment: .top, spacing: 8) {
-            if !isEditingName {
-                WorkspaceDraggableContainer(
-                    item: .project(projectID: openProject.id, label: currentDisplayName),
-                    isDragEnabled: editor.canDragProjectForCombine,
-                    helpText: "Drag to another project tab to combine projects"
-                ) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(currentDisplayName)
-                            .font(StudioTypography.bodyMedium)
-                            .fontWeight(.semibold)
-                            .lineLimit(1)
-
-                        Text("\(openProject.document.fonts.count) file\(openProject.document.fonts.count == 1 ? "" : "s") · \(openProject.document.familyLabel)")
-                            .font(StudioTypography.meta)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+        HStack(alignment: .center, spacing: 8) {
+            Group {
+                if isEditingName {
+                    projectHeaderContent
+                } else {
+                    WorkspaceDraggableContainer(
+                        item: .project(projectID: openProject.id, label: currentDisplayName),
+                        isDragEnabled: editor.canDragProjectForCombine,
+                        helpText: "Drag to another project tab to combine projects"
+                    ) {
+                        projectHeaderContent
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .transaction { $0.animation = nil }
 
-                projectHeaderActions
+            if isEditingName {
+                Button("Done") { commitRename() }
+                    .controlSize(.small)
+                    .frame(height: StudioFieldMetrics.bodyMediumRowHeight)
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        TextField("Project name", text: $editedName)
-                            .textFieldStyle(.roundedBorder)
-                            .font(StudioTypography.bodyMedium)
-                            .focused($nameFieldFocused)
-                            .onSubmit { commitRename() }
-
-                        Button("Done") { commitRename() }
-                            .controlSize(.small)
-                    }
-
-                    Text("\(openProject.document.fonts.count) file\(openProject.document.fonts.count == 1 ? "" : "s") · \(openProject.document.familyLabel)")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                projectHeaderActions
             }
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -118,25 +100,85 @@ struct ProjectDropdownMenu: View {
         .padding(.top, 6)
     }
 
+    private var projectHeaderContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Group {
+                if isEditingName {
+                    StudioTextField(
+                        placeholder: "Project name",
+                        text: $editedName,
+                        font: StudioTypography.bodyMedium.weight(.semibold),
+                        rowHeight: StudioFieldMetrics.bodyMediumRowHeight
+                    )
+                    .focused($nameFieldFocused)
+                    .onSubmit { commitRename() }
+                } else {
+                    StudioFieldLabel(
+                        text: currentDisplayName,
+                        font: StudioTypography.bodyMedium,
+                        rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
+                        fontWeight: .semibold
+                    )
+                }
+            }
+            .transaction { $0.animation = nil }
+
+            Text("\(openProject.document.fonts.count) file\(openProject.document.fonts.count == 1 ? "" : "s") · \(openProject.document.familyLabel)")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+    }
+
     private var projectHeaderActions: some View {
-        HStack(spacing: 2) {
-            ProjectRowIconButton(systemName: "pencil.circle", help: "Rename project tab") {
+        HStack(spacing: 0) {
+            StudioToolbarIconButton(systemName: "pencil.circle", help: "Rename project tab") {
                 editedName = currentDisplayName
                 isEditingName = true
             }
 
-            projectActionsMenu
+            StudioToolbarIconMenu {
+                projectActionsMenuContent
+            }
         }
-        .padding(.top, 1)
     }
 
-    private var projectActionsMenu: some View {
-        ProjectRowMenu {
+    @ViewBuilder
+    private var projectActionsMenuContent: some View {
             Button {
                 onDismiss()
                 editor.presentAddFontPanel(projectID: openProject.id)
             } label: {
                 Label("Add font…", systemImage: "folder.badge.plus")
+            }
+
+            Button {
+                onDismiss()
+                editor.presentSaveReviewWindow(forProjectID: openProject.id)
+            } label: {
+                Label("Open Save Review Window", systemImage: "doc.text.magnifyingglass")
+            }
+            .disabled(!editor.canPreviewSaveReview(forProjectID: openProject.id))
+
+            if openProject.document.fonts.count > 1 {
+                Button {
+                    onDismiss()
+                    editor.saveAllFiles(inProjectID: openProject.id)
+                } label: {
+                    Label("Save All Files…", systemImage: "square.and.arrow.down.on.square")
+                }
+                .disabled(!editor.canSave || editor.isSaveActionBlocked)
+            }
+
+            if let masterID = editor.masterFontID(for: openProject.id),
+               openProject.document.fonts.count > 1 {
+                Button {
+                    onDismiss()
+                    editor.selectFont(id: masterID)
+                    editor.pushMasterAxisTreeToAllFonts()
+                } label: {
+                    Label("Push axis tree from master…", systemImage: "arrow.triangle.branch")
+                }
             }
 
             if editor.openProjects.count > 1 {
@@ -156,14 +198,13 @@ struct ProjectDropdownMenu: View {
             } label: {
                 Label("Remove project", systemImage: "xmark.circle")
             }
-        }
     }
 
     private func fileRow(_ font: FontDocument) -> some View {
         let isSelected = isActiveProject && editor.selectedFontID == font.id
         let name = editor.fontBasename(for: font)
 
-        return HStack(alignment: .top, spacing: 8) {
+        return HStack(alignment: .center, spacing: 8) {
             WorkspaceDraggableContainer(
                 item: .font(fontID: font.id, fromProjectID: openProject.id, label: name),
                 isDragEnabled: editor.canDragFont(forProjectID: openProject.id),
@@ -204,7 +245,7 @@ struct ProjectDropdownMenu: View {
     }
 
     private func fileActionsMenu(_ font: FontDocument) -> some View {
-        ProjectRowMenu {
+        StudioToolbarIconMenu {
             Button {
                 editor.activateProject(id: openProject.id)
                 editor.selectFont(id: font.id)
@@ -248,42 +289,5 @@ struct ProjectDropdownMenu: View {
         isEditingName = false
         nameFieldFocused = false
         editedName = currentDisplayName
-    }
-}
-
-private struct ProjectRowIconButton: View {
-    let systemName: String
-    let help: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 24, height: 24)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-    }
-}
-
-private struct ProjectRowMenu<Content: View>: View {
-    @ViewBuilder var content: () -> Content
-
-    var body: some View {
-        Menu {
-            content()
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 24, height: 24)
-                .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .help("Actions")
     }
 }

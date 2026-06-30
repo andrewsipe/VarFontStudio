@@ -23,6 +23,9 @@ struct AxisTreePanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            FileClarifiersBar()
+                .environmentObject(editor)
+
             StudioPanelHeader(title: "Axis tree") {
                 if let font = editor.selectedFont {
                     HStack(spacing: 3) {
@@ -176,11 +179,11 @@ struct AxisTreePanel: View {
 
             if isExpanded {
                 axisDetail(axis)
-                    .padding(.top, 6)
+                    .padding(.top, 4)
                     .opacity(isInstanceAxis ? 1 : 0.4)
             }
         }
-        .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
         .listRowSeparator(.hidden)
     }
 
@@ -188,7 +191,7 @@ struct AxisTreePanel: View {
 
     @ViewBuilder
     private func axisDetail(_ axis: AxisDefinition) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: StudioSpacing.instanceRowGap) {
             if axis.values.isEmpty {
                 Text("No STAT stops on this axis")
                     .font(.caption)
@@ -256,10 +259,10 @@ struct AxisTreePanel: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 4)
+                .padding(.top, 2)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 
     // MARK: - Bindings
@@ -577,7 +580,7 @@ private struct AxisStopTableHeader: View {
             }
         }
         .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
-        .padding(.bottom, 2)
+        .padding(.bottom, 1)
     }
 }
 
@@ -631,8 +634,9 @@ private struct AxisTreeStopRow: View {
                     .frame(width: AxisBlockLayout.elidableWidth)
             }
         }
-        .padding(.vertical, 2)
+        .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
         .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
+        .padding(.vertical, StudioSpacing.instanceRowVertical)
         .background {
             StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
                 .padding(.leading, -AxisBlockLayout.rowHorizontalPadding)
@@ -700,40 +704,62 @@ private struct AxisTreeStopRow: View {
 
     @ViewBuilder
     private var valueColumn: some View {
+        Group {
+            valueColumnContent
+        }
+        .transaction { $0.animation = nil }
+    }
+
+    @ViewBuilder
+    private var nameColumn: some View {
+        Group {
+            nameColumnContent
+        }
+        .transaction { $0.animation = nil }
+    }
+
+    @ViewBuilder
+    private var valueColumnContent: some View {
         if editingField == .value {
-            TextField("Value", text: $editingValue)
-                .textFieldStyle(.plain)
-                .font(StudioTypography.monoValue)
-                .foregroundStyle(StudioColors.axisValue)
-                .multilineTextAlignment(.trailing)
-                .focused($focusedField, equals: .value)
-                .onSubmit { navigateTab(forward: true) }
+            StudioInlineTextField(
+                placeholder: "Value",
+                text: $editingValue,
+                font: StudioTypography.monoValue,
+                foreground: StudioColors.axisValue,
+                rowHeight: StudioFieldMetrics.listRowMinHeight,
+                alignment: .trailing,
+                onSubmit: { navigateTab(forward: true) }
+            )
+            .focused($focusedField, equals: .value)
         } else {
             Text(StudioFormatting.axisValue(stop.value))
                 .font(StudioTypography.monoValue)
                 .foregroundStyle(StudioColors.axisValue)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
                 .contentShape(Rectangle())
                 .gesture(clickGesture(for: .value))
         }
     }
 
     @ViewBuilder
-    private var nameColumn: some View {
+    private var nameColumnContent: some View {
         if editingField == .name {
-            TextField("Stop name", text: $editingName)
-                .textFieldStyle(.plain)
-                .font(StudioTypography.body)
-                .focused($focusedField, equals: .name)
-                .onSubmit {
+            StudioInlineTextField(
+                placeholder: "Stop name",
+                text: $editingName,
+                font: StudioTypography.bodyMedium,
+                rowHeight: StudioFieldMetrics.listRowMinHeight,
+                onSubmit: {
                     commitName()
                     navigateTab(forward: true)
                 }
+            )
+            .focused($focusedField, equals: .name)
         } else {
             Text(stop.name)
-                .font(StudioTypography.body)
+                .font(StudioTypography.bodyMedium)
                 .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .leading)
                 .contentShape(Rectangle())
                 .gesture(clickGesture(for: .name))
         }
@@ -888,18 +914,24 @@ private struct AddAxisStopSheet: View {
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
 
-            Form {
-                TextField("Value", text: $valueText)
-                    .focused($focusedField, equals: .value)
-                    .font(StudioTypography.monoValue)
-                    .onSubmit { focusedField = .name }
+            VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+                StudioTextField(
+                    placeholder: "Value",
+                    text: $valueText,
+                    font: StudioTypography.monoValue,
+                    rowHeight: StudioFieldMetrics.monoValueRowHeight
+                )
+                .focused($focusedField, equals: .value)
+                .onSubmit { focusedField = .name }
 
-                TextField("Name", text: $nameText)
-                    .focused($focusedField, equals: .name)
-                    .onSubmit(addStopIfValid)
+                StudioTextField(
+                    placeholder: "Name",
+                    text: $nameText,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight
+                )
+                .focused($focusedField, equals: .name)
+                .onSubmit(addStopIfValid)
             }
-            .formStyle(.grouped)
-            .frame(maxHeight: 140)
 
             if let validationMessage {
                 Text(validationMessage)

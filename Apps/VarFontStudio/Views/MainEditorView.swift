@@ -88,11 +88,14 @@ struct MainEditorView: View {
             AxisConflictResolverSheet(bundle: session.bundle)
                 .environmentObject(editor)
         }
-        .onChange(of: editor.saveReviewWindowToken) { _, _ in
-            openWindow(id: "save-review")
+        .onChange(of: editor.saveReviewOpenRequest) { _, request in
+            guard let request else { return }
+            openWindow(id: "save-review", value: request.projectID)
         }
         .sheet(isPresented: $editor.presentCommitDiffSheet) {
-            if let session = editor.commitDiffSession {
+            if let projectID = editor.activeProjectID,
+               let fontID = editor.selectedFontID,
+               let session = editor.saveReviewSession(forProjectID: projectID, fontID: fontID) {
                 CommitDiffSheet(session: session)
                     .environmentObject(editor)
             }
@@ -353,11 +356,26 @@ struct MainEditorView: View {
         }
 
         ToolbarItem {
-            Button("Save Copy…", systemImage: "square.and.arrow.down") {
-                editor.saveCopy()
+            Button(editor.canSaveToRememberedPathForSelection ? "Save" : "Save Copy…",
+                   systemImage: "square.and.arrow.down") {
+                if editor.canSaveToRememberedPathForSelection {
+                    editor.save()
+                } else {
+                    editor.saveCopy()
+                }
             }
-            .disabled(!editor.canSave)
-            .help("Preview and save a patched copy of the font")
+            .disabled(!editor.canSave || editor.isSaveActionBlocked)
+            .help(editor.canSaveToRememberedPathForSelection
+                ? "Write to the last saved copy path"
+                : "Preview and save a patched copy of the font")
+        }
+
+        ToolbarItem {
+            Button("Save Review", systemImage: "doc.text.magnifyingglass") {
+                editor.presentSaveReviewWindow()
+            }
+            .disabled(!editor.canPreviewSaveReview)
+            .help("Open a save review window for the active project")
         }
     }
 

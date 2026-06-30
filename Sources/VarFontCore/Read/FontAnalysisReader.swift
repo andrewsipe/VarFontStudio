@@ -34,6 +34,13 @@ public enum FontAnalysisReader {
         let ext = url.pathExtension.lowercased()
         let familyName = OpenTypeNameTable.name(id: 1, from: font) ?? ""
         let fullName = OpenTypeNameTable.name(id: 4, from: font) ?? ""
+        let postscriptName = OpenTypeNameTable.name(id: 6, from: font)
+        let nameID25 = OpenTypeNameTable.name(id: 25, from: font)
+        let familyPSPrefix = PostScriptPrefixInference.infer(
+            nameID25: nameID25,
+            postscriptName: postscriptName,
+            familyName: familyName
+        )
 
         let fvarData = CTFontCopyTable(font, fvarTag, []) as Data?
         let statData = CTFontCopyTable(font, statTag, []) as Data?
@@ -162,12 +169,9 @@ public enum FontAnalysisReader {
         let elidedFallbackID = stat?.elidedFallbackNameID
         let elidedFallbackName = elidedFallbackID.flatMap { OpenTypeNameTable.name(id: $0, from: font) }
 
-        let additionalNamingTags = fvar.axes.map(\.tag)
-            + statValues.map(\.tag)
-            + gridAxisTags
         let namingOrderSuggested = NamingOrderInference.suggest(
             designAxes: stat?.designAxes ?? [],
-            additionalTags: additionalNamingTags
+            fvarAxisTags: fvar.axes.map(\.tag)
         )
 
         let nameAudit = buildNameAudit(
@@ -185,7 +189,9 @@ public enum FontAnalysisReader {
                 format: ext,
                 familyName: familyName,
                 fullName: fullName,
-                isVariable: true
+                postscriptName: postscriptName,
+                isVariable: true,
+                familyPSPrefix: familyPSPrefix
             ),
             readiness: FontAnalysis.Readiness(
                 hasFvar: true,
@@ -294,7 +300,7 @@ public enum FontAnalysisReader {
             inferred: FontAnalysis.InferredAnalysis(
                 isItalicFont: isItalicFont,
                 gridAxisTags: [],
-                namingOrderSuggested: NamingOrderInference.fallbackTags
+                namingOrderSuggested: NamingOrderInference.canonicalAxisOrder
             )
         )
     }

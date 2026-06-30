@@ -80,20 +80,63 @@ final class NamingOrderInferenceTests: XCTestCase {
             StatDesignAxis(tag: "wdth", nameID: 3, ordering: 1),
         ]
 
-        let order = NamingOrderInference.suggest(designAxes: axes)
+        let order = NamingOrderInference.suggest(
+            designAxes: axes,
+            fvarAxisTags: ["opsz", "wdth", "wght"]
+        )
 
-        XCTAssertEqual(order.prefix(3), ["opsz", "wdth", "wght"])
+        XCTAssertEqual(order, ["opsz", "wdth", "wght"])
     }
 
-    func testSuggestAppendsFallbackTagsNotInSTAT() {
-        let axes = [
+    func testPlayfairLikeIncludesItalFromSTATButNotPhantomSlnt() {
+        let designAxes = [
             StatDesignAxis(tag: "opsz", nameID: 1, ordering: 0),
+            StatDesignAxis(tag: "wdth", nameID: 2, ordering: 1),
+            StatDesignAxis(tag: "wght", nameID: 3, ordering: 2),
+            StatDesignAxis(tag: "ital", nameID: 4, ordering: 3),
         ]
 
-        let order = NamingOrderInference.suggest(designAxes: axes, additionalTags: ["ital"])
+        let order = NamingOrderInference.suggest(
+            designAxes: designAxes,
+            fvarAxisTags: ["opsz", "wdth", "wght"]
+        )
 
-        XCTAssertTrue(order.contains("opsz"))
-        XCTAssertTrue(order.contains("ital"))
-        XCTAssertLessThan(order.firstIndex(of: "opsz")!, order.firstIndex(of: "ital")!)
+        XCTAssertEqual(order, ["opsz", "wdth", "wght", "ital"])
+        XCTAssertFalse(order.contains("slnt"))
+    }
+
+    func testMelangeLikeExcludesPhantomAxes() {
+        let designAxes = [
+            StatDesignAxis(tag: "wdth", nameID: 1, ordering: 0),
+            StatDesignAxis(tag: "wght", nameID: 2, ordering: 1),
+        ]
+
+        let order = NamingOrderInference.suggest(
+            designAxes: designAxes,
+            fvarAxisTags: ["wdth", "wght"]
+        )
+
+        XCTAssertEqual(order, ["wdth", "wght"])
+        XCTAssertFalse(order.contains("opsz"))
+        XCTAssertFalse(order.contains("slnt"))
+        XCTAssertFalse(order.contains("ital"))
+    }
+
+    func testRobotoLikeRetainsSlntBeforeItal() {
+        let designAxes = [
+            StatDesignAxis(tag: "opsz", nameID: 1, ordering: 0),
+            StatDesignAxis(tag: "wght", nameID: 2, ordering: 1),
+            StatDesignAxis(tag: "wdth", nameID: 3, ordering: 2),
+            StatDesignAxis(tag: "ital", nameID: 4, ordering: 4),
+            StatDesignAxis(tag: "slnt", nameID: 5, ordering: 3),
+        ]
+
+        let order = NamingOrderInference.suggest(
+            designAxes: designAxes,
+            fvarAxisTags: ["opsz", "wght", "wdth", "slnt"]
+        )
+
+        XCTAssertEqual(order, ["opsz", "wght", "wdth", "slnt", "ital"])
+        XCTAssertLessThan(order.firstIndex(of: "slnt")!, order.firstIndex(of: "ital")!)
     }
 }

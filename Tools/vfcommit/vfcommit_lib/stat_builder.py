@@ -14,7 +14,12 @@ from fontTools.ttLib.tables._f_v_a_r import NamedInstance
 from fontTools.ttLib.tables.otTables import AxisValue, AxisValueArray
 
 from vfcommit_lib.logging_config import get_logger
-from vfcommit_lib.nameid_allocator import AxisDef, NameIDPlan, compose_instance_name
+from vfcommit_lib.nameid_allocator import (
+    AxisDef,
+    NameIDPlan,
+    compose_instance_name,
+    compose_name_from_order,
+)
 
 logger = get_logger(__name__)
 
@@ -152,7 +157,8 @@ def _write_name_records(font: TTFont, axis_defs: List[AxisDef], plan: NameIDPlan
         for av_def in axis_def.values:
             key = (axis_def.tag, av_def.value)
             nid = plan.axis_value_ids[key]
-            name_table.setName(av_def.name, nid, 3, 1, 0x0409)
+            label = plan.stat_value_labels.get(key, av_def.name)
+            name_table.setName(label, nid, 3, 1, 0x0409)
 
     for composed_name, nid in plan.instance_ids.items():
         name_table.setName(composed_name, nid, 3, 1, 0x0409)
@@ -215,7 +221,13 @@ def _write_fvar_instances(
         coords = {tag: float(av.value) for tag, av in zip(tag_list, combo)}
         if pinned_coords:
             coords.update(pinned_coords)
-        composed = compose_instance_name(combo, elided_fallback_name)
+        composed = compose_instance_name(
+            combo,
+            elided_fallback_name,
+            naming_order=plan.naming_order,
+            clarifiers=plan.clarifiers,
+            axis_tags=tag_list,
+        )
 
         inst = NamedInstance()
         inst.coordinates = coords

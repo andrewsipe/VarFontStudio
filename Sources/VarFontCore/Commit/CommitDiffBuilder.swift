@@ -7,10 +7,15 @@ public enum CommitDiffBuilder {
         plan: InstancePlan,
         result: CommitResult
     ) -> CommitDiffReport {
-        CommitDiffReport(
+        let protectedNameIDs = Set(result.summary?.protectedNameIDs ?? [])
+        return CommitDiffReport(
             statRows: buildStatRows(analysis: analysis, font: font, diff: result.diff),
             instanceRows: buildInstanceRows(analysis: analysis, plan: plan, diff: result.diff),
-            nameIDRows: buildNameIDRows(analysis: analysis, diff: result.diff)
+            nameIDRows: buildNameIDRows(
+                analysis: analysis,
+                diff: result.diff,
+                protectedNameIDs: protectedNameIDs
+            )
         )
     }
 
@@ -35,6 +40,12 @@ public enum CommitDiffBuilder {
             }
         }
 
+        let plannedByKey = Dictionary(
+            uniqueKeysWithValues: (diff?.statValuesPlanned ?? []).map { item in
+                (statKey(tag: item.tag, value: item.value), item)
+            }
+        )
+
         let plannedNameIDs = Dictionary(
             uniqueKeysWithValues: (diff?.statValuesPlanned ?? []).compactMap { item -> (String, Int)? in
                 guard let nameID = item.nameID else { return nil }
@@ -50,7 +61,8 @@ public enum CommitDiffBuilder {
         return keys.sorted().map { key in
             let before = beforeByKey[key]
             let afterItem = afterStops.first { statKey(tag: $0.tag, value: $0.stop.value) == key }
-            let afterName = afterItem?.stop.name
+            let planned = plannedByKey[key]
+            let afterName = planned?.name ?? afterItem?.stop.name
             let afterNameID = plannedNameIDs[key]
             let change = statChangeKind(
                 beforeName: before?.name,
@@ -68,6 +80,8 @@ public enum CommitDiffBuilder {
                 afterName: afterName,
                 beforeNameID: before?.nameID,
                 afterNameID: afterNameID,
+                afterStatFormat: planned?.statFormat ?? afterItem?.stop.statFormat,
+                afterLinkedValue: planned?.linkedValue ?? afterItem?.stop.linkedValue,
                 change: change
             )
         }
@@ -146,72 +160,65 @@ public enum CommitDiffBuilder {
 
     private static func buildNameIDRows(
         analysis: FontAnalysis,
-        diff: CommitDiff?
+        diff: CommitDiff?,
+        protectedNameIDs: Set<Int> = []
     ) -> [CommitDiffNameIDRow] {
-        let beforeUses = analysis.nameAudit.used.filter { $0.id >= 256 }
-        let afterRecords = diff?.nameRecordsPlanned ?? []
+        let beforeByID = Dictionary(
+            uniqueKeysWithValues: analysis.nameAudit.used
+                .filter { $0.id >= 256 }
+                .map { ($0.id, $0) }
+        )
+        let afterByID = Dictionary(
+            uniqueKeysWithValues: (diff?.nameRecordsPlanned ?? []).map { ($0.id, $0) }
+        )
 
-        var remainingBefore = beforeUses
-        var rows: [CommitDiffNameIDRow] = []
+        let allIDs = Set(beforeByID.keys).union(afterByID.keys).sorted()
 
-        for after in afterRecords.sorted(by: { $0.id < $1.id }) {
-            if let matchIndex = remainingBefore.firstIndex(where: {
-                stringsMatch($0.string, after.string)
-            }) {
-                let before = remainingBefore.remove(at: matchIndex)
-                let change: CommitDiffChangeKind = (before.string == after.string && before.id == after.id)
-                    ? .unchanged
-                    : .changed
-                rows.append(
-                    CommitDiffNameIDRow(
-                        beforeID: before.id,
-                        afterID: after.id,
-                        beforeDescription: before.description,
-                        beforeString: before.string,
-                        afterString: after.string,
-                        afterRole: after.role,
-                        change: change
-                    )
-                )
-            } else {
-                rows.append(
-                    CommitDiffNameIDRow(
-                        beforeID: nil,
-                        afterID: after.id,
-                        beforeDescription: nil,
-                        beforeString: nil,
-                        afterString: after.string,
-                        afterRole: after.role,
-                        change: .added
-                    )
-                )
-            }
-        }
-
-        for before in remainingBefore.sorted(by: { $0.id < $1.id }) {
-            rows.append(
-                CommitDiffNameIDRow(
-                    beforeID: before.id,
-                    afterID: nil,
-                    beforeDescription: before.description,
-                    beforeString: before.string,
-                    afterString: nil,
-                    afterRole: nil,
-                    change: .removed
-                )
+        return allIDs.map { id in
+            let before = beforeByID[id]
+            let after = afterByID[id]
+            let isProtected = protectedNameIDs.contains(id)
+            let afterString = after?.string ?? (isProtected ? before?.string : nil)
+            let afterRole = after?.role ?? (isProtected ? "protected_ot_label" : nil)
+            let change = slotChangeKind(
+                beforeString: before?.string,
+                afterString: afterString,
+                protected: isProtected && after == nil
             )
-        }
-
-        return rows.sorted { lhs, rhs in
-            let left = lhs.afterID ?? lhs.beforeID ?? 0
-            let right = rhs.afterID ?? rhs.beforeID ?? 0
-            return left < right
+            return CommitDiffNameIDRow(
+                id: id,
+                beforeDescription: before?.description,
+                beforeString: before?.string,
+                afterString: afterString,
+                afterRole: afterRole,
+                change: change
+            )
         }
     }
 
-    private static func stringsMatch(_ lhs: String?, _ rhs: String) -> Bool {
-        guard let lhs, !lhs.isEmpty else { return false }
-        return lhs == rhs
+    private static func slotChangeKind(
+        beforeString: String?,
+        afterString: String?,
+        protected: Bool = false
+    ) -> CommitDiffChangeKind {
+        if protected {
+            return .unchanged
+        }
+        let before = beforeString?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let after = afterString?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasBefore = before?.isEmpty == false
+        let hasAfter = after?.isEmpty == false
+
+        switch (hasBefore, hasAfter) {
+        case (false, false):
+            return .unchanged
+        case (false, true):
+            return .added
+        case (true, false):
+            return .removed
+        case (true, true):
+            return before == after ? .unchanged : .changed
+        }
     }
 
     private static func statKey(tag: String, value: Double) -> String {

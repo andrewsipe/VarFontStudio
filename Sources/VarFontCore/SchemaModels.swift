@@ -125,6 +125,18 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         case elidedFallback = "elided_fallback"
     }
 
+    public static let clarifierTokenWidth = "@width"
+    public static let clarifierTokenSlope = "@slope"
+    public static let clarifierTokenOptical = "@optical"
+    public static let clarifierTokenCustom = "@custom"
+
+    public static let defaultClarifierTokens: [String] = [
+        clarifierTokenWidth,
+        clarifierTokenSlope,
+        clarifierTokenOptical,
+        clarifierTokenCustom
+    ]
+
     public init(order: [String], inferredOrder: [String]? = nil, elidedFallback: String = "Regular") {
         self.order = order
         self.inferredOrder = inferredOrder
@@ -137,27 +149,174 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         inferredOrder = try c.decodeIfPresent([String].self, forKey: .inferredOrder)
         elidedFallback = try c.decodeIfPresent(String.self, forKey: .elidedFallback) ?? "Regular"
     }
+
+    /// Appends default clarifier tokens to axis order when missing.
+    public static func orderWithDefaultClarifiers(axisOrder: [String]) -> [String] {
+        var result = axisOrder.filter { !NamingToken.isClarifier($0) }
+        for token in defaultClarifierTokens where !result.contains(token) {
+            result.append(token)
+        }
+        return result
+    }
+
+    /// Project naming order filtered to axes present in this file plus clarifier tokens.
+    public static func mergedOrder(projectOrder: [String], axisTags: [String]) -> [String] {
+        var result: [String] = []
+        var seenAxes = Set<String>()
+        var seenClarifiers = Set<String>()
+
+        for token in projectOrder {
+            if NamingToken.isClarifier(token) {
+                guard !seenClarifiers.contains(token) else { continue }
+                result.append(token)
+                seenClarifiers.insert(token)
+            } else if axisTags.contains(token), !seenAxes.contains(token) {
+                result.append(token)
+                seenAxes.insert(token)
+            }
+        }
+
+        for tag in axisTags where !seenAxes.contains(tag) {
+            result.append(tag)
+        }
+        for token in defaultClarifierTokens where !seenClarifiers.contains(token) {
+            result.append(token)
+        }
+        return result
+    }
+}
+
+public enum NamingToken {
+    public static func isClarifier(_ token: String) -> Bool {
+        token.hasPrefix("@")
+    }
+
+    public static func clarifierCategory(for token: String) -> FileClarifierCategory? {
+        switch token {
+        case NamingPolicy.clarifierTokenWidth: return .width
+        case NamingPolicy.clarifierTokenSlope: return .slope
+        case NamingPolicy.clarifierTokenOptical: return .optical
+        case NamingPolicy.clarifierTokenCustom: return .custom
+        default: return nil
+        }
+    }
+
+    public static func token(for category: FileClarifierCategory) -> String {
+        switch category {
+        case .width: return NamingPolicy.clarifierTokenWidth
+        case .slope: return NamingPolicy.clarifierTokenSlope
+        case .optical: return NamingPolicy.clarifierTokenOptical
+        case .custom: return NamingPolicy.clarifierTokenCustom
+        }
+    }
+
+    public static var clarifierDisplayName: [String: String] {
+        [
+            NamingPolicy.clarifierTokenWidth: "width",
+            NamingPolicy.clarifierTokenSlope: "slope",
+            NamingPolicy.clarifierTokenOptical: "optical",
+            NamingPolicy.clarifierTokenCustom: "custom"
+        ]
+    }
+}
+
+// MARK: - File clarifiers (per-font family identity)
+
+public enum FileClarifierCategory: String, Codable, Sendable, CaseIterable {
+    case slope
+    case width
+    case optical
+    case custom
+}
+
+public enum FileRoleKind: String, Codable, Sendable {
+    case master
+    case variant
+}
+
+public struct FileClarifier: Codable, Equatable, Sendable, Identifiable {
+    public var category: FileClarifierCategory
+    public var label: String
+
+    public var id: FileClarifierCategory { category }
+
+    enum CodingKeys: String, CodingKey {
+        case category, label
+    }
+
+    public init(category: FileClarifierCategory, label: String) {
+        self.category = category
+        self.label = label
+    }
+}
+
+public struct FileRole: Codable, Equatable, Sendable {
+    public var kind: FileRoleKind
+    public var masterFontID: String?
+    public var clarifiers: [FileClarifier]
+    public var elidedFallbackOverride: String?
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case masterFontID = "master_font_id"
+        case clarifiers
+        case elidedFallbackOverride = "elided_fallback_override"
+    }
+
+    public init(
+        kind: FileRoleKind = .master,
+        masterFontID: String? = nil,
+        clarifiers: [FileClarifier] = [],
+        elidedFallbackOverride: String? = nil
+    ) {
+        self.kind = kind
+        self.masterFontID = masterFontID
+        self.clarifiers = clarifiers
+        self.elidedFallbackOverride = elidedFallbackOverride
+    }
+
+    public func label(for category: FileClarifierCategory) -> String? {
+        clarifiers.first { $0.category == category }?.label
+    }
+
+    public static func master() -> FileRole {
+        FileRole(kind: .master)
+    }
+
+    public static func variant(masterFontID: String, clarifiers: [FileClarifier] = [], elidedFallbackOverride: String? = nil) -> FileRole {
+        FileRole(
+            kind: .variant,
+            masterFontID: masterFontID,
+            clarifiers: clarifiers,
+            elidedFallbackOverride: elidedFallbackOverride
+        )
+    }
 }
 
 public struct CommitOptions: Codable, Equatable, Sendable {
     public var fixFvarDefault: Bool
     public var allocatePostscriptNames: Bool
     public var preserveStatFormat3: Bool?
+    /// nameID 25 — prefix for fvar instance PostScript names (e.g. NouveauLEDVariable).
+    public var familyPSPrefix: String?
 
     enum CodingKeys: String, CodingKey {
         case fixFvarDefault = "fix_fvar_default"
         case allocatePostscriptNames = "allocate_postscript_names"
         case preserveStatFormat3 = "preserve_stat_format_3"
+        case familyPSPrefix = "family_ps_prefix"
     }
 
     public init(
-        fixFvarDefault: Bool = true,
+        fixFvarDefault: Bool = false,
         allocatePostscriptNames: Bool = true,
-        preserveStatFormat3: Bool? = true
+        preserveStatFormat3: Bool? = true,
+        familyPSPrefix: String? = nil
     ) {
         self.fixFvarDefault = fixFvarDefault
         self.allocatePostscriptNames = allocatePostscriptNames
         self.preserveStatFormat3 = preserveStatFormat3
+        self.familyPSPrefix = familyPSPrefix
     }
 }
 
@@ -189,13 +348,18 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public var format: String
         public var familyName: String
         public var fullName: String
+        public var postscriptName: String?
         public var isVariable: Bool
+        /// nameID 25 — Variations PostScript Name Prefix.
+        public var familyPSPrefix: String?
 
         enum CodingKeys: String, CodingKey {
             case path, format
             case familyName = "family_name"
             case fullName = "full_name"
+            case postscriptName = "postscript_name"
             case isVariable = "is_variable"
+            case familyPSPrefix = "family_ps_prefix"
         }
     }
 
@@ -398,6 +562,23 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         naming = try c.decode(NamingPolicy.self, forKey: .naming)
         template = try c.decode(ProjectTemplate.self, forKey: .template)
         fonts = try c.decode([FontDocument].self, forKey: .fonts)
+        migrateFileRolesIfNeeded()
+    }
+
+    /// First font is master; others are variants when `file_role` was absent (legacy projects).
+    private mutating func migrateFileRolesIfNeeded() {
+        guard !fonts.isEmpty else { return }
+        let needsMigration = fonts.contains { $0.fileRole == nil }
+        guard needsMigration else { return }
+
+        let masterID = fonts[0].id
+        for index in fonts.indices {
+            if fonts[index].fileRole == nil {
+                fonts[index].fileRole = index == 0
+                    ? .master()
+                    : .variant(masterFontID: masterID)
+            }
+        }
     }
 }
 
@@ -428,6 +609,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public var outputPath: String?
     public var analysisSnapshotID: String?
     public var dirty: Bool
+    public var fileRole: FileRole?
     public var axes: [AxisDefinition]
     public var options: CommitOptions
     public var includedInstanceKeys: [String]
@@ -439,10 +621,53 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         case sourcePath = "source_path"
         case outputPath = "output_path"
         case analysisSnapshotID = "analysis_snapshot_id"
-        case dirty, axes, options
+        case dirty
+        case fileRole = "file_role"
+        case axes, options
         case includedInstanceKeys = "included_instance_keys"
         case excludedInstanceKeys = "excluded_instance_keys"
         case overrides
+    }
+
+    public init(
+        id: String,
+        sourcePath: String,
+        outputPath: String? = nil,
+        analysisSnapshotID: String? = nil,
+        dirty: Bool = false,
+        fileRole: FileRole? = nil,
+        axes: [AxisDefinition] = [],
+        options: CommitOptions = CommitOptions(),
+        includedInstanceKeys: [String] = [],
+        excludedInstanceKeys: [String] = [],
+        overrides: InstanceOverrides = InstanceOverrides()
+    ) {
+        self.id = id
+        self.sourcePath = sourcePath
+        self.outputPath = outputPath
+        self.analysisSnapshotID = analysisSnapshotID
+        self.dirty = dirty
+        self.fileRole = fileRole
+        self.axes = axes
+        self.options = options
+        self.includedInstanceKeys = includedInstanceKeys
+        self.excludedInstanceKeys = excludedInstanceKeys
+        self.overrides = overrides
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        sourcePath = try c.decode(String.self, forKey: .sourcePath)
+        outputPath = try c.decodeIfPresent(String.self, forKey: .outputPath)
+        analysisSnapshotID = try c.decodeIfPresent(String.self, forKey: .analysisSnapshotID)
+        dirty = try c.decodeIfPresent(Bool.self, forKey: .dirty) ?? false
+        fileRole = try c.decodeIfPresent(FileRole.self, forKey: .fileRole)
+        axes = try c.decodeIfPresent([AxisDefinition].self, forKey: .axes) ?? []
+        options = try c.decodeIfPresent(CommitOptions.self, forKey: .options) ?? CommitOptions()
+        includedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .includedInstanceKeys) ?? []
+        excludedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .excludedInstanceKeys) ?? []
+        overrides = try c.decodeIfPresent(InstanceOverrides.self, forKey: .overrides) ?? InstanceOverrides()
     }
 }
 
@@ -521,9 +746,34 @@ public struct PlannedInstance: Codable, Equatable, Sendable, Identifiable {
 }
 
 public struct NamingChainLink: Codable, Equatable, Sendable {
+    public enum Kind: String, Codable, Sendable {
+        case axis
+        case clarifier
+    }
+
+    public var kind: Kind
     public var tag: String
     public var name: String
     public var elided: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case kind, tag, name, elided
+    }
+
+    public init(kind: Kind = .axis, tag: String, name: String, elided: Bool) {
+        self.kind = kind
+        self.tag = tag
+        self.name = name
+        self.elided = elided
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .axis
+        tag = try c.decode(String.self, forKey: .tag)
+        name = try c.decode(String.self, forKey: .name)
+        elided = try c.decodeIfPresent(Bool.self, forKey: .elided) ?? false
+    }
 }
 
 public struct PlanWarning: Codable, Equatable, Sendable {
@@ -580,6 +830,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
     public var dryRun: Bool
     public var options: CommitOptions
     public var naming: NamingPolicy
+    public var fileRole: FileRole?
     public var axes: [AxisDefinition]
     public var includedInstanceKeys: [String]
 
@@ -589,7 +840,9 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         case sourcePath = "source_path"
         case outputPath = "output_path"
         case dryRun = "dry_run"
-        case options, naming, axes
+        case options, naming
+        case fileRole = "file_role"
+        case axes
         case includedInstanceKeys = "included_instance_keys"
     }
 }
@@ -708,9 +961,17 @@ public struct CommitDiffStatRow: Codable, Equatable, Sendable, Identifiable {
     public var afterName: String?
     public var beforeNameID: Int?
     public var afterNameID: Int?
+    public var afterStatFormat: Int?
+    public var afterLinkedValue: Double?
     public var change: CommitDiffChangeKind
 
     public var id: String { "\(tag):\(value)" }
+
+    enum CodingKeys: String, CodingKey {
+        case tag, value, beforeName, afterName, beforeNameID, afterNameID, change
+        case afterStatFormat = "after_stat_format"
+        case afterLinkedValue = "after_linked_value"
+    }
 }
 
 public struct CommitDiffInstanceRow: Codable, Equatable, Sendable, Identifiable {
@@ -724,23 +985,13 @@ public struct CommitDiffInstanceRow: Codable, Equatable, Sendable, Identifiable 
 }
 
 public struct CommitDiffNameIDRow: Codable, Equatable, Sendable, Identifiable {
-    public var beforeID: Int?
-    public var afterID: Int?
+    /// Name table slot (≥256).
+    public var id: Int
     public var beforeDescription: String?
     public var beforeString: String?
     public var afterString: String?
     public var afterRole: String?
     public var change: CommitDiffChangeKind
-
-    public var id: String {
-        if let beforeID, let afterID {
-            return "\(beforeID)→\(afterID)"
-        }
-        if let afterID {
-            return "+\(afterID)"
-        }
-        return "-\(beforeID ?? 0)"
-    }
 }
 
 public struct CommitDiffReport: Codable, Equatable, Sendable {

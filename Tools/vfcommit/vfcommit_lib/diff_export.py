@@ -29,7 +29,8 @@ def build_commit_diff(
             key = (axis_def.tag, av_def.value)
             nid = plan.axis_value_ids.get(key)
             if nid is not None:
-                add_record(nid, av_def.name, "stat_axis_value")
+                label = plan.stat_value_labels.get(key, av_def.name)
+                add_record(nid, label, "stat_axis_value")
 
     if plan.elided_fallback_id:
         add_record(
@@ -50,10 +51,11 @@ def build_commit_diff(
         for av_def in axis_def.values:
             key = (axis_def.tag, av_def.value)
             nid = plan.axis_value_ids.get(key)
+            label = plan.stat_value_labels.get(key, av_def.name)
             entry: Dict[str, Any] = {
                 "tag": axis_def.tag,
                 "value": float(av_def.value),
-                "name": av_def.name,
+                "name": label,
                 "elidable": bool(av_def.elidable),
                 "stat_format": int(av_def.stat_format),
                 "name_id": nid,

@@ -1,5 +1,6 @@
 import Foundation
 
+/// Stable string keys for instance coordinates (`tag:value|tag:value`).
 public enum InstanceKeyBuilder {
     /// Sorted axis tags joined as `tag:value|tag:value` (OpenType axis tag order).
     public static func makeKey(coords: [String: Double]) -> String {
@@ -21,12 +22,6 @@ public enum InstanceKeyBuilder {
     }
 
     private static func formatValue(_ value: Double) -> String {
-        if value.rounded() == value {
-            return String(Int(value))
-        }
-        var text = String(value)
-        while text.last == "0" { text.removeLast() }
-        if text.last == "." { text.removeLast() }
-        return text
+        AxisCoordinateFormat.format(value)
     }
 }

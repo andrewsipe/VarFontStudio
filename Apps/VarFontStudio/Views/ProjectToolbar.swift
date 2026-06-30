@@ -120,13 +120,17 @@ private struct ProjectTabChip: View {
                 }
             }
         ) {
-            HStack(spacing: 5) {
+            StudioTabChip(
+                isSelected: isActive || isOpen,
+                isHighlighted: isHoverTarget,
+                shape: .roundedRect
+            ) {
                 Text(tabLabel)
                     .font(StudioTypography.caption)
                     .fontWeight(.semibold)
                     .lineLimit(1)
                     .frame(maxWidth: 160, alignment: .leading)
-
+            } trailing: {
                 Text("\(openProject.document.fonts.count)")
                     .font(StudioTypography.monoMeta)
                     .padding(.horizontal, 5)
@@ -136,18 +140,6 @@ private struct ProjectTabChip: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background {
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .fill(tabFill(isActive: isActive, isOpen: isOpen))
-                    .overlay {
-                        if isHoverTarget {
-                            RoundedRectangle(cornerRadius: StudioRadius.chip)
-                                .strokeBorder(Color.accentColor.opacity(0.85), lineWidth: 1.5)
-                        }
-                    }
             }
         }
         .background {
@@ -161,15 +153,5 @@ private struct ProjectTabChip: View {
         .anchorPreference(key: ProjectTabAnchorKey.self, value: .bounds) { anchor in
             [openProject.id: anchor]
         }
-    }
-
-    private func tabFill(isActive: Bool, isOpen: Bool) -> Color {
-        if isHoverTarget {
-            return StudioColors.selectionFill
-        }
-        if isActive || isOpen {
-            return StudioColors.selectionFill
-        }
-        return Color.primary.opacity(0.04)
     }
 }

@@ -17,6 +17,66 @@ from vfcommit_lib.ot_label_scanner import OTLabelRecord
 
 logger = get_logger(__name__)
 
+CLARIFIER_TOKEN_TO_CATEGORY: Dict[str, str] = {
+    "@width": "width",
+    "@slope": "slope",
+    "@optical": "optical",
+    "@custom": "custom",
+}
+
+DEFAULT_CLARIFIER_TOKENS: List[str] = list(CLARIFIER_TOKEN_TO_CATEGORY.keys())
+
+
+def parse_clarifiers(file_role: Optional[dict]) -> Dict[str, str]:
+    """Map clarifier category to label from CommitRequest file_role."""
+    result: Dict[str, str] = {}
+    if not file_role:
+        return result
+    for item in file_role.get("clarifiers") or []:
+        category = str(item.get("category") or "").strip()
+        label = str(item.get("label") or "").strip()
+        if category and label:
+            result[category] = label
+    return result
+
+
+def effective_elided_fallback(naming: dict, file_role: Optional[dict]) -> str:
+    override = (file_role or {}).get("elided_fallback_override")
+    if override:
+        return str(override)
+    return str(naming.get("elided_fallback") or "Regular")
+
+
+def naming_order_with_defaults(naming: dict) -> List[str]:
+    order = list(naming.get("order") or [])
+    for token in DEFAULT_CLARIFIER_TOKENS:
+        if token not in order:
+            order.append(token)
+    return order
+
+
+def compose_name_from_order(
+    naming_order: List[str],
+    axis_values_by_tag: Dict[str, AxisValueDef],
+    clarifiers: Dict[str, str],
+    elided_fallback_name: str = "Regular",
+) -> str:
+    """Interleave axis stop names and per-file clarifier labels."""
+    parts: List[str] = []
+    for token in naming_order:
+        if token in CLARIFIER_TOKEN_TO_CATEGORY:
+            category = CLARIFIER_TOKEN_TO_CATEGORY[token]
+            label = clarifiers.get(category)
+            if label:
+                parts.append(label)
+            continue
+        av = axis_values_by_tag.get(token)
+        if av is None:
+            continue
+        if not av.elidable:
+            parts.append(av.name)
+    return " ".join(parts) if parts else elided_fallback_name
+
 
 @dataclass
 class AxisValueDef:
@@ -58,6 +118,9 @@ class NameIDPlan:
     family_ps_prefix: str = ""
     elided_fallback_name: str = "Regular"
     elided_fallback_id: int = 0
+    stat_value_labels: Dict[Tuple[str, float], str] = field(default_factory=dict)
+    naming_order: List[str] = field(default_factory=list)
+    clarifiers: Dict[str, str] = field(default_factory=dict)
     free_start: int = 256
     free_end: int = 255
 
@@ -112,11 +175,46 @@ def audit_nameids(font: TTFont, ot_labels: List[OTLabelRecord]) -> Dict[int, str
     return used
 
 
+def preserved_design_axis_name_ids(font: TTFont, rebuilt_tags: Set[str]) -> Set[int]:
+    """
+    STAT DesignAxisRecord name IDs for axes not rebuilt by this commit.
+
+    Axes present in STAT but omitted from axis_defs (e.g. ital without fvar)
+    keep their AxisNameID; allocation must not reuse those IDs.
+    """
+    preserved: Set[int] = set()
+    if "STAT" not in font:
+        return preserved
+    stat = font["STAT"].table
+    design = getattr(stat, "DesignAxisRecord", None)
+    if not design or not design.Axis:
+        return preserved
+    for ax in design.Axis:
+        if ax.AxisTag in rebuilt_tags:
+            continue
+        nid = ax.AxisNameID
+        if nid >= 256:
+            preserved.add(nid)
+    return preserved
+
+
+def _prefix_from_postscript_name(raw: str | None) -> str | None:
+    """Stem before first hyphen; whole string if no hyphen."""
+    if not raw or not raw.strip():
+        return None
+    s = raw.strip()
+    if "?" in s or "." in s:
+        return None
+    stem = s.split("-", 1)[0] if "-" in s else s
+    compact = sanitize_postscript(stem)
+    return compact or None
+
+
 def derive_family_ps_prefix(font: TTFont) -> str:
     """
     Prefix for fvar instance PostScript names (e.g. OnsiteVF from nameID 25).
 
-    Prefers ID 25, then strips Variable tokens from ID 6, then typographic family.
+    Prefers ID 25, then ID 6 stem before hyphen, then stripped ID 6, then family.
     """
     n25 = font["name"].getDebugName(25)
     if n25 and n25.strip():
@@ -124,6 +222,9 @@ def derive_family_ps_prefix(font: TTFont) -> str:
 
     n6 = font["name"].getDebugName(6)
     if n6 and n6.strip():
+        from_hyphen = _prefix_from_postscript_name(n6)
+        if from_hyphen:
+            return from_hyphen
         base = strip_variable_tokens(n6) or n6
         for token in ("Variable", "VF"):
             if base.endswith(token):
@@ -160,8 +261,20 @@ def compose_postscript_instance_name(family_prefix: str, subfamily_name: str) ->
 def compose_instance_name(
     axis_values: tuple,
     elided_fallback_name: str = "Regular",
+    *,
+    naming_order: Optional[List[str]] = None,
+    clarifiers: Optional[Dict[str, str]] = None,
+    axis_tags: Optional[List[str]] = None,
 ) -> str:
     """Build subfamily string from one axis-value combination (product tuple)."""
+    if naming_order is not None and axis_tags is not None:
+        by_tag = {tag: av for tag, av in zip(axis_tags, axis_values)}
+        return compose_name_from_order(
+            naming_order,
+            by_tag,
+            clarifiers or {},
+            elided_fallback_name,
+        )
     parts = [av.name for av in axis_values if not av.elidable]
     return " ".join(parts) if parts else elided_fallback_name
 
@@ -169,17 +282,27 @@ def compose_instance_name(
 def enumerate_instance_names(
     axis_defs: List[AxisDef],
     elided_fallback_name: str = "Regular",
+    *,
+    naming_order: Optional[List[str]] = None,
+    clarifiers: Optional[Dict[str, str]] = None,
 ) -> List[str]:
     """Cartesian product of axis values into composed instance subfamily names."""
     if not axis_defs:
         return []
 
     value_lists = [ad.values for ad in axis_defs]
+    tag_list = [ad.tag for ad in axis_defs]
     names: List[str] = []
     seen: Set[str] = set()
 
     for combo in itertools.product(*value_lists):
-        composed = compose_instance_name(combo, elided_fallback_name)
+        composed = compose_instance_name(
+            combo,
+            elided_fallback_name,
+            naming_order=naming_order,
+            clarifiers=clarifiers,
+            axis_tags=tag_list,
+        )
         if composed not in seen:
             seen.add(composed)
             names.append(composed)
@@ -195,19 +318,30 @@ def build_allocation_plan(
     *,
     allocate_postscript_names: bool = True,
     instance_axis_defs: List[AxisDef] | None = None,
+    naming_order: List[str] | None = None,
+    clarifiers: Dict[str, str] | None = None,
+    family_ps_prefix: str | None = None,
 ) -> NameIDPlan:
     """Produce nameID allocation plan without modifying the font."""
     grid_axes = instance_axis_defs if instance_axis_defs is not None else axis_defs
+    order = naming_order or []
+    clarifier_map = clarifiers or {}
     used = audit_nameids(font, ot_labels)
     ot_protected_ids: Set[int] = {rec.name_id for rec in ot_labels if rec.name_id >= 256}
+    preserved_axis_name_ids = preserved_design_axis_name_ids(
+        font, {axis_def.tag for axis_def in axis_defs}
+    )
     # Only OpenType feature labels must survive wipe; fvar/STAT instance IDs are reclaimed from 256.
     protected = {nid: used[nid] for nid in ot_protected_ids if nid in used}
+    for nid in preserved_axis_name_ids:
+        if nid in used:
+            protected[nid] = used[nid]
 
     cursor = 256
 
     def alloc_id() -> int:
         nonlocal cursor
-        while cursor in ot_protected_ids:
+        while cursor in ot_protected_ids or cursor in preserved_axis_name_ids:
             cursor += 1
         nid = cursor
         cursor += 1
@@ -225,19 +359,35 @@ def build_allocation_plan(
 
     # 2. STAT axis value names
     axis_value_ids: Dict[Tuple[str, float], int] = {}
+    stat_value_labels: Dict[Tuple[str, float], str] = {}
     for axis_def in axis_defs:
         for av_def in axis_def.values:
             key = (axis_def.tag, av_def.value)
             if key not in axis_value_ids:
                 axis_value_ids[key] = alloc_id()
+                stat_value_labels[key] = compose_name_from_order(
+                    order,
+                    {axis_def.tag: av_def},
+                    clarifier_map,
+                    elided_fallback_name,
+                )
 
-    family_prefix = derive_family_ps_prefix(font) if allocate_postscript_names else ""
+    if allocate_postscript_names:
+        override = (family_ps_prefix or "").strip()
+        family_prefix = override or derive_family_ps_prefix(font)
+    else:
+        family_prefix = ""
     instance_ids: Dict[str, int] = {}
     instance_postscript_names: Dict[str, str] = {}
     instance_postscript_ids: Dict[str, int] = {}
     ps_string_to_id: Dict[str, int] = {}
 
-    for composed_name in enumerate_instance_names(grid_axes, elided_fallback_name):
+    for composed_name in enumerate_instance_names(
+        grid_axes,
+        elided_fallback_name,
+        naming_order=order,
+        clarifiers=clarifier_map,
+    ):
         if composed_name not in instance_ids:
             instance_ids[composed_name] = alloc_id()
 
@@ -273,6 +423,9 @@ def build_allocation_plan(
         family_ps_prefix=family_prefix,
         elided_fallback_name=elided_fallback_name,
         elided_fallback_id=elided_fallback_id,
+        stat_value_labels=stat_value_labels,
+        naming_order=order,
+        clarifiers=clarifier_map,
         free_start=free_start,
         free_end=free_end,
     )
@@ -316,4 +469,5 @@ __all__ = [
     "compose_postscript_instance_name",
     "derive_family_ps_prefix",
     "enumerate_instance_names",
+    "preserved_design_axis_name_ids",
 ]

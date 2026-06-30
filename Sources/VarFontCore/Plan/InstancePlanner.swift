@@ -23,6 +23,7 @@ public enum InstancePlanner {
         var warnings = validateAxes(font.axes)
         warnings.append(contentsOf: AxisStopValidator.validate(axes: font.axes))
         warnings.append(contentsOf: validateInstanceKeySets(font))
+        warnings.append(contentsOf: validateClarifiers(font: font))
         var instances: [PlannedInstance] = []
         var seenNames: [String: String] = [:]
 
@@ -33,14 +34,15 @@ public enum InstancePlanner {
                 coords[tag] = value
             }
             let key = InstanceKeyBuilder.makeKey(coords: coords)
-            let composed = NamingComposer.compose(coords: coords, axes: font.axes, naming: naming)
-            let chain = composed.chain
-                .filter { link in
-                    font.axes.first(where: { $0.tag == link.tag })?.role == .instance
-                }
-                .map {
-                    NamingChainLink(tag: $0.tag, name: $0.name, elided: $0.elided)
-                }
+            let composed = NamingComposer.compose(
+                coords: coords,
+                axes: font.axes,
+                naming: naming,
+                fileRole: font.fileRole
+            )
+            let chain = composed.chain.map {
+                NamingChainLink(kind: $0.kind, tag: $0.tag, name: $0.name, elided: $0.elided)
+            }
 
             let included: Bool
             if !includedWhitelist.isEmpty {
@@ -177,6 +179,48 @@ public enum InstancePlanner {
                 instances[index].duplicate = true
             }
         }
+    }
+
+    private static func validateClarifiers(font: FontDocument) -> [PlanWarning] {
+        guard let role = font.fileRole else { return [] }
+        var warnings: [PlanWarning] = []
+
+        let categories = role.clarifiers.map(\.category)
+        let unique = Set(categories)
+        if unique.count != categories.count {
+            warnings.append(
+                PlanWarning(
+                    code: "duplicate_clarifier_category",
+                    message: "This file has more than one clarifier in the same category.",
+                    hint: "Keep at most one label per clarifier category (slope, width, optical, custom)."
+                )
+            )
+        }
+
+        for clarifier in role.clarifiers {
+            let axisTag: String? = switch clarifier.category {
+            case .slope: "ital"
+            case .width: "wdth"
+            case .optical: "opsz"
+            case .custom: nil
+            }
+            if let axisTag,
+               let axis = font.axes.first(where: { $0.tag == axisTag }),
+               axis.role == .instance,
+               !axis.values.isEmpty {
+                warnings.append(
+                    PlanWarning(
+                        code: "clarifier_axis_overlap",
+                        axis: axisTag,
+                        name: clarifier.label,
+                        message: "File clarifier '\(clarifier.label)' (\(clarifier.category.rawValue)) overlaps with instance axis '\(axisTag)'.",
+                        hint: "Remove the clarifier or set the axis to STAT-only if width/slope/optical varies inside this file."
+                    )
+                )
+            }
+        }
+
+        return warnings
     }
 
     private static func validateInstanceKeySets(_ font: FontDocument) -> [PlanWarning] {

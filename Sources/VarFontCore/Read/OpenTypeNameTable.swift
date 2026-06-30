@@ -44,6 +44,7 @@ enum OpenTypeNameTable {
         case 4: "Full font name"
         case 5: "Version string"
         case 6: "PostScript name"
+        case 25: "Variations PostScript prefix"
         default: nil
         }
     }

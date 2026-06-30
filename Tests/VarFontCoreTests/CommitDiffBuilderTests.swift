@@ -145,7 +145,7 @@ final class CommitDiffBuilderTests: XCTestCase {
         XCTAssertEqual(report.instanceRows.first { $0.key == "wght:700" }?.change, .added)
     }
 
-    func testNameIDRowsPairByStringReflow() {
+    func testNameIDRowsUseSequencedSlots() {
         let analysis = FontAnalysis(
             schemaVersion: 1,
             source: .init(path: "/t.ttf", format: "ttf", familyName: "Test", fullName: "Test", isVariable: true),
@@ -157,8 +157,8 @@ final class CommitDiffBuilderTests: XCTestCase {
             nameAudit: .init(
                 freeStart: 256,
                 used: [
+                    .init(id: 256, description: "fvar axis wght", string: "Weight"),
                     .init(id: 258, description: "STAT wght", string: "Medium"),
-                    .init(id: 271, description: "STAT wght", string: "Light"),
                 ],
                 elidedFallbackID: nil,
                 elidedFallbackName: nil
@@ -175,8 +175,8 @@ final class CommitDiffBuilderTests: XCTestCase {
             summary: nil,
             diff: CommitDiff(
                 nameRecordsPlanned: [
-                    .init(id: 260, string: "Light", role: "stat_axis_value"),
-                    .init(id: 261, string: "Medium", role: "stat_axis_value"),
+                    .init(id: 256, string: "Weight", role: "axis_display_name"),
+                    .init(id: 257, string: "Medium", role: "stat_axis_value"),
                 ]
             ),
             warnings: [],
@@ -198,9 +198,9 @@ final class CommitDiffBuilderTests: XCTestCase {
             result: result
         )
 
-        XCTAssertEqual(report.nameIDRows.count, 2)
-        XCTAssertEqual(report.nameIDRows.first { $0.afterString == "Light" }?.beforeID, 271)
-        XCTAssertEqual(report.nameIDRows.first { $0.afterString == "Light" }?.afterID, 260)
-        XCTAssertEqual(report.nameIDRows.first { $0.afterString == "Light" }?.change, .changed)
+        XCTAssertEqual(report.nameIDRows.count, 3)
+        XCTAssertEqual(report.nameIDRows.first { $0.id == 256 }?.change, .unchanged)
+        XCTAssertEqual(report.nameIDRows.first { $0.id == 257 }?.change, .added)
+        XCTAssertEqual(report.nameIDRows.first { $0.id == 258 }?.change, .removed)
     }
 }

@@ -177,7 +177,7 @@ Workspace state; multi-file tabs. Saved as `.varfont` JSON or package.
   "modified": "2026-06-23T12:00:00Z",
   "family_label": "Playfair Display VF",
   "naming": {
-    "order": ["opsz", "wdth", "wght", "ital"],
+    "order": ["opsz", "wdth", "wght", "@width", "@slope", "@optical", "@custom"],
     "elided_fallback": "Regular"
   },
   "template": { "axes": [], "sync_roles": true },
@@ -194,6 +194,15 @@ Workspace state; multi-file tabs. Saved as `.varfont` JSON or package.
   "output_path": null,
   "analysis_snapshot_id": "optional-hash-or-mtime",
   "dirty": false,
+  "file_role": {
+    "kind": "variant",
+    "master_font_id": "uuid-of-master-font",
+    "clarifiers": [
+      { "category": "width", "label": "Condensed" },
+      { "category": "slope", "label": "Italic" }
+    ],
+    "elided_fallback_override": null
+  },
   "axes": [],
   "options": {
     "fix_fvar_default": true,
@@ -204,6 +213,19 @@ Workspace state; multi-file tabs. Saved as `.varfont` JSON or package.
   "overrides": { "per_instance": [] }
 }
 ```
+
+### `fonts[].file_role`
+
+Per-file family identity — **not** fvar axes. Master file has `kind: "master"` and empty `clarifiers`. Variants list what makes this file different from the master.
+
+| `clarifiers[].category` | Typical labels |
+|-------------------------|----------------|
+| `slope` | Italic, Oblique |
+| `width` | Condensed, Wide |
+| `optical` | Text, Display, Micro |
+| `custom` | Color, Rounded Stencil Rough, … |
+
+At most one clarifier per category per file. Labels append to composed instance names per project `naming.order` clarifier tokens (`@width`, `@slope`, `@optical`, `@custom`).
 
 ### `fonts[].axes[]`
 
@@ -312,8 +334,12 @@ Input to `vfcommit`. Subset of project + output paths.
     "preserve_stat_format_3": true
   },
   "naming": {
-    "order": ["opsz", "wdth", "wght", "ital"],
+    "order": ["opsz", "wdth", "wght", "@width", "@slope", "@optical", "@custom"],
     "elided_fallback": "Regular"
+  },
+  "file_role": {
+    "kind": "variant",
+    "clarifiers": [{ "category": "slope", "label": "Italic" }]
   },
   "axes": [],
   "included_instance_keys": []

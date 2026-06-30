@@ -247,8 +247,7 @@ struct AxisConflictResolverSheet: View {
             .background {
                 StudioRowBackground(
                     isSelected: isSelected,
-                    isHovered: isHovered,
-                    showsSelectionStroke: true
+                    isHovered: isHovered
                 )
             }
             .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
@@ -349,8 +348,8 @@ struct AxisConflictResolverSheet: View {
             Text("New name")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
-            TextField(
-                ConflictResolver.suggestedRename(
+            StudioTextField(
+                placeholder: ConflictResolver.suggestedRename(
                     for: stop,
                     bundle: bundle,
                     axis: axis,
@@ -358,7 +357,6 @@ struct AxisConflictResolverSheet: View {
                 ),
                 text: $renameDraft
             )
-            .textFieldStyle(.roundedBorder)
             .onChange(of: renameDraft) { _, text in
                 renameUsesSuggestion = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
@@ -373,18 +371,17 @@ struct AxisConflictResolverSheet: View {
             Text("New value")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
-            TextField(
-                AxisStopSuggestions.formatValue(
+            StudioTextField(
+                placeholder: AxisStopSuggestions.formatValue(
                     ConflictResolver.suggestedRevalue(
                         for: stop,
                         axis: axis,
                         excludingStopIDs: Set(bundle.involvedStopIDs)
                     )
                 ),
-                text: $revalueDraft
+                text: $revalueDraft,
+                font: StudioTypography.monoValue
             )
-            .textFieldStyle(.roundedBorder)
-            .font(StudioTypography.monoValue)
             .onChange(of: revalueDraft) { _, text in
                 revalueUsesSuggestion = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
@@ -417,7 +414,7 @@ struct AxisConflictResolverSheet: View {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(
                             resolvesConflict ? StudioColors.successStroke : StudioColors.warningStroke,
-                            lineWidth: 1.5
+                            lineWidth: 0.5
                         )
                 }
 

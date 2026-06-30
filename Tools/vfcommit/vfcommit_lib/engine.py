@@ -11,6 +11,9 @@ from fontTools.ttLib import TTFont
 from vfcommit_lib.nameid_allocator import (
     build_allocation_plan,
     check_for_collisions,
+    naming_order_with_defaults,
+    parse_clarifiers,
+    effective_elided_fallback,
 )
 from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
 from vfcommit_lib.request_bridge import (
@@ -35,8 +38,13 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     dry_run = bool(request.get("dry_run", False))
     options = request.get("options") or {}
     naming = request.get("naming") or {}
+    file_role = request.get("file_role")
     axes_json = request.get("axes") or []
     included_keys = list(request.get("included_instance_keys") or [])
+
+    naming_order = naming_order_with_defaults(naming)
+    clarifiers = parse_clarifiers(file_role)
+    elided_fallback = effective_elided_fallback(naming, file_role)
 
     if not Path(source_path).is_file():
         return _error_result(
@@ -54,11 +62,11 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     axis_defs = axis_defs_from_request(axes_json)
     grid_axes = grid_axis_defs(axis_defs, axes_json)
     pinned = pinned_coords(axes_json)
-    elided_fallback = str(naming.get("elided_fallback") or "Regular")
 
     ot_labels = scan_ot_label_nameids(font)
     ot_label_ids = {rec.name_id for rec in ot_labels}
 
+    family_ps_prefix = options.get("family_ps_prefix")
     plan = build_allocation_plan(
         font,
         ot_labels,
@@ -66,6 +74,9 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         elided_fallback_name=elided_fallback,
         allocate_postscript_names=bool(options.get("allocate_postscript_names", True)),
         instance_axis_defs=grid_axes,
+        naming_order=naming_order,
+        clarifiers=clarifiers,
+        family_ps_prefix=str(family_ps_prefix) if family_ps_prefix else None,
     )
     collisions = check_for_collisions(plan, font)
     if collisions:
@@ -106,8 +117,10 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     allocated_ids = [nid for nid in allocated_ids if nid]
 
     warnings: List[Dict[str, Any]] = []
-    for line in default_fix_summary(font, axis_defs):
-        warnings.append({"code": "fvar_default_fix", "message": line})
+    fix_fvar_default = bool(options.get("fix_fvar_default", False))
+    if fix_fvar_default:
+        for line in default_fix_summary(font, axis_defs):
+            warnings.append({"code": "fvar_default_fix", "message": line})
 
     if not dry_run:
         if not output_path:
@@ -131,7 +144,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             axis_defs,
             plan,
             elided_fallback_name=elided_fallback,
-            fix_fvar_default=bool(options.get("fix_fvar_default", True)),
+            fix_fvar_default=fix_fvar_default,
             protected_ids=protected_ids,
             confirm_wipe=False,
             ot_label_count=len(ot_labels),
