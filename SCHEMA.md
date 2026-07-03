@@ -1,5 +1,7 @@
 # VarFont Editor — JSON schema (v1)
 
+> **Project status & handoff:** see [HANDOFF.md](HANDOFF.md) before changing the app or engine.
+
 Contract between the Swift app (read, plan, UI) and the write helper (`vfcommit`, future).
 
 **`schema_version`:** always `1` on top-level objects until a breaking change.
