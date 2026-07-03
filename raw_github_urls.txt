@@ -1,6 +1,8 @@
 # Root directory
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/EXPORT_DESIGN_NOTES.md
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/HANDOFF.md
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Package.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/README.md
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/SCHEMA.md
 
 # Apps/VarFontStudio/
