@@ -36,6 +36,8 @@
 		B2000028 /* SaveReviewWindowLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000027 /* SaveReviewWindowLifecycle.swift */; };
 		B2000029 /* FileClarifiersBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000028 /* FileClarifiersBar.swift */; };
 		B2000030 /* ProjectFileCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000029 /* ProjectFileCommands.swift */; };
+		B2000031 /* PlanIssueResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000030 /* PlanIssueResolverSheet.swift */; };
+		B2000032 /* CombinationStylesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000031 /* CombinationStylesSection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +70,8 @@
 		F2000027 /* SaveReviewWindowLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewWindowLifecycle.swift; sourceTree = "<group>"; };
 		F2000028 /* FileClarifiersBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClarifiersBar.swift; sourceTree = "<group>"; };
 		F2000029 /* ProjectFileCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileCommands.swift; sourceTree = "<group>"; };
+		F2000030 /* PlanIssueResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanIssueResolverSheet.swift; sourceTree = "<group>"; };
+		F2000031 /* CombinationStylesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombinationStylesSection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +127,8 @@
 				F2000019 /* StudioPanelSplitView.swift */,
 				F2000005 /* AxisTreePanel.swift */,
 				F2000023 /* AxisConflictResolverSheet.swift */,
+				F2000030 /* PlanIssueResolverSheet.swift */,
+				F2000031 /* CombinationStylesSection.swift */,
 				F2000024 /* CommitDiffSheet.swift */,
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
@@ -246,6 +252,8 @@
 				B2000020 /* StudioPanelSplitView.swift in Sources */,
 				B2000005 /* AxisTreePanel.swift in Sources */,
 				B2000024 /* AxisConflictResolverSheet.swift in Sources */,
+				B2000031 /* PlanIssueResolverSheet.swift in Sources */,
+				B2000032 /* CombinationStylesSection.swift in Sources */,
 				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000027 /* SourceFontAccess.swift in Sources */,

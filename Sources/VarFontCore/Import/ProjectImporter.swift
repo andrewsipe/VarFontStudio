@@ -13,6 +13,13 @@ public enum ProjectImporter {
       : analysis.source.familyName
 
     let axisOrder = analysis.inferred.namingOrderSuggested
+    let elided = ElidedFallbackResolver.resolve(
+      axes: font.axes,
+      namingOrder: axisOrder,
+      fileStatRegistration: font.fileStatRegistration,
+      sourceElidedFallback: analysis.nameAudit.elidedFallbackName,
+      fileRole: font.fileRole
+    )
     return ProjectDocument(
       schemaVersion: 1,
       created: Date(),
@@ -21,7 +28,7 @@ public enum ProjectImporter {
       naming: NamingPolicy(
         order: NamingPolicy.orderWithDefaultClarifiers(axisOrder: axisOrder),
         inferredOrder: axisOrder,
-        elidedFallback: analysis.nameAudit.elidedFallbackName ?? "Regular"
+        elidedFallback: elided.value
       ),
       template: ProjectTemplate(syncRoles: true, axes: []),
       fonts: [font]
@@ -61,6 +68,7 @@ public enum ProjectImporter {
           value: resolvedStopValue(stop, axis: axis),
           name: stop.name,
           elidable: stop.elidable ?? false,
+          olderSibling: stop.olderSibling ?? false,
           statFormat: stop.format ?? 1,
           rangeMin: stop.rangeMin,
           rangeMax: stop.rangeMax,
@@ -111,7 +119,7 @@ public enum ProjectImporter {
       )
     }
 
-    return FontDocument(
+    var font = FontDocument(
       id: placeholder.id,
       sourcePath: sourceURL.path,
       outputPath: nil,
@@ -123,8 +131,33 @@ public enum ProjectImporter {
       includedInstanceKeys: [],
       excludedInstanceKeys: [],
       overrides: InstanceOverrides(),
-      fileStatRegistration: RegistrationAxisSupport.inferFileStatRegistration(axes: axes)
+      fileStatRegistration: RegistrationAxisSupport.inferFileStatRegistration(
+        axes: axes,
+        analysis: analysis,
+        sourcePath: sourceURL.path
+      ),
+      inferredIsItalicFile: RegistrationAxisSupport.isItalicFile(
+        analysis: analysis,
+        sourcePath: sourceURL.path
+      ),
+      compoundStatValues: compoundStatValues(from: analysis)
     )
+    _ = PlanIssueResolver.applySafeAutoFixes(to: &font, analysis: analysis)
+    return font
+  }
+
+  private static func compoundStatValues(from analysis: FontAnalysis) -> [CompoundStatValue] {
+    analysis.compoundStatValues.map { record in
+      CompoundStatValue(
+        id: record.id,
+        coords: record.coords,
+        axisIndices: record.axisIndices,
+        axisValues: record.axisValues,
+        name: record.name,
+        elidable: record.elidable,
+        olderSibling: record.olderSibling
+      )
+    }
   }
 
   private static func resolvedStopValue(

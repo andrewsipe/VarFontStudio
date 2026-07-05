@@ -24,7 +24,7 @@ final class InstancePlannerTests: XCTestCase {
             let actual = try XCTUnwrap(plan.instances.first { $0.key == expected.key })
             XCTAssertEqual(actual.composedName, expected.composedName)
             XCTAssertEqual(actual.coords, expected.coords)
-            XCTAssertEqual(actual.namingChain, expected.namingChain)
+            XCTAssertEqual(actual.namingChain.filter { $0.kind != .registration }, expected.namingChain)
         }
     }
 

@@ -89,8 +89,20 @@ struct MainEditorView: View {
                 .environmentObject(editor)
         }
         .sheet(item: $editor.conflictResolverRequest) { session in
-            AxisConflictResolverSheet(bundle: session.bundle)
-                .environmentObject(editor)
+            AxisConflictResolverSheet(
+                bundle: session.bundle,
+                reviewPosition: session.reviewPosition,
+                reviewTotal: session.reviewTotal
+            )
+            .environmentObject(editor)
+        }
+        .sheet(item: $editor.planIssueResolverRequest) { session in
+            PlanIssueResolverSheet(
+                warning: session.warning,
+                reviewPosition: session.reviewPosition,
+                reviewTotal: session.reviewTotal
+            )
+            .environmentObject(editor)
         }
         .onChange(of: editor.saveReviewOpenRequest) { _, request in
             guard let request else { return }

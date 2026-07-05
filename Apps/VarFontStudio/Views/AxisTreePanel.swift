@@ -33,9 +33,9 @@ private struct StopFormatChangeRequest: Identifiable {
 // | variation   | N         | Y     | Y    | min – def – max                       | empty | YES      |
 // | pinned      | N         | N     | N    | min – def – max · Pinned at X         | YES   | NO       |
 // | pinned      | N         | Y     | N    | min – def – max · Pinned at X         | empty | NO       |
-// | registration| Y         | N     | —    | No fvar scale · This file: {label}    | YES   | NO       |
-// | registration| Y         | Y     | —    | No fvar scale · This file: {label?}   | empty | NO       |
-// | registration| N         | *     | —    | No fvar scale [· This file: {label}]  | *     | NO       |
+// | registration| Y         | N     | —    | No fvar scale · {stop}▾              | YES   | NO       |
+// | registration| Y         | Y     | —    | No fvar scale · {stop?}▾             | empty | NO       |
+// | registration| N         | *     | —    | No fvar scale [· {stop?}▾]           | *     | NO       |
 //
 // hasConflict → warning icon + Resolve in header (all lanes). hasAxisWarning → warning icon in header;
 // axis-scoped plan warnings do not repeat in the scroll banner (rollup only when 2+ axes need attention).
@@ -44,11 +44,11 @@ private struct StopFormatChangeRequest: Identifiable {
 /// Plan-warning codes surfaced inline on the axis header (not repeated per-message in the scroll banner).
 private enum AxisTreePlanWarningCodes {
     static let axisInline: Set<String> = [
-        "ladder_missing_stop",
-        "ladder_misaligned_stop",
-        "ladder_cannot_anchor",
         "registration_mismatch",
+        "registration_value_missing",
         "orphan_stat_link",
+        "ital_value_name_mismatch",
+        "multiple_elidable",
         "multiple_elidable",
         "empty_instance_axis",
     ]
@@ -221,21 +221,21 @@ struct AxisTreePanel: View {
 
     @ViewBuilder
     private func planWarningsBand(scrollProxy: ScrollViewProxy) -> some View {
-        let fileLevelWarnings = fileLevelPlanWarnings
-        let attentionAxes = axesNeedingPlanAttention
+        let issueCount = editor.reviewIssueCount
+        let infoWarnings = informationalPlanWarningsForBand
 
-        if !fileLevelWarnings.isEmpty || attentionAxes.count > 1 {
+        if issueCount > 0 || !infoWarnings.isEmpty {
             VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                if attentionAxes.count > 1 {
+                if issueCount > 0 {
                     StudioConflictAlert(
-                        message: "\(attentionAxes.count) axes need attention",
-                        actionTitle: "Review…"
+                        message: issueCount == 1 ? "1 issue to review" : "\(issueCount) issues to review",
+                        actionTitle: "Review issues…"
                     ) {
-                        focusAxis(attentionAxes[0], scrollProxy: scrollProxy)
+                        editor.startReviewSession()
                     }
                 }
 
-                ForEach(Array(fileLevelWarnings.enumerated()), id: \.offset) { _, warning in
+                ForEach(Array(infoWarnings.enumerated()), id: \.offset) { _, warning in
                     HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(StudioTypography.meta)
@@ -245,6 +245,18 @@ struct AxisTreePanel: View {
                             .font(StudioTypography.caption)
                             .foregroundStyle(.primary)
                             .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: StudioSpacing.controlGap)
+                        if PlanIssueCodes.resolvable.contains(warning.code), issueCount > 0 {
+                            Button("Review…") {
+                                editor.startReviewSession(jumpingTo: warning)
+                                if let axis = warning.axis {
+                                    focusAxis(axis, scrollProxy: scrollProxy)
+                                }
+                            }
+                            .font(StudioTypography.meta)
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -255,20 +267,20 @@ struct AxisTreePanel: View {
         }
     }
 
-    private var fileLevelPlanWarnings: [PlanWarning] {
-        editor.instancePlan?.warnings.filter {
-            guard let axis = $0.axis, !axis.isEmpty else { return true }
-            return !AxisTreePlanWarningCodes.axisInline.contains($0.code)
-        } ?? []
+    private var informationalPlanWarningsForBand: [PlanWarning] {
+        summarizedComposedNameWarnings(editor.informationalPlanWarnings())
     }
 
-    private var axesNeedingPlanAttention: [String] {
-        let warned = editor.instancePlan?.warnings.compactMap { warning -> String? in
-            guard let axis = warning.axis,
-                  AxisTreePlanWarningCodes.axisInline.contains(warning.code) else { return nil }
-            return axis
-        } ?? []
-        return Array(Set(warned)).sorted()
+    private func summarizedComposedNameWarnings(_ warnings: [PlanWarning]) -> [PlanWarning] {
+        let duplicateComposed = warnings.filter { $0.code == "duplicate_composed_name" }
+        let other = warnings.filter { $0.code != "duplicate_composed_name" }
+        guard duplicateComposed.count > 3 else { return warnings }
+        let summary = PlanWarning(
+            code: "duplicate_composed_name",
+            message: "\(duplicateComposed.count) composed names are duplicated.",
+            hint: duplicateComposed[0].hint
+        )
+        return other + [summary]
     }
 
     private func axisPlanWarnings(for tag: String) -> [PlanWarning] {
@@ -293,10 +305,10 @@ struct AxisTreePanel: View {
     private func axesContent(scrollProxy: ScrollViewProxy) -> some View {
         planWarningsBand(scrollProxy: scrollProxy)
 
-        if editor.unresolvedAxisConflictCount > 0 {
+        if editor.unresolvedAxisConflictCount > 0, editor.reviewIssueCount == 0 {
             StudioConflictAlert(
                 message: conflictAlertMessage,
-                actionTitle: editor.unresolvedAxisConflictCount == 1 ? "Resolve…" : "Review…"
+                actionTitle: "Resolve…"
             ) {
                 editor.presentFirstConflictResolver()
             }
@@ -314,12 +326,19 @@ struct AxisTreePanel: View {
                         .id(axis.tag)
                 }
             }
+
+            if !font.compoundStatValues.isEmpty {
+                CombinationStylesSection(compounds: font.compoundStatValues, axes: font.axes)
+                    .padding(.top, StudioSpacing.sectionGap)
+            }
         }
     }
 
     @ViewBuilder
     private func axisBlock(_ axis: AxisDefinition) -> some View {
         let isExpanded = expandedAxes.contains(axis.tag)
+        let resolvableWarnings = axisPlanWarnings(for: axis.tag)
+            .filter { PlanIssueCodes.resolvable.contains($0.code) }
 
         VStack(alignment: .leading, spacing: 0) {
             AxisTreeAxisHeader(
@@ -327,11 +346,22 @@ struct AxisTreePanel: View {
                 isExpanded: isExpanded,
                 hasConflict: editor.bundle(for: axis.tag) != nil,
                 axisWarnings: axisPlanWarnings(for: axis.tag),
+                resolvablePlanWarnings: resolvableWarnings,
                 fileRegistrationLabel: axis.lane == .registration ? registrationLabel(for: axis) : nil,
+                registrationStops: axis.lane == .registration ? axis.values : [],
+                selectedRegistrationStopID: registrationStopID(for: axis),
+                onSelectRegistrationStop: axis.lane == .registration ? { stopID in
+                    guard let font = editor.selectedFont,
+                          let stop = axis.values.first(where: { $0.id == stopID }) else { return }
+                    editor.setFileStatRegistration(tag: axis.tag, value: stop.value, forFontID: font.id)
+                } : nil,
                 isInstanceAxis: instanceAxisBinding(for: axis.tag),
                 onToggleExpansion: { toggleExpansion(for: axis.tag) },
                 onResolveConflict: {
                     editor.presentConflictResolver(for: axis.tag)
+                },
+                onReviewPlanIssue: {
+                    editor.presentFirstResolvablePlanIssue(on: axis.tag)
                 }
             )
 
@@ -349,14 +379,6 @@ struct AxisTreePanel: View {
         let showElidable = axis.role == .instance || axis.lane == .registration
 
         VStack(alignment: .leading, spacing: 0) {
-            if axis.isDesignRecordOnly {
-                DesignRecordAxisLabelRow(
-                    tag: axis.tag,
-                    displayName: axis.displayName ?? axis.tag
-                )
-                .padding(.bottom, AxisDetailSpacing.metadataToTableGap)
-            }
-
             if axis.values.isEmpty {
                 Text(axis.isDesignRecordOnly
                     ? "No STAT axis values on this design axis"
@@ -426,6 +448,25 @@ struct AxisTreePanel: View {
         return stop.name
     }
 
+    private func registrationStopID(for axis: AxisDefinition) -> String? {
+        guard let font = editor.selectedFont,
+              let value = font.fileStatRegistration[axis.tag],
+              let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: value) else {
+            return axis.values.first?.id
+        }
+        return stop.id
+    }
+
+    private func isRegistrationStop(_ stop: AxisValue, axis: AxisDefinition) -> Bool {
+        guard axis.lane == .registration,
+              let font = editor.selectedFont,
+              let value = font.fileStatRegistration[axis.tag],
+              let registered = AxisCoordinate.matchingStop(in: axis.values, coordinate: value) else {
+            return false
+        }
+        return registered.id == stop.id
+    }
+
     private func linkedTargetName(for stop: AxisValue, in axis: AxisDefinition) -> String? {
         guard stop.statFormat == 3, let linkedValue = stop.linkedValue else { return nil }
         if let target = axis.values.first(where: {
@@ -444,11 +485,13 @@ struct AxisTreePanel: View {
         AxisTreeStopRow(
             stop: stop,
             linkedTargetName: linkedTargetName(for: stop, in: axis),
+            isRegistrationStop: isRegistrationStop(stop, axis: axis),
+            linkTargetCandidates: axis.values.filter { $0.id != stop.id },
             isSelected: editor.selectedAxisStopID == stop.id,
             editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
             showElidable: showElidable,
             allowsRemove: !axis.isDesignRecordOnly,
-            valueEditable: axis.hasFvarScale,
+            valueEditable: axis.hasFvarScale || axis.isDesignRecordOnly,
             isElidable: stop.elidable,
             onSelect: {
                 scheduleClearEdit()
@@ -478,7 +521,10 @@ struct AxisTreePanel: View {
             onCommitMin: { editor.updateAxisStopRangeMin(axisTag: axis.tag, stopID: stop.id, rangeMin: $0) },
             onCommitMax: { editor.updateAxisStopRangeMax(axisTag: axis.tag, stopID: stop.id, rangeMax: $0) },
             onCommitName: { editor.updateAxisStopName(axisTag: axis.tag, stopID: stop.id, name: $0) },
-            onToggleElidable: { editor.toggleAxisStopElidable(axisTag: axis.tag, stopID: stop.id) }
+            onToggleElidable: { editor.toggleAxisStopElidable(axisTag: axis.tag, stopID: stop.id) },
+            onSelectLinkTarget: { targetID in
+                editor.updateAxisStopLinkedTarget(axisTag: axis.tag, stopID: stop.id, linkTargetStopID: targetID)
+            }
         )
     }
 
@@ -504,7 +550,8 @@ struct AxisTreePanel: View {
 
     private func scrollToAxisStop(scrollProxy: ScrollViewProxy, axisTag: String, stopID: String) {
         withAnimation(.easeOut(duration: 0.2)) {
-            expandedAxes = [axisTag]
+            expandedAxes.insert(axisTag)
+            return ()
         }
         DispatchQueue.main.async {
             withAnimation(.easeOut(duration: 0.2)) {
@@ -633,10 +680,15 @@ private struct AxisTreeAxisHeader: View {
     let isExpanded: Bool
     var hasConflict: Bool = false
     var axisWarnings: [PlanWarning] = []
+    var resolvablePlanWarnings: [PlanWarning] = []
     var fileRegistrationLabel: String?
+    var registrationStops: [AxisValue] = []
+    var selectedRegistrationStopID: String?
+    var onSelectRegistrationStop: ((String) -> Void)?
     @Binding var isInstanceAxis: Bool
     let onToggleExpansion: () -> Void
     var onResolveConflict: (() -> Void)?
+    var onReviewPlanIssue: (() -> Void)?
 
     private var lane: AxisLane { axis.lane }
 
@@ -658,65 +710,85 @@ private struct AxisTreeAxisHeader: View {
                 parts.append(range)
             }
         case .registration:
-            parts.append("No fvar scale")
-        }
-        if let fileRegistrationLabel {
-            parts.append("This file: \(fileRegistrationLabel)")
+            return nil
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var selectedRegistrationName: String {
+        if let selectedRegistrationStopID,
+           let stop = registrationStops.first(where: { $0.id == selectedRegistrationStopID }) {
+            return stop.name
+        }
+        return fileRegistrationLabel ?? "—"
     }
 
     private var attentionHelp: String {
         if hasConflict {
             return "Naming conflict on this axis"
         }
-        return axisWarnings.map(\.message).joined(separator: "\n")
+        return axisWarnings.map { warning in
+            if let hint = warning.hint, !hint.isEmpty {
+                return "\(warning.message)\n\(hint)"
+            }
+            return warning.message
+        }.joined(separator: "\n\n")
     }
 
     var body: some View {
         HStack(spacing: 8) {
-            Button(action: onToggleExpansion) {
-                HStack(spacing: 8) {
-                    if hasAxisAttention {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(StudioTypography.meta)
-                            .foregroundStyle(StudioColors.warningForeground)
-                            .help(attentionHelp)
-                    }
-
-                    StudioTagPill(text: axis.tag)
-                        .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
-
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 4) {
-                            Text(axis.displayName ?? axis.tag)
-                                .font(StudioTypography.body)
-                                .lineLimit(1)
-                            StudioDisclosureChevron(isExpanded: isExpanded)
-                        }
-
-                        if let subtitleText {
-                            Text(subtitleText)
-                                .font(StudioTypography.meta)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                    }
-
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
+            if hasAxisAttention {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(StudioColors.warningForeground)
+                    .help(attentionHelp)
             }
-            .buttonStyle(.plain)
-            .help(lane == .registration
-                ? "STAT design axis — edit the axis label and stop names below."
-                : "Expand axis stops")
+
+            StudioTagPill(
+                text: axis.tag,
+                role: axis.isDesignRecordOnly ? .registration : .instance
+            )
+            .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Button(action: onToggleExpansion) {
+                    HStack(spacing: 4) {
+                        Text(axis.displayName ?? axis.tag)
+                            .font(StudioTypography.body)
+                            .lineLimit(1)
+                        StudioDisclosureChevron(isExpanded: isExpanded)
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(lane == .registration
+                    ? "STAT design axis — edit the axis label and stop names below."
+                    : "Expand axis stops")
+
+                // Registration stop menu must stay outside the expand button.
+                if lane == .registration {
+                    registrationSubtitle
+                } else if let subtitleText {
+                    Text(subtitleText)
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+
+            Spacer(minLength: 0)
 
             if hasConflict, let onResolveConflict {
                 Button("Resolve", action: onResolveConflict)
                     .font(StudioTypography.meta)
                     .controlSize(.small)
                     .help("Open conflict resolver for this axis")
+            } else if !resolvablePlanWarnings.isEmpty, let onReviewPlanIssue {
+                Button("Review…", action: onReviewPlanIssue)
+                    .font(StudioTypography.meta)
+                    .controlSize(.small)
+                    .help(resolvablePlanWarnings.first?.hint ?? "Review plan issues on this axis")
             }
 
             HStack(spacing: 6) {
@@ -730,13 +802,69 @@ private struct AxisTreeAxisHeader: View {
                         .labelsHidden()
                         .help(
                             "When on, stops on this axis generate named instances. "
-                                + "When off, the axis stays at its default value for every instance."
+                                + "When off, the axis stays at its default for every instance. "
+                                + "Registration axes never use this toggle."
                         )
                         .accessibilityLabel("Instance axis")
                 }
             }
             .fixedSize(horizontal: true, vertical: false)
         }
+    }
+
+    @ViewBuilder
+    private var registrationSubtitle: some View {
+        HStack(spacing: 4) {
+            Text("No fvar scale")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.secondary)
+
+            if !registrationStops.isEmpty {
+                Text("·")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+
+                // Single stop: static label (no menu chrome). Multiple: one chevron only.
+                if registrationStops.count == 1 || onSelectRegistrationStop == nil {
+                    Text(selectedRegistrationName)
+                        .font(StudioTypography.meta)
+                        .fontWeight(.medium)
+                        .foregroundStyle(StudioColors.registrationForeground)
+                        .help(registrationStopHelp)
+                } else if let onSelectRegistrationStop {
+                    Menu {
+                        ForEach(registrationStops) { stop in
+                            Button {
+                                onSelectRegistrationStop(stop.id)
+                            } label: {
+                                if stop.id == selectedRegistrationStopID {
+                                    Label(stop.name, systemImage: "checkmark")
+                                } else {
+                                    Text(stop.name)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text(selectedRegistrationName)
+                                .font(StudioTypography.meta)
+                                .fontWeight(.medium)
+                                .foregroundStyle(StudioColors.registrationForeground)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(StudioTypography.iconGlyph)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .help(registrationStopHelp)
+                }
+            }
+        }
+    }
+
+    private var registrationStopHelp: String {
+        "This file’s identity on this axis — used in every instance name, not the instance grid."
     }
 
     private var stopCountBadge: some View {
@@ -777,37 +905,6 @@ private struct AxisTreeAxisHeader: View {
             return "\(minText) – \(StudioFormatting.axisValue(defaultValue)) – \(maxText)"
         }
         return "\(minText) – \(maxText)"
-    }
-}
-
-// MARK: - Design record axis label
-
-private struct DesignRecordAxisLabelRow: View {
-    let tag: String
-    let displayName: String
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Color.clear
-                .frame(width: AxisBlockLayout.stopIndentWidth)
-
-            Color.clear
-                .frame(width: AxisBlockLayout.fmtColumnWidth + AxisBlockLayout.valueColumnWidth)
-
-            Text("Axis")
-                .font(StudioTypography.columnLabel)
-                .foregroundStyle(.tertiary)
-                .padding(.leading, AxisBlockLayout.nameGap)
-
-            Text(displayName)
-                .font(StudioTypography.bodyMedium)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .help("OpenType axis label for \(tag) — edit stop names below to control instance naming")
-        }
-        .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
-        .padding(.bottom, 2)
     }
 }
 
@@ -898,6 +995,8 @@ private struct AxisStopTableHeader: View {
 private struct AxisTreeStopRow: View {
     let stop: AxisValue
     var linkedTargetName: String?
+    var isRegistrationStop: Bool = false
+    var linkTargetCandidates: [AxisValue] = []
     let isSelected: Bool
     let editingField: StopEditField?
     let showElidable: Bool
@@ -917,6 +1016,7 @@ private struct AxisTreeStopRow: View {
     let onCommitMax: (Double) -> Void
     let onCommitName: (String) -> Void
     let onToggleElidable: () -> Void
+    var onSelectLinkTarget: ((String) -> Void)?
 
     @State private var isHovered = false
     @State private var editingMin = ""
@@ -940,6 +1040,14 @@ private struct AxisTreeStopRow: View {
         .background {
             StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
                 .padding(.leading, -AxisBlockLayout.rowHorizontalPadding)
+        }
+        .overlay(alignment: .leading) {
+            if isRegistrationStop {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(StudioColors.registrationForeground.opacity(0.85))
+                    .frame(width: 3)
+                    .padding(.leading, 2)
+            }
         }
         .onHover { isHovered = $0 }
         .onAppear { syncDrafts() }
@@ -1155,14 +1263,41 @@ private struct AxisTreeStopRow: View {
                     Text(stop.name)
                         .font(StudioTypography.bodyMedium)
                         .lineLimit(1)
-                    if stop.statFormat == 3, let linkedTargetName {
-                        Image(systemName: "link")
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.tertiary)
-                        Text(linkedTargetName)
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                    if stop.statFormat == 3 {
+                        if !linkTargetCandidates.isEmpty, let onSelectLinkTarget {
+                            Menu {
+                                ForEach(linkTargetCandidates) { target in
+                                    Button {
+                                        onSelectLinkTarget(target.id)
+                                    } label: {
+                                        if let linkedTargetName, target.name == linkedTargetName {
+                                            Label(target.name, systemImage: "checkmark")
+                                        } else {
+                                            Text(target.name)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "link")
+                                        .font(StudioTypography.caption)
+                                        .foregroundStyle(.tertiary)
+                                    Text(linkedTargetName ?? "Link…")
+                                        .font(StudioTypography.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .menuStyle(.borderlessButton)
+                        } else if let linkedTargetName {
+                            Image(systemName: "link")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.tertiary)
+                            Text(linkedTargetName)
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .leading)

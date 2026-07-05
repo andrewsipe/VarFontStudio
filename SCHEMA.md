@@ -61,11 +61,29 @@ Optional per-axis reference mapping (**`wght` and `wdth` only**; editor display 
 "reference_anchors": [{ "reference": 400.0, "native": 360.0 }]
 ```
 
-Project-level `coordinate_display`: `"reference"` | `"native"` (applies to weight and width only). The planner emits `ladder_missing_stop` / `ladder_misaligned_stop` warnings when offset axes diverge from the OpenType registry ladder.
+Project-level `coordinate_display`: `"reference"` | `"native"` (applies to weight and width only). Reference/native display does not emit planner warnings.
+
+### Naming tiers
+
+| Tier | Source | Affects instance grid names |
+|------|--------|----------------------------|
+| Instance axis stops | `axis_role: instance` | Yes — composed style names |
+| Registration | `design_record_only` + `file_stat_registration` | Per-file only (not in instance keys) |
+| Clarifiers | `file_role.clarifiers` | Prefix segments when not covered by registration |
+| Elided fallback | `naming.elided_fallback` | Shown when all elidable segments drop |
+
+`elided_fallback` is independent of per-stop `elidable` flags. Per-file `elided_fallback_override` on variants can override inferred fallback.
+
+Persisted auxiliary fields on `FontDocument`:
+
+- `file_stat_registration` — per-axis registration coordinate map
+- `compound_stat_values` — STAT format 4 multi-axis presets (read/write in editor)
+- `dismissed_plan_issues` — acknowledged plan warnings
+- `inferred_is_italic_file` — import hint for registration inference
 
 ### `stat_format`
 
-`1` | `2` | `3` — v0 **write** supports 1–3. Format `4` is **read-only** until engine support exists.
+`1` | `2` | `3` — v0 **write** supports 1–3. Format `4` compound entries are preserved via `compound_stat_values` and edited in the axis tree combination section.
 
 ### `InstanceKey`
 

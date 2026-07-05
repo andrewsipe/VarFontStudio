@@ -448,4 +448,239 @@ final class AxisConflictResolverTests: XCTestCase {
         XCTAssertEqual(target?.valueAfter, 94)
         XCTAssertEqual(target?.nameAfter, "94")
     }
+
+    func testStrategiesForDuplicateNameIncludeRenameEach() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Normal", elidable: false),
+            AxisValue(id: "b", value: 101, name: "Normal", elidable: false),
+            AxisValue(id: "c", value: 102, name: "Normal", elidable: false),
+        ])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateName,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+
+        let strategies = ConflictResolver.strategies(for: bundle, axis: axis)
+        XCTAssertTrue(strategies.contains(.renameEach))
+    }
+
+    func testSuggestedBulkRenamesUsesCoordinateValues() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Normal", elidable: false),
+            AxisValue(id: "b", value: 101, name: "Normal", elidable: false),
+            AxisValue(id: "c", value: 102, name: "Normal", elidable: false),
+        ])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateName,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+
+        let names = ConflictResolver.suggestedBulkRenames(for: bundle, axis: axis)
+        XCTAssertEqual(names["a"], "100")
+        XCTAssertEqual(names["b"], "101")
+        XCTAssertEqual(names["c"], "102")
+    }
+
+    func testValidateBulkRenamesRejectsDuplicateNames() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Normal", elidable: false),
+            AxisValue(id: "b", value: 101, name: "Normal", elidable: false),
+        ])
+        let names = ["a": "Wide", "b": "Wide"]
+
+        let error = ConflictResolver.validateBulkRenames(
+            namesByStopID: names,
+            axis: axis,
+            involvedStopIDs: ["a", "b"]
+        )
+        XCTAssertNotNil(error)
+    }
+
+    func testBulkRenameActionClearsDuplicateName() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Normal", elidable: false),
+            AxisValue(id: "b", value: 101, name: "Normal", elidable: false),
+            AxisValue(id: "c", value: 102, name: "Normal", elidable: false),
+        ])
+        let document = font(axes: [axis])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateName,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+        let names = ["a": "Condensed", "b": "Normal", "c": "Expanded"]
+
+        let action = ConflictResolver.resolvedAction(
+            strategy: .renameEach,
+            stop: axis.values[0],
+            bundle: bundle,
+            axis: axis,
+            renameText: "",
+            revalueText: "",
+            bulkRenameNames: names
+        )
+        XCTAssertNotNil(action)
+
+        let preview = ConflictResolver.previewPlan(
+            font: document,
+            naming: NamingPolicy(order: ["wdth"], elidedFallback: "Regular"),
+            bundle: bundle,
+            applying: action!
+        )
+        XCTAssertTrue(preview.resolvesConflict)
+    }
+
+    func testStrategiesForDuplicateValueIncludeBulkOptions() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Regular", elidable: true),
+            AxisValue(id: "b", value: 100, name: "Bold", elidable: false),
+            AxisValue(id: "c", value: 100, name: "Black", elidable: false),
+        ])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateValue,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+
+        let strategies = ConflictResolver.strategies(for: bundle, axis: axis)
+        XCTAssertTrue(strategies.contains(.keepOneStop))
+        XCTAssertTrue(strategies.contains(.removeSelected))
+        XCTAssertTrue(strategies.contains(.revalueEach))
+    }
+
+    func testKeepOneStopActionClearsDuplicateValue() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Regular", elidable: true),
+            AxisValue(id: "b", value: 100, name: "Bold", elidable: false),
+            AxisValue(id: "c", value: 100, name: "Black", elidable: false),
+        ])
+        let document = font(axes: [axis])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateValue,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+
+        let action = ConflictResolver.resolvedAction(
+            strategy: .keepOneStop,
+            stop: axis.values.first { $0.id == "a" }!,
+            bundle: bundle,
+            axis: axis,
+            renameText: "",
+            revalueText: "",
+            keepStopID: "a"
+        )
+        XCTAssertNotNil(action)
+
+        let preview = ConflictResolver.previewPlan(
+            font: document,
+            naming: NamingPolicy(order: ["wdth"], elidedFallback: "Regular"),
+            bundle: bundle,
+            applying: action!
+        )
+        XCTAssertTrue(preview.resolvesConflict)
+    }
+
+    func testRemoveSelectedActionClearsDuplicateValue() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Regular", elidable: true),
+            AxisValue(id: "b", value: 100, name: "Bold", elidable: false),
+            AxisValue(id: "c", value: 100, name: "Black", elidable: false),
+        ])
+        let document = font(axes: [axis])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateValue,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+
+        let action = ConflictResolver.resolvedAction(
+            strategy: .removeSelected,
+            stop: axis.values[0],
+            bundle: bundle,
+            axis: axis,
+            renameText: "",
+            revalueText: "",
+            removalStopIDs: ["b", "c"]
+        )
+        XCTAssertNotNil(action)
+
+        let preview = ConflictResolver.previewPlan(
+            font: document,
+            naming: NamingPolicy(order: ["wdth"], elidedFallback: "Regular"),
+            bundle: bundle,
+            applying: action!
+        )
+        XCTAssertTrue(preview.resolvesConflict)
+    }
+
+    func testBulkRevalueActionClearsDuplicateValue() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Regular", elidable: true),
+            AxisValue(id: "b", value: 100, name: "Bold", elidable: false),
+            AxisValue(id: "c", value: 100, name: "Black", elidable: false),
+        ])
+        let document = font(axes: [axis])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateValue,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+        let values = ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)
+
+        let action = ConflictResolver.resolvedAction(
+            strategy: .revalueEach,
+            stop: axis.values[0],
+            bundle: bundle,
+            axis: axis,
+            renameText: "",
+            revalueText: "",
+            bulkRevalueTexts: values
+        )
+        XCTAssertNotNil(action)
+
+        let preview = ConflictResolver.previewPlan(
+            font: document,
+            naming: NamingPolicy(order: ["wdth"], elidedFallback: "Regular"),
+            bundle: bundle,
+            applying: action!
+        )
+        XCTAssertTrue(preview.resolvesConflict)
+    }
+
+    func testSuggestedBulkRevaluesAreUnique() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Regular", elidable: true),
+            AxisValue(id: "b", value: 100, name: "Bold", elidable: false),
+            AxisValue(id: "c", value: 100, name: "Black", elidable: false),
+        ])
+        let bundle = AxisConflictBundle(
+            axisTag: "wdth",
+            axisLabel: "Width",
+            kind: .duplicateValue,
+            groups: [],
+            involvedStopIDs: ["a", "b", "c"]
+        )
+
+        let values = ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)
+        let parsed = values.values.compactMap { ConflictResolver.parseValue($0) }
+        XCTAssertEqual(parsed.count, 3)
+        XCTAssertEqual(Set(parsed.map { AxisCoordinateFormat.format($0) }).count, 3)
+    }
 }

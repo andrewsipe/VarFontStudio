@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VarFont — Axis Tree Prototype v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f5f0e8; --sf: #ede7da; --s2: #e4ded2; --s3: #c8bfb0;
+      --input-bg: #fffcf7; --bd: #d0c9bb; --tx: #2b2926; --mu: #504b44; --label: #3e3930;
+      --pr: #6b50a0; --pr-dk: #513c82; --on-pr: #f5f0e8;
+      --te: #5b9ba4; --te-dk: #3f7880; --gn: #4e8a6c; --gn-dk: #32634a;
+      --am: #b86a1a; --am-dk: #8a4e10; --er: #c96040; --er-dk: #a44a2e;
+      --nb: rgba(107,80,160,.1); --nbl: rgba(107,80,160,.42);
+      --tint-pr: rgba(107,80,160,.12); --tint-pr-b: rgba(107,80,160,.32);
+      --tint-te: rgba(91,155,164,.1); --tint-te-b: rgba(91,155,164,.28);
+      --tint-am: rgba(184,106,26,.1); --tint-er: rgba(201,96,64,.12); --tint-gn: rgba(78,138,108,.1);
+      --r-inp: 3px; --r-ctrl: 4px; --r-card: 5px;
+      --ui: 'IBM Plex Sans', system-ui, sans-serif;
+      --mo: 'IBM Plex Mono', ui-monospace, monospace;
+      --tree-w: 268px; --insp-w: 320px;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { font-family: var(--ui); font-size: 13px; color: var(--tx); background: var(--bg); line-height: 1.45; }
+    .app { display: flex; flex-direction: column; height: 100vh; min-height: 680px; }
+
+    .topbar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--sf); border-bottom: 1px solid var(--bd); flex-shrink: 0; flex-wrap: wrap; }
+    .logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+    .logo svg { color: var(--pr); }
+    .sp { flex: 1; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; background: var(--bg); border: 1px solid var(--bd); border-radius: 999px; font-size: 11px; color: var(--mu); }
+    .pill strong { color: var(--tx); font-weight: 600; }
+    .pill.warn { background: var(--tint-am); border-color: var(--am); color: var(--am-dk); }
+    .pill.ok { background: var(--tint-gn); border-color: var(--gn); color: var(--gn-dk); }
+    .pill.muted { opacity: .85; }
+
+    select.preset { font: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid var(--bd); border-radius: var(--r-ctrl); background: var(--input-bg); color: var(--tx); }
+
+    /* Workflow steps */
+    .workflow { display: flex; gap: 0; padding: 0 14px; background: var(--s2); border-bottom: 1px solid var(--bd); flex-shrink: 0; }
+    .step { padding: 8px 14px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); border-bottom: 2px solid transparent; cursor: pointer; user-select: none; }
+    .step:hover { color: var(--tx); }
+    .step.active { color: var(--pr); border-bottom-color: var(--pr); }
+    .step.done { color: var(--gn-dk); }
+
+    /* Naming chain */
+    .chain-bar { padding: 0 14px; background: var(--sf); border-bottom: 1px solid var(--bd); flex-shrink: 0; }
+    .chain-bar summary {
+      padding: 6px 0; font-size: 10px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--label); cursor: pointer; list-style: none;
+    }
+    .chain-bar summary::-webkit-details-marker { display: none; }
+    .chain-bar summary::before { content: '▶ '; font-size: 8px; color: var(--mu); }
+    .chain-bar[open] summary::before { content: '▼ '; }
+    .chain-bar .chain-inner { padding-bottom: 8px; }
+    .chain-hint { font-size: 11px; color: var(--mu); margin: 0 0 8px; max-width: 90ch; }
+    .elide-warn { font-size: 11px; color: var(--er-dk); background: var(--tint-er); border: 1px solid rgba(201,96,64,.3); border-radius: var(--r-ctrl); padding: 6px 10px; margin: 6px 0; }
+    .chain-track { display: flex; align-items: center; gap: 0; flex-wrap: wrap; min-height: 44px; padding: 6px; background: var(--bg); border: 1px solid var(--bd); border-radius: var(--r-card); }
+    .chain-node {
+      display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin: 3px;
+      background: var(--input-bg); border: 1px solid var(--tint-pr-b); border-radius: var(--r-ctrl);
+      cursor: grab; user-select: none; transition: opacity .15s, box-shadow .15s;
+    }
+    .chain-node:active { cursor: grabbing; }
+    .chain-node.dragging { opacity: .45; box-shadow: 0 4px 12px rgba(43,41,38,.15); }
+    .chain-node.off { opacity: .4; border-style: dashed; background: var(--s2); }
+    .chain-node .tag { font-family: var(--mo); font-size: 10px; color: var(--te-dk); background: var(--tint-te); padding: 1px 5px; border-radius: var(--r-inp); }
+    .chain-node .lbl { font-size: 12px; font-weight: 500; }
+    .chain-node .tog { width: 14px; height: 14px; accent-color: var(--pr); cursor: pointer; flex-shrink: 0; }
+    .chain-link { width: 20px; height: 2px; background: var(--nbl); flex-shrink: 0; margin: 0 -2px; }
+    .chain-link.off { background: var(--bd); opacity: .5; }
+    .chain-preview { margin-top: 8px; font-size: 12px; color: var(--mu); }
+    .chain-preview samp { font-family: var(--ui); font-size: 14px; font-weight: 600; color: var(--tx); background: var(--nb); padding: 2px 8px; border-radius: var(--r-inp); border-left: 2px solid var(--nbl); }
+
+    .overview { padding: 8px 14px; background: var(--s2); border-bottom: 1px solid var(--bd); flex-shrink: 0; }
+    .formula { font-family: var(--mo); font-size: 11px; display: inline-block; padding: 6px 10px; background: var(--bg); border: 1px solid var(--bd); border-radius: var(--r-card); }
+    .formula .times { color: var(--am); }
+    .formula .total { color: var(--pr); font-weight: 600; }
+
+    .panels { display: flex; flex: 1; min-height: 0; }
+    .panel { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--bd); }
+    .panel:last-child { border-right: none; }
+    .panel-head { padding: 7px 10px; background: var(--s3); border-bottom: 1px solid var(--bd); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--label); flex-shrink: 0; }
+    .panel-body { flex: 1; overflow: auto; padding: 6px; }
+    .axis-tree { width: var(--tree-w); flex-shrink: 0; background: var(--sf); }
+    .instances-panel { flex: 1; background: var(--bg); min-width: 260px; }
+    .inspector { width: var(--insp-w); flex-shrink: 0; background: var(--sf); }
+
+    .axis-block { margin-bottom: 2px; }
+    .axis-head { display: flex; align-items: center; gap: 5px; width: 100%; padding: 5px 6px; border: none; background: transparent; font: inherit; text-align: left; cursor: pointer; border-radius: var(--r-ctrl); }
+    .axis-head:hover { background: var(--s2); }
+    .axis-head .chev { width: 12px; font-size: 8px; color: var(--mu); }
+    .axis-head.collapsed .chev { transform: rotate(-90deg); }
+    .ax-tag { font-family: var(--mo); font-size: 9px; padding: 2px 4px; background: var(--tint-te); border: 1px solid var(--tint-te-b); color: var(--te-dk); border-radius: var(--r-inp); }
+    .ax-tag.off-grid { background: var(--s2); border-color: var(--bd); color: var(--mu); text-decoration: line-through; }
+    .ax-range { font-size: 10px; color: var(--mu); margin-left: auto; }
+    .grid-tog { font-size: 9px; padding: 2px 5px; border: 1px solid var(--bd); border-radius: var(--r-inp); background: var(--input-bg); cursor: pointer; color: var(--mu); margin-left: 4px; }
+    .grid-tog.on { color: var(--gn-dk); border-color: var(--gn); background: var(--tint-gn); }
+
+    .value-list { padding: 0 2px 4px 18px; }
+    .value-row { display: flex; align-items: center; gap: 5px; padding: 4px 6px; margin: 1px 0; border-radius: var(--r-ctrl); cursor: pointer; border: 1px solid transparent; font-size: 12px; }
+    .value-row:hover { background: var(--s2); }
+    .value-row.selected { background: var(--tint-pr); border-color: var(--tint-pr-b); }
+    .value-row.linked { box-shadow: inset 3px 0 0 var(--pr); }
+    .val-num { font-family: var(--mo); font-size: 10px; color: var(--am); min-width: 32px; }
+    .elid { font-size: 9px; color: var(--pr); opacity: 0; }
+    .value-row.elidable .elid { opacity: 1; }
+
+    .inst-toolbar { display: flex; gap: 8px; align-items: center; padding: 6px 8px; flex-wrap: wrap; }
+    .inst-toolbar input[type=search] { flex: 1; min-width: 120px; font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--bd); border-radius: var(--r-ctrl); background: var(--input-bg); }
+    .inst-toolbar button { font: inherit; font-size: 11px; padding: 4px 8px; border: 1px solid var(--bd); border-radius: var(--r-ctrl); background: var(--input-bg); cursor: pointer; color: var(--mu); }
+    .inst-toolbar button:hover { border-color: var(--pr); color: var(--pr); }
+
+    .inst-group-title { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--label); padding: 4px 6px; margin: 8px 0 2px; background: var(--s2); border-radius: var(--r-ctrl); position: sticky; top: 0; z-index: 1; }
+    .inst-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; margin: 1px 0; border-radius: var(--r-ctrl); cursor: pointer; border: 1px solid transparent; font-size: 12px; }
+    .inst-row:hover { background: var(--s2); }
+    .inst-row.selected { background: var(--tint-pr); border-color: var(--tint-pr-b); }
+    .inst-row.excluded { opacity: .45; }
+    .inst-row.excluded .inst-name { text-decoration: line-through; }
+    .inst-row.dup { background: var(--tint-er); }
+    .inst-row .chk { accent-color: var(--pr); flex-shrink: 0; cursor: pointer; }
+    .inst-name { flex: 1; font-weight: 500; }
+    .inst-coords { font-family: var(--mo); font-size: 9px; color: var(--mu); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .insp-empty { padding: 20px 10px; text-align: center; color: var(--mu); font-size: 12px; }
+    .composed { font-size: 16px; font-weight: 600; padding: 8px 10px; background: var(--nb); border-left: 3px solid var(--nbl); margin: 6px 0; }
+    .chain-mini { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 8px 0; }
+    .chain-mini .chip { font-size: 11px; padding: 3px 8px; background: var(--tint-pr); border: 1px solid var(--tint-pr-b); border-radius: 999px; }
+    .chain-mini .arrow { color: var(--mu); font-size: 10px; }
+    .chain-mini .chip.off { opacity: .35; text-decoration: line-through; }
+
+    .footer { padding: 6px 14px; background: var(--sf); border-top: 1px solid var(--bd); font-size: 10px; color: var(--mu); flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div class="app" id="app"></div>
+  <script>
+(function () {
+  const DEFAULT_CHAIN = ['wdth', 'wght', 'opsz', 'slnt', 'ital'];
+
+  function buildMullerAxes() {
+    const weights = [
+      [10,'Hairline'],[20,'Thin'],[30,'ExtraLight'],[40,'Light'],[50,'Book'],
+      [60,'Medium'],[70,'SemiBold'],[80,'Bold'],[85,'ExtraBold'],[90,'Heavy'],[95,'Ultra'],[100,'Black'],[105,'UltraBlack']
+    ].map(([value,name],i) => ({ id:`w${i}`, value, name, elidable: name === 'Book' }));
+    const widths = [
+      [100,'UltraCondensed'],[200,'ExtraCondensed'],[300,'Condensed'],[400,'SemiCondensed'],
+      [500,'Normal'],[600,'SemiExtended'],[700,'Extended'],[800,'ExtraExtended'],[900,'UltraExtended']
+    ].map(([value,name],i) => ({ id:`d${i}`, value, name, elidable: /normal/i.test(name) }));
+    return [
+      { tag:'wght', name:'Weight', min:10, max:900, default:90, expanded:false, inGrid:true,
+        values: weights },
+      { tag:'wdth', name:'Width', min:100, max:900, default:500, expanded:false, inGrid:true,
+        values: widths },
+      { tag:'ital', name:'Italic', min:0, max:1, default:0, expanded:false, inGrid:true,
+        values: [
+          { id:'i0', value:0, name:'Roman', elidable:true },
+          { id:'i1', value:1, name:'Italic', elidable:false },
+        ]},
+    ];
+  }
+
+  const PRESETS = {
+    simple: {
+      label: 'Simple (3×3×2 = 18)',
+      filename: 'Demo-VF.ttf',
+      axes: [
+        { tag:'wght', name:'Weight', min:10, max:900, default:400, expanded:true, inGrid:true,
+          values:[
+            {id:'w1',value:100,name:'Thin',elidable:false},
+            {id:'w2',value:400,name:'Regular',elidable:true},
+            {id:'w3',value:700,name:'Bold',elidable:false},
+          ]},
+        { tag:'wdth', name:'Width', min:100, max:900, default:500, expanded:true, inGrid:true,
+          values:[
+            {id:'d1',value:100,name:'Condensed',elidable:false},
+            {id:'d2',value:500,name:'Normal',elidable:true},
+            {id:'d3',value:900,name:'Extended',elidable:false},
+          ]},
+        { tag:'ital', name:'Italic', min:0, max:1, default:0, expanded:true, inGrid:true,
+          values:[
+            {id:'i1',value:0,name:'Roman',elidable:true},
+            {id:'i2',value:1,name:'Italic',elidable:false},
+          ]},
+      ],
+    },
+    muller: {
+      label: 'Muller-scale (13×9×2 = 234)',
+      filename: 'MullerNext-Variable.ttf',
+      axes: buildMullerAxes(),
+    },
+    crowded: {
+      label: 'Crowded (+ opsz + slnt)',
+      filename: 'Complex-VF.ttf',
+      axes: [
+        ...buildMullerAxes().slice(0, 2),
+        { tag:'opsz', name:'Optical Size', min:8, max:72, default:14, expanded:true, inGrid:true,
+          values:[
+            {id:'o1',value:8,name:'Caption',elidable:false},
+            {id:'o2',value:14,name:'Text',elidable:true},
+            {id:'o3',value:24,name:'Display',elidable:false},
+            {id:'o4',value:72,name:'Poster',elidable:false},
+          ]},
+        { tag:'slnt', name:'Slant', min:0, max:-12, default:0, expanded:true, inGrid:false,
+          values:[
+            {id:'s0',value:0,name:'Upright',elidable:true},
+            {id:'s1',value:-10,name:'Oblique',elidable:false},
+          ]},
+        buildMullerAxes()[2],
+      ],
+    },
+  };
+
+  const state = {
+    preset: 'simple',
+    phase: 'define',
+    axes: JSON.parse(JSON.stringify(PRESETS.simple.axes)),
+    filename: PRESETS.simple.filename,
+    namingChain: [...DEFAULT_CHAIN],
+    chainInName: { wdth:true, wght:true, opsz:true, slnt:false, ital:true },
+    excluded: new Set(),
+    selectedValueId: null,
+    selectedInstanceKey: null,
+    search: '',
+    groupByTag: 'wdth',
+    dragTag: null,
+    nextId: 500,
+  };
+
+  function gridAxes() {
+    return state.axes.filter(a => a.inGrid !== false && a.values.length > 0);
+  }
+
+  function cartesian(arrays) {
+    if (!arrays.length) return [[]];
+    return arrays.reduce((acc, curr) => acc.flatMap(a => curr.map(b => a.concat([b]))), [[]]);
+  }
+
+  function composeName(combo) {
+    const order = state.namingChain.filter(t => state.chainInName[t] !== false);
+    const ital = combo.find(c => c.axisTag === 'ital');
+    const parts = [];
+    for (const tag of order) {
+      if (tag === 'ital') continue;
+      const av = combo.find(c => c.axisTag === tag);
+      if (!av) continue;
+      if (tag === 'slnt' && av.value === 0) continue;
+      if (ital && ital.value === 1 && tag === 'slnt') continue;
+      if (av.elidable && combo.length > 1) continue;
+      if (av.name) parts.push(av.name);
+    }
+    if (state.chainInName.ital !== false && ital && ital.value === 1) {
+      parts.push(ital.name || 'Italic');
+    }
+    return parts.join(' ') || 'Regular';
+  }
+
+  function instanceKey(coords) {
+    return state.axes.map(a => `${a.tag}:${coords[a.tag] ?? '_'}`).join('|');
+  }
+
+  function generateInstances() {
+    const axes = gridAxes();
+    if (!axes.length) return [];
+    const combos = cartesian(axes.map(axis => axis.values.map(v => ({
+      axisTag: axis.tag, axisName: axis.name, value: v.value, name: v.name,
+      elidable: v.elidable, valueId: v.id,
+    }))));
+    const instances = combos.map(combo => {
+      const coords = {};
+      state.axes.forEach(a => {
+        const c = combo.find(x => x.axisTag === a.tag);
+        coords[a.tag] = c ? c.value : (a.values[0]?.value ?? a.default);
+      });
+      const name = composeName(combo);
+      return { combo, coords, name, key: instanceKey(coords) };
+    });
+    const counts = {};
+    instances.forEach(i => { counts[i.name] = (counts[i.name] || 0) + 1; });
+    instances.forEach(i => { i.duplicate = counts[i.name] > 1; });
+    return instances;
+  }
+
+  function includedInstances(all) {
+    return all.filter(i => !state.excluded.has(i.key));
+  }
+
+  function countFormula() {
+    const parts = gridAxes().map(a => a.values.length);
+    const total = parts.length ? parts.reduce((a,b) => a*b, 1) : 0;
+    return { parts, total };
+  }
+
+  function loadPreset(key) {
+    const p = PRESETS[key];
+    state.preset = key;
+    state.axes = JSON.parse(JSON.stringify(p.axes));
+    state.filename = p.filename;
+    state.excluded = new Set();
+    state.selectedValueId = null;
+    state.selectedInstanceKey = null;
+    state.search = '';
+    render();
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  }
+
+  function fmt(n) {
+    return Number.isInteger(n) || Math.abs(n-Math.round(n))<.001 ? String(Math.round(n)) : n.toFixed(1);
+  }
+
+  function elideViolations() {
+    const issues = [];
+    for (const axis of state.axes) {
+      const elided = axis.values.filter(v => v.elidable);
+      if (elided.length > 1) {
+        issues.push(`${axis.tag}: ${elided.length} elidable values (${elided.map(v => v.name).join(', ')}) — only one per axis`);
+      }
+    }
+    return issues;
+  }
+
+  function renderChainPreview() {
+    const sample = [
+      { tag:'wdth', name:'Condensed' }, { tag:'wght', name:'Bold' },
+      { tag:'opsz', name:'Display' }, { tag:'ital', name:'Italic' },
+    ].filter(s => state.chainInName[s.tag] !== false);
+    const ordered = state.namingChain
+      .filter(t => state.chainInName[t] !== false)
+      .map(t => sample.find(s => s.tag === t))
+      .filter(Boolean);
+    return ordered.map(o => o.name).join(' ') || 'Regular';
+  }
+
+  function render() {
+    const all = generateInstances();
+    const included = includedInstances(all);
+    const formula = countFormula();
+    const selInst = state.selectedInstanceKey ? all.find(i => i.key === state.selectedInstanceKey) : null;
+    const linked = selInst ? new Set(selInst.combo.map(c => c.valueId)) : new Set();
+
+    let list = all;
+    if (state.selectedValueId) {
+      const sel = findVal(state.selectedValueId);
+      if (sel) list = list.filter(i => i.combo.some(c => c.valueId === sel.value.id));
+    }
+    if (state.search.trim()) {
+      const q = state.search.trim().toLowerCase();
+      list = list.filter(i => i.name.toLowerCase().includes(q) || Object.entries(i.coords).some(([t,v]) => `${t}${v}`.includes(q)));
+    }
+
+    const phases = [
+      ['define', '① Define axes'],
+      ['generate', '② Generated'],
+      ['refine', '③ Refine'],
+    ];
+
+    document.getElementById('app').innerHTML = `
+      <header class="topbar">
+        <div class="logo">
+          <svg width="16" height="16" viewBox="0 0 17 17" fill="none"><rect x=".75" y=".75" width="15.5" height="15.5" rx="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M4 13L6.5 4.5L8.5 9.5L10 7L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          VarFont v2
+        </div>
+        <select class="preset" id="presetSelect">
+          ${Object.entries(PRESETS).map(([k,p]) => `<option value="${k}" ${state.preset===k?'selected':''}>${esc(p.label)}</option>`).join('')}
+        </select>
+        <span class="pill ${formula.total>60?'warn':'ok'}"><strong>${formula.total}</strong> generated</span>
+        <span class="pill ok"><strong>${included.length}</strong> included</span>
+        ${state.excluded.size ? `<span class="pill muted"><strong>${state.excluded.size}</strong> pruned</span>` : ''}
+        <span class="pill muted"><span class="formula" style="border:none;padding:0;background:transparent">${formula.parts.join('×')}=${formula.total}</span></span>
+        <span class="sp"></span>
+        <span class="pill">${esc(state.filename)}</span>
+      </header>
+
+      <details class="chain-bar">
+        <summary>Naming order (global) · ${state.axes.map(a => a.tag).join(' → ')}</summary>
+        <div class="chain-inner">
+          <p class="chain-hint">Reorder axes for composed style names. Per-instance axis rules (e.g. GRAD only at Text opsz) belong in Refine — not here.</p>
+          <div class="chain-track" id="chainTrack">${renderChain()}</div>
+          <p class="chain-preview">Example: <samp>${esc(renderChainPreview())}</samp></p>
+        </div>
+      </details>
+
+      <main class="panels">
+        <aside class="panel axis-tree">
+          <div class="panel-head">Axis tree</div>
+          <div class="panel-body">
+            ${elideViolations().map(m => `<div class="elide-warn">⚠ ${esc(m)}</div>`).join('')}
+            ${renderAxes(linked)}
+          </div>
+        </aside>
+        <section class="panel instances-panel">
+          <div class="panel-head">Instances · generate then prune</div>
+          <div class="inst-toolbar">
+            <input type="search" placeholder="Search instances…" value="${esc(state.search)}" id="searchInput" />
+            <button type="button" data-action="prune-dups">Prune duplicates</button>
+            <button type="button" data-action="restore-all">Restore all</button>
+          </div>
+          <div class="panel-body" style="padding-top:0">${renderInstList(list)}</div>
+        </section>
+        <aside class="panel inspector">
+          <div class="panel-head">Connection inspector</div>
+          <div class="panel-body">${renderInspector(selInst)}</div>
+        </aside>
+      </main>
+      <footer class="footer">v2: naming chain · grid toggle per axis · instance prune · Muller-scale preset · search</footer>
+    `;
+    bind();
+  }
+
+  function renderChain() {
+    const tags = state.axes.map(a => a.tag);
+    const chain = state.namingChain.filter(t => tags.includes(t));
+    const rest = tags.filter(t => !chain.includes(t));
+    const ordered = [...chain, ...rest];
+    return ordered.map((tag, i, arr) => {
+      const axis = state.axes.find(a => a.tag === tag);
+      const on = state.chainInName[tag] !== false;
+      const html = `
+        <div class="chain-node ${on?'':'off'}" draggable="true" data-chain-tag="${tag}">
+          <span class="tag">${tag}</span>
+          <span class="lbl">${axis ? axis.name : tag}</span>
+        </div>`;
+      return html + (i < arr.length - 1 ? `<div class="chain-link"></div>` : '');
+    }).join('');
+  }
+
+  function renderAxes(linked) {
+    return state.axes.map(axis => `
+      <div class="axis-block">
+        <button type="button" class="axis-head ${axis.expanded?'':'collapsed'}" data-action="toggle-axis" data-tag="${axis.tag}">
+          <span class="chev">▼</span>
+          <span class="ax-tag ${axis.inGrid===false?'off-grid':''}">${axis.tag}</span>
+          <span style="font-size:12px">${esc(axis.name)}</span>
+          <button type="button" class="grid-tog ${axis.inGrid!==false?'on':''}" data-action="toggle-grid" data-tag="${axis.tag}" title="Include in instance grid">${axis.inGrid!==false?'grid':'off'}</button>
+        </button>
+        ${axis.expanded ? `<div class="value-list">
+          ${axis.values.map(v => `
+            <div class="value-row ${v.elidable?'elidable':''} ${state.selectedValueId===v.id?'selected':''} ${linked.has(v.id)?'linked':''}"
+                 data-action="select-value" data-id="${v.id}">
+              <span class="val-num">${fmt(v.value)}</span>
+              <span>${esc(v.name)}</span>
+              <span class="elid">elide</span>
+            </div>`).join('')}
+        </div>` : ''}
+      </div>`).join('');
+  }
+
+  function renderInstList(list) {
+    if (!list.length) return `<p class="insp-empty">No instances match.</p>`;
+    const groups = new Map();
+    const gtag = state.groupByTag;
+    for (const inst of list) {
+      const av = inst.combo.find(c => c.axisTag === gtag);
+      const title = av ? `${av.name} (${gtag})` : 'All';
+      if (!groups.has(title)) groups.set(title, []);
+      groups.get(title).push(inst);
+    }
+    const showGroups = list.length > 24;
+    const chunks = showGroups ? [...groups.entries()] : [['', list]];
+
+    return chunks.map(([title, items]) => `
+      ${title ? `<div class="inst-group-title">${esc(title)} · ${items.length}</div>` : ''}
+      ${items.map(inst => `
+        <div class="inst-row ${inst.duplicate?'dup':''} ${state.excluded.has(inst.key)?'excluded':''} ${state.selectedInstanceKey===inst.key?'selected':''}"
+             data-action="select-instance" data-key="${esc(inst.key)}">
+          <input type="checkbox" class="chk" data-action="toggle-include" data-key="${esc(inst.key)}"
+                 ${state.excluded.has(inst.key)?'':'checked'} onclick="event.stopPropagation()" />
+          <span class="inst-name">${esc(inst.name)}</span>
+          <span class="inst-coords">${Object.entries(inst.coords).map(([t,v])=>t+'='+fmt(v)).join(' ')}</span>
+        </div>`).join('')}
+    `).join('');
+  }
+
+  function renderInspector(inst) {
+    if (!inst) return `<div class="insp-empty">Select an instance to see how the naming chain built its label.</div>`;
+    const chips = state.namingChain
+      .filter(t => state.chainInName[t] !== false)
+      .map(t => {
+        const c = inst.combo.find(x => x.axisTag === t);
+        if (!c) return `<span class="chip off">${t}</span>`;
+        const skip = c.elidable && inst.combo.length > 1 && t !== 'ital';
+        return `<span class="chip ${skip?'off':''}">${esc(c.name)}</span>`;
+      }).filter(Boolean);
+
+    return `
+      <p style="font-size:11px;color:var(--mu);margin:0 0 6px">Naming chain for this instance</p>
+      <div class="chain-mini">${chips.join('<span class="arrow">→</span>')}</div>
+      <div class="composed">${esc(inst.name)}</div>
+      <p style="font-size:11px;color:var(--mu)">${inst.duplicate ? '<span style="color:var(--er-dk)">Duplicate name — reorder chain or adjust elision.</span>' : 'Included: ' + (state.excluded.has(inst.key) ? '<strong style="color:var(--er)">No (pruned)</strong>' : '<strong style="color:var(--gn-dk)">Yes</strong>')}</p>
+      <p style="font-size:10px;font-family:var(--mo);color:var(--mu);margin-top:12px">${Object.entries(inst.coords).map(([t,v])=>t+'='+fmt(v)).join(' · ')}</p>`;
+  }
+
+  function findVal(id) {
+    for (const axis of state.axes) {
+      const value = axis.values.find(v => v.id === id);
+      if (value) return { axis, value };
+    }
+    return null;
+  }
+
+  function bind() {
+    document.getElementById('presetSelect')?.addEventListener('change', e => loadPreset(e.target.value));
+    document.getElementById('searchInput')?.addEventListener('input', e => { state.search = e.target.value; render(); });
+
+    document.querySelectorAll('[data-phase]').forEach(el => {
+      el.addEventListener('click', () => { state.phase = el.dataset.phase; render(); });
+    });
+
+    document.querySelectorAll('[data-action="toggle-axis"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        if (e.target.closest('.grid-tog')) return;
+        const axis = state.axes.find(a => a.tag === btn.dataset.tag);
+        if (axis) axis.expanded = !axis.expanded;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-grid"]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const axis = state.axes.find(a => a.tag === btn.dataset.tag);
+        if (axis) axis.inGrid = axis.inGrid === false;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="select-value"]').forEach(el => {
+      el.addEventListener('click', () => {
+        state.selectedValueId = state.selectedValueId === el.dataset.id ? null : el.dataset.id;
+        state.selectedInstanceKey = null;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="select-instance"]').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.classList.contains('chk')) return;
+        state.selectedInstanceKey = el.dataset.key;
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="toggle-include"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) state.excluded.delete(cb.dataset.key);
+        else state.excluded.add(cb.dataset.key);
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-action="chain-tog"]').forEach(cb => {
+      cb.addEventListener('change', e => {
+        e.stopPropagation();
+        state.chainInName[cb.dataset.tag] = cb.checked;
+        render();
+      });
+    });
+
+    document.querySelector('[data-action="prune-dups"]')?.addEventListener('click', () => {
+      generateInstances().filter(i => i.duplicate).forEach((inst, idx, arr) => {
+        const same = arr.filter(x => x.name === inst.name);
+        same.slice(1).forEach(x => state.excluded.add(x.key));
+      });
+      render();
+    });
+
+    document.querySelector('[data-action="restore-all"]')?.addEventListener('click', () => {
+      state.excluded.clear();
+      render();
+    });
+
+    // Drag reorder naming chain
+    const track = document.getElementById('chainTrack');
+    if (!track) return;
+    let dragTag = null;
+    track.querySelectorAll('.chain-node').forEach(node => {
+      node.addEventListener('dragstart', e => {
+        dragTag = node.dataset.chainTag;
+        node.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      node.addEventListener('dragend', () => {
+        node.classList.remove('dragging');
+        dragTag = null;
+      });
+      node.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+      node.addEventListener('drop', e => {
+        e.preventDefault();
+        const targetTag = node.dataset.chainTag;
+        if (!dragTag || dragTag === targetTag) return;
+        const chain = [...state.namingChain];
+        const from = chain.indexOf(dragTag);
+        const to = chain.indexOf(targetTag);
+        if (from < 0 || to < 0) return;
+        chain.splice(from, 1);
+        chain.splice(to, 0, dragTag);
+        state.namingChain = chain;
+        render();
+      });
+    });
+  }
+
+  render();
+})();
+  </script>
+</body>
+</html>

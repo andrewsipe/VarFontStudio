@@ -18,6 +18,7 @@ from vfcommit_lib.nameid_allocator import (
 from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
 from vfcommit_lib.request_bridge import (
     axis_defs_from_request,
+    compound_stat_values_from_request,
     count_included_instances,
     grid_axis_defs,
     pinned_coords,
@@ -41,6 +42,11 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     file_role = request.get("file_role")
     axes_json = request.get("axes") or []
     included_keys = list(request.get("included_instance_keys") or [])
+    file_stat_registration = {
+        str(tag): float(value)
+        for tag, value in (request.get("file_stat_registration") or {}).items()
+    }
+    compound_json = list(request.get("compound_stat_values") or [])
 
     naming_order = naming_order_with_defaults(naming)
     clarifiers = parse_clarifiers(file_role)
@@ -62,6 +68,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     axis_defs = axis_defs_from_request(axes_json)
     grid_axes = grid_axis_defs(axis_defs, axes_json)
     pinned = pinned_coords(axes_json)
+    compound_defs = compound_stat_values_from_request(compound_json)
 
     ot_labels = scan_ot_label_nameids(font)
     ot_label_ids = {rec.name_id for rec in ot_labels}
@@ -77,6 +84,9 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         naming_order=naming_order,
         clarifiers=clarifiers,
         family_ps_prefix=str(family_ps_prefix) if family_ps_prefix else None,
+        axes_json=axes_json,
+        file_stat_registration=file_stat_registration,
+        compound_defs=compound_defs,
     )
     collisions = check_for_collisions(plan, font)
     if collisions:
@@ -104,7 +114,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
 
     protected_ids = build_protected_name_ids(font, ot_label_ids)
     instances_to_write = count_included_instances(grid_axes, included_keys)
-    stat_values_written = sum(len(axis.values) for axis in axis_defs)
+    stat_values_written = sum(len(axis.values) for axis in axis_defs) + len(compound_defs)
     wiped_instances = len(font["fvar"].instances) if "fvar" in font else 0
 
     allocated_ids = sorted(
@@ -150,6 +160,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             ot_label_count=len(ot_labels),
             instance_axis_defs=grid_axes,
             pinned_coords=pinned,
+            compound_defs=compound_defs,
         )
         working.save(output_path)
 

@@ -24,7 +24,29 @@ CLARIFIER_TOKEN_TO_CATEGORY: Dict[str, str] = {
     "@custom": "custom",
 }
 
+REGISTRATION_AXIS_TO_CLARIFIER_CATEGORY: Dict[str, str] = {
+    "ital": "slope",
+    "wdth": "width",
+    "opsz": "optical",
+}
+
 DEFAULT_CLARIFIER_TOKENS: List[str] = list(CLARIFIER_TOKEN_TO_CATEGORY.keys())
+
+
+def clarifier_categories_covered_by_registration(
+    axes_json: Optional[List[dict]],
+    file_stat_registration: Optional[Dict[str, float]],
+) -> set[str]:
+    """Clarifier categories superseded by design-record registration on this file."""
+    covered: set[str] = set()
+    axis_by_tag = {str(axis["tag"]): axis for axis in (axes_json or [])}
+    for tag in (file_stat_registration or {}):
+        axis = axis_by_tag.get(tag)
+        if axis and str(axis.get("role")) == "design_record_only":
+            category = REGISTRATION_AXIS_TO_CLARIFIER_CATEGORY.get(tag)
+            if category:
+                covered.add(category)
+    return covered
 
 
 def parse_clarifiers(file_role: Optional[dict]) -> Dict[str, str]:
@@ -60,22 +82,48 @@ def compose_name_from_order(
     axis_values_by_tag: Dict[str, AxisValueDef],
     clarifiers: Dict[str, str],
     elided_fallback_name: str = "Regular",
+    *,
+    axes_json: Optional[List[dict]] = None,
+    file_stat_registration: Optional[Dict[str, float]] = None,
 ) -> str:
     """Interleave axis stop names and per-file clarifier labels."""
+    axis_by_tag = {str(axis["tag"]): axis for axis in (axes_json or [])}
+    registration = file_stat_registration or {}
+    covered_clarifiers = clarifier_categories_covered_by_registration(axes_json, registration)
     parts: List[str] = []
+
     for token in naming_order:
         if token in CLARIFIER_TOKEN_TO_CATEGORY:
             category = CLARIFIER_TOKEN_TO_CATEGORY[token]
+            if category in covered_clarifiers:
+                continue
             label = clarifiers.get(category)
             if label:
                 parts.append(label)
             continue
+
+        axis_json = axis_by_tag.get(token)
+        if axis_json and str(axis_json.get("role")) == "design_record_only":
+            reg_value = registration.get(token)
+            if reg_value is not None:
+                stop = _stop_for_axis_json(axis_json, reg_value)
+                if stop and not bool(stop.get("elidable", False)):
+                    parts.append(str(stop["name"]))
+            continue
+
         av = axis_values_by_tag.get(token)
         if av is None:
             continue
         if not av.elidable:
             parts.append(av.name)
     return " ".join(parts) if parts else elided_fallback_name
+
+
+def _stop_for_axis_json(axis_json: dict, value: float) -> Optional[dict]:
+    for stop in axis_json.get("values") or []:
+        if abs(float(stop["value"]) - float(value)) < 1e-4:
+            return stop
+    return None
 
 
 @dataclass
@@ -89,6 +137,19 @@ class AxisValueDef:
     range_min: Optional[float] = None
     range_max: Optional[float] = None
     linked_value: Optional[float] = None
+    older_sibling: bool = False
+
+
+@dataclass
+class CompoundStatValueDef:
+    """Preserved STAT format 4 compound multi-axis entry."""
+
+    id: str
+    axis_indices: List[int]
+    axis_values: List[float]
+    name: str
+    elidable: bool
+    older_sibling: bool = False
 
 
 @dataclass
@@ -118,6 +179,10 @@ class NameIDPlan:
     family_ps_prefix: str = ""
     elided_fallback_name: str = "Regular"
     elided_fallback_id: int = 0
+    compound_value_ids: Dict[str, int] = field(default_factory=dict)
+    compound_value_names: Dict[str, str] = field(default_factory=dict)
+    axes_json: List[dict] = field(default_factory=list)
+    file_stat_registration: Dict[str, float] = field(default_factory=dict)
     stat_value_labels: Dict[Tuple[str, float], str] = field(default_factory=dict)
     naming_order: List[str] = field(default_factory=list)
     clarifiers: Dict[str, str] = field(default_factory=dict)
@@ -265,6 +330,8 @@ def compose_instance_name(
     naming_order: Optional[List[str]] = None,
     clarifiers: Optional[Dict[str, str]] = None,
     axis_tags: Optional[List[str]] = None,
+    axes_json: Optional[List[dict]] = None,
+    file_stat_registration: Optional[Dict[str, float]] = None,
 ) -> str:
     """Build subfamily string from one axis-value combination (product tuple)."""
     if naming_order is not None and axis_tags is not None:
@@ -274,6 +341,8 @@ def compose_instance_name(
             by_tag,
             clarifiers or {},
             elided_fallback_name,
+            axes_json=axes_json,
+            file_stat_registration=file_stat_registration,
         )
     parts = [av.name for av in axis_values if not av.elidable]
     return " ".join(parts) if parts else elided_fallback_name
@@ -285,6 +354,8 @@ def enumerate_instance_names(
     *,
     naming_order: Optional[List[str]] = None,
     clarifiers: Optional[Dict[str, str]] = None,
+    axes_json: Optional[List[dict]] = None,
+    file_stat_registration: Optional[Dict[str, float]] = None,
 ) -> List[str]:
     """Cartesian product of axis values into composed instance subfamily names."""
     if not axis_defs:
@@ -302,6 +373,8 @@ def enumerate_instance_names(
             naming_order=naming_order,
             clarifiers=clarifiers,
             axis_tags=tag_list,
+            axes_json=axes_json,
+            file_stat_registration=file_stat_registration,
         )
         if composed not in seen:
             seen.add(composed)
@@ -321,11 +394,17 @@ def build_allocation_plan(
     naming_order: List[str] | None = None,
     clarifiers: Dict[str, str] | None = None,
     family_ps_prefix: str | None = None,
+    axes_json: List[dict] | None = None,
+    file_stat_registration: Dict[str, float] | None = None,
+    compound_defs: List[CompoundStatValueDef] | None = None,
 ) -> NameIDPlan:
     """Produce nameID allocation plan without modifying the font."""
     grid_axes = instance_axis_defs if instance_axis_defs is not None else axis_defs
     order = naming_order or []
     clarifier_map = clarifiers or {}
+    axes_payload = axes_json or []
+    registration = file_stat_registration or {}
+    preserved_compounds = compound_defs or []
     used = audit_nameids(font, ot_labels)
     ot_protected_ids: Set[int] = {rec.name_id for rec in ot_labels if rec.name_id >= 256}
     preserved_axis_name_ids = preserved_design_axis_name_ids(
@@ -370,7 +449,15 @@ def build_allocation_plan(
                     {axis_def.tag: av_def},
                     clarifier_map,
                     elided_fallback_name,
+                    axes_json=axes_payload,
+                    file_stat_registration=registration,
                 )
+
+    compound_value_ids: Dict[str, int] = {}
+    compound_value_names: Dict[str, str] = {}
+    for compound in preserved_compounds:
+        compound_value_ids[compound.id] = alloc_id()
+        compound_value_names[compound.id] = compound.name
 
     if allocate_postscript_names:
         override = (family_ps_prefix or "").strip()
@@ -387,6 +474,8 @@ def build_allocation_plan(
         elided_fallback_name,
         naming_order=order,
         clarifiers=clarifier_map,
+        axes_json=axes_payload,
+        file_stat_registration=registration,
     ):
         if composed_name not in instance_ids:
             instance_ids[composed_name] = alloc_id()
@@ -426,6 +515,10 @@ def build_allocation_plan(
         stat_value_labels=stat_value_labels,
         naming_order=order,
         clarifiers=clarifier_map,
+        compound_value_ids=compound_value_ids,
+        compound_value_names=compound_value_names,
+        axes_json=axes_payload,
+        file_stat_registration=registration,
         free_start=free_start,
         free_end=free_end,
     )
@@ -461,6 +554,7 @@ def check_for_collisions(plan: NameIDPlan, font: TTFont) -> List[str]:
 __all__ = [
     "AxisValueDef",
     "AxisDef",
+    "CompoundStatValueDef",
     "NameIDPlan",
     "audit_nameids",
     "build_allocation_plan",

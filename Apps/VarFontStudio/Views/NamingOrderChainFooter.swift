@@ -6,6 +6,8 @@ struct NamingOrderChainFooter: View {
     @AppStorage("namingChainHideStatOnly") private var hideStatOnly = true
     @State private var isExpanded = true
     @State private var session = NamingChainDragSession()
+    @State private var isEditingElidedFallback = false
+    @State private var elidedFallbackDraft = ""
     /// Stable per-tag chip frames captured in the chain coordinate space.
     @State private var chipFrames: [String: CGRect] = [:]
 
@@ -43,6 +45,8 @@ struct NamingOrderChainFooter: View {
                     chainTrack
 
                     exampleRow
+
+                    elidedFallbackRow
                 }
                 .padding(.top, StudioSpacing.controlGap)
                 .padding(.bottom, StudioSpacing.toolbarVertical + 2)
@@ -74,7 +78,7 @@ struct NamingOrderChainFooter: View {
                                     .foregroundStyle(.tertiary)
                             }
                         }
-                        .help("Drag a chip to reorder; drop into the outlined gap. Use Hide STAT-only to focus on instance naming axes.")
+                        .help("Drag a chip to reorder; drop into the outlined gap. Use Hide pinned axes to focus on naming axes.")
 
                         if !isExpanded {
                             Text(editor.namingChainSummary(hideStatOnly: hideStatOnly))
@@ -113,16 +117,19 @@ struct NamingOrderChainFooter: View {
 
     private var hideStatOnlyControl: some View {
         HStack(spacing: 5) {
-            Toggle("Hide STAT-only", isOn: $hideStatOnly)
+            Toggle("Hide pinned axes", isOn: $hideStatOnly)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .labelsHidden()
 
-            Text("Hide STAT-only")
+            Text("Hide pinned axes")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
         }
-        .help("Show only axes that participate in instance naming. STAT-only and STAT design axes remain editable in the Axis Tree.")
+        .help(
+            "Hide axes that do not contribute to style names (pinned / off-grid). "
+                + "Registration axes stay visible because they can appear in names."
+        )
     }
 
     private var disclosureToolbarDivider: some View {
@@ -173,6 +180,67 @@ struct NamingOrderChainFooter: View {
         }
     }
 
+    private var elidedFallbackRow: some View {
+        let display = editor.effectiveElidedFallbackDisplay
+        let stored = editor.project?.naming.elidedFallback ?? display.value
+        return HStack(spacing: StudioSpacing.rowGap) {
+            Text("Elided fallback")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.tertiary)
+
+            Group {
+                if isEditingElidedFallback {
+                    StudioTextField(
+                        placeholder: "Regular",
+                        text: $elidedFallbackDraft,
+                        font: StudioTypography.bodyMedium,
+                        rowHeight: StudioFieldMetrics.bodyMediumRowHeight
+                    )
+                    .frame(maxWidth: 180)
+                    .onSubmit { commitElidedFallbackEdit() }
+                } else {
+                    Button {
+                        elidedFallbackDraft = stored
+                        isEditingElidedFallback = true
+                    } label: {
+                        StudioFieldLabel(
+                            text: stored,
+                            font: StudioTypography.bodyMedium,
+                            rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
+                            foreground: .primary
+                        )
+                        .frame(maxWidth: 180, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if display.inferred, !isEditingElidedFallback {
+                Text("inferred")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.quaternary)
+                    .help("No non-elidable baseline segments resolved; using STAT source or Regular.")
+            }
+        }
+        .help("Name shown when all elidable axis segments drop from a composed style.")
+        .onChange(of: editor.project?.naming.elidedFallback) { _, value in
+            if !isEditingElidedFallback, let value {
+                elidedFallbackDraft = value
+            }
+        }
+        .onChange(of: isEditingElidedFallback) { wasEditing, isEditing in
+            if wasEditing, !isEditing {
+                elidedFallbackDraft = stored
+            }
+        }
+    }
+
+    private func commitElidedFallbackEdit() {
+        editor.setElidedFallback(elidedFallbackDraft)
+        isEditingElidedFallback = false
+    }
+
     // MARK: - Chain track
 
     private var chainTrack: some View {
@@ -216,7 +284,7 @@ struct NamingOrderChainFooter: View {
 
     private var chainEmptyMessage: String {
         if hideStatOnly, editor.namingChainInstanceTags.isEmpty, !editor.namingChainTags.isEmpty {
-            return "All axes are STAT-only. Turn off Hide STAT-only to reorder, or use Restore to reset axis roles."
+            return "Only pinned axes remain. Turn off Hide pinned axes to reorder them, or use Restore to reset axis roles."
         }
         return "No axes in naming order."
     }
@@ -275,6 +343,9 @@ struct NamingOrderChainFooter: View {
         if editor.isClarifierNamingToken(tag) {
             return AnyView(clarifierChainChip(tag: tag))
         }
+        if editor.isRegistrationNamingAxis(tag: tag) {
+            return AnyView(registrationChainChip(tag: tag))
+        }
         let inGrid = editor.axisParticipatesInInstanceGrid(tag: tag)
         let isDragging = session.draggingTag == tag
 
@@ -326,6 +397,33 @@ struct NamingOrderChainFooter: View {
             .gesture(dragGesture(for: tag))
     }
 
+    private func registrationChainChip(tag: String) -> some View {
+        let isDragging = session.draggingTag == tag
+
+        return HStack(spacing: 5) {
+            StudioTagPill(text: tag, compact: true, role: .registration)
+
+            Text(editor.axisDisplayName(for: tag))
+                .font(StudioTypography.caption)
+                .foregroundStyle(StudioColors.registrationForeground)
+                .lineLimit(1)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            StudioColors.registrationBackground.opacity(0.5),
+            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: StudioRadius.chip)
+                .strokeBorder(StudioColors.registrationStroke, lineWidth: 0.5)
+        }
+        .opacity(isDragging ? 0.3 : 1)
+        .contentShape(Rectangle())
+        .gesture(dragGesture(for: tag))
+    }
+
     /// The draggable portion of a chip (tag pill + label). The checkbox is excluded
     /// from the drag hit area so toggling grid membership never starts a drag.
     private func chainChipBody(tag: String, inGrid: Bool) -> some View {
@@ -365,6 +463,18 @@ struct NamingOrderChainFooter: View {
                         .lineLimit(1)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
+                } else if editor.isRegistrationNamingAxis(tag: tag) {
+                    HStack(spacing: 5) {
+                        StudioTagPill(text: tag, compact: true, role: .registration)
+                            .opacity(0.4)
+
+                        Text(chainChipLabel(for: tag))
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(StudioColors.registrationForeground.opacity(0.5))
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
                 } else {
                     HStack(spacing: 5) {
                         StudioTagPill(text: tag, compact: true)
@@ -416,6 +526,21 @@ struct NamingOrderChainFooter: View {
                     StudioColors.clarifierBackground.opacity(0.5),
                     in: RoundedRectangle(cornerRadius: StudioRadius.chip)
                 )
+        } else if editor.isRegistrationNamingAxis(tag: tag) {
+            HStack(spacing: 5) {
+                StudioTagPill(text: tag, compact: true, role: .registration)
+
+                Text(chainChipLabel(for: tag))
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(StudioColors.registrationForeground)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                StudioColors.registrationBackground.opacity(0.5),
+                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            )
         } else {
             HStack(spacing: 5) {
                 StudioTagPill(text: tag, compact: true)

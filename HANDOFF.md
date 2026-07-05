@@ -93,7 +93,7 @@ Core-only tests: scheme **VarFontEditor** in the package, or filter with `swift 
 - [x] **Registration naming** — `file_stat_registration` per file; off instance grid
 - [x] **Naming conflicts** — bundle, resolver strategies, compound fixes
 - [x] **Registry ladder** — wght/wdth reference mapping, ladder alignment warnings
-- [x] **STAT formats 1–3** in model; format 4 read-only
+- [x] **STAT formats 1–3** in model; format 4 read + preserve on save
 - [x] **Name audit** — used IDs, elided fallback name from STAT
 - [x] **CommitService** — shells to vfcommit; dry-run diff support
 - [x] **~99 unit tests** (see Test health below)
@@ -137,7 +137,7 @@ When building a composed instance name:
 2. **Registration axes** (`design_record_only`) — per-file `file_stat_registration`
 3. **File clarifiers** (`@slope`, `@width`, …) — only if higher tiers did not cover that category
 
-`@slope` is **skipped** when a design-record `ital` axis exists (`NamingComposer`).
+Clarifiers are **skipped** when a matching design-record registration axis is set on the file (`ital` → slope, `wdth` → width, `opsz` → optical; `@custom` never covered). See `RegistrationAxisSupport.clarifierCategoriesCoveredByRegistration`.
 
 ### Elided fallback (three independent layers)
 
@@ -159,7 +159,7 @@ One block per logical axis:
 - **STAT stops** — formats, names, elidable, F3 links
 - **Design-only STAT axes** — no fvar scale; per-file registration
 
-Parity is **not finished** for registration capture/edit (see Outstanding).
+Parity for **registration capture/edit and preview=commit naming** landed in Phase 0 (Jul 2026). Full save round-trip trust remains a later session.
 
 ### Save / write
 
@@ -169,22 +169,58 @@ Parity is **not finished** for registration capture/edit (see Outstanding).
 
 ## Outstanding / incomplete (functional)
 
-These are **not** nice-to-haves — they are gaps in the core model or prototype parity.
+Phase 0 (STAT / Axis Tree alignment, Jul 2026) is **done** for read/preserve, registration edit, elided fallback display, F3 link picker, and preview=commit naming. Next focused session: **save round-trip trust**.
 
-### Registration axis (highest priority pre-write)
+### Phase 0.5 — Naming model clarity (Jul 2026)
 
-| Gap | Today | Target |
-|-----|--------|--------|
-| Import inference | `inferFileStatRegistration` uses **first stop only** | File-aware: Roman vs Italic VF, path, `isItalicFont`, stop names |
-| UI edit | Header shows “This file: …” only | Pick registered stop; highlight registered vs vocabulary stops |
-| VM API | No `setFileStatRegistration` | Per-file registration mutation + plan regen |
-| Italic VF | May get wrong registration on import | Correct default + `registration_mismatch` warning |
+Phase 0.5 aligns UI and language with three naming roles. No save-trust work.
+
+| Role | What it is | Multiplies instances? | In style name? | Color |
+|------|------------|----------------------|----------------|-------|
+| **Instance axis** | Stops on the grid (fvar varies) | Yes | Yes (per stop; elidable may drop) | Neutral |
+| **Registration axis** | STAT design-record, no fvar; **this file's** stop | No | Yes when stop is not elided | Teal |
+| **Pinned axis** | Has fvar but toggled off the grid | No (fixed default) | No | Neutral dashed |
+| **File clarifier** | Project label when STAT does not register that slot | No | Yes if set | Purple |
+
+**Locked UI decisions:**
+
+- Registration stop picker lives in the axis header **subtitle** (`No fvar scale · Roman ▾`), not the badge column — count badges stay scannable.
+- Naming-order footer toggle: **Hide pinned axes** (registration axes stay visible).
+- Naming-order chips: neutral + checkbox (instance), teal no-checkbox (registration), purple (clarifier).
+- `NamingChainLink.Kind.registration` for design-record segments in inspector chain views.
+
+Never call registration “STAT-only” in user-facing copy.
+
+### Plan issue resolution (Jul 2026)
+
+Registration, orphan F3 links, and `ital` name/value convention warnings now share a guided fix path separate from stop-conflict **Resolve**:
+
+| Code | Auto on import | Guided fix |
+|------|----------------|------------|
+| `registration_value_missing` | Re-infer when stops exist | Pick inferred registration |
+| `registration_mismatch` | Use Roman/upright stop when present | Rename stop / pick another / keep |
+| `ital_value_name_mismatch` | Sole stop revalue to 0/1 | Revalue vs keep |
+| `orphan_stat_link` | Never | Convert to F1 vs keep F3 |
+
+- `PlanIssueResolver` + `PlanIssueResolverSheet` — proposals apply via `fileStatRegistration`, stop revalue/rename, or F3→F1.
+- `dismissedPlanIssues` on `FontDocument` — “Keep” choices hide acknowledged warnings.
+- Registration stop **values** are editable; revalue syncs `fileStatRegistration`.
+
+### Registration axis
+
+| Gap | Status |
+|-----|--------|
+| Import inference | **Done** — elidable stop preferred; Roman/Italic file cues |
+| UI edit | **Done** — registration stop picker + highlighted row in axis tree |
+| VM API | **Done** — `setFileStatRegistration(tag:value:forFontID:)` |
+| Italic VF | **Done** — file-aware default + `registration_mismatch` warning |
 
 ### Elided fallback
 
-- [ ] Show project elided fallback in naming/refine UI (mirror STAT; edit TBD)
+- [x] Show resolved elided fallback in naming chain footer (with inferred affordance)
+- [x] Import uses `ElidedFallbackResolver` (§6 baseline resolve)
+- [x] Write path: `CommitRequest` carries resolved fallback; vfcommit emits `elidedFallbackNameID`
 - [ ] Document in `SCHEMA.md` how fallback relates to per-stop elidable (independent layers)
-- [ ] Write path: emit `elidedFallbackNameID` on commit (**after** model stable)
 
 ### Instance list vs prototype
 
@@ -193,16 +229,16 @@ These are **not** nice-to-haves — they are gaps in the core model or prototype
 - [ ] Filter instance list by clicking axis stop in tree
 - [ ] Matrix view when exactly two varying axes
 
-### Commit / round-trip
+### Commit / round-trip (next phase)
 
 - [ ] Fix save issues found in manual test copies
 - [ ] Round-trip tests: edit → vfcommit → re-analyze → match
-- [ ] STAT write parity (formats, registration, elided fallback, design axes)
+- [ ] Full table-trust session (name reflow, byte-level parity goals)
 - [ ] Name table reflow strategy — see `EXPORT_DESIGN_NOTES.md`
 
 ### Engine / tests
 
-- [ ] **8 failing tests** (as of 2026-07-03) — mostly fixture drift after `ital` registration in naming chain:
+- [ ] **7 failing tests** (as of 2026-07-03) — mostly fixture drift after `ital` registration in naming chain:
   - `DesignRecordAxisTests` — grid formula expects `[3,3,3]` vs `[12,3,7]` (fixture not updated for opsz?)
   - `InstancePlannerTests` — naming chain fixtures lack `ital` segment
   - `ReferenceMappingTests` — Playfair width round-trip at 75
@@ -211,8 +247,11 @@ These are **not** nice-to-haves — they are gaps in the core model or prototype
 
 ### Format / axis tree (smaller gaps)
 
-- [ ] Inline **F3 link target** editing (display-only link icon today)
-- [ ] Format **4** — read-only; no write support
+- [x] Inline **F3 link target** editing (picker on F3 rows)
+- [x] Format **4** — read + preserve on save (no author UI; badge in axis tree)
+- [x] **OlderSibling** STAT flag preserve on read/write
+- [x] **@slope** clarifier demoted when `ital` design-record registration exists
+- [ ] Format 4 create/edit UI
 - [ ] OS/2 instancing — explicitly deferred (“Phase 9” in prior notes)
 
 ---
@@ -523,11 +562,10 @@ FontVault is a separate native app (font library). VarFont Studio is the **varia
 ## Suggested next work (when resuming)
 
 1. **Fix or update failing tests** to match registration naming (quick hygiene).
-2. **Registration inference + UI** — capture/present/edit before any save work.
-3. **Elided fallback** — read-only display in naming chrome mirroring STAT.
-4. **Save round-trip session** — only after 2–3 are acceptable.
+2. **Elided fallback** — read-only display in naming chrome mirroring STAT (if not already complete).
+3. **Save round-trip session** — only after registration + naming model are acceptable.
 
-Do **not** add more axis tree layout tweaks until registration model is complete unless fixing a clear bug.
+Do **not** add more axis tree layout tweaks unless fixing a clear bug.
 
 ---
 
@@ -538,5 +576,5 @@ Do **not** add more axis tree layout tweaks until registration model is complete
 | Early 2026 | Prototypes, schema, VarFontCore engine, first app shell |
 | Mid 2026 | STAT parser fix, lanes, registration axes, conflict resolver |
 | Jun–Jul 2026 | Axis tree layout K, STAT F1/F2/F3 UI, block structure phases 0–7, save review shell |
-| Jul 2026 | Document handoff; defer write; registration + elided fallback spec locked |
+| Jul 2026 | Phase 0.5 naming model clarity — registration subtitle picker, role colors, clarifier demotion |
 | Jul 2026 | Expanded HANDOFF: out-of-scope, ideas park, scale, multi-file, prototypes |

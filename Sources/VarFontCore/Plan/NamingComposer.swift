@@ -24,6 +24,10 @@ public enum NamingComposer {
         fileStatRegistration: [String: Double] = [:]
     ) -> (name: String, chain: [Link]) {
         let axisByTag = Dictionary(uniqueKeysWithValues: axes.map { ($0.tag, $0) })
+        let coveredClarifiers = RegistrationAxisSupport.clarifierCategoriesCoveredByRegistration(
+            axes: axes,
+            fileStatRegistration: fileStatRegistration
+        )
         var chain: [Link] = []
         var parts: [String] = []
 
@@ -34,9 +38,7 @@ public enum NamingComposer {
                       !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     continue
                 }
-                if token == NamingPolicy.clarifierTokenSlope,
-                   fileStatRegistration["ital"] != nil,
-                   axisByTag["ital"]?.isDesignRecordOnly == true {
+                if coveredClarifiers.contains(category) {
                     continue
                 }
                 chain.append(Link(kind: .clarifier, tag: token, name: label, elided: false))
@@ -50,7 +52,7 @@ public enum NamingComposer {
                     axes: axes,
                     fileStatRegistration: fileStatRegistration
                 ) else { continue }
-                chain.append(Link(kind: .axis, tag: token, name: resolved.stop.name, elided: resolved.elided))
+                chain.append(Link(kind: .registration, tag: token, name: resolved.stop.name, elided: resolved.elided))
                 if !resolved.elided {
                     parts.append(resolved.stop.name)
                 }

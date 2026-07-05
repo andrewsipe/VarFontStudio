@@ -50,6 +50,20 @@ struct AxisTreeFocusRequest: Equatable {
 struct AxisConflictResolverSession: Identifiable {
     let id = UUID()
     let bundle: AxisConflictBundle
+    let reviewPosition: Int?
+    let reviewTotal: Int?
+}
+
+struct PlanIssueResolverSession: Identifiable {
+    let id = UUID()
+    let warning: PlanWarning
+    let reviewPosition: Int?
+    let reviewTotal: Int?
+}
+
+private struct AxisTreeReviewSession {
+    var queue: [AxisTreeReviewItem]
+    var currentIndex: Int
 }
 
 @MainActor
@@ -64,6 +78,8 @@ final class EditorViewModel: ObservableObject {
     /// Bumps when the axis tree should expand and scroll to a stop (inspector / warnings).
     @Published var axisTreeFocusRequest: AxisTreeFocusRequest?
     @Published var conflictResolverRequest: AxisConflictResolverSession?
+    @Published var planIssueResolverRequest: PlanIssueResolverSession?
+    private var reviewSession: AxisTreeReviewSession?
     @Published private(set) var saveReviewSessionsByKey: [String: CommitPreflightSession] = [:]
     @Published var presentCommitDiffSheet = false
     @Published private(set) var saveReviewOpenRequest: SaveReviewOpenRequest?
@@ -526,18 +542,23 @@ final class EditorViewModel: ObservableObject {
         namingChainTags.joined(separator: " → ")
     }
 
-    /// Full naming order filtered to axes that participate in instance naming plus clarifier tokens.
+    /// Full naming order filtered to naming-visible axes plus clarifier tokens.
     var namingChainInstanceTags: [String] {
-        namingChainTags.filter { NamingToken.isClarifier($0) || axisParticipatesInInstanceGrid(tag: $0) }
+        namingChainTags.filter { tag in
+            if NamingToken.isClarifier(tag) { return true }
+            guard let axis = selectedFont?.axes.first(where: { $0.tag == tag }) else { return false }
+            return axis.role == .instance || axis.isDesignRecordOnly
+        }
     }
 
-    /// Tags shown in the chain footer; STAT-only axes and empty clarifiers are hidden when requested.
+    /// Tags shown in the chain footer; pinned axes, empty clarifiers, and registration-covered
+    /// clarifiers are omitted so the chain matches composed instance names.
     func visibleNamingChainTags(hideStatOnly: Bool) -> [String] {
         let base = hideStatOnly ? namingChainInstanceTags : namingChainTags
         guard let fontID = selectedFontID else { return base }
         return base.filter { tag in
             if NamingToken.isClarifier(tag) {
-                return clarifierHasValue(for: tag, fontID: fontID)
+                return clarifierAppearsInNamingChain(for: tag, fontID: fontID)
             }
             return true
         }
@@ -546,6 +567,13 @@ final class EditorViewModel: ObservableObject {
     func clarifierHasValue(for token: String, fontID: String) -> Bool {
         guard let category = NamingToken.clarifierCategory(for: token) else { return false }
         return fileRole(for: fontID)?.label(for: category) != nil
+    }
+
+    /// Clarifier tokens that still contribute a segment (have a label and are not covered by registration).
+    func clarifierAppearsInNamingChain(for token: String, fontID: String) -> Bool {
+        guard let category = NamingToken.clarifierCategory(for: token) else { return false }
+        if clarifierCoveredByRegistration(category: category, for: fontID) { return false }
+        return clarifierHasValue(for: token, fontID: fontID)
     }
 
     func namingChainSummary(hideStatOnly: Bool) -> String {
@@ -585,7 +613,21 @@ final class EditorViewModel: ObservableObject {
         if let name = instancePlan?.instances.first?.composedName, !name.isEmpty {
             return name
         }
-        return project?.naming.elidedFallback ?? "Regular"
+        return effectiveElidedFallbackDisplay.value
+    }
+
+    var effectiveElidedFallbackDisplay: (value: String, inferred: Bool) {
+        guard let project, let font = selectedFont else {
+            return (project?.naming.elidedFallback ?? "Regular", false)
+        }
+        let result = ElidedFallbackResolver.resolve(
+            axes: font.axes,
+            namingOrder: project.naming.order,
+            fileStatRegistration: font.fileStatRegistration,
+            sourceElidedFallback: project.naming.elidedFallback,
+            fileRole: font.fileRole
+        )
+        return (result.value, result.inferred)
     }
 
     func axisDisplayName(for tag: String) -> String {
@@ -956,7 +998,12 @@ final class EditorViewModel: ObservableObject {
     }
 
     func presentConflictResolver(bundle: AxisConflictBundle) {
-        conflictResolverRequest = AxisConflictResolverSession(bundle: bundle)
+        let position = reviewSessionPosition(for: .axisConflict(bundle))
+        conflictResolverRequest = AxisConflictResolverSession(
+            bundle: bundle,
+            reviewPosition: position?.current,
+            reviewTotal: position?.total
+        )
         focusConflictAxis(bundle)
     }
 
@@ -967,9 +1014,190 @@ final class EditorViewModel: ObservableObject {
 
     func dismissConflictResolver() {
         conflictResolverRequest = nil
+        reviewSession = nil
     }
 
-    func applyConflictFix(_ action: ConflictFixAction, axisTag: String) {
+    func reviewQueue() -> [AxisTreeReviewItem] {
+        guard let instancePlan, selectedFont != nil, let project else { return [] }
+        return AxisTreeReviewQueue.build(
+            warnings: instancePlan.warnings,
+            conflictBundles: axisConflictBundles,
+            namingOrder: project.naming.order
+        )
+    }
+
+    var reviewIssueCount: Int { reviewQueue().count }
+
+    func informationalPlanWarnings() -> [PlanWarning] {
+        guard let instancePlan, let project else { return [] }
+        return AxisTreeReviewQueue.informationalWarnings(
+            warnings: instancePlan.warnings,
+            namingOrder: project.naming.order
+        )
+    }
+
+    func startReviewSession(jumpingTo warning: PlanWarning? = nil) {
+        let queue = reviewQueue()
+        guard !queue.isEmpty else { return }
+        let index: Int
+        if let warning {
+            let key = PlanIssueCodes.issueKey(for: warning)
+            index = queue.firstIndex { item in
+                guard case let .planIssue(w) = item else { return false }
+                return PlanIssueCodes.issueKey(for: w) == key
+            } ?? 0
+        } else {
+            index = 0
+        }
+        reviewSession = AxisTreeReviewSession(queue: queue, currentIndex: index)
+        presentReviewItem(at: index, in: queue)
+    }
+
+    func continueReviewSession() {
+        advanceReviewSession()
+    }
+
+    func advanceReviewSession() {
+        guard reviewSession != nil else { return }
+        let queue = reviewQueue()
+        guard !queue.isEmpty else {
+            planIssueResolverRequest = nil
+            conflictResolverRequest = nil
+            reviewSession = nil
+            return
+        }
+        reviewSession = AxisTreeReviewSession(queue: queue, currentIndex: 0)
+        presentReviewItem(at: 0, in: queue)
+    }
+
+    func endReviewSession() {
+        reviewSession = nil
+    }
+
+    private func presentReviewItem(at index: Int, in queue: [AxisTreeReviewItem]) {
+        guard index < queue.count else {
+            planIssueResolverRequest = nil
+            conflictResolverRequest = nil
+            return
+        }
+        switch queue[index] {
+        case let .planIssue(warning):
+            conflictResolverRequest = nil
+            presentPlanIssueResolver(for: warning)
+        case let .axisConflict(bundle):
+            planIssueResolverRequest = nil
+            presentConflictResolver(bundle: bundle)
+        }
+    }
+
+    private func reviewSessionPosition(for item: AxisTreeReviewItem) -> (current: Int, total: Int)? {
+        guard let session = reviewSession else { return nil }
+        _ = item
+        return (session.currentIndex + 1, session.queue.count)
+    }
+
+    func resolvablePlanWarnings(for axisTag: String) -> [PlanWarning] {
+        guard selectedFont != nil else { return [] }
+        return (instancePlan?.warnings ?? []).filter { warning in
+            guard warning.axis == axisTag else { return false }
+            return PlanIssueCodes.resolvable.contains(warning.code)
+        }
+    }
+
+    func planIssueProposals(for warning: PlanWarning) -> [PlanIssueProposal] {
+        guard let font = selectedFont else { return [] }
+        return PlanIssueResolver.proposals(for: warning, font: font)
+    }
+
+    func applyPlanIssueFix(_ action: PlanIssueAction, andContinue: Bool = false) {
+        guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+            return
+        }
+        pushUndoSnapshot()
+        PlanIssueResolver.apply(action, to: &project.fonts[fontIndex])
+        project.fonts[fontIndex].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+        if andContinue {
+            advanceReviewSession()
+        } else {
+            planIssueResolverRequest = nil
+            reviewSession = nil
+        }
+    }
+
+    func presentPlanIssueResolver(for warning: PlanWarning) {
+        let item = AxisTreeReviewItem.planIssue(warning)
+        let position = reviewSessionPosition(for: item)
+        planIssueResolverRequest = PlanIssueResolverSession(
+            warning: warning,
+            reviewPosition: position?.current,
+            reviewTotal: position?.total
+        )
+        if let axis = warning.axis {
+            inspectorFocusedAxisTag = axis
+            if let stopID = warning.stopIDs?.first {
+                selectedAxisStopID = stopID
+                axisTreeFocusRequest = AxisTreeFocusRequest(
+                    axisTag: axis,
+                    stopID: stopID,
+                    token: UUID()
+                )
+            }
+        }
+    }
+
+    func presentFirstResolvablePlanIssue(on axisTag: String) {
+        guard let warning = resolvablePlanWarnings(for: axisTag).first else { return }
+        reviewSession = nil
+        presentPlanIssueResolver(for: warning)
+    }
+
+    func setElidedFallback(_ value: String) {
+        guard var project else { return }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolved = trimmed.isEmpty ? "Regular" : trimmed
+        guard resolved != project.naming.elidedFallback else { return }
+        pushUndoSnapshot()
+        project.naming.elidedFallback = resolved
+        project.modified = Date()
+        self.project = project
+        regeneratePlan()
+    }
+
+    func updateCompoundStatName(id: String, name: String) {
+        mutateSelectedFont { font in
+            guard let index = font.compoundStatValues.firstIndex(where: { $0.id == id }) else { return }
+            font.compoundStatValues[index].name = name
+        }
+    }
+
+    func updateCompoundStatElidable(id: String, elidable: Bool) {
+        mutateSelectedFont { font in
+            guard let index = font.compoundStatValues.firstIndex(where: { $0.id == id }) else { return }
+            font.compoundStatValues[index].elidable = elidable
+        }
+    }
+
+    func updateCompoundStatCoordinate(id: String, tag: String, value: Double) {
+        mutateSelectedFont { font in
+            guard let index = font.compoundStatValues.firstIndex(where: { $0.id == id }) else { return }
+            font.compoundStatValues[index].coords[tag] = value
+            CompoundStatCoordinateSync.syncIndicesAndValues(
+                compound: &font.compoundStatValues[index],
+                designAxisOrder: font.axes
+            )
+        }
+    }
+
+    func dismissPlanIssueResolver() {
+        planIssueResolverRequest = nil
+        reviewSession = nil
+    }
+
+    func applyConflictFix(_ action: ConflictFixAction, axisTag: String, andContinue: Bool = false) {
         guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
             return
         }
@@ -979,12 +1207,18 @@ final class EditorViewModel: ObservableObject {
         project.modified = Date()
         self.project = project
         canSave = true
-        conflictResolverRequest = nil
         regeneratePlan()
-        if let sameAxis = axisConflictBundles.first(where: { $0.axisTag == axisTag }) {
-            presentConflictResolver(bundle: sameAxis)
-        } else if let next = axisConflictBundles.first {
-            presentConflictResolver(bundle: next)
+        if andContinue {
+            advanceReviewSession()
+        } else {
+            conflictResolverRequest = nil
+            if reviewSession != nil {
+                reviewSession = nil
+            } else if let sameAxis = axisConflictBundles.first(where: { $0.axisTag == axisTag }) {
+                presentConflictResolver(bundle: sameAxis)
+            } else if let next = axisConflictBundles.first {
+                presentConflictResolver(bundle: next)
+            }
         }
     }
 
@@ -1926,6 +2160,15 @@ final class EditorViewModel: ObservableObject {
         return selectedFont?.axes.first(where: { $0.tag == tag })?.role == .instance
     }
 
+    func isRegistrationNamingAxis(tag: String) -> Bool {
+        selectedFont?.axes.first(where: { $0.tag == tag })?.isDesignRecordOnly == true
+    }
+
+    func clarifierCoveredByRegistration(category: FileClarifierCategory, for fontID: String) -> Bool {
+        guard let font = font(forProjectID: activeProjectID ?? "", fontID: fontID) else { return false }
+        return RegistrationAxisSupport.clarifierCategoriesCoveredByRegistration(font: font).contains(category)
+    }
+
     // MARK: - File clarifiers
 
     func fileRole(for fontID: String) -> FileRole? {
@@ -2059,6 +2302,16 @@ final class EditorViewModel: ObservableObject {
         mutateFont(id: fontID) { font in
             font.options.familyPSPrefix = trimmed.isEmpty ? nil : trimmed
         }
+    }
+
+    func setFileStatRegistration(tag: String, value: Double, forFontID fontID: String) {
+        mutateFont(id: fontID) { font in
+            font.fileStatRegistration[tag] = value
+        }
+    }
+
+    func slopeClarifierSupersededByRegistration(for fontID: String) -> Bool {
+        clarifierCoveredByRegistration(category: .slope, for: fontID)
     }
 
     func setElidedFallbackOverride(_ value: String?, for fontID: String) {
@@ -2221,8 +2474,14 @@ final class EditorViewModel: ObservableObject {
             var clamped = value
             if let min = axis.min { clamped = max(clamped, min) }
             if let max = axis.max { clamped = min(clamped, max) }
+            let previousValue = font.axes[axisIndex].values[stopIndex].value
+            let wasRegistered = font.fileStatRegistration[axisTag]
+                .map { AxisCoordinate.valuesEqual($0, previousValue) } ?? false
             font.axes[axisIndex].values[stopIndex].value = clamped
             font.axes[axisIndex].values.sort { $0.value < $1.value }
+            if wasRegistered {
+                font.fileStatRegistration[axisTag] = clamped
+            }
         }
     }
 
@@ -2284,6 +2543,16 @@ final class EditorViewModel: ObservableObject {
                 stop.linkedValue = nil
             }
             font.axes[axisIndex].values[stopIndex] = stop
+        }
+    }
+
+    func updateAxisStopLinkedTarget(axisTag: String, stopID: String, linkTargetStopID: String) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }),
+                  let target = font.axes[axisIndex].values.first(where: { $0.id == linkTargetStopID }) else { return }
+            font.axes[axisIndex].values[stopIndex].statFormat = 3
+            font.axes[axisIndex].values[stopIndex].linkedValue = target.value
         }
     }
 

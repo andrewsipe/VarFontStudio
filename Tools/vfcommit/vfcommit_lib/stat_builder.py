@@ -16,6 +16,7 @@ from fontTools.ttLib.tables.otTables import AxisValue, AxisValueArray
 from vfcommit_lib.logging_config import get_logger
 from vfcommit_lib.nameid_allocator import (
     AxisDef,
+    CompoundStatValueDef,
     NameIDPlan,
     compose_instance_name,
     compose_name_from_order,
@@ -24,7 +25,17 @@ from vfcommit_lib.nameid_allocator import (
 logger = get_logger(__name__)
 
 STAT_VERSION_12 = 0x00010002
+OLDER_SIBLING_FLAG = 0x0001
 ELIDABLE_FLAG = 0x0002
+
+
+def _stat_flags(elidable: bool, older_sibling: bool = False) -> int:
+    flags = 0
+    if older_sibling:
+        flags |= OLDER_SIBLING_FLAG
+    if elidable:
+        flags |= ELIDABLE_FLAG
+    return flags
 
 
 def build_protected_name_ids(font: TTFont, ot_label_ids: Set[int]) -> Set[int]:
@@ -84,6 +95,7 @@ def apply_table_edits(
     ot_label_count: int = 0,
     instance_axis_defs: List[AxisDef] | None = None,
     pinned_coords: dict[str, float] | None = None,
+    compound_defs: List[CompoundStatValueDef] | None = None,
 ) -> None:
     """
     Write all changes to the font in memory. Does not save.
@@ -114,7 +126,13 @@ def apply_table_edits(
         elided_fallback_name,
         pinned_coords=pinned_coords,
     )
-    _write_stat(font, axis_defs, plan, elided_fallback_name)
+    _write_stat(
+        font,
+        axis_defs,
+        plan,
+        elided_fallback_name,
+        compound_defs=compound_defs or [],
+    )
 
 
 def generate_ttx_additions(
@@ -162,6 +180,10 @@ def _write_name_records(font: TTFont, axis_defs: List[AxisDef], plan: NameIDPlan
 
     for composed_name, nid in plan.instance_ids.items():
         name_table.setName(composed_name, nid, 3, 1, 0x0409)
+
+    for compound_id, nid in plan.compound_value_ids.items():
+        label = plan.compound_value_names.get(compound_id, compound_id)
+        name_table.setName(label, nid, 3, 1, 0x0409)
 
     for composed_name, ps_nid in plan.instance_postscript_ids.items():
         ps_name = plan.instance_postscript_names.get(composed_name)
@@ -227,6 +249,8 @@ def _write_fvar_instances(
             naming_order=plan.naming_order,
             clarifiers=plan.clarifiers,
             axis_tags=tag_list,
+            axes_json=plan.axes_json,
+            file_stat_registration=plan.file_stat_registration,
         )
 
         inst = NamedInstance()
@@ -242,6 +266,7 @@ def _write_stat(
     axis_defs: List[AxisDef],
     plan: NameIDPlan,
     elided_fallback_name: str,
+    compound_defs: List[CompoundStatValueDef] | None = None,
 ) -> None:
     if "STAT" not in font:
         raise ValueError("Font has no STAT table")
@@ -265,7 +290,7 @@ def _write_stat(
             av = AxisValue()
             av.Format = av_def.stat_format
             av.AxisIndex = _axis_index(stat_table, axis_def.tag)
-            av.Flags = ELIDABLE_FLAG if av_def.elidable else 0x0000
+            av.Flags = _stat_flags(av_def.elidable, av_def.older_sibling)
             av.ValueNameID = plan.axis_value_ids[(axis_def.tag, av_def.value)]
 
             if av_def.stat_format == 1:
@@ -291,6 +316,16 @@ def _write_stat(
                 raise ValueError(f"Unsupported STAT AxisValue format {av_def.stat_format}")
 
             axis_values.append(av)
+
+    for compound in compound_defs or []:
+        av = AxisValue()
+        av.Format = 4
+        av.AxisCount = len(compound.axis_indices)
+        av.AxisIndex = list(compound.axis_indices)
+        av.Flags = _stat_flags(compound.elidable, compound.older_sibling)
+        av.ValueNameID = plan.compound_value_ids[compound.id]
+        av.AxisValue = [float(value) for value in compound.axis_values]
+        axis_values.append(av)
 
     avarray = AxisValueArray()
     avarray.AxisValue = axis_values

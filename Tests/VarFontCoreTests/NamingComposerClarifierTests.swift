@@ -69,4 +69,41 @@ final class NamingComposerClarifierTests: XCTestCase {
         )
         XCTAssertEqual(composed.name, "Bold Condensed Italic")
     }
+
+    func testWidthClarifierSkippedWhenWdthRegistrationPresent() {
+        let axes = [
+            AxisDefinition(
+                tag: "wght",
+                role: .instance,
+                values: [
+                    AxisValue(id: "w1", value: 700, name: "Bold", elidable: false)
+                ]
+            ),
+            AxisDefinition(
+                tag: "wdth",
+                role: .designRecordOnly,
+                values: [
+                    AxisValue(id: "n1", value: 75, name: "Condensed", elidable: false)
+                ]
+            ),
+        ]
+        let naming = NamingPolicy(
+            order: ["wght", "wdth", NamingPolicy.clarifierTokenWidth],
+            elidedFallback: "Regular"
+        )
+        let role = FileRole.variant(
+            masterFontID: "master",
+            clarifiers: [FileClarifier(category: .width, label: "Narrow")]
+        )
+
+        let composed = NamingComposer.compose(
+            coords: ["wght": 700],
+            axes: axes,
+            naming: naming,
+            fileRole: role,
+            fileStatRegistration: ["wdth": 75]
+        )
+        XCTAssertEqual(composed.name, "Bold Condensed")
+        XCTAssertFalse(composed.chain.contains { $0.kind == .clarifier })
+    }
 }

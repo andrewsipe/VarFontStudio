@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VarFont — Axis Tree Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f5f0e8;
+      --sf: #ede7da;
+      --s2: #e4ded2;
+      --s3: #c8bfb0;
+      --input-bg: #fffcf7;
+      --bd: #d0c9bb;
+      --tx: #2b2926;
+      --mu: #504b44;
+      --label: #3e3930;
+      --pr: #6b50a0;
+      --pr-dk: #513c82;
+      --on-pr: #f5f0e8;
+      --te: #5b9ba4;
+      --te-dk: #3f7880;
+      --gn: #4e8a6c;
+      --gn-dk: #32634a;
+      --am: #b86a1a;
+      --am-dk: #8a4e10;
+      --er: #c96040;
+      --er-dk: #a44a2e;
+      --nb: rgba(107, 80, 160, 0.1);
+      --nbl: rgba(107, 80, 160, 0.42);
+      --tint-pr: rgba(107, 80, 160, 0.12);
+      --tint-pr-b: rgba(107, 80, 160, 0.32);
+      --tint-te: rgba(91, 155, 164, 0.1);
+      --tint-te-b: rgba(91, 155, 164, 0.28);
+      --tint-am: rgba(184, 106, 26, 0.1);
+      --tint-er: rgba(201, 96, 64, 0.12);
+      --tint-gn: rgba(78, 138, 108, 0.1);
+      --r-inp: 3px;
+      --r-ctrl: 4px;
+      --r-card: 5px;
+      --ui: 'IBM Plex Sans', system-ui, sans-serif;
+      --mo: 'IBM Plex Mono', ui-monospace, monospace;
+      --tree-w: 280px;
+      --insp-w: 300px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: var(--ui);
+      font-size: 13px;
+      color: var(--tx);
+      background: var(--bg);
+      line-height: 1.45;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      min-height: 640px;
+    }
+
+    /* ── Header / overview ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--sf);
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--tx);
+    }
+    .logo svg { color: var(--pr); }
+    .sp { flex: 1; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--bg);
+      border: 1px solid var(--bd);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--mu);
+    }
+    .pill strong { color: var(--tx); font-weight: 600; }
+    .pill.warn { background: var(--tint-am); border-color: var(--am); color: var(--am-dk); }
+    .pill.err { background: var(--tint-er); border-color: var(--er); color: var(--er-dk); }
+    .pill.ok { background: var(--tint-gn); border-color: var(--gn); color: var(--gn-dk); }
+
+    .overview {
+      padding: 10px 16px;
+      background: var(--s2);
+      border-bottom: 1px solid var(--bd);
+      flex-shrink: 0;
+    }
+    .overview h2 {
+      margin: 0 0 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--label);
+    }
+    .overview p { margin: 0; font-size: 13px; color: var(--mu); max-width: 72ch; }
+    .overview p em { color: var(--pr); font-style: normal; font-weight: 500; }
+    .formula {
+      margin-top: 8px;
+      font-family: var(--mo);
+      font-size: 12px;
+      color: var(--tx);
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--bd);
+      border-radius: var(--r-card);
+      display: inline-block;
+    }
+    .formula .times { color: var(--am); font-weight: 500; }
+    .formula .eq { color: var(--mu); margin: 0 6px; }
+    .formula .total { color: var(--pr); font-weight: 600; }
+
+    /* ── Three panels ── */
+    .panels {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-right: 1px solid var(--bd);
+    }
+    .panel:last-child { border-right: none; }
+
+    .panel-head {
+      padding: 8px 12px;
+      background: var(--s3);
+      border-bottom: 1px solid var(--bd);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--label);
+      flex-shrink: 0;
+    }
+    .panel-body {
+      flex: 1;
+      overflow: auto;
+      padding: 8px;
+    }
+
+    .axis-tree { width: var(--tree-w); flex-shrink: 0; background: var(--sf); }
+    .instances-panel { flex: 1; background: var(--bg); min-width: 280px; }
+    .inspector { width: var(--insp-w); flex-shrink: 0; background: var(--sf); }
+
+    /* ── Axis tree ── */
+    .axis-block { margin-bottom: 4px; }
+    .axis-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px 8px;
+      border: none;
+      background: transparent;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      border-radius: var(--r-ctrl);
+      color: var(--tx);
+    }
+    .axis-head:hover { background: var(--s2); }
+    .axis-head .chev {
+      width: 14px;
+      font-size: 9px;
+      color: var(--mu);
+      transition: transform 0.15s;
+    }
+    .axis-head.collapsed .chev { transform: rotate(-90deg); }
+    .ax-tag {
+      font-family: var(--mo);
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 5px;
+      background: var(--tint-te);
+      border: 1px solid var(--tint-te-b);
+      color: var(--te-dk);
+      border-radius: var(--r-inp);
+    }
+    .ax-range { font-size: 11px; color: var(--mu); margin-left: auto; }
+
+    .value-list { padding: 0 4px 6px 22px; }
+    .value-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      margin: 2px 0;
+      border-radius: var(--r-ctrl);
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .value-row:hover { background: var(--s2); }
+    .value-row.selected {
+      background: var(--tint-pr);
+      border-color: var(--tint-pr-b);
+    }
+    .value-row.linked {
+      box-shadow: inset 3px 0 0 var(--pr);
+      background: var(--nb);
+    }
+    .val-num {
+      font-family: var(--mo);
+      font-size: 11px;
+      color: var(--am);
+      font-weight: 500;
+      min-width: 36px;
+    }
+    .val-name { flex: 1; font-size: 13px; }
+    .elid {
+      font-size: 10px;
+      color: var(--pr);
+      opacity: 0;
+    }
+    .value-row.elidable .elid { opacity: 1; }
+    .value-row .rm {
+      opacity: 0;
+      border: none;
+      background: transparent;
+      color: var(--mu);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: var(--r-inp);
+      font-size: 14px;
+      line-height: 1;
+    }
+    .value-row:hover .rm { opacity: 1; }
+    .value-row .rm:hover { color: var(--er); background: var(--tint-er); }
+
+    .add-val {
+      display: block;
+      width: calc(100% - 26px);
+      margin: 4px 0 4px 22px;
+      padding: 5px 8px;
+      font: inherit;
+      font-size: 12px;
+      color: var(--pr);
+      background: transparent;
+      border: 1px dashed var(--tint-pr-b);
+      border-radius: var(--r-ctrl);
+      cursor: pointer;
+      text-align: left;
+    }
+    .add-val:hover { background: var(--tint-pr); }
+
+    /* ── Instance center ── */
+    .view-toggle {
+      display: flex;
+      gap: 4px;
+      padding: 0 8px 8px;
+    }
+    .view-toggle button {
+      font: inherit;
+      font-size: 11px;
+      padding: 4px 10px;
+      border: 1px solid var(--bd);
+      background: var(--input-bg);
+      border-radius: var(--r-ctrl);
+      cursor: pointer;
+      color: var(--mu);
+    }
+    .view-toggle button.active {
+      border-color: var(--pr);
+      color: var(--pr);
+      background: var(--tint-pr);
+    }
+
+    .filter-bar {
+      padding: 0 8px 8px;
+      font-size: 12px;
+      color: var(--mu);
+    }
+    .filter-bar button {
+      font: inherit;
+      font-size: 11px;
+      margin-left: 6px;
+      padding: 2px 8px;
+      border: 1px solid var(--bd);
+      background: var(--input-bg);
+      border-radius: var(--r-ctrl);
+      cursor: pointer;
+      color: var(--pr);
+    }
+
+    .inst-list { padding: 0 8px 8px; }
+    .inst-group { margin-bottom: 12px; }
+    .inst-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--label);
+      padding: 4px 8px;
+      margin-bottom: 4px;
+      background: var(--s2);
+      border-radius: var(--r-ctrl);
+    }
+    .inst-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      margin: 2px 0;
+      border-radius: var(--r-ctrl);
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .inst-row:hover { background: var(--s2); }
+    .inst-row.selected {
+      background: var(--tint-pr);
+      border-color: var(--tint-pr-b);
+    }
+    .inst-row.dup {
+      background: var(--tint-er);
+      border-color: rgba(201, 96, 64, 0.35);
+    }
+    .inst-row.dup.selected { border-color: var(--er); }
+    .inst-name { flex: 1; font-weight: 500; }
+    .inst-name.dup-text { color: var(--er-dk); }
+    .inst-coords {
+      font-family: var(--mo);
+      font-size: 10px;
+      color: var(--mu);
+    }
+
+    /* Matrix (2-axis) */
+    .matrix-wrap { padding: 8px; overflow: auto; }
+    .matrix {
+      border-collapse: collapse;
+      font-size: 12px;
+      min-width: 100%;
+    }
+    .matrix th, .matrix td {
+      border: 1px solid var(--bd);
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .matrix th {
+      background: var(--s2);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--label);
+    }
+    .matrix th.corner { background: var(--s3); }
+    .matrix td {
+      background: var(--input-bg);
+      cursor: pointer;
+      min-width: 88px;
+      vertical-align: middle;
+    }
+    .matrix td:hover { background: var(--s2); }
+    .matrix td.selected { background: var(--tint-pr); outline: 2px solid var(--pr); outline-offset: -2px; }
+    .matrix td.dup { background: var(--tint-er); }
+    .matrix td .mn { font-weight: 500; display: block; }
+    .matrix td .sub { font-family: var(--mo); font-size: 9px; color: var(--mu); margin-top: 2px; }
+
+    /* ── Inspector ── */
+    .insp-empty {
+      padding: 24px 12px;
+      text-align: center;
+      color: var(--mu);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .insp-section { margin-bottom: 14px; }
+    .insp-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--label);
+      margin-bottom: 6px;
+    }
+    .path-viz {
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--bd);
+      border-radius: var(--r-card);
+    }
+    .path-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 12px;
+    }
+    .path-step .connector {
+      width: 2px;
+      height: 12px;
+      background: var(--nbl);
+      margin-left: 11px;
+    }
+    .path-step:first-child .connector { display: none; }
+    .path-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--pr);
+      flex-shrink: 0;
+    }
+    .path-tag { font-family: var(--mo); font-size: 10px; color: var(--te-dk); }
+    .path-val { font-weight: 500; }
+    .path-num { font-family: var(--mo); color: var(--am); font-size: 11px; }
+
+    .composed {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--tx);
+      padding: 10px 12px;
+      background: var(--nb);
+      border-left: 3px solid var(--nbl);
+      border-radius: 0 var(--r-card) var(--r-card) 0;
+    }
+    .composed.dup { color: var(--er-dk); border-left-color: var(--er); background: var(--tint-er); }
+
+    .derived-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .derived-table th {
+      text-align: left;
+      padding: 4px 6px;
+      color: var(--mu);
+      font-weight: 500;
+      border-bottom: 1px solid var(--bd);
+    }
+    .derived-table td {
+      padding: 5px 6px;
+      border-bottom: 1px solid rgba(208, 201, 187, 0.5);
+      vertical-align: top;
+    }
+    .derived-table .mono { font-family: var(--mo); font-size: 10px; color: var(--mu); }
+    .derived-table tr.derived td:first-child { color: var(--pr); }
+
+    .toggle-elid {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--mu);
+    }
+    .toggle-elid input { accent-color: var(--pr); }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 8px 16px;
+      background: var(--sf);
+      border-top: 1px solid var(--bd);
+      font-size: 11px;
+      color: var(--mu);
+      flex-shrink: 0;
+    }
+    .footer summary {
+      cursor: pointer;
+      color: var(--pr);
+      font-weight: 500;
+      user-select: none;
+    }
+    .footer details[open] summary { margin-bottom: 6px; }
+
+    @media (max-width: 900px) {
+      .panels { flex-direction: column; }
+      .axis-tree, .inspector { width: 100%; max-height: 220px; }
+      .instances-panel { min-height: 280px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app"></div>
+  <script>
+(function () {
+  'use strict';
+
+  const AXIS_ORDER = ['wdth', 'wght', 'opsz', 'slnt', 'ital'];
+
+  /** Demo: Muller-like VF — axes exist, instance grid mostly empty in the wild file. */
+  const state = {
+    filename: 'MullerNext-Variable.ttf',
+    family: 'Muller Next',
+    axes: [
+      {
+        tag: 'wght',
+        name: 'Weight',
+        min: 10,
+        max: 900,
+        default: 90,
+        expanded: true,
+        values: [
+          { id: 'w1', value: 100, name: 'Thin', elidable: false },
+          { id: 'w2', value: 400, name: 'Regular', elidable: true },
+          { id: 'w3', value: 700, name: 'Bold', elidable: false },
+        ],
+      },
+      {
+        tag: 'wdth',
+        name: 'Width',
+        min: 100,
+        max: 900,
+        default: 500,
+        expanded: true,
+        values: [
+          { id: 'd1', value: 100, name: 'Condensed', elidable: false },
+          { id: 'd2', value: 500, name: 'Normal', elidable: true },
+          { id: 'd3', value: 900, name: 'Extended', elidable: false },
+        ],
+      },
+      {
+        tag: 'ital',
+        name: 'Italic',
+        min: 0,
+        max: 1,
+        default: 0,
+        expanded: true,
+        values: [
+          { id: 'i1', value: 0, name: 'Roman', elidable: true },
+          { id: 'i2', value: 1, name: 'Italic', elidable: false },
+        ],
+      },
+    ],
+    selectedValueId: null,
+    selectedInstanceKey: null,
+    viewMode: 'list',
+    groupByTag: 'wdth',
+    nextId: 100,
+  };
+
+  function cartesian(arrays) {
+    if (!arrays.length) return [[]];
+    return arrays.reduce(
+      (acc, curr) => acc.flatMap((a) => curr.map((b) => a.concat([b]))),
+      [[]]
+    );
+  }
+
+  function composeName(combo) {
+    const ital = combo.find((c) => c.axisTag === 'ital');
+    const sorted = [...combo].sort((a, b) => {
+      const ai = AXIS_ORDER.indexOf(a.axisTag);
+      const bi = AXIS_ORDER.indexOf(b.axisTag);
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    });
+    const parts = [];
+    for (const av of sorted) {
+      if (av.axisTag === 'ital') continue;
+      if (av.axisTag === 'slnt' && av.value === 0) continue;
+      if (ital && ital.value === 1 && av.axisTag === 'slnt') continue;
+      if (av.elidable && combo.length > 1) continue;
+      if (av.name) parts.push(av.name);
+    }
+    if (ital && ital.value === 1) parts.push(ital.name || 'Italic');
+    return parts.join(' ') || 'Regular';
+  }
+
+  function instanceKey(coords) {
+    return state.axes.map((a) => `${a.tag}:${coords[a.tag]}`).join('|');
+  }
+
+  function generateInstances() {
+    const axesWithValues = state.axes.filter((a) => a.values.length > 0);
+    if (!axesWithValues.length) return [];
+
+    const combos = cartesian(
+      axesWithValues.map((axis) =>
+        axis.values.map((v) => ({
+          axisTag: axis.tag,
+          axisName: axis.name,
+          value: v.value,
+          name: v.name,
+          elidable: v.elidable,
+          valueId: v.id,
+        }))
+      )
+    );
+
+    const instances = combos.map((combo) => {
+      const coords = Object.fromEntries(combo.map((c) => [c.axisTag, c.value]));
+      const name = composeName(combo);
+      return { combo, coords, name, key: instanceKey(coords) };
+    });
+
+    const counts = {};
+    instances.forEach((i) => { counts[i.name] = (counts[i.name] || 0) + 1; });
+    instances.forEach((i) => { i.duplicate = counts[i.name] > 1; });
+
+    return instances;
+  }
+
+  function getInstances() {
+    let list = generateInstances();
+    if (state.selectedValueId) {
+      const sel = findValueById(state.selectedValueId);
+      if (sel) {
+        list = list.filter((inst) =>
+          inst.combo.some((c) => c.axisTag === sel.axis.tag && c.valueId === sel.value.id)
+        );
+      }
+    }
+    return list;
+  }
+
+  function findValueById(id) {
+    for (const axis of state.axes) {
+      const value = axis.values.find((v) => v.id === id);
+      if (value) return { axis, value };
+    }
+    return null;
+  }
+
+  function countFormula() {
+    const counts = state.axes.map((a) => a.values.length || 0);
+    const total = counts.reduce((p, c) => (p === 0 ? c : p * c), counts[0] || 0);
+    const parts = counts.filter((c) => c > 0);
+    if (!parts.length) return { text: '—', total: 0, parts: [] };
+    return {
+      parts,
+      total: parts.reduce((a, b) => a * b, 1),
+      text: parts.join(' × '),
+    };
+  }
+
+  function mockNameIDs(inst, index) {
+    const base = 280 + index * 2;
+    return [
+      { table: 'STAT', field: 'ValueNameID', id: base, note: 'per-axis value labels (shared)' },
+      { table: 'fvar', field: 'subfamilyNameID', id: base + 1, note: 'instance style name' },
+      { table: 'fvar', field: 'postscriptNameID', id: base + 2, note: 'PostScript instance name' },
+    ];
+  }
+
+  function canShowMatrix() {
+    if (state.selectedValueId) return false;
+    const active = state.axes.filter((a) => a.values.length > 0);
+    return active.length === 2;
+  }
+
+  function matrixAxes() {
+    const active = state.axes.filter((a) => a.values.length > 0);
+    if (active.length !== 2) return null;
+    const rowAxis = active.find((a) => a.tag === 'wdth') || active[0];
+    const colAxis = active.find((a) => a.tag !== rowAxis.tag) || active[1];
+    return { rowAxis, colAxis };
+  }
+
+  function groupInstances(list) {
+    const tag = state.groupByTag;
+    const axis = state.axes.find((a) => a.tag === tag);
+    if (!axis || list.length > 48) {
+      return [{ title: 'All instances', items: list }];
+    }
+    const groups = new Map();
+    for (const inst of list) {
+      const av = inst.combo.find((c) => c.axisTag === tag);
+      const title = av ? `${av.name} (${tag}=${av.value})` : 'Other';
+      if (!groups.has(title)) groups.set(title, []);
+      groups.get(title).push(inst);
+    }
+    return [...groups.entries()].map(([title, items]) => ({ title, items }));
+  }
+
+  function linkedValueIds(inst) {
+    if (!inst) return new Set();
+    return new Set(inst.combo.map((c) => c.valueId));
+  }
+
+  function render() {
+    const all = generateInstances();
+    const filtered = getInstances();
+    const formula = countFormula();
+    const dupCount = all.filter((i) => i.duplicate).length;
+    const selInst = state.selectedInstanceKey
+      ? all.find((i) => i.key === state.selectedInstanceKey)
+      : null;
+    const linked = linkedValueIds(selInst);
+    const showMatrix = state.viewMode === 'matrix' && canShowMatrix();
+
+    document.getElementById('app').innerHTML = `
+      <header class="topbar">
+        <div class="logo">
+          <svg width="18" height="18" viewBox="0 0 17 17" fill="none" aria-hidden="true">
+            <rect x=".75" y=".75" width="15.5" height="15.5" rx="2.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M4 13L6.5 4.5L8.5 9.5L10 7L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          VarFont · Axis Tree Prototype
+        </div>
+        <span class="pill"><strong>${esc(state.filename)}</strong></span>
+        <span class="pill ${formula.total > 36 ? 'warn' : 'ok'}">
+          <strong>${formula.total}</strong> instance${formula.total === 1 ? '' : 's'}
+        </span>
+        ${dupCount ? `<span class="pill err"><strong>${dupCount}</strong> duplicate name${dupCount === 1 ? '' : 's'}</span>` : ''}
+        <span class="sp"></span>
+        <span class="pill">Prototype — no file I/O</span>
+      </header>
+
+      <section class="overview">
+        <h2>Overview</h2>
+        <p>
+          Edit <em>named positions on each axis</em> (left). The app derives every combination —
+          that's <strong>combinatorics</strong>: multiply the number of choices per axis.
+          Select an instance to see how axis branches connect to <code>fvar</code> / <code>STAT</code> / <code>name</code>.
+        </p>
+        <div class="formula" aria-label="Instance count formula">
+          ${formula.parts.map((n, i) =>
+            (i ? '<span class="times"> × </span>' : '') + `<span>${n}</span>`
+          ).join('')}
+          <span class="eq">=</span>
+          <span class="total">${formula.total} instances</span>
+        </div>
+      </section>
+
+      <main class="panels">
+        <aside class="panel axis-tree">
+          <div class="panel-head">① Axis tree · you edit here</div>
+          <div class="panel-body" id="axisTree">${renderAxisTree(linked)}</div>
+        </aside>
+
+        <section class="panel instances-panel">
+          <div class="panel-head">② Instances · derived combinations</div>
+          <div class="view-toggle">
+            <button type="button" class="${state.viewMode === 'list' ? 'active' : ''}" data-view="list">Grouped list</button>
+            <button type="button" class="${state.viewMode === 'matrix' ? 'active' : ''}" data-view="matrix" ${canShowMatrix() ? '' : 'disabled title="Matrix works with 2 axes and no filter"'}>Matrix</button>
+          </div>
+          ${state.selectedValueId ? `
+            <div class="filter-bar">
+              Filtered by axis value
+              <button type="button" data-action="clear-filter">Clear filter</button>
+            </div>
+          ` : ''}
+          <div class="panel-body" style="padding-top:0">
+            ${showMatrix ? renderMatrix(all) : renderList(filtered)}
+          </div>
+        </section>
+
+        <aside class="panel inspector">
+          <div class="panel-head">③ Connections · read-only</div>
+          <div class="panel-body" id="inspector">${renderInspector(selInst, all)}</div>
+        </aside>
+      </main>
+
+      <footer class="footer">
+        <details>
+          <summary>What is combinatorics?</summary>
+          With 3 weights, 3 widths, and 2 italic states, you get 3×3×2 = 18 instance points in axis space.
+          Each point becomes one <code>fvar</code> instance, STAT labels come from the axis branches you picked,
+          and <code>name</code> IDs are allocated from the composed style names — all from the same tree.
+        </details>
+      </footer>
+    `;
+
+    bindEvents();
+  }
+
+  function renderAxisTree(linked) {
+    return state.axes.map((axis) => `
+      <div class="axis-block" data-axis="${axis.tag}">
+        <button type="button" class="axis-head ${axis.expanded ? '' : 'collapsed'}" data-action="toggle-axis" data-tag="${axis.tag}">
+          <span class="chev">▼</span>
+          <span class="ax-tag">${axis.tag}</span>
+          <span>${esc(axis.name)}</span>
+          <span class="ax-range">${axis.min}–${axis.max}</span>
+        </button>
+        ${axis.expanded ? `
+          <div class="value-list">
+            ${axis.values.map((v) => `
+              <div class="value-row ${v.elidable ? 'elidable' : ''} ${state.selectedValueId === v.id ? 'selected' : ''} ${linked.has(v.id) ? 'linked' : ''}"
+                   data-action="select-value" data-id="${v.id}">
+                <span class="val-num">${formatNum(v.value)}</span>
+                <span class="val-name">${esc(v.name)}</span>
+                <span class="elid" title="Elidable in composed names">elide</span>
+                <button type="button" class="rm" data-action="remove-value" data-id="${v.id}" title="Remove">×</button>
+              </div>
+            `).join('')}
+            <button type="button" class="add-val" data-action="add-value" data-tag="${axis.tag}">+ Add value…</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  function renderList(list) {
+    if (!list.length) {
+      return `<p class="insp-empty">Add at least one value on each axis to generate instances.</p>`;
+    }
+    const groups = groupInstances(list);
+    return `<div class="inst-list">${groups.map((g) => `
+      <div class="inst-group">
+        <div class="inst-group-title">${esc(g.title)} · ${g.items.length}</div>
+        ${g.items.map((inst) => `
+          <div class="inst-row ${inst.duplicate ? 'dup' : ''} ${state.selectedInstanceKey === inst.key ? 'selected' : ''}"
+               data-action="select-instance" data-key="${esc(inst.key)}">
+            <span class="inst-name ${inst.duplicate ? 'dup-text' : ''}">${esc(inst.name)}</span>
+            <span class="inst-coords">${formatCoords(inst.coords)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('')}</div>`;
+  }
+
+  function renderMatrix(all) {
+    const ma = matrixAxes();
+    if (!ma) return renderList(all);
+
+    const { rowAxis, colAxis } = ma;
+    const lookup = new Map(all.map((i) => [i.key, i]));
+
+    const body = rowAxis.values.map((rv) => {
+      const cells = colAxis.values.map((cv) => {
+        const coords = {};
+        state.axes.forEach((a) => {
+          if (a.tag === rowAxis.tag) coords[a.tag] = rv.value;
+          else if (a.tag === colAxis.tag) coords[a.tag] = cv.value;
+          else {
+            const first = a.values[0];
+            coords[a.tag] = first ? first.value : a.default;
+          }
+        });
+        const key = instanceKey(coords);
+        const inst = lookup.get(key);
+        if (!inst) return `<td>—</td>`;
+        return `
+          <td class="${inst.duplicate ? 'dup' : ''} ${state.selectedInstanceKey === inst.key ? 'selected' : ''}"
+              data-action="select-instance" data-key="${esc(inst.key)}">
+            <span class="mn">${esc(inst.name)}</span>
+            <span class="sub">${formatCoords(inst.coords)}</span>
+          </td>`;
+      }).join('');
+      return `<tr><th>${esc(rv.name)}<br><span style="font-weight:400;font-family:var(--mo);font-size:9px">${formatNum(rv.value)}</span></th>${cells}</tr>`;
+    }).join('');
+
+    return `
+      <div class="matrix-wrap">
+        <p style="font-size:11px;color:var(--mu);margin:0 0 8px">
+          Matrix: ${rowAxis.tag} × ${colAxis.tag}
+          ${state.axes.length > 2 ? `(other axes fixed to first value)` : ''}
+        </p>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th class="corner">${rowAxis.tag} ↓ ${colAxis.tag} →</th>
+              ${colAxis.values.map((v) => `<th>${esc(v.name)}<br><span style="font-weight:400;font-family:var(--mo)">${formatNum(v.value)}</span></th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderInspector(inst, all) {
+    if (!inst) {
+      return `
+        <div class="insp-empty">
+          <p>Select an <strong>instance</strong> in the center panel, or an <strong>axis value</strong> on the left to filter.</p>
+          <p style="margin-top:12px">The inspector shows how one combination flows through the three tables — without opening TTX.</p>
+        </div>`;
+    }
+
+    const idx = all.findIndex((i) => i.key === inst.key);
+    const ids = mockNameIDs(inst, idx);
+
+    return `
+      <div class="insp-section">
+        <div class="insp-label">Path through axis tree</div>
+        <div class="path-viz">
+          ${inst.combo.map((c, i) => `
+            <div class="path-step">
+              ${i ? '<div class="connector"></div>' : ''}
+              <span class="path-dot"></span>
+              <span class="path-tag">${c.axisTag}</span>
+              <span class="path-val">${esc(c.name)}</span>
+              <span class="path-num">${formatNum(c.value)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="insp-section">
+        <div class="insp-label">Composed style name</div>
+        <div class="composed ${inst.duplicate ? 'dup' : ''}">${esc(inst.name)}</div>
+        ${inst.duplicate ? `<p style="font-size:11px;color:var(--er-dk);margin:8px 0 0">Duplicate — elision rules collapsed two combos to the same name.</p>` : ''}
+      </div>
+
+      <div class="insp-section">
+        <div class="insp-label">Would write to OpenType tables</div>
+        <table class="derived-table">
+          <thead><tr><th>Table</th><th>Field</th><th>Content</th></tr></thead>
+          <tbody>
+            ${inst.combo.map((c) => `
+              <tr>
+                <td>STAT</td>
+                <td class="mono">AxisValue</td>
+                <td>${esc(c.axisName)} “${esc(c.name)}” @ ${formatNum(c.value)}${c.elidable ? ' · elidable' : ''}</td>
+              </tr>
+            `).join('')}
+            <tr class="derived">
+              <td>fvar</td>
+              <td class="mono">coordinates</td>
+              <td class="mono">${formatCoords(inst.coords)}</td>
+            </tr>
+            <tr class="derived">
+              <td>fvar</td>
+              <td class="mono">subfamilyNameID</td>
+              <td>→ “${esc(inst.name)}”</td>
+            </tr>
+            ${ids.map((row) => `
+              <tr class="derived">
+                <td>${row.table}</td>
+                <td class="mono">${row.field}</td>
+                <td><span class="mono">#${row.id}</span> ${row.note}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="insp-section">
+        <div class="insp-label">Edit elision on this instance's branches</div>
+        ${inst.combo.map((c) => {
+          const axis = state.axes.find((a) => a.tag === c.axisTag);
+          const val = axis?.values.find((v) => v.valueId === c.valueId || v.id === c.valueId);
+          const v = axis?.values.find((v) => v.value === c.value);
+          if (!v) return '';
+          return `
+            <label class="toggle-elid">
+              <input type="checkbox" data-action="toggle-elid" data-id="${v.id}" ${v.elidable ? 'checked' : ''} />
+              Elide “${esc(v.name)}” on ${c.axisTag}
+            </label>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function formatNum(n) {
+    return Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.001 ? String(Math.round(n)) : n.toFixed(1);
+  }
+
+  function formatCoords(coords) {
+    return Object.entries(coords).map(([t, v]) => `${t}=${formatNum(v)}`).join(' ');
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function bindEvents() {
+    const app = document.getElementById('app');
+
+    app.querySelectorAll('[data-action="toggle-axis"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const axis = state.axes.find((a) => a.tag === btn.dataset.tag);
+        if (axis) axis.expanded = !axis.expanded;
+        render();
+      });
+    });
+
+    app.querySelectorAll('[data-action="select-value"]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.rm')) return;
+        const id = el.dataset.id;
+        state.selectedValueId = state.selectedValueId === id ? null : id;
+        state.selectedInstanceKey = null;
+        render();
+      });
+    });
+
+    app.querySelectorAll('[data-action="remove-value"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        for (const axis of state.axes) {
+          const i = axis.values.findIndex((v) => v.id === id);
+          if (i >= 0) axis.values.splice(i, 1);
+        }
+        if (state.selectedValueId === id) state.selectedValueId = null;
+        render();
+      });
+    });
+
+    app.querySelectorAll('[data-action="add-value"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const axis = state.axes.find((a) => a.tag === btn.dataset.tag);
+        if (!axis) return;
+        const name = prompt(`Name for new ${axis.name} stop:`);
+        if (!name) return;
+        const raw = prompt(`Numeric value (${axis.min}–${axis.max}):`, String(axis.default));
+        if (raw === null) return;
+        const value = parseFloat(raw);
+        if (Number.isNaN(value)) return;
+        axis.values.push({
+          id: `v${state.nextId++}`,
+          value,
+          name: name.trim(),
+          elidable: /regular|normal|roman/i.test(name),
+        });
+        axis.values.sort((a, b) => a.value - b.value);
+        render();
+      });
+    });
+
+    app.querySelectorAll('[data-action="select-instance"]').forEach((el) => {
+      el.addEventListener('click', () => {
+        state.selectedInstanceKey = el.dataset.key;
+        state.selectedValueId = null;
+        render();
+      });
+    });
+
+    app.querySelectorAll('[data-action="clear-filter"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.selectedValueId = null;
+        render();
+      });
+    });
+
+    app.querySelectorAll('[data-action="toggle-elid"]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const found = findValueById(cb.dataset.id);
+        if (found) found.value.elidable = cb.checked;
+        render();
+      });
+    });
+
+    app.querySelectorAll('[data-view]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        state.viewMode = btn.dataset.view;
+        render();
+      });
+    });
+  }
+
+  render();
+})();
+  </script>
+</body>
+</html>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Set
 
-from vfcommit_lib.nameid_allocator import AxisDef, AxisValueDef
+from vfcommit_lib.nameid_allocator import AxisDef, AxisValueDef, CompoundStatValueDef
 
 
 def instance_key(coords: Dict[str, float]) -> str:
@@ -31,6 +31,7 @@ def axis_defs_from_request(axes: List[Dict[str, Any]]) -> List[AxisDef]:
                 range_min=stop.get("range_min"),
                 range_max=stop.get("range_max"),
                 linked_value=stop.get("linked_value"),
+                older_sibling=bool(stop.get("older_sibling", False)),
             )
             for stop in axis.get("values", [])
         ]
@@ -43,6 +44,33 @@ def axis_defs_from_request(axes: List[Dict[str, Any]]) -> List[AxisDef]:
                 max_value=float(axis.get("max", values[-1].value if values else 0)),
                 values=values,
                 stat_format_override=1,
+            )
+        )
+    return result
+
+
+def compound_stat_values_from_request(
+    values: List[Dict[str, Any]],
+) -> List[CompoundStatValueDef]:
+    """Build preserved format 4 entries from CommitRequest.compound_stat_values."""
+    result: List[CompoundStatValueDef] = []
+    for item in values:
+        axis_indices = [int(index) for index in (item.get("axis_indices") or [])]
+        axis_values = [float(value) for value in (item.get("axis_values") or [])]
+        if not axis_indices:
+            coords = item.get("coords") or {}
+            axis_indices = list(range(len(coords)))
+            axis_values = [float(coords[tag]) for tag in sorted(coords.keys())]
+        if not axis_indices:
+            continue
+        result.append(
+            CompoundStatValueDef(
+                id=str(item["id"]),
+                axis_indices=axis_indices,
+                axis_values=axis_values,
+                name=str(item.get("name") or ""),
+                elidable=bool(item.get("elidable", False)),
+                older_sibling=bool(item.get("older_sibling", False)),
             )
         )
     return result

@@ -3,11 +3,12 @@ import Foundation
 public enum AxisStopSuggestions {
     public static func suggestedValue(
         for axis: AxisDefinition,
-        excludingStopIDs: Set<String> = []
+        excludingStopIDs: Set<String> = [],
+        excludingValues: [Double] = []
     ) -> Double {
         let existing = axis.values
             .filter { !excludingStopIDs.contains($0.id) }
-            .map(\.value)
+            .map(\.value) + excludingValues
         let minV = axis.min ?? axis.default ?? existing.min() ?? 0
         let maxV = axis.max ?? axis.default ?? existing.max() ?? minV
 

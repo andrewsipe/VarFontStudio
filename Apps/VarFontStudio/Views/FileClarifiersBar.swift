@@ -103,19 +103,36 @@ struct FileNamingSection: View {
     }
 
     private func clarifierRow(category: FileClarifierCategory, fontID: String) -> some View {
-        HStack(spacing: 8) {
-            Text(category.rawValue)
-                .font(StudioTypography.meta)
-                .foregroundStyle(.secondary)
-                .frame(width: 92, alignment: .leading)
+        Group {
+            if editor.clarifierCoveredByRegistration(category: category, for: fontID) {
+                HStack(spacing: 8) {
+                    Text(category.rawValue)
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 92, alignment: .leading)
 
-            StudioTextField(
-                placeholder: categoryPlaceholder(category),
-                text: binding(for: category, fontID: fontID),
-                filledForeground: StudioColors.clarifierForeground
-            )
-            .disabled(!clarifiersEditable)
-            .help(clarifiersEditable ? clarifierFieldHelp : "Set on variant files in this project")
+                    Text("Covered by STAT registration")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .help("Naming for this slot comes from the registration axis on this file.")
+            } else {
+                HStack(spacing: 8) {
+                    Text(category.rawValue)
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 92, alignment: .leading)
+
+                    StudioTextField(
+                        placeholder: categoryPlaceholder(category),
+                        text: binding(for: category, fontID: fontID),
+                        filledForeground: StudioColors.clarifierForeground
+                    )
+                    .disabled(!clarifiersEditable)
+                    .help(clarifiersEditable ? clarifierFieldHelp : "Set on variant files in this project")
+                }
+            }
         }
     }
 

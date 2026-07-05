@@ -103,6 +103,7 @@ public enum FontAnalysisReader {
                 tag: tag,
                 name: OpenTypeNameTable.name(id: value.nameID, from: font) ?? "",
                 elidable: value.elidable,
+                olderSibling: value.olderSibling,
                 nameID: value.nameID,
                 value: value.value,
                 linkedValue: value.linkedValue,
@@ -111,6 +112,27 @@ public enum FontAnalysisReader {
                 nominal: value.nominal
             )
             statValues.append(rec)
+        }
+
+        var compoundStatValues: [FontAnalysis.CompoundStatRecord] = []
+        for compound in stat?.compoundValues ?? [] {
+            var coords: [String: Double] = [:]
+            for (index, axisValue) in zip(compound.axisIndices, compound.axisValues) {
+                let tag = idxToTag[index] ?? "?"
+                coords[tag] = axisValue
+            }
+            compoundStatValues.append(
+                FontAnalysis.CompoundStatRecord(
+                    id: "compound-\(UUID().uuidString.prefix(8))",
+                    coords: coords,
+                    axisIndices: compound.axisIndices,
+                    axisValues: compound.axisValues,
+                    name: OpenTypeNameTable.name(id: compound.nameID, from: font) ?? "",
+                    elidable: compound.elidable,
+                    olderSibling: compound.olderSibling,
+                    nameID: compound.nameID
+                )
+            )
         }
 
         let statByTag = Dictionary(grouping: statValues, by: \.tag)
@@ -132,6 +154,7 @@ public enum FontAnalysisReader {
                     value: statValue.value,
                     name: statValue.name,
                     elidable: statValue.elidable,
+                    olderSibling: statValue.olderSibling,
                     linkedValue: statValue.linkedValue,
                     rangeMin: statValue.rangeMin,
                     rangeMax: statValue.rangeMax,
@@ -240,6 +263,7 @@ public enum FontAnalysisReader {
             ),
             axes: axes,
             statValues: statValues,
+            compoundStatValues: compoundStatValues,
             instancesExisting: instancesExisting,
             instancesExistingMeta: FontAnalysis.InstancesMeta(
                 total: fvar.instances.count,
@@ -336,6 +360,7 @@ public enum FontAnalysisReader {
             ),
             axes: [],
             statValues: [],
+            compoundStatValues: [],
             instancesExisting: [],
             instancesExistingMeta: FontAnalysis.InstancesMeta(total: 0, sampleCount: 0),
             nameAudit: FontAnalysis.NameAudit(freeStart: 256, used: [], elidedFallbackID: nil, elidedFallbackName: nil),

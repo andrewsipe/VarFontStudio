@@ -13,6 +13,8 @@ struct AxisConflictResolverSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let bundle: AxisConflictBundle
+    let reviewPosition: Int?
+    let reviewTotal: Int?
 
     @State private var selectedStopID: String = ""
     @State private var selectedStrategy: ConflictFixStrategy = .remove
@@ -20,6 +22,9 @@ struct AxisConflictResolverSheet: View {
     @State private var revalueDraft = ""
     @State private var renameUsesSuggestion = true
     @State private var revalueUsesSuggestion = true
+    @State private var bulkNameDrafts: [String: String] = [:]
+    @State private var bulkValueDrafts: [String: String] = [:]
+    @State private var selectedRemovalStopIDs: Set<String> = []
     @State private var hoveredStopID: String?
 
     private var axis: AxisDefinition? {
@@ -76,23 +81,100 @@ struct AxisConflictResolverSheet: View {
     }
 
     private var resolvedAction: ConflictFixAction? {
-        guard let stop = selectedStop, let axis else { return nil }
-        return ConflictResolver.resolvedAction(
-            strategy: selectedStrategy,
-            stop: stop,
-            bundle: bundle,
-            axis: axis,
-            renameText: renameUsesSuggestion ? "" : renameDraft,
-            revalueText: revalueUsesSuggestion ? "" : revalueDraft
-        )
+        guard let axis else { return nil }
+        switch selectedStrategy {
+        case .renameAllFromValues, .applyAllAxisDefaults:
+            return ConflictResolver.resolvedAction(
+                strategy: selectedStrategy,
+                stop: involvedStops.first ?? AxisValue(id: "", value: 0, name: "", elidable: false),
+                bundle: bundle,
+                axis: axis,
+                renameText: "",
+                revalueText: ""
+            )
+        case .renameEach:
+            return ConflictResolver.resolvedAction(
+                strategy: selectedStrategy,
+                stop: involvedStops.first ?? AxisValue(id: "", value: 0, name: "", elidable: false),
+                bundle: bundle,
+                axis: axis,
+                renameText: "",
+                revalueText: "",
+                bulkRenameNames: bulkNameDrafts
+            )
+        case .keepOneStop:
+            guard let stop = selectedStop else { return nil }
+            return ConflictResolver.resolvedAction(
+                strategy: selectedStrategy,
+                stop: stop,
+                bundle: bundle,
+                axis: axis,
+                renameText: "",
+                revalueText: "",
+                keepStopID: stop.id
+            )
+        case .removeSelected:
+            return ConflictResolver.resolvedAction(
+                strategy: selectedStrategy,
+                stop: involvedStops.first ?? AxisValue(id: "", value: 0, name: "", elidable: false),
+                bundle: bundle,
+                axis: axis,
+                renameText: "",
+                revalueText: "",
+                removalStopIDs: selectedRemovalStopIDs
+            )
+        case .revalueEach:
+            return ConflictResolver.resolvedAction(
+                strategy: selectedStrategy,
+                stop: involvedStops.first ?? AxisValue(id: "", value: 0, name: "", elidable: false),
+                bundle: bundle,
+                axis: axis,
+                renameText: "",
+                revalueText: "",
+                bulkRevalueTexts: bulkValueDrafts
+            )
+        default:
+            guard let stop = selectedStop else { return nil }
+            return ConflictResolver.resolvedAction(
+                strategy: selectedStrategy,
+                stop: stop,
+                bundle: bundle,
+                axis: axis,
+                renameText: renameUsesSuggestion ? "" : renameDraft,
+                revalueText: revalueUsesSuggestion ? "" : revalueDraft
+            )
+        }
     }
 
     private var validationMessage: String? {
-        guard let stop = selectedStop, let axis else { return nil }
+        if selectedStrategyIsPredefinedBulk { return nil }
+        guard let axis else { return nil }
         switch selectedStrategy {
+        case .renameEach:
+            return ConflictResolver.validateBulkRenames(
+                namesByStopID: bulkNameDrafts,
+                axis: axis,
+                involvedStopIDs: Set(bundle.involvedStopIDs)
+            )
+        case .removeSelected:
+            return ConflictResolver.validateRemoveSelected(
+                selectedStopIDs: selectedRemovalStopIDs,
+                involvedStopIDs: Set(bundle.involvedStopIDs)
+            )
+        case .revalueEach:
+            return ConflictResolver.validateBulkRevalues(
+                valuesByStopID: bulkValueDrafts,
+                axis: axis,
+                involvedStopIDs: Set(bundle.involvedStopIDs)
+            )
+        case .keepOneStop:
+            guard selectedStop != nil else { return "Select the stop to keep." }
+            return nil
         case .rename:
+            guard let stop = selectedStop else { return nil }
             return ConflictResolver.validateRename(resolvedRename, for: stop, axis: axis)
         case .revalue, .revalueAndRename, .revalueAndSetElidable:
+            guard let stop = selectedStop else { return nil }
             guard let value = resolvedRevalue else { return "Enter a valid number." }
             if let revalueError = ConflictResolver.validateRevalue(
                 value,
@@ -106,7 +188,7 @@ struct AxisConflictResolverSheet: View {
                 return ConflictResolver.validateRename(resolvedRename, for: stop, axis: axis)
             }
             return nil
-        case .remove, .setElidable:
+        case .remove, .setElidable, .renameAllFromValues, .applyAllAxisDefaults:
             return nil
         }
     }
@@ -137,7 +219,44 @@ struct AxisConflictResolverSheet: View {
     }
 
     private var needsFollowUpPass: Bool {
-        involvedStops.count > 2 && !resolvesConflict
+        involvedStops.count > 2 && !resolvesConflict && !resolvesInOnePass
+    }
+
+    private var resolvesInOnePass: Bool {
+        selectedStrategyIsPredefinedBulk
+            || usesEditableBulkNames
+            || usesEditableBulkValues
+            || selectedStrategy == .keepOneStop
+            || selectedStrategy == .removeSelected
+    }
+
+    private var selectedStrategyIsPredefinedBulk: Bool {
+        switch selectedStrategy {
+        case .renameAllFromValues, .applyAllAxisDefaults:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private var usesEditableBulkNames: Bool {
+        selectedStrategy == .renameEach
+    }
+
+    private var usesEditableBulkValues: Bool {
+        selectedStrategy == .revalueEach
+    }
+
+    private var usesMultiSelectRemoval: Bool {
+        selectedStrategy == .removeSelected
+    }
+
+    private var usesKeepOneSelection: Bool {
+        selectedStrategy == .keepOneStop
+    }
+
+    private var showsContinue: Bool {
+        reviewPosition != nil && reviewTotal != nil && (reviewTotal ?? 0) > 1
     }
 
     var body: some View {
@@ -152,8 +271,8 @@ struct AxisConflictResolverSheet: View {
         .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 440)
         .onAppear(perform: syncOnAppear)
-        .onChange(of: selectedStopID) { _, _ in syncDraftsForSelectedStop() }
-        .onChange(of: selectedStrategy) { _, _ in syncDraftsForSelectedStop() }
+        .onChange(of: selectedStopID) { _, _ in syncStrategyState() }
+        .onChange(of: selectedStrategy) { _, _ in syncStrategyState() }
     }
 
     // MARK: - Sections
@@ -162,6 +281,11 @@ struct AxisConflictResolverSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Resolve axis conflict")
                 .font(StudioTypography.emphasis)
+            if let reviewPosition, let reviewTotal {
+                Text("Issue \(reviewPosition) of \(reviewTotal)")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+            }
             HStack(spacing: 8) {
                 StudioTagPill(text: bundle.axisTag)
                 Text(bundle.axisLabel)
@@ -188,19 +312,62 @@ struct AxisConflictResolverSheet: View {
     @ViewBuilder
     private var stopsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Select the stop to change")
-                .font(StudioTypography.sectionLabel)
-                .foregroundStyle(.secondary)
+            HStack {
+                Text(stopsSectionTitle)
+                    .font(StudioTypography.sectionLabel)
+                    .foregroundStyle(.secondary)
+
+                if usesEditableBulkNames {
+                    Spacer()
+                    Button("Reset suggestions") {
+                        syncBulkNameDrafts()
+                    }
+                    .font(StudioTypography.meta)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                } else if usesEditableBulkValues {
+                    Spacer()
+                    Button("Reset suggestions") {
+                        syncBulkValueDrafts()
+                    }
+                    .font(StudioTypography.meta)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+            }
 
             VStack(spacing: 2) {
                 stopTableHeader
 
                 ForEach(involvedStops) { stop in
-                    selectableStopRow(stop)
+                    if usesEditableBulkNames, let axis {
+                        editableStopRow(stop, axis: axis)
+                    } else if usesEditableBulkValues, let axis {
+                        editableValueRow(stop, axis: axis)
+                    } else if usesMultiSelectRemoval {
+                        multiSelectStopRow(stop)
+                    } else {
+                        selectableStopRow(stop)
+                    }
                 }
             }
             .padding(.vertical, 8)
             .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+        }
+    }
+
+    private var stopsSectionTitle: String {
+        switch selectedStrategy {
+        case .renameEach:
+            return "Set a name for each stop"
+        case .revalueEach:
+            return "Set a value for each stop"
+        case .keepOneStop:
+            return "Select the stop to keep"
+        case .removeSelected:
+            return "Select stops to remove"
+        default:
+            return "Select the stop to change"
         }
     }
 
@@ -218,6 +385,115 @@ struct AxisConflictResolverSheet: View {
         .foregroundStyle(.tertiary)
         .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
         .padding(.bottom, 2)
+    }
+
+    private func editableStopRow(_ stop: AxisValue, axis: AxisDefinition) -> some View {
+        HStack(spacing: 0) {
+            Text(AxisStopSuggestions.formatValue(stop.value))
+                .font(StudioTypography.monoValue)
+                .foregroundStyle(StudioColors.axisValue)
+                .frame(width: ConflictStopTableLayout.valueWidth, alignment: .trailing)
+
+            StudioInlineTextField(
+                placeholder: ConflictResolver.suggestedRename(for: stop, bundle: bundle, axis: axis),
+                text: bulkNameBinding(for: stop.id),
+                font: StudioTypography.body,
+                rowHeight: StudioFieldMetrics.captionRowHeight
+            )
+            .padding(.leading, ConflictStopTableLayout.nameGap)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            ConflictElidableIndicator(isOn: stop.elidable)
+                .frame(width: ConflictStopTableLayout.elidableWidth)
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+    }
+
+    private func bulkNameBinding(for stopID: String) -> Binding<String> {
+        Binding(
+            get: { bulkNameDrafts[stopID] ?? "" },
+            set: { bulkNameDrafts[stopID] = $0 }
+        )
+    }
+
+    private func bulkValueBinding(for stopID: String) -> Binding<String> {
+        Binding(
+            get: { bulkValueDrafts[stopID] ?? "" },
+            set: { bulkValueDrafts[stopID] = $0 }
+        )
+    }
+
+    private func editableValueRow(_ stop: AxisValue, axis: AxisDefinition) -> some View {
+        HStack(spacing: 0) {
+            StudioInlineTextField(
+                placeholder: ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)[stop.id] ?? "",
+                text: bulkValueBinding(for: stop.id),
+                font: StudioTypography.monoValue,
+                foreground: StudioColors.axisValue,
+                rowHeight: StudioFieldMetrics.captionRowHeight,
+                alignment: .trailing
+            )
+            .frame(width: ConflictStopTableLayout.valueWidth, alignment: .trailing)
+
+            Text(stop.name)
+                .font(StudioTypography.body)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, ConflictStopTableLayout.nameGap)
+
+            ConflictElidableIndicator(isOn: stop.elidable)
+                .frame(width: ConflictStopTableLayout.elidableWidth)
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+    }
+
+    private func multiSelectStopRow(_ stop: AxisValue) -> some View {
+        let isSelected = selectedRemovalStopIDs.contains(stop.id)
+        let isHovered = stop.id == hoveredStopID
+
+        return Button {
+            if isSelected {
+                selectedRemovalStopIDs.remove(stop.id)
+            } else {
+                selectedRemovalStopIDs.insert(stop.id)
+            }
+        } label: {
+            HStack(spacing: 0) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    .frame(width: 20)
+
+                Text(AxisStopSuggestions.formatValue(stop.value))
+                    .font(StudioTypography.monoValue)
+                    .foregroundStyle(StudioColors.axisValue)
+                    .frame(width: ConflictStopTableLayout.valueWidth - 20, alignment: .trailing)
+
+                Text(stop.name)
+                    .font(StudioTypography.body)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, ConflictStopTableLayout.nameGap)
+
+                ConflictElidableIndicator(isOn: stop.elidable)
+                    .frame(width: ConflictStopTableLayout.elidableWidth)
+            }
+            .padding(.vertical, 5)
+            .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
+            .background {
+                StudioRowBackground(
+                    isSelected: isSelected,
+                    isHovered: isHovered
+                )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredStopID = hovering ? stop.id : (hoveredStopID == stop.id ? nil : hoveredStopID)
+        }
     }
 
     private func selectableStopRow(_ stop: AxisValue) -> some View {
@@ -262,10 +538,17 @@ struct AxisConflictResolverSheet: View {
     private var symptomSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             if involvedStops.count > 2 {
-                Text("\(involvedStops.count) stops conflict on this axis. Fix one stop at a time.")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if resolvesInOnePass {
+                    Text("Resolve every involved stop in one step using the options below.")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("\(involvedStops.count) stops conflict on this axis. Fix one stop at a time, or choose a bulk option below.")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if let summary = bundle.symptomSummary {
                 Text(summary)
@@ -278,9 +561,9 @@ struct AxisConflictResolverSheet: View {
 
     @ViewBuilder
     private var fixSection: some View {
-        if selectedStop != nil, !availableStrategies.isEmpty {
+        if !availableStrategies.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                Text("How should this stop be fixed?")
+                Text(fixSectionTitle)
                     .font(StudioTypography.sectionLabel)
                     .foregroundStyle(.secondary)
 
@@ -292,7 +575,39 @@ struct AxisConflictResolverSheet: View {
                 .labelsHidden()
                 .pickerStyle(.radioGroup)
 
-                if let stop = selectedStop, let axis {
+                if selectedStrategy == .renameEach || selectedStrategy == .revalueEach || selectedStrategy == .removeSelected, let axis {
+                    Text(ConflictResolver.strategyDetail(
+                        strategy: selectedStrategy,
+                        stop: involvedStops.first ?? AxisValue(id: "", value: 0, name: "", elidable: false),
+                        axis: axis,
+                        bundle: bundle
+                    ))
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    if let validationMessage {
+                        Text(validationMessage)
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.red)
+                    }
+                } else if selectedStrategy == .keepOneStop, let axis {
+                    Text(ConflictResolver.strategyDetail(
+                        strategy: selectedStrategy,
+                        stop: selectedStop ?? involvedStops.first ?? AxisValue(id: "", value: 0, name: "", elidable: false),
+                        axis: axis,
+                        bundle: bundle
+                    ))
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    if let validationMessage {
+                        Text(validationMessage)
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.red)
+                    }
+                } else if !selectedStrategyIsPredefinedBulk, let stop = selectedStop, let axis {
                     Text(ConflictResolver.strategyDetail(
                         strategy: selectedStrategy,
                         stop: stop,
@@ -307,6 +622,16 @@ struct AxisConflictResolverSheet: View {
                 }
             }
         }
+    }
+
+    private var fixSectionTitle: String {
+        if selectedStrategyIsPredefinedBulk {
+            return "Apply to all involved stops"
+        }
+        if usesEditableBulkNames {
+            return "How should these stops be fixed?"
+        }
+        return "How should this stop be fixed?"
     }
 
     @ViewBuilder
@@ -541,9 +866,14 @@ struct AxisConflictResolverSheet: View {
                 editor.dismissConflictResolver()
                 dismiss()
             }
+            if showsContinue {
+                Button("Apply & continue") {
+                    applyFix(andContinue: true)
+                }
+                .disabled(!canApply)
+            }
             Button(applyButtonTitle) {
-                guard let action = resolvedAction else { return }
-                editor.applyConflictFix(action, axisTag: bundle.axisTag)
+                applyFix(andContinue: false)
             }
             .keyboardShortcut(.defaultAction)
             .disabled(!canApply)
@@ -551,34 +881,71 @@ struct AxisConflictResolverSheet: View {
         .padding(.top, 4)
     }
 
+    private func applyFix(andContinue: Bool) {
+        guard let action = resolvedAction else { return }
+        editor.applyConflictFix(action, axisTag: bundle.axisTag, andContinue: andContinue)
+        if !andContinue {
+            dismiss()
+        }
+    }
+
     // MARK: - State
 
     private func syncOnAppear() {
-        selectedStopID = involvedStops.first?.id ?? ""
+        if bundle.kind == .duplicateValue,
+           let keep = ConflictResolver.preferredKeepStop(in: involvedStops) {
+            selectedStopID = keep.id
+        } else {
+            selectedStopID = involvedStops.first?.id ?? ""
+        }
         selectedStrategy = defaultStrategy
-        syncDraftsForSelectedStop()
+        syncStrategyState()
     }
 
     private var defaultStrategy: ConflictFixStrategy {
         switch bundle.kind {
         case .duplicateName:
-            return .rename
+            return involvedStops.count >= 2 ? .renameAllFromValues : .rename
         case .duplicateValue:
-            return .remove
+            return involvedStops.count >= 2 ? .keepOneStop : .remove
         case .duplicateValueAndName:
             return .revalueAndRename
         }
     }
 
-    private func syncDraftsForSelectedStop() {
-        guard selectedStop != nil else { return }
-        renameDraft = ""
-        revalueDraft = ""
-        renameUsesSuggestion = true
-        revalueUsesSuggestion = true
+    private func syncStrategyState() {
         if !availableStrategies.contains(selectedStrategy) {
             selectedStrategy = availableStrategies.first ?? .remove
         }
+
+        if usesEditableBulkNames {
+            syncBulkNameDrafts()
+        } else if usesEditableBulkValues {
+            syncBulkValueDrafts()
+        } else if usesMultiSelectRemoval {
+            syncRemovalSelection()
+        } else {
+            renameDraft = ""
+            revalueDraft = ""
+            renameUsesSuggestion = true
+            revalueUsesSuggestion = true
+        }
+    }
+
+    private func syncBulkNameDrafts() {
+        guard let axis else { return }
+        bulkNameDrafts = ConflictResolver.suggestedBulkRenames(for: bundle, axis: axis)
+    }
+
+    private func syncBulkValueDrafts() {
+        guard let axis else { return }
+        bulkValueDrafts = ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)
+    }
+
+    private func syncRemovalSelection() {
+        let keep = ConflictResolver.preferredKeepStop(in: involvedStops)
+        let keepID = keep?.id ?? involvedStops.first?.id
+        selectedRemovalStopIDs = Set(involvedStops.map(\.id)).subtracting([keepID].compactMap { $0 })
     }
 }
 

@@ -140,6 +140,11 @@ enum StudioColors {
     static let clarifierForeground = Color(red: 0.55, green: 0.45, blue: 0.95)
     static let clarifierBackground = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.14)
     static let clarifierStroke = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.35)
+    /// Registration / design-record axes — file identity, not instance grid.
+    /// Teal: distinct from clarifier purple, axis-value orange, and selection accent.
+    static let registrationForeground = Color(red: 0.28, green: 0.62, blue: 0.68)
+    static let registrationBackground = Color(red: 0.28, green: 0.62, blue: 0.68).opacity(0.14)
+    static let registrationStroke = Color(red: 0.28, green: 0.62, blue: 0.68).opacity(0.35)
     /// STAT format badges in the axis tree format grid.
     static let statFormat1 = Color.green
     static let statFormat2 = Color.cyan
@@ -183,9 +188,15 @@ enum StudioFormatting {
     }
 }
 
+enum NamingVisualRole {
+    case instance
+    case registration
+}
+
 struct StudioTagPill: View {
     let text: String
     var compact: Bool = false
+    var role: NamingVisualRole = .instance
 
     private static let horizontalPadding: CGFloat = 5
     private static let monospacedCharWidth: CGFloat = 5.5
@@ -194,14 +205,28 @@ struct StudioTagPill: View {
         CGFloat(text.count) * monospacedCharWidth + horizontalPadding * 2
     }
 
+    private var foreground: Color {
+        switch role {
+        case .instance: StudioColors.tagForeground
+        case .registration: StudioColors.registrationForeground
+        }
+    }
+
+    private var background: Color {
+        switch role {
+        case .instance: StudioColors.tagBackground
+        case .registration: StudioColors.registrationBackground
+        }
+    }
+
     var body: some View {
         Text(text)
             .font(StudioTypography.tag)
             .padding(.horizontal, Self.horizontalPadding)
             .padding(.vertical, 2)
-            .foregroundStyle(StudioColors.tagForeground)
+            .foregroundStyle(foreground)
             .background(
-                StudioColors.tagBackground,
+                background,
                 in: RoundedRectangle(cornerRadius: compact ? StudioRadius.small : StudioRadius.small)
             )
     }
@@ -1190,13 +1215,22 @@ struct StudioInstanceComposedName: View {
     }
 
     private func segmentColor(for link: NamingChainLink) -> Color {
-        if link.kind == .clarifier {
+        switch link.kind {
+        case .clarifier:
             return included
                 ? StudioColors.clarifierForeground
                 : StudioColors.clarifierForeground.opacity(0.55)
+        case .registration:
+            if link.elided {
+                return StudioColors.registrationForeground.opacity(0.45)
+            }
+            return included
+                ? StudioColors.registrationForeground
+                : StudioColors.registrationForeground.opacity(0.55)
+        case .axis:
+            if link.elided { return Color.secondary.opacity(0.55) }
+            return included ? Color.primary : Color.secondary
         }
-        if link.elided { return Color.secondary.opacity(0.55) }
-        return included ? Color.primary : Color.secondary
     }
 }
 
@@ -1252,12 +1286,16 @@ struct InspectorInstanceNamingChain: View {
                     onLinkTap?(link.tag)
                 } label: {
                     HStack(spacing: 5) {
-                        StudioTagPill(text: link.tag, compact: true)
+                        StudioTagPill(
+                            text: link.tag,
+                            compact: true,
+                            role: link.kind == .registration ? .registration : .instance
+                        )
                             .opacity(link.elided ? 0.55 : 1)
 
                         Text(link.name)
                             .font(StudioTypography.bodyMedium)
-                            .foregroundStyle(link.elided ? .tertiary : .primary)
+                            .foregroundStyle(segmentForeground(for: link))
                             .strikethrough(link.elided, color: Color.secondary.opacity(0.45))
                     }
                     .padding(.horizontal, 4)
@@ -1265,6 +1303,15 @@ struct InspectorInstanceNamingChain: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func segmentForeground(for link: NamingChainLink) -> Color {
+        if link.elided { return Color.secondary.opacity(0.55) }
+        switch link.kind {
+        case .registration: return StudioColors.registrationForeground
+        case .axis: return Color.primary
+        case .clarifier: return StudioColors.clarifierForeground
         }
     }
 }
@@ -1370,7 +1417,7 @@ struct InspectorAxisCoordinatesView: View {
         }
         .help(row.participatesInNaming
             ? (row.isElided ? "Elided from composed name — focus axis stop" : "Focus this axis stop")
-            : "STAT-only axis — not in instance naming")
+            : "Not in the instance naming grid")
     }
 
     private func nameColor(for row: InspectorAxisCoordRow) -> Color {

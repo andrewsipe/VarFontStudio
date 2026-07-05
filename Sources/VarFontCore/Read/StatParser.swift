@@ -17,12 +17,24 @@ struct ParsedStatValue: Sendable {
     var nominal: Double?
     var rangeMax: Double?
 
+    var olderSibling: Bool { flags & 0x1 != 0 }
+    var elidable: Bool { flags & 0x2 != 0 }
+}
+
+struct ParsedCompoundStatValue: Sendable {
+    var flags: UInt16
+    var nameID: Int
+    var axisIndices: [Int]
+    var axisValues: [Double]
+
+    var olderSibling: Bool { flags & 0x1 != 0 }
     var elidable: Bool { flags & 0x2 != 0 }
 }
 
 struct StatParseResult: Sendable {
     var designAxes: [StatDesignAxis]
     var values: [ParsedStatValue]
+    var compoundValues: [ParsedCompoundStatValue]
     var elidedFallbackNameID: Int?
 }
 
@@ -66,7 +78,12 @@ enum StatParser {
         }
 
         guard designAxisCount > 0, designAxisSize >= 8 else {
-            return StatParseResult(designAxes: [], values: [], elidedFallbackNameID: elidedFallbackNameID)
+            return StatParseResult(
+                designAxes: [],
+                values: [],
+                compoundValues: [],
+                elidedFallbackNameID: elidedFallbackNameID
+            )
         }
 
         var designAxes: [StatDesignAxis] = []
@@ -83,12 +100,14 @@ enum StatParser {
         }
 
         var values: [ParsedStatValue] = []
+        var compoundValues: [ParsedCompoundStatValue] = []
         guard axisValueCount > 0,
               axisValueArrayOffset > 0,
               axisValueArrayOffset + axisValueCount * 2 <= data.count else {
             return StatParseResult(
                 designAxes: designAxes,
                 values: values,
+                compoundValues: compoundValues,
                 elidedFallbackNameID: elidedFallbackNameID
             )
         }
@@ -102,12 +121,15 @@ enum StatParser {
             guard recordOffset + 6 <= data.count else { continue }
             if let parsed = parseAxisValue(data: data, offset: recordOffset) {
                 values.append(parsed)
+            } else if let compound = parseCompoundAxisValue(data: data, offset: recordOffset) {
+                compoundValues.append(compound)
             }
         }
 
         return StatParseResult(
             designAxes: designAxes,
             values: values,
+            compoundValues: compoundValues,
             elidedFallbackNameID: elidedFallbackNameID
         )
     }
@@ -160,5 +182,37 @@ enum StatParser {
         default:
             return nil
         }
+    }
+
+    private static func parseCompoundAxisValue(data: Data, offset: Int) -> ParsedCompoundStatValue? {
+        let format = Int(OpenTypeBinary.readUInt16(data, offset))
+        guard format == 4 else { return nil }
+
+        let axisCount = Int(OpenTypeBinary.readUInt16(data, offset + 2))
+        guard axisCount > 0 else { return nil }
+
+        let flagsOffset = offset + 4 + axisCount * 2
+        let valuesOffset = flagsOffset + 4
+        guard valuesOffset + axisCount * 4 <= data.count else { return nil }
+
+        var axisIndices: [Int] = []
+        for index in 0..<axisCount {
+            axisIndices.append(Int(OpenTypeBinary.readUInt16(data, offset + 4 + index * 2)))
+        }
+
+        let flags = OpenTypeBinary.readUInt16(data, flagsOffset)
+        let nameID = Int(OpenTypeBinary.readUInt16(data, flagsOffset + 2))
+
+        var axisValues: [Double] = []
+        for index in 0..<axisCount {
+            axisValues.append(OpenTypeBinary.readFixed(data, valuesOffset + index * 4))
+        }
+
+        return ParsedCompoundStatValue(
+            flags: flags,
+            nameID: nameID,
+            axisIndices: axisIndices,
+            axisValues: axisValues
+        )
     }
 }

@@ -27,11 +27,7 @@ final class DesignRecordAxisTests: XCTestCase {
     }
 
     func testDesignRecordAxisExcludedFromInstanceGridAndPinnedCoords() throws {
-        let analysis = try FixtureLoader.decode(FontAnalysis.self, from: "playfair-roman-analysis.json")
-        let project = ProjectImporter.newProject(
-            from: analysis,
-            sourceURL: URL(fileURLWithPath: analysis.source.path)
-        )
+        let project = try FixtureLoader.decode(ProjectDocument.self, from: "playfair-family-project.json")
         let plan = try XCTUnwrap(InstancePlanner.plan(project: project, fontID: project.fonts[0].id))
 
         XCTAssertEqual(plan.formula.parts, [3, 3, 3])

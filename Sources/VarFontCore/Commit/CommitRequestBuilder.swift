@@ -16,10 +16,12 @@ public enum CommitRequestBuilder {
             outputPath: outputPath,
             dryRun: dryRun,
             options: commitOptions(from: font.options),
-            naming: namingForCommit(naming, axisTags: font.axes.map(\.tag)),
+            naming: namingForCommit(naming, axisTags: font.axes.map(\.tag), font: font),
             fileRole: font.fileRole,
             axes: orderedAxes(font.axes, naming: naming),
-            includedInstanceKeys: includedInstanceKeys(font: font, plan: plan)
+            includedInstanceKeys: includedInstanceKeys(font: font, plan: plan),
+            fileStatRegistration: font.fileStatRegistration,
+            compoundStatValues: font.compoundStatValues
         )
     }
 
@@ -55,10 +57,17 @@ public enum CommitRequestBuilder {
         return []
     }
 
-    private static func namingForCommit(_ naming: NamingPolicy, axisTags: [String]) -> NamingPolicy {
-        NamingPolicy(
+    private static func namingForCommit(_ naming: NamingPolicy, axisTags: [String], font: FontDocument) -> NamingPolicy {
+        let resolved = ElidedFallbackResolver.resolve(
+            axes: font.axes,
+            namingOrder: NamingPolicy.mergedOrder(projectOrder: naming.order, axisTags: axisTags),
+            fileStatRegistration: font.fileStatRegistration,
+            sourceElidedFallback: naming.elidedFallback,
+            fileRole: font.fileRole
+        )
+        return NamingPolicy(
             order: NamingPolicy.mergedOrder(projectOrder: naming.order, axisTags: axisTags),
-            elidedFallback: naming.elidedFallback
+            elidedFallback: resolved.value
         )
     }
 

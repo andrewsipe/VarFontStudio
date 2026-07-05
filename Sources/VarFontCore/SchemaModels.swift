@@ -15,6 +15,7 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
     public var value: Double
     public var name: String
     public var elidable: Bool
+    public var olderSibling: Bool
     public var statFormat: Int
     public var rangeMin: Double?
     public var rangeMax: Double?
@@ -22,6 +23,7 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, value, name, elidable
+        case olderSibling = "older_sibling"
         case statFormat = "stat_format"
         case rangeMin = "range_min"
         case rangeMax = "range_max"
@@ -33,6 +35,7 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
         value: Double,
         name: String,
         elidable: Bool,
+        olderSibling: Bool = false,
         statFormat: Int = 1,
         rangeMin: Double? = nil,
         rangeMax: Double? = nil,
@@ -42,6 +45,7 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
         self.value = value
         self.name = name
         self.elidable = elidable
+        self.olderSibling = olderSibling
         self.statFormat = statFormat
         self.rangeMin = rangeMin
         self.rangeMax = rangeMax
@@ -54,10 +58,58 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
         value = try c.decode(Double.self, forKey: .value)
         name = try c.decode(String.self, forKey: .name)
         elidable = try c.decode(Bool.self, forKey: .elidable)
+        olderSibling = try c.decodeIfPresent(Bool.self, forKey: .olderSibling) ?? false
         statFormat = try c.decodeIfPresent(Int.self, forKey: .statFormat) ?? 1
         rangeMin = try c.decodeIfPresent(Double.self, forKey: .rangeMin)
         rangeMax = try c.decodeIfPresent(Double.self, forKey: .rangeMax)
         linkedValue = try c.decodeIfPresent(Double.self, forKey: .linkedValue)
+    }
+}
+
+/// STAT format 4 compound multi-axis entry preserved from source font.
+public struct CompoundStatValue: Codable, Equatable, Sendable, Identifiable {
+    public var id: String
+    public var coords: [String: Double]
+    public var axisIndices: [Int]
+    public var axisValues: [Double]
+    public var name: String
+    public var elidable: Bool
+    public var olderSibling: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, coords, name, elidable
+        case axisIndices = "axis_indices"
+        case axisValues = "axis_values"
+        case olderSibling = "older_sibling"
+    }
+
+    public init(
+        id: String,
+        coords: [String: Double],
+        axisIndices: [Int],
+        axisValues: [Double],
+        name: String,
+        elidable: Bool,
+        olderSibling: Bool = false
+    ) {
+        self.id = id
+        self.coords = coords
+        self.axisIndices = axisIndices
+        self.axisValues = axisValues
+        self.name = name
+        self.elidable = elidable
+        self.olderSibling = olderSibling
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        coords = try c.decode([String: Double].self, forKey: .coords)
+        axisIndices = try c.decodeIfPresent([Int].self, forKey: .axisIndices) ?? []
+        axisValues = try c.decodeIfPresent([Double].self, forKey: .axisValues) ?? []
+        name = try c.decode(String.self, forKey: .name)
+        elidable = try c.decode(Bool.self, forKey: .elidable)
+        olderSibling = try c.decodeIfPresent(Bool.self, forKey: .olderSibling) ?? false
     }
 }
 
@@ -351,6 +403,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
     public var readiness: Readiness
     public var axes: [AnalyzedAxis]
     public var statValues: [StatValueRecord]
+    public var compoundStatValues: [CompoundStatRecord]
     public var instancesExisting: [ExistingInstance]
     public var instancesExistingMeta: InstancesMeta?
     public var nameAudit: NameAudit
@@ -360,6 +413,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         case schemaVersion = "schema_version"
         case source, readiness, axes
         case statValues = "stat_values"
+        case compoundStatValues = "compound_stat_values"
         case instancesExisting = "instances_existing"
         case instancesExistingMeta = "instances_existing_meta"
         case nameAudit = "name_audit"
@@ -429,6 +483,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public var value: Double?
         public var name: String
         public var elidable: Bool?
+        public var olderSibling: Bool?
         public var linkedValue: Double?
         public var rangeMin: Double?
         public var rangeMax: Double?
@@ -436,6 +491,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
 
         enum CodingKeys: String, CodingKey {
             case format, value, name, elidable
+            case olderSibling = "older_sibling"
             case linkedValue = "linked_value"
             case rangeMin = "range_min"
             case rangeMax = "range_max"
@@ -448,6 +504,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public var tag: String
         public var name: String
         public var elidable: Bool
+        public var olderSibling: Bool
         public var nameID: Int?
         public var value: Double?
         public var linkedValue: Double?
@@ -457,12 +514,93 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
 
         enum CodingKeys: String, CodingKey {
             case format, tag, name, elidable
+            case olderSibling = "older_sibling"
             case nameID = "name_id"
             case value
             case linkedValue = "linked_value"
             case rangeMin = "range_min"
             case rangeMax = "range_max"
             case nominal
+        }
+
+        public init(
+            format: Int,
+            tag: String,
+            name: String,
+            elidable: Bool,
+            olderSibling: Bool = false,
+            nameID: Int? = nil,
+            value: Double? = nil,
+            linkedValue: Double? = nil,
+            rangeMin: Double? = nil,
+            rangeMax: Double? = nil,
+            nominal: Double? = nil
+        ) {
+            self.format = format
+            self.tag = tag
+            self.name = name
+            self.elidable = elidable
+            self.olderSibling = olderSibling
+            self.nameID = nameID
+            self.value = value
+            self.linkedValue = linkedValue
+            self.rangeMin = rangeMin
+            self.rangeMax = rangeMax
+            self.nominal = nominal
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            format = try c.decode(Int.self, forKey: .format)
+            tag = try c.decode(String.self, forKey: .tag)
+            name = try c.decode(String.self, forKey: .name)
+            elidable = try c.decode(Bool.self, forKey: .elidable)
+            olderSibling = try c.decodeIfPresent(Bool.self, forKey: .olderSibling) ?? false
+            nameID = try c.decodeIfPresent(Int.self, forKey: .nameID)
+            value = try c.decodeIfPresent(Double.self, forKey: .value)
+            linkedValue = try c.decodeIfPresent(Double.self, forKey: .linkedValue)
+            rangeMin = try c.decodeIfPresent(Double.self, forKey: .rangeMin)
+            rangeMax = try c.decodeIfPresent(Double.self, forKey: .rangeMax)
+            nominal = try c.decodeIfPresent(Double.self, forKey: .nominal)
+        }
+    }
+
+    public struct CompoundStatRecord: Codable, Equatable, Sendable, Identifiable {
+        public var id: String
+        public var coords: [String: Double]
+        public var axisIndices: [Int]
+        public var axisValues: [Double]
+        public var name: String
+        public var elidable: Bool
+        public var olderSibling: Bool
+        public var nameID: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case id, coords, name, elidable
+            case axisIndices = "axis_indices"
+            case axisValues = "axis_values"
+            case olderSibling = "older_sibling"
+            case nameID = "name_id"
+        }
+
+        public init(
+            id: String,
+            coords: [String: Double],
+            axisIndices: [Int],
+            axisValues: [Double],
+            name: String,
+            elidable: Bool,
+            olderSibling: Bool = false,
+            nameID: Int? = nil
+        ) {
+            self.id = id
+            self.coords = coords
+            self.axisIndices = axisIndices
+            self.axisValues = axisValues
+            self.name = name
+            self.elidable = elidable
+            self.olderSibling = olderSibling
+            self.nameID = nameID
         }
     }
 
@@ -531,6 +669,44 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
             case gridAxisTags = "grid_axis_tags"
             case namingOrderSuggested = "naming_order_suggested"
         }
+    }
+
+    public init(
+        schemaVersion: Int,
+        source: SourceInfo,
+        readiness: Readiness,
+        axes: [AnalyzedAxis],
+        statValues: [StatValueRecord],
+        compoundStatValues: [CompoundStatRecord] = [],
+        instancesExisting: [ExistingInstance],
+        instancesExistingMeta: InstancesMeta? = nil,
+        nameAudit: NameAudit,
+        inferred: InferredAnalysis
+    ) {
+        self.schemaVersion = schemaVersion
+        self.source = source
+        self.readiness = readiness
+        self.axes = axes
+        self.statValues = statValues
+        self.compoundStatValues = compoundStatValues
+        self.instancesExisting = instancesExisting
+        self.instancesExistingMeta = instancesExistingMeta
+        self.nameAudit = nameAudit
+        self.inferred = inferred
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        source = try c.decode(SourceInfo.self, forKey: .source)
+        readiness = try c.decode(Readiness.self, forKey: .readiness)
+        axes = try c.decode([AnalyzedAxis].self, forKey: .axes)
+        statValues = try c.decode([StatValueRecord].self, forKey: .statValues)
+        compoundStatValues = try c.decodeIfPresent([CompoundStatRecord].self, forKey: .compoundStatValues) ?? []
+        instancesExisting = try c.decode([ExistingInstance].self, forKey: .instancesExisting)
+        instancesExistingMeta = try c.decodeIfPresent(InstancesMeta.self, forKey: .instancesExistingMeta)
+        nameAudit = try c.decode(NameAudit.self, forKey: .nameAudit)
+        inferred = try c.decode(InferredAnalysis.self, forKey: .inferred)
     }
 }
 
@@ -650,6 +826,12 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public var overrides: InstanceOverrides
     /// Per-file resolved values on registration (`design_record_only`) axes.
     public var fileStatRegistration: [String: Double]
+    /// Import-time italic file cue for registration warnings without re-analyzing.
+    public var inferredIsItalicFile: Bool?
+    /// User-acknowledged plan issues (orphan F3 kept, etc.) — keys from `PlanIssueCodes.issueKey`.
+    public var dismissedPlanIssues: [String]
+    /// Preserved STAT format 4 compound entries (read-only in Phase 0).
+    public var compoundStatValues: [CompoundStatValue]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -663,6 +845,9 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         case excludedInstanceKeys = "excluded_instance_keys"
         case overrides
         case fileStatRegistration = "file_stat_registration"
+        case inferredIsItalicFile = "inferred_is_italic_file"
+        case dismissedPlanIssues = "dismissed_plan_issues"
+        case compoundStatValues = "compound_stat_values"
     }
 
     public init(
@@ -677,7 +862,10 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         includedInstanceKeys: [String] = [],
         excludedInstanceKeys: [String] = [],
         overrides: InstanceOverrides = InstanceOverrides(),
-        fileStatRegistration: [String: Double] = [:]
+        fileStatRegistration: [String: Double] = [:],
+        inferredIsItalicFile: Bool? = nil,
+        dismissedPlanIssues: [String] = [],
+        compoundStatValues: [CompoundStatValue] = []
     ) {
         self.id = id
         self.sourcePath = sourcePath
@@ -691,6 +879,9 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         self.excludedInstanceKeys = excludedInstanceKeys
         self.overrides = overrides
         self.fileStatRegistration = fileStatRegistration
+        self.inferredIsItalicFile = inferredIsItalicFile
+        self.dismissedPlanIssues = dismissedPlanIssues
+        self.compoundStatValues = compoundStatValues
     }
 
     public init(from decoder: Decoder) throws {
@@ -707,6 +898,9 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         excludedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .excludedInstanceKeys) ?? []
         overrides = try c.decodeIfPresent(InstanceOverrides.self, forKey: .overrides) ?? InstanceOverrides()
         fileStatRegistration = try c.decodeIfPresent([String: Double].self, forKey: .fileStatRegistration) ?? [:]
+        inferredIsItalicFile = try c.decodeIfPresent(Bool.self, forKey: .inferredIsItalicFile)
+        dismissedPlanIssues = try c.decodeIfPresent([String].self, forKey: .dismissedPlanIssues) ?? []
+        compoundStatValues = try c.decodeIfPresent([CompoundStatValue].self, forKey: .compoundStatValues) ?? []
     }
 }
 
@@ -787,6 +981,7 @@ public struct PlannedInstance: Codable, Equatable, Sendable, Identifiable {
 public struct NamingChainLink: Codable, Equatable, Sendable {
     public enum Kind: String, Codable, Sendable {
         case axis
+        case registration
         case clarifier
     }
 
@@ -872,6 +1067,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
     public var fileRole: FileRole?
     public var axes: [AxisDefinition]
     public var includedInstanceKeys: [String]
+    public var fileStatRegistration: [String: Double]
+    public var compoundStatValues: [CompoundStatValue]
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -883,6 +1080,52 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         case fileRole = "file_role"
         case axes
         case includedInstanceKeys = "included_instance_keys"
+        case fileStatRegistration = "file_stat_registration"
+        case compoundStatValues = "compound_stat_values"
+    }
+
+    public init(
+        schemaVersion: Int,
+        requestID: String,
+        sourcePath: String,
+        outputPath: String,
+        dryRun: Bool,
+        options: CommitOptions,
+        naming: NamingPolicy,
+        fileRole: FileRole? = nil,
+        axes: [AxisDefinition],
+        includedInstanceKeys: [String] = [],
+        fileStatRegistration: [String: Double] = [:],
+        compoundStatValues: [CompoundStatValue] = []
+    ) {
+        self.schemaVersion = schemaVersion
+        self.requestID = requestID
+        self.sourcePath = sourcePath
+        self.outputPath = outputPath
+        self.dryRun = dryRun
+        self.options = options
+        self.naming = naming
+        self.fileRole = fileRole
+        self.axes = axes
+        self.includedInstanceKeys = includedInstanceKeys
+        self.fileStatRegistration = fileStatRegistration
+        self.compoundStatValues = compoundStatValues
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        requestID = try c.decode(String.self, forKey: .requestID)
+        sourcePath = try c.decode(String.self, forKey: .sourcePath)
+        outputPath = try c.decode(String.self, forKey: .outputPath)
+        dryRun = try c.decode(Bool.self, forKey: .dryRun)
+        options = try c.decode(CommitOptions.self, forKey: .options)
+        naming = try c.decode(NamingPolicy.self, forKey: .naming)
+        fileRole = try c.decodeIfPresent(FileRole.self, forKey: .fileRole)
+        axes = try c.decode([AxisDefinition].self, forKey: .axes)
+        includedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .includedInstanceKeys) ?? []
+        fileStatRegistration = try c.decodeIfPresent([String: Double].self, forKey: .fileStatRegistration) ?? [:]
+        compoundStatValues = try c.decodeIfPresent([CompoundStatValue].self, forKey: .compoundStatValues) ?? []
     }
 }
 
