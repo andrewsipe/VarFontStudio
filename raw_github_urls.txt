@@ -31,6 +31,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 # Apps/VarFontStudio/Views/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/AxisConflictResolverSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/AxisTreePanel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/CombinationStylesSection.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/CommitDiffSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/FileClarifiersBar.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InspectorPanel.swift
@@ -38,6 +39,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/InstanceListPanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/MainEditorView.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/NamingOrderChainFooter.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/PlanIssueResolverSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectDropdownMenu.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectFileCommands.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/Views/ProjectFileSubBar.swift
@@ -71,13 +73,19 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisLane.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisPinPolicy.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisReferenceMapping.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopNamingDefaults.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopSuggestions.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisStopValidator.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/AxisTreeReviewQueue.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/ComposedNameWarningRollup.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/CompoundStatCoordinateSync.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/ConflictResolver.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/ElidedFallbackResolver.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/InstanceKeyBuilder.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/InstancePlanner.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/NamingComposer.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/NamingConflictAnalyzer.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/PlanIssueResolver.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/RegistrationAxisSupport.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Sources/VarFontCore/Plan/StatFormat3Pairing.swift
 
@@ -95,8 +103,11 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisLadderAlignmentTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisLaneTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisNamingWarningTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisStopNamingDefaultsTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/AxisTreeReviewQueueTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitDiffBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/CommitRequestBuilderTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ComposedNameWarningRollupTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/DesignRecordAxisTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FixtureLoader.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/FontAnalysisReaderTests.swift
@@ -107,6 +118,8 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/LiveFontImportPlanTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerClarifierTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/NamingComposerTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/Phase0StatAlignmentTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/PlanIssueResolverTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/PostScriptPrefixInferenceTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ProjectImporterTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tests/VarFontCoreTests/ReferenceMappingTests.swift
@@ -124,6 +137,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/v
 # Tools/vfcommit/tests/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_diff_export.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_nameid_allocator.py
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_registration_naming.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_request_bridge.py
 
 # Tools/vfcommit/tests/__pycache__/
@@ -131,6 +145,8 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/t
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_diff_export.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_nameid_allocator.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_nameid_allocator.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_registration_naming.cpython-314-pytest-9.0.1.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_registration_naming.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314.pyc
 
@@ -179,6 +195,8 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/example
 # prototype mockups/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/axis-tree-lanes-prototype.html
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-axis-tree-coordinate-layouts.html
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-axis-tree-ui-v2.html
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-axis-tree-ui-v2a.html
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-axis-tree-ui.html
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-multi-file-options.html
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/prototype mockups/prototype-project-workspace.html
