@@ -115,7 +115,7 @@ public enum RegistrationAxisSupport {
                         code: "registration_value_missing",
                         axis: tag,
                         message: "Registration axis '\(tag)' resolves to \(AxisCoordinateFormat.format(value)) with no matching STAT stop.",
-                        hint: "Pick a registration stop that exists on this axis."
+                        hint: "Registration needs to point at a stop that actually exists on this axis."
                     )
                 )
                 continue
@@ -128,7 +128,7 @@ public enum RegistrationAxisSupport {
                         name: stop.name,
                         stopIDs: [stop.id],
                         message: "Upright file registers as “\(stop.name)” on axis '\(tag)'.",
-                        hint: "Set this file's registration to Roman/upright or verify the source font."
+                        hint: "Worth a look: either this file's registration can move to Roman/upright, or it's correct and the source font can be double-checked."
                     )
                 )
             }
@@ -149,7 +149,7 @@ public enum RegistrationAxisSupport {
                         name: stop.name,
                         stopIDs: [stop.id],
                         message: "Axis 'ital' stop “\(stop.name)” uses value \(AxisCoordinateFormat.format(stop.value)); convention is \(expected).",
-                        hint: "Align the stop value with the usual ital axis convention, or keep as-is."
+                        hint: "The usual `ital` convention would put this at a different value — or the current value can stay."
                     )
                 )
             }

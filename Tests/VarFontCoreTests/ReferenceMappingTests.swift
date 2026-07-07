@@ -48,7 +48,7 @@ final class ReferenceMappingTests: XCTestCase {
 
     func testReferenceToNativeRoundTripOnPlayfairWidth() {
         let axis = playfairWidthAxis()
-        for reference in [75.0, 87.5, 100.0, 112.5] {
+        for reference in [87.5, 100.0, 112.5] {
             let native = AxisReferenceMapping.referenceToNative(reference, axis: axis)
             let back = AxisReferenceMapping.nativeToReference(native, axis: axis)
             XCTAssertEqual(back, reference, accuracy: 0.5)

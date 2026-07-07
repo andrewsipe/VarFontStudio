@@ -166,11 +166,11 @@ public enum ConflictResolver {
         case .remove:
             return "Remove “\(stop.name)” at \(valueText) from this axis."
         case .revalue:
-            return "Move this stop to a unique value. The duplicate name may remain."
+            return "Moves this stop to a unique value. The duplicate name may still remain."
         case .rename:
-            return "Give this stop a unique name. The duplicate value may remain."
+            return "Gives this stop a unique name. The duplicate value may still remain."
         case .setElidable:
-            return "Omit “\(stop.name)” from composed names when it is the default choice."
+            return "When this is the default choice, composed names will leave out “\(stop.name)”."
         case .revalueAndRename:
             if let bundle, bundle.involvedStopIDs.count > 2 {
                 return "Give this stop a unique value and name. Fix remaining stops in a follow-up step."
@@ -185,9 +185,9 @@ public enum ConflictResolver {
         case .applyAllAxisDefaults:
             return "Elidable stop gets the axis default label; other stops get value-based names."
         case .keepOneStop:
-            return "Keep the selected stop and remove the other stops at this value."
+            return "Keeps the selected stop and removes the others sharing this value."
         case .removeSelected:
-            return "Remove the checked stops. At least one must remain."
+            return "Removes the checked stops (at least one needs to stay)."
         case .revalueEach:
             return "Edit the coordinate for every involved stop in the table above."
         }

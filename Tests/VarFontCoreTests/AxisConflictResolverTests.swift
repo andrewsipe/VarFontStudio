@@ -683,4 +683,39 @@ final class AxisConflictResolverTests: XCTestCase {
         XCTAssertEqual(parsed.count, 3)
         XCTAssertEqual(Set(parsed.map { AxisCoordinateFormat.format($0) }).count, 3)
     }
+
+    func testDuplicateValueWarningsSortedByValue() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Regular", elidable: true),
+            AxisValue(id: "b", value: 100, name: "Bold", elidable: false),
+            AxisValue(id: "c", value: 50, name: "Condensed", elidable: false),
+            AxisValue(id: "d", value: 50, name: "Narrow", elidable: false),
+        ])
+        let warnings = AxisStopValidator.validate(axes: [axis])
+            .filter { $0.code == "duplicate_stop_value" }
+        XCTAssertEqual(warnings.count, 2)
+        XCTAssertEqual(warnings[0].name, "50")
+        XCTAssertEqual(warnings[1].name, "100")
+    }
+
+    func testBundlerReadsDuplicateValueFromStopCoordinate() {
+        let axis = wdthAxis(values: [
+            AxisValue(id: "a", value: 100, name: "Regular", elidable: true),
+            AxisValue(id: "b", value: 100, name: "Bold", elidable: false),
+        ])
+        let warning = PlanWarning(
+            code: "duplicate_stop_value",
+            axis: "wdth",
+            name: "not-parseable",
+            stopIDs: ["a", "b"],
+            message: "test"
+        )
+        let bundles = AxisConflictBundler.bundles(
+            warnings: [warning],
+            axes: [axis],
+            namingOrder: ["wdth"]
+        )
+        XCTAssertEqual(bundles.count, 1)
+        XCTAssertEqual(bundles[0].groups[0].duplicateValue, 100)
+    }
 }

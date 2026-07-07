@@ -16,11 +16,6 @@ struct OpenProject: Identifiable, Equatable {
     }
 }
 
-enum FontDropDisposition: Equatable {
-    case createNewProject
-    case addToProject
-}
-
 struct FontRemovalRequest: Identifiable, Equatable {
     var projectID: String
     var fontID: String

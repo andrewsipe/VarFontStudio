@@ -4,6 +4,7 @@ import VarFontCore
 
 struct InstanceListPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @AppStorage("instanceListHideElided") private var hideElidedNames = false
 
     /// Matches list row checkbox column: list inset + row horizontal padding.
     private static let checkboxLeading = StudioSpacing.listInset + StudioSpacing.rowHorizontal
@@ -115,6 +116,7 @@ struct InstanceListPanel: View {
             coordsCaption: display.coordCaptions[instance.key] ?? "",
             isIncluded: display.includedByKey[instance.key] ?? true,
             isSelected: editor.activeInstanceSelection.contains(instance.key),
+            hideElidedNames: hideElidedNames,
             hasConflict: hasConflict,
             onSelect: { extend in
                 editor.selectInstance(key: instance.key, extend: extend)
@@ -180,10 +182,18 @@ struct InstanceListPanel: View {
                     .foregroundStyle(editor.filteredInstances.isEmpty ? .tertiary : .secondary)
                     .lineLimit(1)
 
+                Toggle(isOn: $hideElidedNames) {
+                    Text("Hide elided")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.secondary)
+                }
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .disabled(editor.filteredInstances.isEmpty)
+
                 Spacer(minLength: StudioSpacing.controlGap)
 
                 showFilterPicker
-                    .frame(width: 220, alignment: .trailing)
             }
             .padding(.leading, Self.checkboxLeading)
             .padding(.trailing, StudioSpacing.panelHorizontal)
@@ -208,16 +218,51 @@ struct InstanceListPanel: View {
                 .foregroundStyle(.tertiary)
                 .fixedSize()
 
-            Picker("Show", selection: $editor.instanceFilter) {
-                ForEach(InstanceFilter.allCases) { filter in
-                    Text(filter.label).tag(filter)
+            HStack(spacing: 1) {
+                ForEach(editor.visibleInstanceFilters) { filter in
+                    showFilterButton(filter)
                 }
             }
-            .pickerStyle(.segmented)
-            .controlSize(.mini)
-            .labelsHidden()
-            .fixedSize()
+            .padding(2)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
         }
+    }
+
+    private func showFilterButton(_ filter: InstanceFilter) -> some View {
+        let isSelected = editor.instanceFilter == filter
+        let isDuplicates = filter == .duplicates
+
+        return Button {
+            editor.instanceFilter = filter
+        } label: {
+            Text(filter.label)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .foregroundStyle(showFilterForeground(isSelected: isSelected, isDuplicates: isDuplicates))
+                .background(
+                    showFilterBackground(isSelected: isSelected, isDuplicates: isDuplicates),
+                    in: RoundedRectangle(cornerRadius: StudioRadius.small)
+                )
+        }
+        .buttonStyle(.plain)
+        .studioCompactControl()
+        .help(isDuplicates ? "Show instances that share a composed style name" : filter.label)
+    }
+
+    private func showFilterForeground(isSelected: Bool, isDuplicates: Bool) -> Color {
+        if isDuplicates {
+            return StudioColors.warningForeground
+        }
+        return isSelected ? Color.primary : Color.secondary
+    }
+
+    private func showFilterBackground(isSelected: Bool, isDuplicates: Bool) -> Color {
+        if isDuplicates {
+            return isSelected
+                ? StudioColors.warningFill
+                : StudioColors.warningFill.opacity(0.45)
+        }
+        return isSelected ? Color.primary.opacity(0.12) : Color.clear
     }
 
     private var emptyListTitle: String {
@@ -252,6 +297,7 @@ private struct InstanceRowView: View {
     let coordsCaption: String
     let isIncluded: Bool
     let isSelected: Bool
+    var hideElidedNames: Bool = false
     var hasConflict: Bool = false
     let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
@@ -269,7 +315,8 @@ private struct InstanceRowView: View {
             StudioInstanceComposedName(
                 links: instance.namingChain,
                 fallback: instance.composedName,
-                included: isIncluded
+                included: isIncluded,
+                hideElided: hideElidedNames
             )
             .strikethrough(!isIncluded, color: .secondary)
 

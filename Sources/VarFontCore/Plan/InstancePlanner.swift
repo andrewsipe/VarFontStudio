@@ -142,7 +142,7 @@ public enum InstancePlanner {
                         axis: axis.tag,
                         stopIDs: elidable.map(\.id),
                         message: "Axis '\(axis.tag)' has \(elidable.count) elidable stops; at most one is allowed.",
-                        hint: "Clear elision on all but one stop for this axis."
+                        hint: "Only one stop per axis can be elidable — clear it on the rest."
                     )
                 )
             }
@@ -152,7 +152,7 @@ public enum InstancePlanner {
                         code: "empty_instance_axis",
                         axis: axis.tag,
                         message: "Instance axis '\(axis.tag)' has no stops.",
-                        hint: "Add at least one stop or turn off instance axis for this axis."
+                        hint: "This axis needs at least one stop, or it can be switched off as an instance axis."
                     )
                 )
             }
@@ -183,7 +183,7 @@ public enum InstancePlanner {
                 PlanWarning(
                     code: "duplicate_clarifier_category",
                     message: "This file has more than one clarifier in the same category.",
-                    hint: "Keep at most one label per clarifier category (slope, width, optical, custom)."
+                    hint: "Each clarifier category (slope, width, optical, custom) works best with just one label."
                 )
             )
         }
@@ -205,7 +205,7 @@ public enum InstancePlanner {
                         axis: axisTag,
                         name: clarifier.label,
                         message: "File clarifier '\(clarifier.label)' (\(clarifier.category.rawValue)) overlaps with instance axis '\(axisTag)'.",
-                        hint: "Remove the clarifier or set the axis to STAT-only if width/slope/optical varies inside this file."
+                        hint: "If width/slope/optical actually varies inside this file, the clarifier can go, or the axis can switch to STAT-only."
                     )
                 )
             }
@@ -223,7 +223,7 @@ public enum InstancePlanner {
                 code: "compound_axis_missing",
                 name: compound.name,
                 message: "Combination style “\(compound.name)” references missing axis tag(s): \(missing.sorted().joined(separator: ", ")).",
-                hint: "Remove the orphan leg or restore the axis before save."
+                hint: "This leg is orphaned — remove it, or restore the axis, before saving."
             )
         }
     }
@@ -253,7 +253,7 @@ public enum InstancePlanner {
         return PlanWarning(
             code: "default_token_names",
             message: "Instance names are only default labels (e.g. “\(included[0].composedName)”).",
-            hint: "Apply standard axis labels and elide defaults so the baseline collapses to the elided fallback."
+            hint: "Applying standard axis labels lets the baseline collapse to the elided fallback."
         )
     }
 

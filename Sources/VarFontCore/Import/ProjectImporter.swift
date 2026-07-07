@@ -102,21 +102,13 @@ public enum ProjectImporter {
       dirty: false,
       axes: axes
     )
-    let inferred = FileClarifierInference.infer(
-      sourceURL: sourceURL,
-      analysis: analysis,
-      font: placeholder
-    )
-
     let fileRole: FileRole
     if isMaster {
       fileRole = .master()
     } else {
-      fileRole = .variant(
-        masterFontID: masterFontID ?? "",
-        clarifiers: inferred.clarifiers,
-        elidedFallbackOverride: inferred.elidedFallbackOverride
-      )
+      // Clarifiers are manual-only (File naming → Infer). Auto-guessing on import was too
+      // aggressive and often expanded filename tokens beyond what the font actually uses.
+      fileRole = .variant(masterFontID: masterFontID ?? "")
     }
 
     var font = FontDocument(

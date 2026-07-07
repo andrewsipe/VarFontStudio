@@ -114,17 +114,26 @@ public enum AxisStopNamingDefaults {
     }
 
     public static func hasInstanceAxisValueConflicts(_ font: FontDocument) -> Bool {
-        font.axes.contains { axis in
-            guard axis.role == .instance else { return false }
+        !axesWithValueConflicts(in: font).isEmpty
+    }
+
+    public static func axesWithValueConflicts(in font: FontDocument) -> [String] {
+        var tags: [String] = []
+        for axis in font.axes where axis.role == .instance {
             var seen: [Double] = []
+            var hasDuplicate = false
             for stop in axis.values {
                 if seen.contains(where: { AxisCoordinate.valuesEqual($0, stop.value) }) {
-                    return true
+                    hasDuplicate = true
+                    break
                 }
                 seen.append(stop.value)
             }
-            return false
+            if hasDuplicate {
+                tags.append(axis.tag)
+            }
         }
+        return tags.sorted()
     }
 
     public struct AxisNeutralMismatch: Equatable, Sendable {
@@ -236,12 +245,12 @@ public enum AxisStopNamingDefaults {
     public static func applyAxisDefaultsDetail(for font: FontDocument) -> String {
         let labels = axisLabelsForApplyDefaults(font)
         guard !labels.isEmpty else {
-            return "Rename non-default stops to their coordinate values so composed instance names are distinct."
+            return "This tool renames non-default stops to their coordinate values, so composed names come out distinct."
         }
         if labels.count == 1 {
-            return "Rename stops on \(labels[0]) to coordinate values. The elidable stop keeps its axis neutral."
+            return "For composed names, this tool renames stops on \(labels[0]) to their coordinate values — the elidable stop keeps its axis neutral."
         }
-        return "Rename stops on \(labels.joined(separator: ", ")) to coordinate values. Elidable stops keep axis neutrals."
+        return "For composed names, this tool renames stops on \(labels.joined(separator: ", ")) to their coordinate values. Elidable stops keep their axis neutrals."
     }
 
     public static func applyAxisDefaultsToAllInstanceAxes(font: inout FontDocument) {

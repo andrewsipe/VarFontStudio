@@ -10,6 +10,7 @@ public enum PlanIssueCodes {
         "axis_neutral_mismatch",
         "duplicate_composed_name",
         "multiple_elidable",
+        "empty_instance_axis",
     ]
 
     public static func issueKey(for warning: PlanWarning) -> String {
@@ -28,6 +29,9 @@ public enum PlanIssueAction: Equatable, Sendable {
     case applyAxisNeutrals
     case normalizeElidable(axisTag: String)
     case clearAllElidable(axisTag: String)
+    case setAxisRole(axisTag: String, role: AxisRole)
+    case insertAxisStop(axisTag: String, value: Double, name: String)
+    case openAxisConflicts(axisTag: String?)
     case acknowledgeIssue(issueKey: String)
     case compound([PlanIssueAction])
 }
@@ -74,6 +78,8 @@ public enum PlanIssueResolver {
             return duplicateComposedNameProposals(for: warning, font: font)
         case "multiple_elidable":
             return multipleElidableProposals(for: warning, font: font)
+        case "empty_instance_axis":
+            return emptyInstanceAxisProposals(for: warning, font: font)
         default:
             return []
         }
@@ -99,6 +105,15 @@ public enum PlanIssueResolver {
         case .clearAllElidable(let axisTag):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
             return axis.values.contains(where: \.elidable)
+        case .setAxisRole(let axisTag, let role):
+            guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
+            guard !axis.isDesignRecordOnly else { return false }
+            return axis.role != role
+        case .insertAxisStop(let axisTag, _, _):
+            guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
+            return axis.role == .instance && axis.values.isEmpty && !axis.isDesignRecordOnly
+        case .openAxisConflicts:
+            return AxisStopNamingDefaults.hasInstanceAxisValueConflicts(font)
         case .setFileRegistration, .revalueStop, .convertStopToFormat1, .renameStop:
             return true
         case .acknowledgeIssue:
@@ -160,6 +175,28 @@ public enum PlanIssueResolver {
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             font.axes[axisIndex].values[stopIndex].name = newName
+        case let .setAxisRole(axisTag, role):
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
+            guard !font.axes[axisIndex].isDesignRecordOnly else { return }
+            font.axes[axisIndex].role = role
+        case let .insertAxisStop(axisTag, value, name):
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
+            guard font.axes[axisIndex].role == .instance, !font.axes[axisIndex].isDesignRecordOnly else { return }
+            let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
+            let stop = AxisValue(
+                id: stopID,
+                value: value,
+                name: name,
+                elidable: false,
+                statFormat: 1,
+                rangeMin: nil,
+                rangeMax: nil,
+                linkedValue: nil
+            )
+            font.axes[axisIndex].values.append(stop)
+            font.axes[axisIndex].values.sort { $0.value < $1.value }
+        case .openAxisConflicts:
+            break
         case let .acknowledgeIssue(issueKey):
             if !font.dismissedPlanIssues.contains(issueKey) {
                 font.dismissedPlanIssues.append(issueKey)
@@ -169,24 +206,51 @@ public enum PlanIssueResolver {
 
     // MARK: - Auto-fix (import only)
 
+    public struct SafeAutoFixResult: Equatable, Sendable {
+        public var appliedCount: Int
+        /// True when the iteration cap was hit but another safe auto-fix was still available.
+        public var hitIterationLimit: Bool
+
+        public init(appliedCount: Int, hitIterationLimit: Bool) {
+            self.appliedCount = appliedCount
+            self.hitIterationLimit = hitIterationLimit
+        }
+    }
+
+    public static let safeAutoFixMaxIterations = 32
+
     @discardableResult
-    public static func applySafeAutoFixes(to font: inout FontDocument, analysis: FontAnalysis? = nil) -> Int {
+    public static func applySafeAutoFixes(
+        to font: inout FontDocument,
+        analysis: FontAnalysis? = nil
+    ) -> SafeAutoFixResult {
         var applied = 0
-        for _ in 0..<8 {
-            let warnings = visibleWarnings(for: font, analysis: analysis)
-            guard let warning = warnings.first(where: { warning in
-                guard let proposal = recommendedProposal(for: warning, font: font),
-                      proposal.isRecommended,
-                      isSafeAutoFixAction(proposal.action) else {
-                    return false
-                }
-                return true
-            }),
-            let proposal = recommendedProposal(for: warning, font: font) else { break }
+        for _ in 0..<safeAutoFixMaxIterations {
+            guard let proposal = nextSafeAutoFixProposal(for: font, analysis: analysis) else { break }
             apply(proposal.action, to: &font)
             applied += 1
         }
-        return applied
+        let hitLimit = applied == safeAutoFixMaxIterations
+            && nextSafeAutoFixProposal(for: font, analysis: analysis) != nil
+        return SafeAutoFixResult(appliedCount: applied, hitIterationLimit: hitLimit)
+    }
+
+    private static func nextSafeAutoFixProposal(
+        for font: FontDocument,
+        analysis: FontAnalysis?
+    ) -> PlanIssueProposal? {
+        let warnings = visibleWarnings(for: font, analysis: analysis)
+        guard let warning = warnings.first(where: { warning in
+            guard let proposal = recommendedProposal(for: warning, font: font),
+                  proposal.isRecommended,
+                  isSafeAutoFixAction(proposal.action) else {
+                return false
+            }
+            return true
+        }) else {
+            return nil
+        }
+        return recommendedProposal(for: warning, font: font)
     }
 
     public static func visibleWarnings(for font: FontDocument, analysis: FontAnalysis? = nil) -> [PlanWarning] {
@@ -202,7 +266,7 @@ public enum PlanIssueResolver {
         case .setFileRegistration, .revalueStop:
             return true
         case .convertStopToFormat1, .renameStop, .acknowledgeIssue, .applyAxisDefaults, .applyAxisNeutrals,
-             .normalizeElidable, .clearAllElidable:
+             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .openAxisConflicts:
             return false
         case .compound(let actions):
             return actions.allSatisfy(isSafeAutoFixAction)
@@ -212,9 +276,9 @@ public enum PlanIssueResolver {
     private static func isChainableAction(_ action: PlanIssueAction) -> Bool {
         switch action {
         case .setFileRegistration, .revalueStop, .convertStopToFormat1, .applyAxisDefaults, .applyAxisNeutrals,
-             .normalizeElidable, .clearAllElidable:
+             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop:
             return true
-        case .renameStop, .acknowledgeIssue:
+        case .renameStop, .acknowledgeIssue, .openAxisConflicts:
             return false
         case .compound(let actions):
             return actions.allSatisfy(isChainableAction)
@@ -395,7 +459,7 @@ public enum PlanIssueResolver {
         font: FontDocument
     ) -> [PlanIssueProposal] {
         if AxisStopNamingDefaults.hasInstanceAxisValueConflicts(font) {
-            return conflictBlocksNamingFixProposals(for: warning)
+            return conflictBlocksNamingFixProposals(for: warning, font: font)
         }
         if AxisStopNamingDefaults.hasUniformStopNamesOnInstanceAxes(font),
            AxisStopNamingDefaults.wouldChangeFromApplyAxisDefaults(font) {
@@ -422,14 +486,64 @@ public enum PlanIssueResolver {
         return noAutomaticNamingFixProposals(for: warning)
     }
 
-    private static func conflictBlocksNamingFixProposals(for warning: PlanWarning) -> [PlanIssueProposal] {
-        [
+    private static func conflictBlocksNamingFixProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        let axisTag = warning.axis ?? AxisStopNamingDefaults.axesWithValueConflicts(in: font).first
+        return [
             PlanIssueProposal(
                 id: "resolve-value-conflicts",
-                title: "Resolve axis value conflicts first",
-                detail: "Duplicate instance names come from multiple stops sharing the same coordinate. Use Resolve on the affected axis, then revisit naming.",
+                title: "Resolve value conflicts",
+                detail: "Duplicate instance names come from stops sharing the same coordinate. Open the axis conflict resolver to fix values first, then revisit naming.",
+                action: .openAxisConflicts(axisTag: axisTag),
+                isRecommended: true
+            ),
+            PlanIssueProposal(
+                id: "resolve-value-conflicts-later",
+                title: "Not now",
+                detail: "Leave this warning for later.",
                 action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning)),
                 isRecommended: false
+            ),
+        ]
+    }
+
+    private static func emptyInstanceAxisProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        guard let tag = warning.axis,
+              let axis = font.axes.first(where: { $0.tag == tag }),
+              axis.role == .instance,
+              axis.values.isEmpty,
+              !axis.isDesignRecordOnly else { return [] }
+
+        let label = axis.displayName ?? tag
+        let value = AxisStopSuggestions.suggestedValue(for: axis)
+        let valueText = AxisStopSuggestions.formatValue(value)
+        let placeholderStop = AxisValue(id: "preview", value: value, name: "", elidable: false)
+        let name = AxisStopNamingDefaults.suggestedName(for: placeholderStop, axisTag: tag)
+
+        return [
+            PlanIssueProposal(
+                id: "empty-axis-stat-only-\(tag)",
+                title: "Switch to STAT-only",
+                detail: "Takes \(label) off the instance grid so composed names no longer require stops on this axis.",
+                action: .setAxisRole(axisTag: tag, role: .statOnly),
+                isRecommended: true
+            ),
+            PlanIssueProposal(
+                id: "empty-axis-add-stop-\(tag)",
+                title: "Add a default stop",
+                detail: "Adds a stop at \(valueText) named “\(name)” on \(label).",
+                action: .insertAxisStop(axisTag: tag, value: value, name: name)
+            ),
+            PlanIssueProposal(
+                id: "empty-axis-keep-\(tag)",
+                title: "Keep as-is",
+                detail: "Leave this axis empty on the instance grid.",
+                action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
             ),
         ]
     }
@@ -439,7 +553,7 @@ public enum PlanIssueResolver {
             PlanIssueProposal(
                 id: "no-auto-naming-fix",
                 title: "Adjust stops manually",
-                detail: "No safe one-click rename remains. Rename or elide stops in the axis tree, or use Resolve for axis conflicts.",
+                detail: "There's no safe one-click rename left for this — stops can be renamed or elided in the axis tree, or Resolve can handle any axis conflicts.",
                 action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning)),
                 isRecommended: false
             ),
@@ -506,7 +620,7 @@ public enum PlanIssueResolver {
             PlanIssueProposal(
                 id: "clear-all-elidable-\(tag)",
                 title: "Clear all elision",
-                detail: "Turn off elision on every stop on \(label). No stop will be omitted from composed names.",
+                detail: "Turns off elision on every stop on \(label), so composed names won't omit any of them.",
                 action: .clearAllElidable(axisTag: tag)
             ),
             PlanIssueProposal(

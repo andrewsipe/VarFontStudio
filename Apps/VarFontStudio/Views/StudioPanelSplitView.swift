@@ -1,22 +1,22 @@
 import SwiftUI
 
-/// Three-column workspace with native split dividers; inspector auto-hides when nothing is selected.
+/// Three-column workspace with native split dividers.
 struct StudioPanelSplitView: View {
     @EnvironmentObject private var layout: EditorLayoutPreferences
     @EnvironmentObject private var editor: EditorViewModel
-
-    private var inspectorHasSelection: Bool {
-        editor.inspectorInspectableInstance != nil
-    }
-
-    private var inspectorIsVisible: Bool {
-        layout.isInspectorPresented(inspectorHasSelection: inspectorHasSelection)
-    }
+    @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
 
     var body: some View {
         HSplitView {
             if layout.showAxisTree {
                 axisTreeColumn
+                    .registerPanelFrame(AxisTreePanelFrameKey.self) { frame in
+                        editor.workspaceDrag.setAxisTreeFrame(frame)
+                    }
+                    .workspaceDropZoneHighlight(
+                        isActive: workspaceDrag.shouldHighlightAxisTreePanel,
+                        tint: StudioColors.dropNewProject
+                    )
             }
 
             if layout.showInstances {
@@ -27,10 +27,17 @@ struct StudioPanelSplitView: View {
                         maxHeight: .infinity,
                         alignment: .topLeading
                     )
+                    .registerPanelFrame(InstancesPanelFrameKey.self) { frame in
+                        editor.workspaceDrag.setInstancesFrame(frame)
+                    }
+                    .workspaceDropZoneHighlight(
+                        isActive: workspaceDrag.shouldHighlightInstancesPanel,
+                        tint: StudioColors.dropNewProject
+                    )
             }
 
-            if layout.showInspector, inspectorIsVisible {
-                InspectorPanel()
+            if layout.showInspector {
+                InspectorColumn()
                     .frame(
                         minWidth: StudioPanelMetrics.inspectorMin,
                         idealWidth: layout.inspectorWidth,
@@ -38,15 +45,19 @@ struct StudioPanelSplitView: View {
                         maxHeight: .infinity,
                         alignment: .topLeading
                     )
+                    .registerPanelFrame(InspectorPanelFrameKey.self) { frame in
+                        editor.workspaceDrag.setInspectorPanelFrame(frame)
+                    }
+                    .workspaceDropZoneHighlight(
+                        isActive: workspaceDrag.shouldHighlightInspectorPanel(
+                            activeProjectID: editor.activeProjectID
+                        ),
+                        tint: StudioColors.dropAddExisting
+                    )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .id(layout.panelVisibilityToken)
-        .onChange(of: layout.showInspector) { _, isOn in
-            if isOn, !inspectorHasSelection, layout.inspectorAutoHide {
-                layout.userOpenedInspector()
-            }
-        }
     }
 
     // MARK: - Axis tree column
@@ -76,12 +87,31 @@ struct StudioPanelSplitView: View {
     }
 
     private var axisTreeMaxWidth: CGFloat? {
-        let onlyColumn = layout.showAxisTree && !layout.showInstances && !inspectorIsVisible
+        let onlyColumn = layout.showAxisTree && !layout.showInstances && !layout.showInspector
         return onlyColumn ? nil : StudioPanelMetrics.axisTreeMax
     }
 
     private var inspectorMaxWidth: CGFloat? {
         layout.showInspector && !layout.showInstances ? nil : StudioPanelMetrics.inspectorMax
+    }
+}
+
+private extension View {
+    func registerPanelFrame<K: PreferenceKey>(
+        _ key: K.Type,
+        onChange: @escaping (CGRect) -> Void
+    ) -> some View where K.Value == CGRect {
+        background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: key,
+                    value: geometry.frame(in: .global)
+                )
+            }
+        }
+        .onPreferenceChange(key) { frame in
+            onChange(frame)
+        }
     }
 }
 
@@ -133,7 +163,4 @@ enum StudioPanelMetrics {
     static let inspectorMin: CGFloat = 260
     static let inspectorDefault: CGFloat = 300
     static let inspectorMax: CGFloat = 480
-
-    static let projectMenuListWidth: CGFloat = 320
-    static let projectMenuNamingWidth: CGFloat = 272
 }

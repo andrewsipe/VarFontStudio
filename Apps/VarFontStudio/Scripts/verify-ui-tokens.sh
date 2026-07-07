@@ -15,7 +15,6 @@ ALLOW_FONTS=(
 )
 ALLOW_SURFACES=(
   --glob '!StudioDesign.swift'
-  --glob '!ProjectDropdownMenu.swift'
 )
 
 check() {

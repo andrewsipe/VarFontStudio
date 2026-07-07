@@ -1,33 +1,25 @@
 import SwiftUI
 import VarFontCore
 
-struct InspectorPanel: View {
+/// Instance-scoped inspector content (composed name, chain, coordinates, name table).
+struct InstanceInspectorContent: View {
     @EnvironmentObject private var editor: EditorViewModel
     @State private var showPlannedWrites = true
 
     var body: some View {
-        VStack(spacing: 0) {
-            StudioPanelHeader(title: "Inspector") {
-                if let instance = resolvedInspectorInstance,
-                   let bundle = editor.primaryConflictAxis(for: instance) {
-                    StudioInspectorConflictBadge(count: 1) {
-                        editor.presentConflictResolver(bundle: bundle)
-                    }
-                    .help("Open conflict resolver for \(bundle.axisLabel)")
-                }
-            }
+        Group {
+            if let instance = resolvedInspectorInstance {
+                VStack(spacing: 0) {
+                    instanceHeaderBar(instance)
 
-            Group {
-                if let instance = resolvedInspectorInstance {
                     instanceInspector(instance)
-                } else {
-                    emptyInspector
                 }
+            } else {
+                emptyInspector
             }
-            .id(editor.planRevision)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .id(editor.planRevision)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var resolvedInspectorInstance: PlannedInstance? {
@@ -36,6 +28,20 @@ struct InspectorPanel: View {
             return editor.inspectorInspectableInstance
         }
         return live
+    }
+
+    private func instanceHeaderBar(_ instance: PlannedInstance) -> some View {
+        HStack(spacing: StudioSpacing.controlGap) {
+            Spacer(minLength: 0)
+            if let bundle = editor.primaryConflictAxis(for: instance) {
+                StudioInspectorConflictBadge(count: 1) {
+                    editor.presentConflictResolver(bundle: bundle)
+                }
+                .help("Open conflict resolver for \(bundle.axisLabel)")
+            }
+        }
+        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.vertical, 6)
     }
 
     private var emptyInspector: some View {
@@ -74,7 +80,9 @@ struct InspectorPanel: View {
                 nameTableSection(instance)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .studioPanelPadding()
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.top, StudioSpacing.panelContentTop)
+            .padding(.bottom, StudioSpacing.panelVertical)
         }
     }
 

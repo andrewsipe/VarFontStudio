@@ -1,40 +1,38 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-enum WorkspaceDropZone: Equatable {
-    case none
-    case addExisting
-    case newProject
-}
-
 // MARK: - Drop handling (single delegate — avoids competing onDrop targets)
 
 struct WorkspaceDropDelegate: DropDelegate {
     @Binding var isTargeted: Bool
-    @Binding var activeZone: WorkspaceDropZone
-    let dropHeight: CGFloat
-    let isEmptyWorkspace: Bool
+    let globalOrigin: CGPoint
     let isBusy: Bool
+    let activeProjectID: String?
     let isInternalDragActive: () -> Bool
-    let onDropURLs: ([URL], FontDropDisposition) -> Void
+    let coordinator: WorkspaceDragCoordinator
+    let onDropURLs: ([URL], WorkspaceDropTarget) -> Void
 
     func dropEntered(info: DropInfo) {
         guard acceptsFileDrop(info) else { return }
         isTargeted = true
-        updateZone(for: info)
+        let global = globalPoint(for: info)
+        let count = info.itemProviders(for: EditorViewModel.fontDropTypes).count
+        coordinator.beginExternalFileDrop(fileCount: count, at: global)
+        coordinator.updateExternalFileDrop(at: global, activeProjectID: activeProjectID)
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
         guard acceptsFileDrop(info) else {
             return DropProposal(operation: .forbidden)
         }
-        updateZone(for: info)
+        let global = globalPoint(for: info)
+        coordinator.updateExternalFileDrop(at: global, activeProjectID: activeProjectID)
         return DropProposal(operation: .copy)
     }
 
     func dropExited(info: DropInfo) {
         isTargeted = false
-        activeZone = .none
+        coordinator.cancelExternalFileDrop()
     }
 
     func validateDrop(info: DropInfo) -> Bool {
@@ -44,10 +42,10 @@ struct WorkspaceDropDelegate: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         guard acceptsFileDrop(info) else { return false }
 
-        let zone = zone(for: info)
+        let global = globalPoint(for: info)
+        coordinator.updateExternalFileDrop(at: global, activeProjectID: activeProjectID)
+        let target = coordinator.endExternalFileDrop() ?? .newProject
         isTargeted = false
-        activeZone = .none
-        let disposition = disposition(for: zone)
 
         let providers = info.itemProviders(for: EditorViewModel.fontDropTypes)
         guard !providers.isEmpty else { return false }
@@ -61,10 +59,17 @@ struct WorkspaceDropDelegate: DropDelegate {
             }
             guard !urls.isEmpty else { return }
             await MainActor.run {
-                onDropURLs(urls, disposition)
+                onDropURLs(urls, target)
             }
         }
         return true
+    }
+
+    private func globalPoint(for info: DropInfo) -> CGPoint {
+        CGPoint(
+            x: info.location.x + globalOrigin.x,
+            y: info.location.y + globalOrigin.y
+        )
     }
 
     private func acceptsFileDrop(_ info: DropInfo) -> Bool {
@@ -72,27 +77,6 @@ struct WorkspaceDropDelegate: DropDelegate {
             return false
         }
         return !info.itemProviders(for: EditorViewModel.fontDropTypes).isEmpty
-    }
-
-    private func zone(for info: DropInfo) -> WorkspaceDropZone {
-        if isEmptyWorkspace {
-            return .newProject
-        }
-        let midpoint = max(dropHeight * 0.5, 1)
-        return info.location.y < midpoint ? .addExisting : .newProject
-    }
-
-    private func updateZone(for info: DropInfo) {
-        activeZone = zone(for: info)
-    }
-
-    private func disposition(for zone: WorkspaceDropZone) -> FontDropDisposition {
-        switch zone {
-        case .newProject, .none:
-            return .createNewProject
-        case .addExisting:
-            return .addToProject
-        }
     }
 
     private func loadDroppedURL(from provider: NSItemProvider) async -> URL? {
@@ -120,125 +104,106 @@ struct WorkspaceDropDelegate: DropDelegate {
     }
 }
 
-// MARK: - Visual overlay
+// MARK: - Empty workspace hint (no full-sheet overlay)
 
-struct WorkspaceDropOverlay: View {
-    let isEmptyWorkspace: Bool
-    let activeZone: WorkspaceDropZone
+struct EmptyWorkspaceView: View {
+    var isDropTargeted: Bool = false
 
     var body: some View {
-        if isEmptyWorkspace {
-            singleZone
-        } else {
-            splitZones
-        }
-    }
+        VStack(spacing: 12) {
+            Image(systemName: isDropTargeted ? "plus.circle.fill" : "arrow.down.doc")
+                .font(.system(size: 36))
+                .foregroundStyle(isDropTargeted ? Color.accentColor : .secondary)
+                .animation(.easeOut(duration: 0.12), value: isDropTargeted)
 
-    private var singleZone: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.accentColor.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [10, 6]))
-                .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+            Text(isDropTargeted ? "Drop to open" : "Drop variable fonts to begin")
+                .font(StudioTypography.emphasis)
+                .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
 
-            VStack(spacing: 8) {
-                Image(systemName: "arrow.down.doc.fill")
-                    .font(StudioTypography.emphasis)
-                    .foregroundStyle(.tint)
-                Text("Drop a variable font to begin")
-                    .font(StudioTypography.bodyMedium)
-                Text("Creates your first project · TTF, OTF, WOFF, WOFF2")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.secondary)
-            }
+            Text(isDropTargeted
+                ? "All files land in one project"
+                : "Or use File → Open Font… · TTF, OTF, WOFF, WOFF2 · folders OK")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.08))
-    }
-
-    private var splitZones: some View {
-        VStack(spacing: 0) {
-            dropHalf(
-                zone: .addExisting,
-                title: "Add to project",
-                subtitle: "Drop here to add to an existing project",
-                fill: StudioColors.dropZoneAddFill,
-                border: StudioColors.dropAddExisting
-            )
-            .frame(maxHeight: .infinity)
-
-            Divider()
-
-            dropHalf(
-                zone: .newProject,
-                title: "New project",
-                subtitle: "Drop here to start a separate project",
-                fill: StudioColors.dropZoneNewFill,
-                border: StudioColors.dropNewProject
-            )
-            .frame(maxHeight: .infinity)
-        }
-        .background(Color.black.opacity(0.12))
-    }
-
-    private func dropHalf(
-        zone: WorkspaceDropZone,
-        title: String,
-        subtitle: String,
-        fill: Color,
-        border: Color
-    ) -> some View {
-        let targeted = activeZone == zone
-        return ZStack {
-            fill
-
-            if targeted {
-                border.opacity(0.12)
-            }
-
-            VStack(spacing: 6) {
-                Text(title)
-                    .font(StudioTypography.emphasis)
-                    .foregroundStyle(targeted ? border : .primary)
-                Text(subtitle)
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(24)
-            .background {
-                RoundedRectangle(cornerRadius: StudioRadius.row)
-                    .fill(fill)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: StudioRadius.row)
-                            .fill(.thinMaterial)
-                    }
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.row)
-                    .strokeBorder(
-                        targeted ? border : border.opacity(0.35),
-                        lineWidth: targeted ? 2 : 1
-                    )
-            }
-            .padding(20)
-        }
+        .workspaceDropZoneHighlight(
+            isActive: isDropTargeted,
+            tint: StudioColors.dropNewProject
+        )
+        .allowsHitTesting(false)
     }
 }
 
-struct EmptyWorkspaceView: View {
+// MARK: - Drop zone highlight (5% fill + 1px bottom edge)
+
+struct WorkspaceDropZoneHighlight: ViewModifier {
+    let isActive: Bool
+    let tint: Color
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if isActive {
+                    tint.opacity(StudioColors.dropZoneFillOpacity)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(isActive ? tint : .clear)
+                    .frame(height: 1)
+            }
+            .animation(.easeOut(duration: 0.12), value: isActive)
+    }
+}
+
+extension View {
+    func workspaceDropZoneHighlight(isActive: Bool, tint: Color) -> some View {
+        modifier(WorkspaceDropZoneHighlight(isActive: isActive, tint: tint))
+    }
+}
+
+/// Legacy edge-only accent — prefer `workspaceDropZoneHighlight` for panels and rows.
+enum WorkspaceDropEdge {
+    case top
+    case bottom
+    case leading
+    case trailing
+}
+
+struct WorkspaceDropEdgeHighlight: View {
+    let isActive: Bool
+    var edge: WorkspaceDropEdge = .bottom
+    var tint: Color = Color.accentColor
+    var thickness: CGFloat = 1
+
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "arrow.down.doc")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-            Text("Drop a variable font to begin")
-                .font(StudioTypography.emphasis)
-            Text("Or use File → Open Font…")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
+        GeometryReader { _ in
+            switch edge {
+            case .top:
+                edgeBar(alignment: .top)
+            case .bottom:
+                edgeBar(alignment: .bottom)
+            case .leading:
+                edgeBar(alignment: .leading, isHorizontal: false)
+            case .trailing:
+                edgeBar(alignment: .trailing, isHorizontal: false)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
+        .animation(.easeOut(duration: 0.12), value: isActive)
+    }
+
+    @ViewBuilder
+    private func edgeBar(alignment: Alignment, isHorizontal: Bool = true) -> some View {
+        Rectangle()
+            .fill(isActive ? tint.opacity(0.4) : .clear)
+            .frame(
+                width: isHorizontal ? nil : thickness,
+                height: isHorizontal ? thickness : nil
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
     }
 }

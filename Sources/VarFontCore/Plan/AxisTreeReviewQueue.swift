@@ -57,6 +57,10 @@ public enum AxisTreeReviewQueue {
         }
     }
 
+    public static func filter(_ items: [AxisTreeReviewItem], axisTag: String) -> [AxisTreeReviewItem] {
+        items.filter { $0.axisTag == axisTag }
+    }
+
     public static func informationalWarnings(
         warnings: [PlanWarning],
         namingOrder: [String]

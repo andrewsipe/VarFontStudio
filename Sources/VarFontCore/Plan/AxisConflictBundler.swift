@@ -58,11 +58,16 @@ public enum AxisConflictBundler {
         for warning in valueWarnings {
             let ids = warning.stopIDs ?? []
             involvedStopIDs.formUnion(ids)
-            let value = warning.name.flatMap(Double.init)
-                ?? axis.values.first(where: { ids.contains($0.id) })?.value
+            let value = duplicateValue(from: warning, stopIDs: ids, axis: axis)
+            let groupID: String
+            if let value {
+                groupID = "value-\(AxisStopSuggestions.formatValue(value))"
+            } else {
+                groupID = "value-\(warning.name ?? ids.joined(separator: "-"))"
+            }
             groups.append(
                 AxisConflictGroup(
-                    id: "value-\(warning.name ?? ids.joined(separator: "-"))",
+                    id: groupID,
                     duplicateValue: value,
                     duplicateName: nil,
                     stopIDs: ids
@@ -104,6 +109,17 @@ public enum AxisConflictBundler {
             groups: groups,
             involvedStopIDs: Array(involvedStopIDs)
         )
+    }
+
+    private static func duplicateValue(
+        from warning: PlanWarning,
+        stopIDs: [String],
+        axis: AxisDefinition
+    ) -> Double? {
+        if let stop = axis.values.first(where: { stopIDs.contains($0.id) }) {
+            return stop.value
+        }
+        return warning.name.flatMap(Double.init)
     }
 
     private static func axisLabel(_ axis: AxisDefinition) -> String {

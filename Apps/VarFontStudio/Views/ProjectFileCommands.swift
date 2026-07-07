@@ -1,13 +1,12 @@
 import SwiftUI
 import VarFontCore
 
-/// Shared file actions for the sub-bar chips and project menu rows.
+/// Shared file actions for the sub-bar chips and project inspector rows.
 struct ProjectFileContextMenu: View {
     @EnvironmentObject private var editor: EditorViewModel
     let font: FontDocument
     let projectID: String
     let projectFontCount: Int
-    var onDismiss: (() -> Void)?
 
     private var isMaster: Bool {
         editor.isMasterFont(fontID: font.id, projectID: projectID)
@@ -17,7 +16,6 @@ struct ProjectFileContextMenu: View {
         Group {
             if projectFontCount > 1, !isMaster {
                 Button {
-                    onDismiss?()
                     editor.activateProject(id: projectID)
                     editor.selectFont(id: font.id)
                     editor.setFontAsMaster(fontID: font.id)
@@ -27,7 +25,6 @@ struct ProjectFileContextMenu: View {
             }
 
             Button {
-                onDismiss?()
                 editor.activateProject(id: projectID)
                 editor.selectFont(id: font.id)
                 editor.revealFontInFinder(fontID: font.id, projectID: projectID)
@@ -37,7 +34,6 @@ struct ProjectFileContextMenu: View {
 
             if editor.openProjects.count > 1 {
                 Button {
-                    onDismiss?()
                     editor.presentMoveFontPicker(fontID: font.id, fromProjectID: projectID)
                 } label: {
                     Label("Move to…", systemImage: "arrow.right.circle")
@@ -46,7 +42,6 @@ struct ProjectFileContextMenu: View {
 
             if projectFontCount > 1 {
                 Button {
-                    onDismiss?()
                     editor.requestSplitFontToNewProject(fontID: font.id, fromProjectID: projectID)
                 } label: {
                     Label("Move to new project…", systemImage: "arrow.up.right.square")
@@ -55,7 +50,6 @@ struct ProjectFileContextMenu: View {
                 Divider()
 
                 Button(role: .destructive) {
-                    onDismiss?()
                     editor.requestRemoveFont(projectID: projectID, fontID: font.id)
                 } label: {
                     Label("Remove from project", systemImage: "minus.circle")

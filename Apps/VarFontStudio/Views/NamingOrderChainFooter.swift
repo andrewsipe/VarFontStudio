@@ -42,6 +42,13 @@ struct NamingOrderChainFooter: View {
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+                    if editor.projectHasMultipleFiles {
+                        Text("Purple chips are per-file labels — edit in Project menu → File naming.")
+                            .font(StudioTypography.meta)
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
                     chainTrack
 
                     exampleRow
@@ -194,10 +201,11 @@ struct NamingOrderChainFooter: View {
                         placeholder: "Regular",
                         text: $elidedFallbackDraft,
                         font: StudioTypography.bodyMedium,
-                        rowHeight: StudioFieldMetrics.bodyMediumRowHeight
+                        rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
+                        onSubmit: commitElidedFallbackEdit,
+                        onCancel: cancelElidedFallbackEdit
                     )
                     .frame(maxWidth: 180)
-                    .onSubmit { commitElidedFallbackEdit() }
                 } else {
                     Button {
                         elidedFallbackDraft = stored
@@ -238,6 +246,12 @@ struct NamingOrderChainFooter: View {
 
     private func commitElidedFallbackEdit() {
         editor.setElidedFallback(elidedFallbackDraft)
+        isEditingElidedFallback = false
+    }
+
+    private func cancelElidedFallbackEdit() {
+        elidedFallbackDraft = editor.project?.naming.elidedFallback
+            ?? editor.effectiveElidedFallbackDisplay.value
         isEditingElidedFallback = false
     }
 
@@ -394,6 +408,7 @@ struct NamingOrderChainFooter: View {
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
+            .help("Tap to edit in Project menu; drag to reorder")
             .gesture(dragGesture(for: tag))
     }
 
@@ -584,6 +599,10 @@ struct NamingOrderChainFooter: View {
 
     // MARK: - Drag gesture
 
+    private func presentClarifierNaming() {
+        editor.focusInspectorProjectScope()
+    }
+
     private func dragGesture(for tag: String) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .named(coordinateSpace))
             .onChanged { value in
@@ -593,7 +612,12 @@ struct NamingOrderChainFooter: View {
                 session.ghostPosition = value.location
                 session.targetGapIndex = targetGap(at: value.location.x)
             }
-            .onEnded { _ in
+            .onEnded { value in
+                let moved = hypot(value.translation.width, value.translation.height)
+                if editor.isClarifierNamingToken(tag), session.draggingTag == nil, moved < 4 {
+                    presentClarifierNaming()
+                    return
+                }
                 commitOrCancel()
             }
     }

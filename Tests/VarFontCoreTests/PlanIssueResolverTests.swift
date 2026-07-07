@@ -24,8 +24,8 @@ final class PlanIssueResolverTests: XCTestCase {
             inferredIsItalicFile: false
         )
 
-        let applied = PlanIssueResolver.applySafeAutoFixes(to: &font)
-        XCTAssertGreaterThan(applied, 0)
+        let result = PlanIssueResolver.applySafeAutoFixes(to: &font)
+        XCTAssertGreaterThan(result.appliedCount, 0)
         XCTAssertEqual(font.fileStatRegistration["ital"], 0)
         let warnings = PlanIssueResolver.visibleWarnings(for: font)
         XCTAssertFalse(warnings.contains { $0.code == "registration_mismatch" })
@@ -44,8 +44,8 @@ final class PlanIssueResolverTests: XCTestCase {
             inferredIsItalicFile: false
         )
 
-        let applied = PlanIssueResolver.applySafeAutoFixes(to: &font)
-        XCTAssertEqual(applied, 0)
+        let result = PlanIssueResolver.applySafeAutoFixes(to: &font)
+        XCTAssertEqual(result.appliedCount, 0)
 
         let warning = RegistrationAxisSupport.registrationWarnings(font: font, analysis: nil).first
         XCTAssertEqual(warning?.code, "registration_mismatch")
@@ -67,8 +67,8 @@ final class PlanIssueResolverTests: XCTestCase {
             inferredIsItalicFile: false
         )
 
-        let applied = PlanIssueResolver.applySafeAutoFixes(to: &font)
-        XCTAssertEqual(applied, 1)
+        let result = PlanIssueResolver.applySafeAutoFixes(to: &font)
+        XCTAssertEqual(result.appliedCount, 1)
         XCTAssertEqual(font.axes[0].values[0].value, 0)
         XCTAssertEqual(font.fileStatRegistration["ital"], 0)
     }
@@ -202,7 +202,7 @@ final class PlanIssueResolverTests: XCTestCase {
             message: "Composed name “Regular Regular” is used by 6 instances."
         )
         let proposals = PlanIssueResolver.proposals(for: warning, font: font)
-        XCTAssertEqual(proposals.first?.title, "Apply axis neutrals")
+        XCTAssertEqual(proposals.first?.title, "Align baseline labels")
         XCTAssertEqual(proposals.first?.isRecommended, true)
     }
 
@@ -262,7 +262,7 @@ final class PlanIssueResolverTests: XCTestCase {
         XCTAssertFalse(AxisStopNamingDefaults.hasAxisNeutralMismatch(font))
     }
 
-    func testDuplicateComposedWithValueConflictsOffersNoQuickFix() {
+    func testDuplicateComposedWithValueConflictsOffersOpenConflicts() {
         let font = FontDocument(
             id: "reflex",
             sourcePath: "/tmp/Reflex.ttf",
@@ -281,8 +281,59 @@ final class PlanIssueResolverTests: XCTestCase {
             code: "duplicate_composed_name",
             message: "Composed name “Normal Regular” is used by 6 instances."
         )
-        XCTAssertNil(PlanIssueResolver.recommendedProposal(for: warning, font: font))
         let proposals = PlanIssueResolver.proposals(for: warning, font: font)
-        XCTAssertEqual(proposals.first?.title, "Resolve axis value conflicts first")
+        XCTAssertEqual(proposals.first?.title, "Resolve value conflicts")
+        XCTAssertEqual(proposals.first?.isRecommended, true)
+        if case .openAxisConflicts(let tag) = proposals.first?.action {
+            XCTAssertEqual(tag, "wdth")
+        } else {
+            XCTFail("Expected openAxisConflicts action")
+        }
+        XCTAssertNotNil(PlanIssueResolver.recommendedProposal(for: warning, font: font))
+    }
+
+    func testEmptyInstanceAxisProposals() {
+        let font = FontDocument(
+            id: "empty",
+            sourcePath: "/tmp/empty.ttf",
+            axes: [
+                AxisDefinition(tag: "wdth", role: .instance, values: []),
+            ]
+        )
+        let warning = PlanWarning(
+            code: "empty_instance_axis",
+            axis: "wdth",
+            message: "Instance axis 'wdth' has no stops."
+        )
+        let proposals = PlanIssueResolver.proposals(for: warning, font: font)
+        XCTAssertEqual(proposals.first?.title, "Switch to STAT-only")
+        XCTAssertTrue(proposals.contains { proposal in
+            if case .insertAxisStop(let tag, _, _) = proposal.action { return tag == "wdth" }
+            return false
+        })
+    }
+
+    func testEmptyInstanceAxisApplyAddsStop() {
+        var font = FontDocument(
+            id: "empty",
+            sourcePath: "/tmp/empty.ttf",
+            axes: [
+                AxisDefinition(tag: "wdth", min: 75, default: 100, max: 125, role: .instance, values: []),
+            ]
+        )
+        let warning = PlanWarning(
+            code: "empty_instance_axis",
+            axis: "wdth",
+            message: "Instance axis 'wdth' has no stops."
+        )
+        guard let proposal = PlanIssueResolver.proposals(for: warning, font: font).first(where: {
+            if case .insertAxisStop = $0.action { return true }
+            return false
+        }) else {
+            XCTFail("Missing insertAxisStop proposal")
+            return
+        }
+        PlanIssueResolver.apply(proposal.action, to: &font)
+        XCTAssertEqual(font.axes[0].values.count, 1)
     }
 }

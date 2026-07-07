@@ -1,40 +1,20 @@
 import SwiftUI
 import VarFontCore
 
-struct ProjectTabAnchorKey: PreferenceKey {
-    static var defaultValue: [String: Anchor<CGRect>] = [:]
-
-    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
-        value.merge(nextValue(), uniquingKeysWith: { $1 })
-    }
-}
-
-struct ProjectMenuTabRectKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-
-struct ProjectMenuSizePreferenceKey: PreferenceKey {
-    static var defaultValue: CGSize = .zero
-
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        let next = nextValue()
-        if next != .zero {
-            value = next
-        }
-    }
-}
-
 struct ProjectToolbar: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
-    @Binding var openMenuProjectID: String?
 
-    private var isSplitHoverTarget: Bool {
-        workspaceDrag.hoveredTarget == .newProject
+    private var isNewProjectTarget: Bool {
+        workspaceDrag.isHighlightingNewProject
+    }
+
+    private var showsNewProjectHint: Bool {
+        workspaceDrag.isExternalFileDropActive
+    }
+
+    private var highlightsToolbarRow: Bool {
+        workspaceDrag.shouldHighlightProjectToolbarRow
     }
 
     var body: some View {
@@ -42,10 +22,7 @@ struct ProjectToolbar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
                     ForEach(editor.openProjects) { openProject in
-                        ProjectTabChip(
-                            openProject: openProject,
-                            openMenuProjectID: $openMenuProjectID
-                        )
+                        ProjectTabChip(openProject: openProject)
                     }
                 }
                 .padding(.vertical, 2)
@@ -53,25 +30,18 @@ struct ProjectToolbar: View {
             .scrollDisabled(workspaceDrag.isActive)
 
             Spacer(minLength: 0)
+
+            if showsNewProjectHint {
+                newProjectAffordance
+            }
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
         .padding(.vertical, StudioSpacing.toolbarVertical)
-        .overlay(alignment: .trailing) {
-            Text("New project")
-                .font(StudioTypography.meta)
-                .foregroundStyle(Color.accentColor)
-                .padding(.trailing, StudioSpacing.panelHorizontal + 8)
-                .opacity(isSplitHoverTarget ? 1 : 0)
-                .allowsHitTesting(false)
-        }
-        .background {
-            ZStack {
-                Rectangle().fill(.bar)
-                Rectangle()
-                    .fill(Color.accentColor.opacity(0.08))
-                    .opacity(isSplitHoverTarget ? 1 : 0)
-            }
-        }
+        .workspaceDropZoneHighlight(
+            isActive: highlightsToolbarRow,
+            tint: StudioColors.dropNewProject
+        )
+        .background(.bar)
         .background {
             GeometryReader { geometry in
                 Color.clear.preference(
@@ -89,27 +59,43 @@ struct ProjectToolbar: View {
             editor.workspaceDrag.setToolbarFrame(frame)
         }
     }
+
+    private var newProjectAffordance: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: 10, weight: .semibold))
+            Text("New project")
+                .font(StudioTypography.meta)
+                .fontWeight(isNewProjectTarget ? .semibold : .regular)
+        }
+        .foregroundStyle(StudioColors.dropNewProject.opacity(isNewProjectTarget ? 0.95 : 0.45))
+        .padding(.trailing, 4)
+        .allowsHitTesting(false)
+        .animation(.easeOut(duration: 0.12), value: isNewProjectTarget)
+    }
 }
 
 private struct ProjectTabChip: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     let openProject: OpenProject
-    @Binding var openMenuProjectID: String?
 
     private var isActive: Bool {
         editor.activeProjectID == openProject.id
     }
 
-    private var isOpen: Bool {
-        openMenuProjectID == openProject.id
-    }
-
-    private var isHoverTarget: Bool {
-        if case let .project(id) = workspaceDrag.hoveredTarget {
+    private var isInternalHoverTarget: Bool {
+        if case .project(let id) = workspaceDrag.hoveredTarget {
             return id == openProject.id
         }
         return false
+    }
+
+    private var isExternalTabTarget: Bool {
+        workspaceDrag.shouldHighlightProjectTab(
+            openProject.id,
+            activeProjectID: editor.activeProjectID
+        )
     }
 
     private var tabLabel: String {
@@ -118,15 +104,16 @@ private struct ProjectTabChip: View {
 
     var body: some View {
         StudioTabChip(
-            isSelected: isActive || isOpen,
-            isHighlighted: isHoverTarget,
+            isSelected: isActive,
+            isHighlighted: isInternalHoverTarget && workspaceDrag.isActive,
+            isDropTarget: isExternalTabTarget,
+            dropTargetTint: StudioColors.dropAddExisting,
             shape: .roundedRect
         ) {
             WorkspaceDraggableContainer(
                 item: .project(projectID: openProject.id, label: tabLabel),
                 isDragEnabled: editor.canDragProjectForCombine,
-                helpText: "Drag to another project tab to combine projects",
-                onBegin: { openMenuProjectID = nil }
+                helpText: "Drag to another project tab to combine projects"
             ) {
                 Text(tabLabel)
                     .font(StudioTypography.caption)
@@ -134,7 +121,11 @@ private struct ProjectTabChip: View {
                     .lineLimit(1)
                     .frame(maxWidth: 160, alignment: .leading)
                     .contentShape(Rectangle())
-                    .gesture(tabActivationGesture)
+                    .onTapGesture {
+                        if !isActive {
+                            editor.activateProject(id: openProject.id)
+                        }
+                    }
             }
         } trailing: {
             Text("\(openProject.document.fonts.count)")
@@ -142,14 +133,6 @@ private struct ProjectTabChip: View {
                 .padding(.horizontal, 5)
                 .padding(.vertical, 1)
                 .background(.quaternary.opacity(0.5), in: Capsule())
-
-            Button {
-                toggleProjectMenu()
-            } label: {
-                StudioSquareDisclosureChevron(isExpanded: isOpen)
-            }
-            .buttonStyle(.plain)
-            .help(isOpen ? "Close project menu" : "Open project menu")
         }
         .background {
             GeometryReader { geometry in
@@ -158,30 +141,6 @@ private struct ProjectTabChip: View {
                     value: [openProject.id: geometry.frame(in: .global)]
                 )
             }
-        }
-        .anchorPreference(key: ProjectTabAnchorKey.self, value: .bounds) { anchor in
-            [openProject.id: anchor]
-        }
-    }
-
-    private var tabActivationGesture: some Gesture {
-        TapGesture(count: 2)
-            .onEnded { toggleProjectMenu() }
-            .exclusively(before: TapGesture(count: 1).onEnded { activateProjectOnly() })
-    }
-
-    private func activateProjectOnly() {
-        guard !isActive else { return }
-        openMenuProjectID = nil
-        editor.activateProject(id: openProject.id)
-    }
-
-    private func toggleProjectMenu() {
-        editor.activateProject(id: openProject.id)
-        if isOpen {
-            openMenuProjectID = nil
-        } else {
-            openMenuProjectID = openProject.id
         }
     }
 }

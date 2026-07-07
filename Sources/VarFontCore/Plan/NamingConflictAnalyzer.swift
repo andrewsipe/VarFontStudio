@@ -66,7 +66,7 @@ public enum NamingConflictAnalyzer {
             keys: [priorKey, currentKey],
             stopIDs: stopIDs.isEmpty ? nil : Array(Set(stopIDs)),
             message: "Composed name “\(composedName)” appears more than once. \(detailText).",
-            hint: "In the axis tree, rename a stop, adjust elision, remove a stop, or change a value."
+            hint: "In the axis tree, this can be fixed by renaming a stop, adjusting elision, removing a stop, or changing a value."
         )
     }
 

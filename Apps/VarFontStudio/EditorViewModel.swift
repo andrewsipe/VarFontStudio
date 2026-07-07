@@ -62,8 +62,12 @@ struct PlanIssueResolverSession: Identifiable {
 }
 
 private struct AxisTreeReviewSession {
-    var queue: [AxisTreeReviewItem]
-    var currentIndex: Int
+    var state: AxisTreeReviewSessionState
+}
+
+enum InspectorPanelScope: Equatable {
+    case project
+    case instance
 }
 
 @MainActor
@@ -94,6 +98,9 @@ final class EditorViewModel: ObservableObject {
     @Published var isBusy = false
     @Published private(set) var instanceListDisplay = InstanceListDisplay.empty
     @Published private(set) var canSave = false
+    @Published var inspectorPanelScope: InspectorPanelScope = .project
+    /// Bumped when chrome should reveal the inspector column (e.g. footer clarifier tap).
+    @Published private(set) var inspectorRevealToken = 0
 
     /// Confirmation for removing a dirty font file.
     @Published var confirmRemoveFont: FontRemovalRequest?
@@ -105,8 +112,6 @@ final class EditorViewModel: ObservableObject {
     @Published var confirmSplitFont: FontSplitRequest?
     /// Project workspace tab id pending close confirmation.
     @Published var confirmCloseProjectID: String?
-    /// After drop on add-to-project zone with multiple projects — pick target.
-    @Published var pendingDropURLs: [URL]?
     @Published var pendingAddFontProjectID: String?
     /// Pick another open project as move/combine target.
     @Published var projectTargetPickerMode: ProjectTargetPickerMode?
@@ -436,6 +441,18 @@ final class EditorViewModel: ObservableObject {
         instanceListDisplay.groups.flatMap(\.instances)
     }
 
+    var hasDuplicateInstances: Bool {
+        instancePlan?.instances.contains(where: \.duplicate) ?? false
+    }
+
+    var visibleInstanceFilters: [InstanceFilter] {
+        var filters: [InstanceFilter] = [.all, .included, .excluded]
+        if hasDuplicateInstances {
+            filters.append(.duplicates)
+        }
+        return filters
+    }
+
     /// Keys currently highlighted in the instance list (multi- or single-select).
     var activeInstanceSelection: Set<String> {
         if !selectedInstanceKeys.isEmpty { return selectedInstanceKeys }
@@ -724,6 +741,10 @@ final class EditorViewModel: ObservableObject {
         guard let instancePlan else {
             instanceListDisplay = .empty
             return
+        }
+
+        if instanceFilter == .duplicates, !instancePlan.instances.contains(where: \.duplicate) {
+            instanceFilter = .all
         }
 
         var captions: [String: String] = [:]
@@ -1049,8 +1070,19 @@ final class EditorViewModel: ObservableObject {
         } else {
             index = 0
         }
-        reviewSession = AxisTreeReviewSession(queue: queue, currentIndex: index)
+        reviewSession = AxisTreeReviewSession(
+            state: AxisTreeReviewSessionState(scope: .full, initialTotal: queue.count)
+        )
         presentReviewItem(at: index, in: queue)
+    }
+
+    func startAxisReviewSession(on axisTag: String) {
+        let queue = AxisTreeReviewQueue.filter(reviewQueue(), axisTag: axisTag)
+        guard !queue.isEmpty else { return }
+        reviewSession = AxisTreeReviewSession(
+            state: AxisTreeReviewSessionState(scope: .axis(axisTag), initialTotal: queue.count)
+        )
+        presentReviewItem(at: 0, in: queue)
     }
 
     func continueReviewSession() {
@@ -1058,16 +1090,23 @@ final class EditorViewModel: ObservableObject {
     }
 
     func advanceReviewSession() {
-        guard reviewSession != nil else { return }
-        let queue = reviewQueue()
+        guard var session = reviewSession else { return }
+        session.state.completedCount += 1
+        let queue = scopedReviewQueue()
         guard !queue.isEmpty else {
             planIssueResolverRequest = nil
             conflictResolverRequest = nil
             reviewSession = nil
             return
         }
-        reviewSession = AxisTreeReviewSession(queue: queue, currentIndex: 0)
+        reviewSession = session
         presentReviewItem(at: 0, in: queue)
+    }
+
+    private func scopedReviewQueue() -> [AxisTreeReviewItem] {
+        let full = reviewQueue()
+        guard let session = reviewSession else { return full }
+        return session.state.scopedQueue(from: full)
     }
 
     func endReviewSession() {
@@ -1093,7 +1132,7 @@ final class EditorViewModel: ObservableObject {
     private func reviewSessionPosition(for item: AxisTreeReviewItem) -> (current: Int, total: Int)? {
         guard let session = reviewSession else { return nil }
         _ = item
-        return (session.currentIndex + 1, session.queue.count)
+        return session.state.displayPosition()
     }
 
     func resolvablePlanWarnings(for axisTag: String) -> [PlanWarning] {
@@ -1110,6 +1149,16 @@ final class EditorViewModel: ObservableObject {
     }
 
     func applyPlanIssueFix(_ action: PlanIssueAction, andContinue: Bool = false) {
+        if case .openAxisConflicts(let axisTag) = action {
+            planIssueResolverRequest = nil
+            if let tag = axisTag, let bundle = bundle(for: tag) {
+                presentConflictResolver(bundle: bundle)
+            } else if let first = axisConflictBundles.first {
+                presentConflictResolver(bundle: first)
+            }
+            return
+        }
+
         guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
             return
         }
@@ -1150,9 +1199,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func presentFirstResolvablePlanIssue(on axisTag: String) {
-        guard let warning = resolvablePlanWarnings(for: axisTag).first else { return }
-        reviewSession = nil
-        presentPlanIssueResolver(for: warning)
+        startAxisReviewSession(on: axisTag)
     }
 
     func setElidedFallback(_ value: String) {
@@ -1563,6 +1610,22 @@ final class EditorViewModel: ObservableObject {
         regeneratePlan()
     }
 
+    func focusInspectorProjectScope(fontID: String? = nil) {
+        if let fontID {
+            selectFont(id: fontID)
+        }
+        inspectorPanelScope = .project
+        inspectorRevealToken &+= 1
+    }
+
+    func updateInspectorScopeForSelection() {
+        if inspectorInspectableInstance != nil {
+            inspectorPanelScope = .instance
+        } else {
+            inspectorPanelScope = .project
+        }
+    }
+
     func renameProject(id: String, displayName: String) {
         guard let idx = openProjects.firstIndex(where: { $0.id == id }) else { return }
         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1603,7 +1666,26 @@ final class EditorViewModel: ObservableObject {
         if font.id == selectedFontID, let plan = instancePlan {
             return "\(plan.formula.totalGenerated)"
         }
-        return "\(font.axes.filter { $0.role == .instance }.map(\.values.count).reduce(1, *))"
+        let estimate = font.axes.filter { $0.role == .instance }.map(\.values.count).reduce(1, *)
+        return "~\(estimate)"
+    }
+
+    func isFontDirty(fontID: String) -> Bool {
+        project?.fonts.first { $0.id == fontID }?.dirty ?? false
+    }
+
+    func clarifierSlotState(category: FileClarifierCategory, for fontID: String) -> ClarifierSlotState {
+        guard let font = project?.fonts.first(where: { $0.id == fontID }) else {
+            return .editable
+        }
+        let count = project?.fonts.count ?? 1
+        return ClarifierSlotCoverage.slotState(category: category, font: font, projectFontCount: count)
+    }
+
+    func hasEditableClarifierSlots(for fontID: String) -> Bool {
+        guard let font = project?.fonts.first(where: { $0.id == fontID }) else { return false }
+        let count = project?.fonts.count ?? 1
+        return ClarifierSlotCoverage.hasEditableInferSlots(font: font, projectFontCount: count)
     }
 
     func requestRemoveFont(projectID: String, fontID: String) {
@@ -2014,39 +2096,33 @@ final class EditorViewModel: ObservableObject {
             .document.fonts.first(where: { $0.id == fontID })
     }
 
-    func importDroppedFonts(_ urls: [URL], disposition: FontDropDisposition) async {
-        let valid = urls.filter { Self.isFontFile($0) }
+    func importDroppedFonts(_ urls: [URL], target: WorkspaceDropTarget) async {
+        let valid = Self.collectFontURLs(from: urls)
         guard !valid.isEmpty else {
             postStatusMessage("No supported font files (.ttf, .otf, .woff, .woff2)")
             return
         }
 
-        switch disposition {
-        case .createNewProject:
+        switch target {
+        case .newProject:
+            await createProjectWithFonts(valid)
+        case .project(let projectID):
             for url in valid {
-                await createProject(from: url)
+                await addFont(at: url, toProjectID: projectID)
             }
-        case .addToProject:
-            if openProjects.count == 1, let onlyID = openProjects.first?.id {
-                for url in valid {
-                    await addFont(at: url, toProjectID: onlyID)
-                }
-            } else {
-                pendingDropURLs = valid
-            }
+        case .reorderFont, .reorderFontEnd:
+            break
         }
     }
 
-    func completePendingDrop(addToProjectID: String) async {
-        guard let urls = pendingDropURLs else { return }
-        pendingDropURLs = nil
-        for url in urls {
-            await addFont(at: url, toProjectID: addToProjectID)
+    /// First font opens the project tab; remaining fonts are added to it.
+    func createProjectWithFonts(_ urls: [URL]) async {
+        guard let first = urls.first else { return }
+        await createProject(from: first)
+        guard let projectID = activeProjectID else { return }
+        for url in urls.dropFirst() {
+            await addFont(at: url, toProjectID: projectID)
         }
-    }
-
-    func cancelPendingDrop() {
-        pendingDropURLs = nil
     }
 
     func suggestsSameFamily(analysis: FontAnalysis, project: ProjectDocument) -> Bool {
@@ -2326,35 +2402,58 @@ final class EditorViewModel: ObservableObject {
     }
 
     func inferFileClarifiersForSelectedFont() {
-        guard let font = selectedFont, let projectID = activeProjectID else { return }
+        guard let font = selectedFont, let projectID = activeProjectID, var project else { return }
+        let fontCount = project.fonts.count
+        let role = font.fileRole ?? .variant(masterFontID: masterFontID(for: projectID) ?? "")
+        let isMultiFileMaster = role.kind == .master && fontCount > 1
+
+        if isMultiFileMaster {
+            postStatusMessage("Clarifiers belong on variant files.")
+            return
+        }
+
+        if !ClarifierSlotCoverage.hasEditableInferSlots(font: font, projectFontCount: fontCount) {
+            postStatusMessage("No file-level clarifiers needed — axis and registration naming cover this file.")
+            return
+        }
+
         let analysis = try? FontAnalysisReader.analyze(url: URL(fileURLWithPath: font.sourcePath))
         let inferred = FileClarifierInference.infer(
             sourceURL: URL(fileURLWithPath: font.sourcePath),
             analysis: analysis,
             font: font
         )
-        pushUndoSnapshot()
-        guard var project, let index = project.fonts.firstIndex(where: { $0.id == font.id }) else { return }
-        var role = project.fonts[index].fileRole ?? .variant(masterFontID: masterFontID(for: projectID) ?? "")
-        let isMultiFileMaster = role.kind == .master && project.fonts.count > 1
-        if isMultiFileMaster {
-            // Clarifiers belong on variant files — master keeps axis tree only.
-            role.clarifiers = []
-            role.elidedFallbackOverride = nil
-        } else {
-            role.clarifiers = inferred.clarifiers
-            role.elidedFallbackOverride = inferred.elidedFallbackOverride
+
+        let prefixWouldUpdate = project.fonts.first(where: { $0.id == font.id })?
+            .options.familyPSPrefix?.isEmpty != false
+            && analysis?.source.familyPSPrefix?.isEmpty == false
+
+        if inferred.clarifiers.isEmpty, !prefixWouldUpdate {
+            postStatusMessage("No clarifiers matched the filename.")
+            return
         }
-        if project.fonts[index].options.familyPSPrefix?.isEmpty != false,
-           let prefix = analysis?.source.familyPSPrefix, !prefix.isEmpty {
+
+        pushUndoSnapshot()
+        guard let index = project.fonts.firstIndex(where: { $0.id == font.id }) else { return }
+        var updatedRole = project.fonts[index].fileRole ?? role
+        updatedRole.clarifiers = inferred.clarifiers
+        updatedRole.elidedFallbackOverride = inferred.elidedFallbackOverride
+        if prefixWouldUpdate, let prefix = analysis?.source.familyPSPrefix, !prefix.isEmpty {
             project.fonts[index].options.familyPSPrefix = prefix
         }
-        project.fonts[index].fileRole = role
+        project.fonts[index].fileRole = updatedRole
         project.fonts[index].dirty = true
         project.modified = Date()
         self.project = project
         canSave = true
         regeneratePlan()
+
+        if inferred.clarifiers.isEmpty {
+            postStatusMessage("Updated PostScript prefix from font metadata.")
+        } else {
+            let count = inferred.clarifiers.count
+            postStatusMessage("Inferred \(count) file naming label\(count == 1 ? "" : "s").")
+        }
     }
 
     func pushMasterAxisTreeToAllFonts() {
@@ -3238,16 +3337,47 @@ final class EditorViewModel: ObservableObject {
     }
 
     func importDroppedFonts(_ urls: [URL]) async {
+        let valid = Self.collectFontURLs(from: urls)
+        guard !valid.isEmpty else { return }
         if openProjects.isEmpty {
-            for url in urls.filter({ Self.isFontFile($0) }) {
-                await createProject(from: url)
+            await createProjectWithFonts(valid)
+        } else if let activeProjectID {
+            for url in valid {
+                await addFont(at: url, toProjectID: activeProjectID)
             }
-            return
         }
-        // Default legacy path: add to active project (split overlay uses disposition API).
-        for url in urls.filter({ Self.isFontFile($0) }) {
-            await addFont(at: url, toProjectID: activeProjectID)
+    }
+
+    static func collectFontURLs(from urls: [URL]) -> [URL] {
+        var collected: [URL] = []
+        var seen = Set<String>()
+
+        func ingest(_ url: URL) {
+            let norm = normalizedPath(url)
+            guard !seen.contains(norm) else { return }
+
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return }
+
+            if isDirectory.boolValue {
+                guard let contents = try? FileManager.default.contentsOfDirectory(
+                    at: url,
+                    includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                ) else { return }
+                for item in contents {
+                    ingest(item)
+                }
+            } else if isFontFile(url) {
+                seen.insert(norm)
+                collected.append(url.standardizedFileURL)
+            }
         }
+
+        for url in urls {
+            ingest(url)
+        }
+        return collected
     }
 
     static func isFontFile(_ url: URL) -> Bool {

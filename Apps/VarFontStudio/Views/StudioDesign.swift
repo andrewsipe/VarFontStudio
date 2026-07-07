@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VarFontCore
 
@@ -43,6 +44,8 @@ enum StudioSpacing {
     static let scrollContentHorizontal: CGFloat = panelHorizontal + 2
     /// Extra trailing inset so overlay scroll indicators don't cover row chrome (toggles, badges).
     static let scrollGutter: CGFloat = 8
+    /// Trailing inset for scroll content inside a padded card (card inset + scrollbar gutter).
+    static let cardScrollTrailing: CGFloat = controlGap + scrollGutter
     /// Top inset when scroll content sits directly under `StudioPanelHeader` (no filter/toolbar row).
     static let panelContentTop: CGFloat = toolbarVertical
     static let groupHeaderBelow: CGFloat = 3
@@ -63,6 +66,8 @@ enum StudioRadius {
 /// ## Stable Chrome style guide
 /// - Pair every `StudioTextField` with a `StudioFieldLabel` at the **same** `rowHeight` when toggling display ↔ edit.
 /// - Use `StudioFieldMetrics.*RowHeight` — never ad-hoc `.padding(.vertical)` on `TextField` alone.
+/// - Return accepts and resigns focus (`.commit`); axis-grid cells opt into `.advance` for tab-like flow.
+/// - Escape runs optional `onCancel`, then resigns focus.
 /// - Forbidden outside this file: `.textFieldStyle(.roundedBorder)`, raw `TextField`, `.padding(.top, 1)` toolbar hacks.
 /// - Selection: default `StudioRowSelectionStyle.fillOnly` — no stroke on list rows.
 /// - Chips: use `StudioTabChip` for project/file/save-review tabs (fixed padding, stable height).
@@ -149,11 +154,14 @@ enum StudioColors {
     static let statFormat1 = Color.green
     static let statFormat2 = Color.cyan
     static let statFormat3 = Color.accentColor
-    /// Drop zone half fills — always visible during drag (top = add, bottom = new).
-    static let dropZoneAddFill = Color.accentColor.opacity(0.06)
-    static let dropZoneNewFill = Color.green.opacity(0.05)
+    /// Drop zone half fills — 5% tint over the target region during drag.
+    static let dropZoneFillOpacity: CGFloat = 0.05
+    static let dropZoneAddFill = registrationForeground.opacity(dropZoneFillOpacity)
+    static let dropZoneNewFill = Color.green.opacity(dropZoneFillOpacity)
     /// Drop zone borders when the cursor is over a half.
-    static let dropAddExisting = Color.accentColor
+    /// Teal (not accentColor) — accentColor is already the app-wide selection
+    /// color, so reusing it here would read as "selected" rather than "drop target."
+    static let dropAddExisting = registrationForeground
     static let dropNewProject = Color.green
 }
 
@@ -567,13 +575,16 @@ struct StudioPanelHeaderChrome<Content: View>: View {
 /// Panel section header — fixed 32pt height contract.
 struct StudioPanelHeader<Trailing: View>: View {
     let title: String
+    var horizontalPadding: CGFloat = StudioSpacing.panelHorizontal + 2
     @ViewBuilder var trailing: () -> Trailing
 
     init(
         title: String,
+        horizontalPadding: CGFloat = StudioSpacing.panelHorizontal + 2,
         @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
     ) {
         self.title = title
+        self.horizontalPadding = horizontalPadding
         self.trailing = trailing
     }
 
@@ -584,7 +595,7 @@ struct StudioPanelHeader<Trailing: View>: View {
                 Spacer(minLength: 0)
                 trailing()
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal + 2)
+            .padding(.horizontal, horizontalPadding)
         }
     }
 }
@@ -754,6 +765,22 @@ struct StudioKeyValueRow: View {
     }
 }
 
+/// Return / Escape keyboard contract for `StudioTextField` and `StudioInlineTextField`.
+enum StudioTextSubmitBehavior {
+    /// Return accepts the edit and resigns focus — default for forms and inspector fields.
+    case commit
+    /// Return runs `onSubmit` without resigning — axis-grid and Add Stop tab order.
+    case advance
+}
+
+@MainActor
+enum StudioFieldFocus {
+    static func resignIfEditing() {
+        guard NSApp.keyWindow?.firstResponder is NSTextView else { return }
+        NSApp.keyWindow?.makeFirstResponder(nil)
+    }
+}
+
 /// Compact text field — fixed row height, dark editable surface, subtle border, no accent focus ring.
 struct StudioTextField: View {
     let placeholder: String
@@ -765,6 +792,9 @@ struct StudioTextField: View {
 
     /// When set, non-empty value text uses this color (e.g. clarifier fields in file naming).
     var filledForeground: Color? = nil
+    var onSubmit: (() -> Void)? = nil
+    var onCancel: (() -> Void)? = nil
+    var submitBehavior: StudioTextSubmitBehavior = .commit
 
     @FocusState private var isFocused: Bool
     @Environment(\.isEnabled) private var isEnabled
@@ -796,6 +826,21 @@ struct StudioTextField: View {
             }
             .focused($isFocused)
             .modifier(StudioFocusRingSuppression())
+            .onSubmit { handleSubmit() }
+            .onExitCommand { handleCancel() }
+    }
+
+    private func handleSubmit() {
+        onSubmit?()
+        guard submitBehavior == .commit else { return }
+        isFocused = false
+        StudioFieldFocus.resignIfEditing()
+    }
+
+    private func handleCancel() {
+        onCancel?()
+        isFocused = false
+        StudioFieldFocus.resignIfEditing()
     }
 
     private var valueForeground: Color {
@@ -860,6 +905,10 @@ struct StudioInlineTextField: View {
     var rowHeight: CGFloat = StudioFieldMetrics.bodyRowHeight
     var alignment: TextAlignment = .leading
     var onSubmit: (() -> Void)? = nil
+    var onCancel: (() -> Void)? = nil
+    var submitBehavior: StudioTextSubmitBehavior = .commit
+
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         TextField(placeholder, text: $text)
@@ -869,7 +918,22 @@ struct StudioInlineTextField: View {
             .multilineTextAlignment(alignment)
             .studioInlineEditField(isActive: true, rowHeight: rowHeight)
             .modifier(StudioFocusRingSuppression())
-            .onSubmit { onSubmit?() }
+            .focused($isFocused)
+            .onSubmit { handleSubmit() }
+            .onExitCommand { handleCancel() }
+    }
+
+    private func handleSubmit() {
+        onSubmit?()
+        guard submitBehavior == .commit else { return }
+        isFocused = false
+        StudioFieldFocus.resignIfEditing()
+    }
+
+    private func handleCancel() {
+        onCancel?()
+        isFocused = false
+        StudioFieldFocus.resignIfEditing()
     }
 }
 
@@ -882,6 +946,8 @@ enum StudioTabChipShape {
 struct StudioTabChip<Label: View, Trailing: View>: View {
     var isSelected: Bool = false
     var isHighlighted: Bool = false
+    var isDropTarget: Bool = false
+    var dropTargetTint: Color = StudioColors.dropAddExisting
     var shape: StudioTabChipShape = .capsule
     @ViewBuilder var label: () -> Label
     @ViewBuilder var trailing: () -> Trailing
@@ -915,6 +981,32 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
                         }
                     }
             }
+        }
+        .overlay(alignment: .bottom) {
+            if isDropTarget {
+                Rectangle()
+                    .fill(dropTargetTint)
+                    .frame(height: 1)
+                    .padding(.horizontal, shape == .capsule ? 8 : 2)
+            }
+        }
+        .background {
+            if isDropTarget {
+                chipDropFill
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: isDropTarget)
+    }
+
+    @ViewBuilder
+    private var chipDropFill: some View {
+        switch shape {
+        case .capsule:
+            Capsule()
+                .fill(dropTargetTint.opacity(StudioColors.dropZoneFillOpacity))
+        case .roundedRect:
+            RoundedRectangle(cornerRadius: StudioRadius.chip)
+                .fill(dropTargetTint.opacity(StudioColors.dropZoneFillOpacity))
         }
     }
 
@@ -1054,6 +1146,14 @@ enum StudioRowChrome {
     }
 }
 
+struct StudioDirtyDot: View {
+    var body: some View {
+        Circle()
+            .fill(Color.accentColor)
+            .frame(width: 6, height: 6)
+    }
+}
+
 struct StudioRowBackground: View {
     let isSelected: Bool
     let isHovered: Bool
@@ -1184,22 +1284,30 @@ struct StudioInstanceComposedName: View {
     let links: [NamingChainLink]
     let fallback: String
     var included: Bool = true
+    var hideElided: Bool = false
+
+    private var displayLinks: [NamingChainLink] {
+        hideElided ? links.filter { !$0.elided } : links
+    }
 
     var body: some View {
         Group {
             if links.isEmpty {
                 Text(fallback)
                     .foregroundStyle(included ? .primary : .secondary)
+            } else if hideElided, displayLinks.isEmpty {
+                Text("—")
+                    .foregroundStyle(.tertiary)
             } else {
-                composedText
+                composedText(from: displayLinks)
             }
         }
         .font(StudioTypography.bodyMedium)
         .lineLimit(1)
     }
 
-    private var composedText: Text {
-        links.enumerated().reduce(Text("")) { partial, item in
+    private func composedText(from segments: [NamingChainLink]) -> Text {
+        segments.enumerated().reduce(Text("")) { partial, item in
             let (index, link) = item
             var result = partial
             if index > 0 {

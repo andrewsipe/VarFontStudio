@@ -121,7 +121,8 @@ struct CombinationStylesSection: View {
                 foreground: missingAxis ? StudioColors.warningForeground : StudioColors.axisValue,
                 rowHeight: StudioFieldMetrics.monoValueRowHeight,
                 alignment: .leading,
-                onSubmit: { commitLegEdit(compoundID: compound.id, tag: tag) }
+                onSubmit: { commitLegEdit(compoundID: compound.id, tag: tag) },
+                onCancel: { editingLeg = nil }
             )
             .onAppear { legDraft = StudioFormatting.axisValue(value) }
         } else {

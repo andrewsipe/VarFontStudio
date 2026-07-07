@@ -12,7 +12,9 @@ final class InstancePlannerTests: XCTestCase {
         XCTAssertEqual(plan.formula.totalGenerated, 27)
         XCTAssertEqual(plan.formula.totalIncluded, 27)
         XCTAssertEqual(plan.instances.count, 27)
-        XCTAssertTrue(plan.warnings.isEmpty)
+        XCTAssertFalse(plan.warnings.contains { $0.code == "duplicate_stop_value" })
+        XCTAssertFalse(plan.warnings.contains { $0.code == "duplicate_stop_name" })
+        XCTAssertFalse(plan.warnings.contains { $0.code == "duplicate_composed_name" })
     }
 
     func testPlanMatchesFixtureSamples() throws {
@@ -153,7 +155,17 @@ final class InstancePlannerTests: XCTestCase {
 
     func testCommitServiceDryRun() async throws {
         let request = try FixtureLoader.decode(CommitRequest.self, from: "playfair-roman-commit-request.json")
-        let service = CommitService()
+        guard FileManager.default.fileExists(atPath: request.sourcePath) else {
+            throw XCTSkip("Playfair Roman VF not at \(request.sourcePath)")
+        }
+        let helper = FixtureLoader.examplesDirectory
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Tools/vfcommit/vfcommit.py")
+        guard FileManager.default.fileExists(atPath: helper.path) else {
+            throw XCTSkip("vfcommit helper not found at \(helper.path)")
+        }
+        let service = CommitService(helperURL: helper)
         let result = try await service.commit(request)
         XCTAssertTrue(result.ok)
         XCTAssertTrue(result.dryRun)

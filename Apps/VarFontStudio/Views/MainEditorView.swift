@@ -7,11 +7,7 @@ struct MainEditorView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @State private var isDropTargeted = false
-    @State private var activeDropZone: WorkspaceDropZone = .none
-    @State private var openProjectMenuID: String?
     @State private var workspaceOrigin: CGPoint = .zero
-    @State private var projectMenuTabRect: CGRect?
-    @State private var projectMenuSize: CGSize = .zero
 
     var body: some View {
         GeometryReader { geometry in
@@ -28,24 +24,18 @@ struct MainEditorView: View {
                     WorkspaceDragGhostOverlay(workspaceOrigin: workspaceOrigin)
                         .allowsHitTesting(false)
                 }
-                .overlay {
-                    projectMenuOverlay(screenSize: geometry.size)
-                }
-                .onChange(of: openProjectMenuID) { _, _ in
-                    projectMenuSize = .zero
-                }
                 .onDrop(
                     of: EditorViewModel.fontDropTypes,
                     delegate: WorkspaceDropDelegate(
                         isTargeted: $isDropTargeted,
-                        activeZone: $activeDropZone,
-                        dropHeight: geometry.size.height,
-                        isEmptyWorkspace: !editor.hasOpenProjects,
+                        globalOrigin: geometry.frame(in: .global).origin,
                         isBusy: editor.isBusy,
+                        activeProjectID: editor.activeProjectID,
                         isInternalDragActive: { workspaceDrag.isActive },
-                        onDropURLs: { urls, disposition in
+                        coordinator: workspaceDrag,
+                        onDropURLs: { urls, target in
                             Task {
-                                await editor.importDroppedFonts(urls, disposition: disposition)
+                                await editor.importDroppedFonts(urls, target: target)
                             }
                         }
                     )
@@ -55,21 +45,10 @@ struct MainEditorView: View {
                         loadingOverlay
                     }
                 }
-                .overlay {
-                    if isDropTargeted, !editor.isBusy, !workspaceDrag.isActive {
-                        WorkspaceDropOverlay(
-                            isEmptyWorkspace: !editor.hasOpenProjects,
-                            activeZone: activeDropZone
-                        )
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                    }
-                }
-                .animation(.easeOut(duration: 0.15), value: isDropTargeted)
                 .onChange(of: editor.isBusy) { _, busy in
                     if busy {
                         isDropTargeted = false
-                        activeDropZone = .none
+                        workspaceDrag.cancelExternalFileDrop()
                     }
                 }
         }
@@ -78,11 +57,12 @@ struct MainEditorView: View {
                 editor.cancelWorkspaceDrag()
                 return .handled
             }
+            if workspaceDrag.isExternalFileDropActive {
+                workspaceDrag.cancelExternalFileDrop()
+                isDropTargeted = false
+                return .handled
+            }
             return .ignored
-        }
-        .sheet(isPresented: pendingDropBinding) {
-            ProjectPickerSheet()
-                .environmentObject(editor)
         }
         .sheet(item: projectTargetPickerBinding) { mode in
             ProjectTargetPickerSheet(mode: mode)
@@ -198,13 +178,6 @@ struct MainEditorView: View {
         }
     }
 
-    private var pendingDropBinding: Binding<Bool> {
-        Binding(
-            get: { editor.pendingDropURLs != nil },
-            set: { if !$0 { editor.cancelPendingDrop() } }
-        )
-    }
-
     private var projectTargetPickerBinding: Binding<ProjectTargetPickerMode?> {
         Binding(
             get: { editor.projectTargetPickerMode },
@@ -256,10 +229,8 @@ struct MainEditorView: View {
             Group {
                 if editor.hasOpenProjects {
                     StudioPanelSplitView()
-                } else if !isDropTargeted {
-                    EmptyWorkspaceView()
                 } else {
-                    Color.clear
+                    EmptyWorkspaceView(isDropTargeted: isDropTargeted)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -270,132 +241,11 @@ struct MainEditorView: View {
             }
         }
         .navigationTitle(activeNavigationTitle)
-        .overlayPreferenceValue(ProjectTabAnchorKey.self) { anchors in
-            GeometryReader { geometry in
-                Color.clear
-                    .preference(
-                        key: ProjectMenuTabRectKey.self,
-                        value: resolvedProjectMenuTabRect(anchors: anchors, geometry: geometry)
-                    )
-            }
-        }
-        .onPreferenceChange(ProjectMenuTabRectKey.self) { rect in
-            guard !workspaceDrag.isActive else { return }
-            if rect == .zero {
-                if openProjectMenuID == nil {
-                    projectMenuTabRect = nil
-                }
-            } else if rect != projectMenuTabRect {
-                projectMenuTabRect = rect
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func projectMenuOverlay(screenSize: CGSize) -> some View {
-        ZStack(alignment: .topLeading) {
-            if openProjectMenuID != nil, !workspaceDrag.isActive {
-                Color.black.opacity(0.001)
-                    .frame(width: screenSize.width, height: screenSize.height)
-                    .contentShape(Rectangle())
-                    .onTapGesture { openProjectMenuID = nil }
-            }
-
-            if let openID = openProjectMenuID,
-               let tabRect = projectMenuTabRect,
-               let openProject = editor.openProjects.first(where: { $0.id == openID }) {
-                let menuOrigin = clampedProjectMenuOrigin(
-                    tabRect: tabRect,
-                    menuSize: projectMenuSize,
-                    screenSize: screenSize,
-                    projectID: openID
-                )
-                ProjectDropdownMenu(
-                    openProject: openProject,
-                    onDismiss: { openProjectMenuID = nil }
-                )
-                .environmentObject(editor)
-                .fixedSize(horizontal: true, vertical: true)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(
-                            key: ProjectMenuSizePreferenceKey.self,
-                            value: geometry.size
-                        )
-                    }
-                }
-                .onPreferenceChange(ProjectMenuSizePreferenceKey.self) { size in
-                    if size != projectMenuSize {
-                        projectMenuSize = size
-                    }
-                }
-                .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
-                .offset(x: menuOrigin.x, y: menuOrigin.y)
-                .opacity(workspaceDrag.isActive ? 0 : 1)
-            }
-        }
-    }
-
-    private func clampedProjectMenuOrigin(
-        tabRect: CGRect,
-        menuSize: CGSize,
-        screenSize: CGSize,
-        projectID: String
-    ) -> CGPoint {
-        let margin: CGFloat = 8
-        let availableWidth = max(screenSize.width - margin * 2, 0)
-
-        var menuWidth = menuSize.width
-        if menuWidth <= 0 {
-            menuWidth = estimatedProjectMenuWidth(for: projectID)
-        }
-        menuWidth = min(menuWidth, availableWidth)
-
-        var x = tabRect.minX
-        if x + menuWidth > screenSize.width - margin {
-            x = tabRect.maxX - menuWidth
-        }
-        x = min(x, screenSize.width - menuWidth - margin)
-        x = max(x, margin)
-
-        var y = tabRect.maxY + 4
-        let menuHeight = menuSize.height > 0 ? menuSize.height : 0
-        if menuHeight > 0, y + menuHeight > screenSize.height - margin {
-            y = max(margin, tabRect.minY - menuHeight - 4)
-        }
-
-        return CGPoint(x: x, y: y)
-    }
-
-    private func estimatedProjectMenuWidth(for projectID: String) -> CGFloat {
-        let padding = StudioSpacing.sheetOuterPadding * 2
-        let list = StudioPanelMetrics.projectMenuListWidth
-        guard let project = editor.openProjects.first(where: { $0.id == projectID }) else {
-            return padding + list
-        }
-
-        let showsNaming = editor.activeProjectID == projectID && editor.selectedFontID != nil
-            && project.document.fonts.contains(where: { $0.id == editor.selectedFontID })
-        if showsNaming {
-            return padding + list + StudioSpacing.sheetSectionSpacing + StudioPanelMetrics.projectMenuNamingWidth
-        }
-        return padding + list
-    }
-
-    private func resolvedProjectMenuTabRect(
-        anchors: [String: Anchor<CGRect>],
-        geometry: GeometryProxy
-    ) -> CGRect {
-        guard let openID = openProjectMenuID, let anchor = anchors[openID] else {
-            return .zero
-        }
-        return geometry[anchor]
     }
 
     private var projectChrome: some View {
         VStack(spacing: 0) {
-            ProjectToolbar(openMenuProjectID: $openProjectMenuID)
+            ProjectToolbar()
                 .environmentObject(editor)
 
             ProjectFileSubBar()

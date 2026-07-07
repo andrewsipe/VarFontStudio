@@ -20,9 +20,7 @@
 		B2000012 /* NamingOrderChainFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000011 /* NamingOrderChainFooter.swift */; };
 		B2000013 /* OpenProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* OpenProject.swift */; };
 		B2000014 /* ProjectToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000013 /* ProjectToolbar.swift */; };
-		B2000015 /* ProjectDropdownMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000014 /* ProjectDropdownMenu.swift */; };
 		B2000016 /* ProjectFileSubBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000015 /* ProjectFileSubBar.swift */; };
-		B2000017 /* ProjectPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000016 /* ProjectPickerSheet.swift */; };
 		B2000018 /* WorkspaceDropOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000017 /* WorkspaceDropOverlay.swift */; };
 		B2000019 /* EditorLayoutPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000018 /* EditorLayoutPreferences.swift */; };
 		B2000020 /* StudioPanelSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000019 /* StudioPanelSplitView.swift */; };
@@ -38,6 +36,10 @@
 		B2000030 /* ProjectFileCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000029 /* ProjectFileCommands.swift */; };
 		B2000031 /* PlanIssueResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000030 /* PlanIssueResolverSheet.swift */; };
 		B2000032 /* CombinationStylesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000031 /* CombinationStylesSection.swift */; };
+		B2000033 /* InspectorColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000032 /* InspectorColumn.swift */; };
+		B2000034 /* ProjectInspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000033 /* ProjectInspectorPanel.swift */; };
+		B2000035 /* ProjectScopeHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000034 /* ProjectScopeHeader.swift */; };
+		B2000036 /* ProjectFilesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000035 /* ProjectFilesSection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,9 +56,7 @@
 		F2000011 /* NamingOrderChainFooter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NamingOrderChainFooter.swift; sourceTree = "<group>"; };
 		F2000012 /* OpenProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenProject.swift; sourceTree = "<group>"; };
 		F2000013 /* ProjectToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectToolbar.swift; sourceTree = "<group>"; };
-		F2000014 /* ProjectDropdownMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDropdownMenu.swift; sourceTree = "<group>"; };
 		F2000015 /* ProjectFileSubBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileSubBar.swift; sourceTree = "<group>"; };
-		F2000016 /* ProjectPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerSheet.swift; sourceTree = "<group>"; };
 		F2000017 /* WorkspaceDropOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDropOverlay.swift; sourceTree = "<group>"; };
 		F2000018 /* EditorLayoutPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorLayoutPreferences.swift; sourceTree = "<group>"; };
 		F2000019 /* StudioPanelSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioPanelSplitView.swift; sourceTree = "<group>"; };
@@ -72,6 +72,10 @@
 		F2000029 /* ProjectFileCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileCommands.swift; sourceTree = "<group>"; };
 		F2000030 /* PlanIssueResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanIssueResolverSheet.swift; sourceTree = "<group>"; };
 		F2000031 /* CombinationStylesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombinationStylesSection.swift; sourceTree = "<group>"; };
+		F2000032 /* InspectorColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorColumn.swift; sourceTree = "<group>"; };
+		F2000033 /* ProjectInspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectInspectorPanel.swift; sourceTree = "<group>"; };
+		F2000034 /* ProjectScopeHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectScopeHeader.swift; sourceTree = "<group>"; };
+		F2000035 /* ProjectFilesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFilesSection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,11 +121,13 @@
 			children = (
 				F2000003 /* MainEditorView.swift */,
 				F2000013 /* ProjectToolbar.swift */,
-				F2000014 /* ProjectDropdownMenu.swift */,
 				F2000015 /* ProjectFileSubBar.swift */,
 				F2000029 /* ProjectFileCommands.swift */,
 				F2000028 /* FileClarifiersBar.swift */,
-				F2000016 /* ProjectPickerSheet.swift */,
+				F2000032 /* InspectorColumn.swift */,
+				F2000033 /* ProjectInspectorPanel.swift */,
+				F2000034 /* ProjectScopeHeader.swift */,
+				F2000035 /* ProjectFilesSection.swift */,
 				F2000020 /* ProjectTargetPickerSheet.swift */,
 				F2000017 /* WorkspaceDropOverlay.swift */,
 				F2000019 /* StudioPanelSplitView.swift */,
@@ -244,9 +250,7 @@
 				B2000022 /* WorkspaceDragSession.swift in Sources */,
 				B2000003 /* MainEditorView.swift in Sources */,
 				B2000014 /* ProjectToolbar.swift in Sources */,
-				B2000015 /* ProjectDropdownMenu.swift in Sources */,
 				B2000016 /* ProjectFileSubBar.swift in Sources */,
-				B2000017 /* ProjectPickerSheet.swift in Sources */,
 				B2000021 /* ProjectTargetPickerSheet.swift in Sources */,
 				B2000018 /* WorkspaceDropOverlay.swift in Sources */,
 				B2000020 /* StudioPanelSplitView.swift in Sources */,
@@ -254,6 +258,10 @@
 				B2000024 /* AxisConflictResolverSheet.swift in Sources */,
 				B2000031 /* PlanIssueResolverSheet.swift in Sources */,
 				B2000032 /* CombinationStylesSection.swift in Sources */,
+				B2000033 /* InspectorColumn.swift in Sources */,
+				B2000034 /* ProjectInspectorPanel.swift in Sources */,
+				B2000035 /* ProjectScopeHeader.swift in Sources */,
+				B2000036 /* ProjectFilesSection.swift in Sources */,
 				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000027 /* SourceFontAccess.swift in Sources */,

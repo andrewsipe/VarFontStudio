@@ -25,18 +25,20 @@ public enum AxisStopValidator {
             }
         }
 
-        return groups.values.compactMap { stops in
-            guard stops.count > 1 else { return nil }
+        return groups
+            .filter { $0.value.count > 1 }
+            .sorted { $0.key < $1.key }
+            .map { _, stops in
             let label = axisLabel(axis)
             let valueText = formatValue(stops[0].value)
-            let names = stops.map(\.name).joined(separator: "”, “")
+            let names = stops.map(\.name).sorted().joined(separator: "”, “")
             return PlanWarning(
                 code: "duplicate_stop_value",
                 axis: axis.tag,
                 name: valueText,
-                stopIDs: stops.map(\.id),
+                stopIDs: stops.map(\.id).sorted(),
                 message: "\(label) has \(stops.count) stops at value \(valueText) (“\(names)”).",
-                hint: "Remove one stop or change a value so each stop on this axis is unique."
+                hint: "Two stops land on the same value here — remove one, or give it a different number."
             )
         }
     }
@@ -47,19 +49,21 @@ public enum AxisStopValidator {
             groups[stop.name, default: []].append(stop)
         }
 
-        return groups.compactMap { name, stops in
-            guard stops.count > 1 else { return nil }
+        return groups
+            .filter { $0.value.count > 1 }
+            .sorted { $0.key < $1.key }
+            .compactMap { name, stops in
             let contributing = stops.filter { !$0.elidable }
             guard contributing.count > 1 else { return nil }
             let label = axisLabel(axis)
-            let valueList = stops.map { "\(formatValue($0.value))" }.joined(separator: ", ")
+            let valueList = stops.sorted { $0.value < $1.value }.map { "\(formatValue($0.value))" }.joined(separator: ", ")
             return PlanWarning(
                 code: "duplicate_stop_name",
                 axis: axis.tag,
                 name: name,
-                stopIDs: stops.map(\.id),
+                stopIDs: stops.map(\.id).sorted(),
                 message: "\(label) has \(stops.count) stops named “\(name)” at values \(valueList).",
-                hint: "Rename one stop, remove a stop, or change elision so only one contributes to composed names."
+                hint: "A couple of stops share this name — rename one, remove one, or elide it so only one feeds composed names."
             )
         }
     }

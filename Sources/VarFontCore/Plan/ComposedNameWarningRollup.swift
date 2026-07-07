@@ -57,16 +57,29 @@ public enum ComposedNameWarningRollup {
             }
         }
 
-        let primaryAxis = axisCounts.max(by: { $0.value < $1.value })?.key
+        let primaryAxis = primaryAxisTag(from: axisCounts, naming: naming)
 
         return PlanWarning(
             code: "duplicate_composed_name",
             axis: primaryAxis,
             name: composedName,
             keys: keysField,
-            stopIDs: stopIDs.isEmpty ? nil : Array(stopIDs),
+            stopIDs: stopIDs.isEmpty ? nil : Array(stopIDs).sorted(),
             message: "Composed name “\(composedName)” is used by \(instances.count) instances.",
-            hint: "Rename or elide stops on the axes that contribute identical labels."
+            hint: "The stops on these axes are contributing identical labels — rename one, or elide it."
         )
+    }
+
+    private static func primaryAxisTag(
+        from axisCounts: [String: Int],
+        naming: NamingPolicy
+    ) -> String? {
+        axisCounts.max { lhs, rhs in
+            if lhs.value != rhs.value { return lhs.value < rhs.value }
+            let lhsOrder = naming.order.firstIndex(of: lhs.key) ?? Int.max
+            let rhsOrder = naming.order.firstIndex(of: rhs.key) ?? Int.max
+            if lhsOrder != rhsOrder { return lhsOrder > rhsOrder }
+            return lhs.key > rhs.key
+        }?.key
     }
 }

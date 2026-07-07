@@ -16,17 +16,21 @@ public enum FileClarifierInference {
         analysis: FontAnalysis?,
         font: FontDocument
     ) -> FileClarifierInferenceResult {
-        var clarifiers: [FileClarifier] = []
+        let skipped = skippedCategories(font: font)
         let basename = sourceURL.deletingPathExtension().lastPathComponent
         let haystack = "\(basename) \(analysis?.source.fullName ?? "")"
 
-        if let slope = inferSlope(haystack: haystack, analysis: analysis, font: font) {
+        var clarifiers: [FileClarifier] = []
+
+        if !skipped.contains(.slope), let slope = inferSlope(haystack: haystack, analysis: analysis) {
             clarifiers.append(FileClarifier(category: .slope, label: slope))
         }
-        if let width = inferWidth(haystack: haystack) {
+        if !skipped.contains(.width),
+           let width = inferLabelFromStopNames(basename: basename, axisTag: "wdth", font: font) {
             clarifiers.append(FileClarifier(category: .width, label: width))
         }
-        if let optical = inferOptical(haystack: haystack) {
+        if !skipped.contains(.optical),
+           let optical = inferLabelFromStopNames(basename: basename, axisTag: "opsz", font: font) {
             clarifiers.append(FileClarifier(category: .optical, label: optical))
         }
 
@@ -48,33 +52,34 @@ public enum FileClarifierInference {
         )
     }
 
-    private static func inferSlope(haystack: String, analysis: FontAnalysis?, font: FontDocument) -> String? {
+    /// Categories that should not receive inferred clarifiers on this file.
+    public static func skippedCategories(font: FontDocument) -> Set<FileClarifierCategory> {
+        ClarifierSlotCoverage.skippedCategories(font: font)
+    }
+
+    private static func inferSlope(haystack: String, analysis: FontAnalysis?) -> String? {
         let lower = haystack.lowercased()
         if lower.contains("oblique") { return "Oblique" }
         if lower.contains("italic") { return "Italic" }
         if analysis?.inferred.isItalicFont == true { return "Italic" }
-        if font.axes.contains(where: { $0.tag == "ital" && $0.role == .instance }) { return nil }
-        if font.axes.contains(where: { $0.tag == "ital" && $0.isDesignRecordOnly }) { return nil }
-        let names = font.axes.flatMap(\.values).map(\.name)
-        if names.contains(where: { $0.localizedCaseInsensitiveContains("italic") }) {
-            return "Italic"
+        return nil
+    }
+
+    /// Match a filename token against axis stop names; return the stop label as stored in the font.
+    private static func inferLabelFromStopNames(
+        basename: String,
+        axisTag: String,
+        font: FontDocument
+    ) -> String? {
+        guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return nil }
+        let lowerBasename = basename.lowercased()
+        let candidates = axis.values
+            .map(\.name)
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .sorted { $0.count > $1.count }
+        for name in candidates where lowerBasename.contains(name.lowercased()) {
+            return name
         }
-        return nil
-    }
-
-    private static func inferWidth(haystack: String) -> String? {
-        let lower = haystack.lowercased()
-        if lower.contains("semicond") { return "SemiCondensed" }
-        if lower.contains("condensed") || lower.contains("cond") { return "Condensed" }
-        if lower.contains("extended") || lower.contains(" wide") || lower.hasSuffix("wide") { return "Wide" }
-        return nil
-    }
-
-    private static func inferOptical(haystack: String) -> String? {
-        let lower = haystack.lowercased()
-        if lower.contains("micro") { return "Micro" }
-        if lower.contains("display") { return "Display" }
-        if lower.contains("text") && !lower.contains("texture") { return "Text" }
         return nil
     }
 
@@ -87,11 +92,5 @@ public enum FileClarifierInference {
             result.append(item)
         }
         return result
-    }
-}
-
-private extension String {
-    var nilIfEmpty: String? {
-        isEmpty ? nil : self
     }
 }

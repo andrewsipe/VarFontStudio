@@ -56,7 +56,7 @@ public enum StatFormat3Pairing {
                         axis: axis.tag,
                         stopIDs: [stop.id],
                         message: "Axis '\(axis.tag)' stop “\(stop.name)” links to missing value \(formatValue(linkedValue)).",
-                        hint: "Add a stop at the linked coordinate or clear the link."
+                        hint: "This link points at a coordinate with no stop — add one there, or clear the link."
                     )
                 )
             }

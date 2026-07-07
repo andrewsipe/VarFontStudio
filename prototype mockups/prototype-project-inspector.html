@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VarFont Studio — Project Inspector v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #1c1c1e; --bar: #2c2c2e; --sf: #242426; --s2: #323234;
+      --bd: #48484a; --tx: #f2f2f7; --mu: #98989d; --dim: #636366;
+      --pr: #bf5af2; --pr-t: rgba(191,90,242,.15);
+      --te: #64d2ff; --am: #ff9f0a;
+      --r: 6px; --ui: 'IBM Plex Sans', system-ui, sans-serif; --mo: 'IBM Plex Mono', monospace;
+      --tree-w: 280px; --insp-w: 300px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--ui); font-size: 12px; color: var(--tx); background: #111; line-height: 1.4; }
+
+    .proto-controls {
+      background: #0a0a0c; border-bottom: 1px solid #333; padding: 12px 16px; display: grid; gap: 8px;
+    }
+    .proto-controls h1 { font-size: 14px; font-weight: 600; }
+    .proto-controls p { font-size: 11px; color: var(--mu); max-width: 780px; }
+    .ctrl-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .ctrl-label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin-right: 4px; }
+    .ctrl-btn {
+      font: inherit; font-size: 11px; padding: 5px 10px; border-radius: 4px;
+      border: 1px solid var(--bd); background: var(--s2); color: var(--tx); cursor: pointer;
+    }
+    .ctrl-btn.on { background: var(--pr-t); border-color: var(--pr); color: var(--pr); }
+
+    .app { display: flex; flex-direction: column; height: calc(100vh - 130px); min-height: 560px; background: var(--bg); }
+    .project-bar, .file-bar {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      background: var(--bar); border-bottom: 1px solid var(--bd); flex-shrink: 0;
+    }
+    .proj-tab {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: var(--r);
+      background: var(--pr-t); border: 1px solid rgba(191,90,242,.35); font-weight: 600; font-size: 11px;
+    }
+    .proj-tab .badge { font-family: var(--mo); font-size: 9px; padding: 1px 5px; border-radius: 999px; background: rgba(191,90,242,.2); color: var(--pr); }
+    .proj-add { margin-left: auto; color: var(--pr); font-size: 11px; border: none; background: none; font: inherit; cursor: pointer; }
+    .file-bar .label { font-size: 9px; font-weight: 600; letter-spacing: .06em; color: var(--dim); }
+    .file-chip {
+      display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: var(--r);
+      border: 1px solid var(--bd); background: var(--sf); font-size: 11px; cursor: pointer; color: var(--mu);
+    }
+    .file-chip.sel { border-color: rgba(191,90,242,.4); background: var(--pr-t); color: var(--tx); font-weight: 600; }
+    .file-chip .star { color: var(--am); font-size: 9px; }
+
+    .workspace { display: flex; flex: 1; min-height: 0; }
+    .col-tree { width: var(--tree-w); border-right: 1px solid var(--bd); background: var(--bar); flex-shrink: 0; }
+    .col-inst { flex: 1; border-right: 1px solid var(--bd); background: var(--bg); min-width: 180px; }
+    .col-insp { width: var(--insp-w); flex-shrink: 0; background: var(--bar); display: flex; flex-direction: column; min-height: 0; }
+    .panel-hdr { padding: 8px 10px; border-bottom: 1px solid var(--bd); font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+    .placeholder { padding: 12px; color: var(--dim); font-size: 11px; }
+    .inst-row { padding: 6px 10px; border-bottom: 1px solid var(--s2); font-size: 11px; cursor: pointer; }
+    .inst-row.sel { background: var(--pr-t); }
+
+    .insp-modes { display: flex; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--bd); }
+    .insp-mode {
+      flex: 1; padding: 5px 8px; font: inherit; font-size: 10px; font-weight: 600;
+      border: 1px solid var(--bd); border-radius: 4px; background: var(--sf); color: var(--mu); cursor: pointer;
+    }
+    .insp-mode.on { background: var(--pr-t); border-color: rgba(191,90,242,.35); color: var(--pr); }
+
+    .insp-scroll { flex: 1; overflow-y: auto; }
+    .insp-body.hidden { display: none; }
+
+    /* ── Project scope: distinct header band ── */
+    .proj-scope {
+      padding: 10px 10px 8px; background: var(--sf);
+      border-bottom: 1px solid var(--bd);
+    }
+    .proj-scope-top { display: flex; align-items: flex-start; gap: 6px; }
+    .proj-scope-text { flex: 1; min-width: 0; }
+    .proj-title { font-size: 14px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+    .proj-sub { font-size: 10px; color: var(--mu); margin-top: 3px; }
+    .icon-btn {
+      width: 22px; height: 22px; border: none; background: transparent; color: var(--dim);
+      border-radius: 4px; cursor: pointer; font-size: 12px; flex-shrink: 0;
+    }
+    .icon-btn:hover { background: var(--s2); color: var(--tx); }
+
+    /* ── Section blocks ── */
+    .block { padding: 10px; border-bottom: 1px solid var(--bd); }
+    .block-title {
+      font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--dim); margin-bottom: 6px;
+    }
+    .block-title .ctx { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--mu); }
+
+    /* Compact file picker — not header-sized */
+    .file-pick {
+      display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 4px;
+      border: 1px solid transparent; cursor: pointer; margin-bottom: 2px;
+    }
+    .file-pick:hover { background: var(--sf); }
+    .file-pick.sel { background: var(--pr-t); border-color: rgba(191,90,242,.25); }
+    .file-pick .name { font-size: 11px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-pick .meta { font-size: 9px; color: var(--dim); font-family: var(--mo); }
+    .file-pick .star { color: var(--am); font-size: 8px; }
+    .file-pick .row-act { opacity: .5; font-size: 10px; padding: 0 2px; }
+    .file-pick:hover .row-act { opacity: 1; }
+
+    .act-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+    .act {
+      font: inherit; font-size: 10px; padding: 4px 8px; border-radius: 4px;
+      border: 1px solid var(--bd); background: var(--sf); color: var(--mu); cursor: pointer;
+    }
+    .act:hover { color: var(--tx); border-color: var(--pr); }
+    .act.primary { color: var(--pr); border-color: rgba(191,90,242,.35); }
+
+    .file-act-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 8px; }
+    .file-act-row .act { font-size: 10px; }
+
+    .banner { font-size: 10px; color: var(--dim); padding: 6px 8px; background: var(--sf); border-radius: 4px; margin-bottom: 8px; line-height: 1.45; }
+    .field { display: grid; grid-template-columns: 68px 1fr; gap: 6px; align-items: center; margin-bottom: 5px; }
+    .field label { font-size: 10px; color: var(--mu); }
+    .field input, .field .muted {
+      font: inherit; font-size: 11px; padding: 4px 6px; border-radius: 4px;
+      border: 1px solid var(--bd); background: var(--bg); color: var(--tx);
+    }
+    .field .muted { color: var(--dim); border: none; background: transparent; padding-left: 0; }
+    .field .pill { font-family: var(--mo); font-size: 9px; padding: 1px 4px; border-radius: 3px; background: var(--s2); margin-left: 4px; }
+
+    .inst-name { font-size: 13px; font-weight: 600; color: var(--pr); padding: 8px; background: var(--pr-t); border-radius: var(--r); margin: 10px; }
+    .kv { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 10px; border-bottom: 1px solid var(--s2); }
+
+    .note-bar { padding: 6px 12px; background: rgba(100,210,255,.08); border-top: 1px solid rgba(100,210,255,.2); font-size: 10px; color: var(--te); }
+    .legend { font-size: 10px; color: var(--dim); margin-top: 6px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="proto-controls">
+    <h1>Project Inspector v2 — cleaned hierarchy</h1>
+    <p>Project header is a <strong>title band</strong>, not a file row. Actions sit next to what they affect. Inspector column stays open when enabled (auto-hide retired).</p>
+    <div class="ctrl-row">
+      <span class="ctrl-label">Files</span>
+      <button class="ctrl-btn on" id="btn-one" onclick="setFiles(1)">1 file</button>
+      <button class="ctrl-btn" id="btn-two" onclick="setFiles(2)">2 files</button>
+      <span class="ctrl-label" style="margin-left:12px">Inspector</span>
+      <button class="ctrl-btn" id="btn-inst" onclick="toggleInstance()">Toggle instance selection</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="project-bar">
+      <div class="proj-tab"><span>Playfair Micro SmCond SmLight</span><span class="badge" id="badge">2</span></div>
+      <button class="proj-add">+ New project</button>
+    </div>
+    <div class="file-bar">
+      <span class="label">FILE</span>
+      <div class="file-chip sel" id="chip-roman" onclick="selectFile('roman')"><span class="star" id="star-roman">★</span><span>PlayfairRomanVF</span></div>
+      <div class="file-chip" id="chip-italic" onclick="selectFile('italic')" style="display:none"><span>PlayfairItalicVF</span></div>
+    </div>
+
+    <div class="workspace">
+      <div class="col-tree"><div class="panel-hdr">Axis tree</div><div class="placeholder">Always visible alongside inspector.</div></div>
+      <div class="col-inst">
+        <div class="panel-hdr">Instances</div>
+        <div class="inst-row" id="inst-0" onclick="selectInstance(0)">Micro SemiCond SemiBold Roman</div>
+        <div class="inst-row" id="inst-1" onclick="selectInstance(1)">Micro SemiCond SemiBold Italic</div>
+      </div>
+      <div class="col-insp">
+        <div class="insp-modes">
+          <button class="insp-mode on" id="mode-project" onclick="setInspMode('project')">Project</button>
+          <button class="insp-mode" id="mode-instance" onclick="setInspMode('instance')">Instance</button>
+        </div>
+        <div class="insp-scroll">
+          <div class="insp-body" id="panel-project">
+            <!-- PROJECT SCOPE: title band — visually unlike file rows -->
+            <div class="proj-scope">
+              <div class="proj-scope-top">
+                <div class="proj-scope-text">
+                  <div class="proj-title">Playfair Micro SmCond SmLight</div>
+                  <div class="proj-sub" id="proj-sub">2 files · Playfair</div>
+                </div>
+                <button class="icon-btn" title="Rename project">✎</button>
+                <button class="icon-btn" title="Combine, close project…">···</button>
+              </div>
+            </div>
+
+            <!-- FILES: compact picker -->
+            <div class="block">
+              <div class="block-title">Files</div>
+              <div class="file-pick sel" id="pick-roman" onclick="selectFile('roman')">
+                <span class="star" id="pick-star">★</span>
+                <span class="name">PlayfairRomanVF</span>
+                <span class="meta">252</span>
+                <span class="row-act" title="Reveal, move, remove…">···</span>
+              </div>
+              <div class="file-pick" id="pick-italic" onclick="selectFile('italic')" style="display:none">
+                <span class="name">PlayfairItalicVF</span>
+                <span class="meta">~252</span>
+                <span class="row-act">···</span>
+              </div>
+              <div class="act-row" id="proj-actions">
+                <button class="act primary">Add font…</button>
+                <button class="act" id="save-all" style="display:none">Save all files…</button>
+              </div>
+              <div class="legend" id="files-legend" style="display:none">★ Axis tree source — shared stop layout for all files.</div>
+            </div>
+
+            <!-- FILE NAMING: scoped to selected file -->
+            <div class="block">
+              <div class="block-title">File naming <span class="ctx" id="naming-ctx">· PlayfairRomanVF</span></div>
+              <div class="file-act-row">
+                <button class="act" id="btn-infer">Infer</button>
+                <button class="act" id="btn-push" style="display:none">Push tree to all files…</button>
+              </div>
+              <div class="banner" id="master-banner" style="display:none">Clarifiers go on variant files. This file provides the shared axis tree.</div>
+              <div class="field"><label>PS prefix</label><input value="Playfair" readonly /></div>
+              <div class="field"><label>slope</label><span class="muted">Covered by STAT registration</span></div>
+              <div class="field"><label>width</label><span class="muted">Covered by axis stops<span class="pill">wdth</span></span></div>
+              <div class="field"><label>optical</label><span class="muted">Covered by axis stops<span class="pill">opsz</span></span></div>
+              <div class="field"><label>custom</label><input placeholder="Optional token" readonly /></div>
+            </div>
+          </div>
+          <div class="insp-body hidden" id="panel-instance">
+            <div class="inst-name">Micro SemiCond SemiBold Roman</div>
+            <div class="block-title" style="padding:0 10px">Coordinates</div>
+            <div class="kv"><span>opsz</span><span>Micro</span></div>
+            <div class="kv"><span>wdth</span><span>SemiCond</span></div>
+            <div class="kv"><span>wght</span><span>SemiBold</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note-bar" id="note">Instance selected → auto-switch to <strong>Instance</strong> tab. Deselect → back to <strong>Project</strong>. Inspector column always present when View → Inspector is on.</div>
+  </div>
+
+  <script>
+    let fileCount = 2, instanceSel = -1, activeFile = 'roman';
+
+    function setFiles(n) {
+      fileCount = n;
+      document.getElementById('btn-one').classList.toggle('on', n === 1);
+      document.getElementById('btn-two').classList.toggle('on', n === 2);
+      ['chip-italic','pick-italic','star-roman','pick-star','save-all','files-legend','master-banner','btn-push'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = n === 2 ? (id.includes('star') || id.includes('pick-star') ? 'inline' : (id === 'pick-italic' || id === 'chip-italic' ? 'flex' : 'inline-flex')) : 'none';
+      });
+      if (n === 1) document.getElementById('pick-italic').style.display = 'none';
+      document.getElementById('badge').textContent = n;
+      document.getElementById('proj-sub').textContent = n + ' file' + (n===1?'':'s') + ' · Playfair';
+    }
+
+    function selectFile(f) {
+      activeFile = f;
+      const label = f === 'roman' ? 'PlayfairRomanVF' : 'PlayfairItalicVF';
+      document.getElementById('naming-ctx').textContent = '· ' + label;
+      document.getElementById('chip-roman').classList.toggle('sel', f === 'roman');
+      document.getElementById('chip-italic').classList.toggle('sel', f === 'italic');
+      document.getElementById('pick-roman').classList.toggle('sel', f === 'roman');
+      document.getElementById('pick-italic').classList.toggle('sel', f === 'italic');
+      const isMaster = f === 'roman' && fileCount > 1;
+      document.getElementById('master-banner').style.display = isMaster ? 'block' : 'none';
+      document.getElementById('btn-push').style.display = isMaster ? 'inline-block' : 'none';
+      setInspMode('project');
+    }
+
+    function selectInstance(i) {
+      instanceSel = instanceSel === i ? -1 : i;
+      document.querySelectorAll('.inst-row').forEach((el, idx) => el.classList.toggle('sel', idx === instanceSel));
+      if (instanceSel >= 0) setInspMode('instance');
+      else setInspMode('project');
+      document.getElementById('note').innerHTML = instanceSel >= 0
+        ? 'Instance selected → <strong>Instance</strong> tab. Click Project tab to return to file naming.'
+        : 'No instance selected → <strong>Project</strong> tab. A file is always selected in the FILE row.';
+    }
+
+    function toggleInstance() { selectInstance(instanceSel >= 0 ? -1 : 0); }
+
+    function setInspMode(m) {
+      document.getElementById('mode-project').classList.toggle('on', m === 'project');
+      document.getElementById('mode-instance').classList.toggle('on', m === 'instance');
+      document.getElementById('panel-project').classList.toggle('hidden', m !== 'project');
+      document.getElementById('panel-instance').classList.toggle('hidden', m !== 'instance');
+    }
+
+    setFiles(2);
+  </script>
+</body>
+</html>

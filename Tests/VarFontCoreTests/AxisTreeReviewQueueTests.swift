@@ -229,4 +229,17 @@ final class AxisTreeReviewQueueTests: XCTestCase {
         XCTAssertFalse(planConflictCodes.contains("duplicate_stop_name"))
         XCTAssertTrue(items.contains { if case .axisConflict = $0 { return true }; return false })
     }
+
+    func testEmptyInstanceAxisEnqueuedWhenResolvable() {
+        let axes = [
+            AxisDefinition(tag: "wdth", role: .instance, values: []),
+        ]
+        let font = FontDocument(id: "empty", sourcePath: "/tmp/empty.ttf", axes: axes)
+        let plan = InstancePlanner.plan(font: font, naming: NamingPolicy(order: ["wdth"]))
+        let items = queue(plan: plan, axes: axes)
+        XCTAssertTrue(items.contains { item in
+            if case let .planIssue(w) = item { return w.code == "empty_instance_axis" }
+            return false
+        })
+    }
 }

@@ -1143,7 +1143,9 @@ private struct AxisTreeStopRow: View {
                     foreground: StudioColors.axisValue,
                     rowHeight: StudioFieldMetrics.listRowMinHeight,
                     alignment: .trailing,
-                    onSubmit: { navigateTab(forward: true) }
+                    onSubmit: { navigateTab(forward: true) },
+                    onCancel: cancelInlineEdit,
+                    submitBehavior: .advance
                 )
                 .focused($focusedField, equals: .pin)
             } else if valueEditable {
@@ -1209,7 +1211,9 @@ private struct AxisTreeStopRow: View {
                 foreground: StudioColors.axisValue,
                 rowHeight: StudioFieldMetrics.captionRowHeight,
                 alignment: .trailing,
-                onSubmit: { navigateTab(forward: true) }
+                onSubmit: { navigateTab(forward: true) },
+                onCancel: cancelInlineEdit,
+                submitBehavior: .advance
             )
             .frame(width: 44)
             .focused($focusedField, equals: field)
@@ -1255,7 +1259,9 @@ private struct AxisTreeStopRow: View {
                     onSubmit: {
                         commitName()
                         navigateTab(forward: true)
-                    }
+                    },
+                    onCancel: cancelInlineEdit,
+                    submitBehavior: .advance
                 )
                 .focused($focusedField, equals: .name)
             } else {
@@ -1421,6 +1427,11 @@ private struct AxisTreeStopRow: View {
             onTabBackwardFromFirstField()
         }
     }
+
+    private func cancelInlineEdit() {
+        syncDrafts()
+        onEndEdit()
+    }
 }
 
 private struct ElidableColumn: View {
@@ -1506,10 +1517,10 @@ private struct AddAxisStopSheet: View {
                 StudioTextField(
                     placeholder: "Name",
                     text: $nameText,
-                    rowHeight: StudioFieldMetrics.bodyRowHeight
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    onSubmit: addStopIfValid
                 )
                 .focused($focusedField, equals: .name)
-                .onSubmit(addStopIfValid)
             }
 
             if let validationMessage {
@@ -1560,15 +1571,43 @@ private struct AddAxisStopSheet: View {
     private var formatFields: some View {
         switch statFormat {
         case 2:
-            StudioTextField(placeholder: "Min", text: $minText, font: StudioTypography.monoValue, rowHeight: StudioFieldMetrics.monoValueRowHeight)
-                .focused($focusedField, equals: .min)
-            StudioTextField(placeholder: "Nominal (Pin)", text: $pinText, font: StudioTypography.monoValue, rowHeight: StudioFieldMetrics.monoValueRowHeight)
-                .focused($focusedField, equals: .pin)
-            StudioTextField(placeholder: "Max", text: $maxText, font: StudioTypography.monoValue, rowHeight: StudioFieldMetrics.monoValueRowHeight)
-                .focused($focusedField, equals: .max)
+            StudioTextField(
+                placeholder: "Min",
+                text: $minText,
+                font: StudioTypography.monoValue,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                onSubmit: { advanceFocusedField(from: .min) },
+                submitBehavior: .advance
+            )
+            .focused($focusedField, equals: .min)
+            StudioTextField(
+                placeholder: "Nominal (Pin)",
+                text: $pinText,
+                font: StudioTypography.monoValue,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                onSubmit: { advanceFocusedField(from: .pin) },
+                submitBehavior: .advance
+            )
+            .focused($focusedField, equals: .pin)
+            StudioTextField(
+                placeholder: "Max",
+                text: $maxText,
+                font: StudioTypography.monoValue,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                onSubmit: { advanceFocusedField(from: .max) },
+                submitBehavior: .advance
+            )
+            .focused($focusedField, equals: .max)
         case 3:
-            StudioTextField(placeholder: "Static (Pin)", text: $pinText, font: StudioTypography.monoValue, rowHeight: StudioFieldMetrics.monoValueRowHeight)
-                .focused($focusedField, equals: .pin)
+            StudioTextField(
+                placeholder: "Static (Pin)",
+                text: $pinText,
+                font: StudioTypography.monoValue,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                onSubmit: { advanceFocusedField(from: .pin) },
+                submitBehavior: .advance
+            )
+            .focused($focusedField, equals: .pin)
             Picker("Link to", selection: Binding(
                 get: { linkTargetID ?? linkCandidates.first?.id },
                 set: { linkTargetID = $0 }
@@ -1578,8 +1617,25 @@ private struct AddAxisStopSheet: View {
                 }
             }
         default:
-            StudioTextField(placeholder: "Static (Pin)", text: $pinText, font: StudioTypography.monoValue, rowHeight: StudioFieldMetrics.monoValueRowHeight)
-                .focused($focusedField, equals: .pin)
+            StudioTextField(
+                placeholder: "Static (Pin)",
+                text: $pinText,
+                font: StudioTypography.monoValue,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                onSubmit: { advanceFocusedField(from: .pin) },
+                submitBehavior: .advance
+            )
+            .focused($focusedField, equals: .pin)
+        }
+    }
+
+    private func advanceFocusedField(from field: Field) {
+        let order = fieldOrder
+        guard let index = order.firstIndex(of: field) else { return }
+        if index + 1 < order.count {
+            focusedField = order[index + 1]
+        } else {
+            focusedField = .name
         }
     }
 
