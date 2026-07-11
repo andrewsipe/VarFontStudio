@@ -1,6 +1,19 @@
 # VarFontStudio — export / save design notes
 
-**Status:** recorded for later implementation (not in current build scope).
+**Status:** OT feature label reflow (`preserve` | `reflow`) **shipped in alpha** via vfcommit + Save review. Remaining items below are for broader export diff UI and future hardening.
+
+---
+
+## Shipped (alpha, Jul 2026)
+
+| Feature | Behavior |
+|---------|----------|
+| **`nameid_strategy: reflow`** | Moves ss/cv/size OpenType UI labels to a contiguous block at ID 256+, updates GSUB/GPOS pointers, then allocates STAT/fvar names after that block |
+| **App default** | **Preferences** menu → Preserve vs Reflow OpenType feature name IDs |
+| **Per-project override** | Save review tab bar → OpenType labels segmented control; persisted in `.varf` when you Save Project |
+| **Save review** | Name tab shows reflowed OT labels first; fvar tab lists subfamily + PostScript name per instance |
+
+Default remains **`preserve`** — no behavior change unless reflow is enabled.
 
 ---
 

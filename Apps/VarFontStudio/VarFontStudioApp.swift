@@ -181,6 +181,28 @@ struct VarFontStudioApp: App {
                 .keyboardShortcut(InstanceInclusionCommands.excludeSelectionShortcut)
                 .disabled(editor.activeInstanceSelection.isEmpty)
             }
+
+            CommandMenu("Preferences") {
+                Button {
+                    layout.defaultNameIDStrategy = .preserve
+                } label: {
+                    if layout.defaultNameIDStrategy == .preserve {
+                        Label("Preserve OpenType Feature Name IDs", systemImage: "checkmark")
+                    } else {
+                        Text("Preserve OpenType Feature Name IDs")
+                    }
+                }
+
+                Button {
+                    layout.defaultNameIDStrategy = .reflow
+                } label: {
+                    if layout.defaultNameIDStrategy == .reflow {
+                        Label("Reflow OpenType Features to 256+", systemImage: "checkmark")
+                    } else {
+                        Text("Reflow OpenType Features to 256+")
+                    }
+                }
+            }
     }
 }
 
@@ -197,12 +219,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let editor else { return .terminateNow }
-        if editor.handleApplicationTerminateRequest() {
-            Task {
-                await editor.shutdownCommitWorker()
-            }
-            return .terminateNow
+        if !editor.handleApplicationTerminateRequest() {
+            return .terminateLater
         }
+        editor.completeApplicationTermination()
         return .terminateLater
     }
 }

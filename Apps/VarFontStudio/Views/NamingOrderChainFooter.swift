@@ -113,7 +113,11 @@ struct NamingOrderChainFooter: View {
             } else {
                 Text(editor.namingChainPreviewName)
                     .font(StudioTypography.caption)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(
+                        editor.namingChainPreviewIsElidedFallback
+                            ? StudioColors.elidedFallbackForeground
+                            : .primary
+                    )
                     .lineLimit(1)
                     .frame(maxWidth: 220, alignment: .trailing)
             }
@@ -159,8 +163,12 @@ struct NamingOrderChainFooter: View {
 
     private var exampleRow: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            namingExampleLine(label: "Name", value: editor.namingChainPreviewName, accentLeading: true)
-            namingExampleLine(label: "PostScript", value: editor.namingChainPreviewPostScript, accentLeading: false)
+            namingExampleLine(
+                label: "Name",
+                value: editor.namingChainPreviewName,
+                accentValue: editor.namingChainPreviewIsElidedFallback
+            )
+            namingExampleLine(label: "PostScript", value: editor.namingChainPreviewPostScript)
 
             if editor.selectedInstance != nil {
                 Text("from selection")
@@ -170,7 +178,11 @@ struct NamingOrderChainFooter: View {
         }
     }
 
-    private func namingExampleLine(label: String, value: String, accentLeading: Bool) -> some View {
+    private func namingExampleLine(
+        label: String,
+        value: String,
+        accentValue: Bool = false
+    ) -> some View {
         HStack(spacing: StudioSpacing.rowGap) {
             Text(label)
                 .font(StudioTypography.meta)
@@ -180,20 +192,12 @@ struct NamingOrderChainFooter: View {
             Text(value)
                 .font(StudioTypography.bodyMedium)
                 .fontWeight(label == "PostScript" ? .medium : .semibold)
-                .foregroundStyle(.primary)
+                .foregroundStyle(accentValue ? StudioColors.elidedFallbackForeground : .primary)
                 .lineLimit(1)
                 .textSelection(.enabled)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
-                .overlay(alignment: .leading) {
-                    if accentLeading {
-                        RoundedRectangle(cornerRadius: StudioRadius.chip)
-                            .fill(Color.accentColor.opacity(0.5))
-                            .frame(width: 2)
-                            .padding(.vertical, 2)
-                    }
-                }
         }
     }
 
@@ -225,7 +229,7 @@ struct NamingOrderChainFooter: View {
                             text: stored,
                             font: StudioTypography.bodyMedium,
                             rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
-                            foreground: .primary
+                            foreground: StudioColors.elidedFallbackForeground
                         )
                         .frame(maxWidth: 180, alignment: .leading)
                         .contentShape(Rectangle())

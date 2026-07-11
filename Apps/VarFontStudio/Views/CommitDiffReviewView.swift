@@ -91,7 +91,7 @@ struct CommitDiffReviewView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Save review")
                 .font(StudioTypography.emphasis)
             Text("Planned write preview — after values with change context")
@@ -208,6 +208,8 @@ struct CommitDiffReviewView: View {
                 }
 
                 Spacer(minLength: 0)
+
+                nameidStrategyPreference
             }
             .padding(.horizontal, SaveReviewLayout.horizontalPadding)
             .padding(.vertical, 6)
@@ -217,6 +219,27 @@ struct CommitDiffReviewView: View {
             }
         }
         .background(StudioColors.surfaceSubtle.opacity(0.5))
+    }
+
+    private var nameidStrategyPreference: some View {
+        let strategy = Binding<NameIDStrategy>(
+            get: { editor.nameidStrategy(forProjectID: projectID) },
+            set: { editor.setNameIDStrategy(forProjectID: projectID, strategy: $0) }
+        )
+        return HStack(spacing: 8) {
+            Text("OpenType labels")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Picker("OpenType labels", selection: strategy) {
+                Text("Preserve IDs").tag(NameIDStrategy.preserve)
+                Text("Reflow to 256+").tag(NameIDStrategy.reflow)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 220)
+            .disabled(editor.isSaveReviewLoading(forProjectID: projectID, fontID: session.fontID))
+        }
+        .help("Project-wide: compact ss/cv/size feature labels into a contiguous block at ID 256+ before STAT/fvar names. Saved with the project file when you Save Project.")
     }
 
     @ViewBuilder

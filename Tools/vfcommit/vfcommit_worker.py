@@ -8,12 +8,24 @@ Reads one JSON object per line from stdin; writes one CommitResult JSON line to 
 from __future__ import annotations
 
 import json
+import os
 import sys
+import warnings
 from pathlib import Path
 
 _TOOLS_DIR = Path(__file__).resolve().parent
 if str(_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(_TOOLS_DIR))
+
+
+def _redirect_stderr_to_devnull() -> None:
+    """Prevent fontTools/logging chatter from filling the worker stderr pipe."""
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull_fd, 2)
+    finally:
+        os.close(devnull_fd)
+    sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
 
 def _emit_error(code: str, message: str) -> dict:
@@ -30,6 +42,9 @@ def _emit_error(code: str, message: str) -> dict:
 
 
 def main() -> int:
+    _redirect_stderr_to_devnull()
+    warnings.simplefilter("ignore")
+
     try:
         from vfcommit_lib.engine import run_commit  # noqa: E402
     except Exception as exc:  # noqa: BLE001

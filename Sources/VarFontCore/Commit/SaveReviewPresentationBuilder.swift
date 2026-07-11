@@ -192,33 +192,8 @@ public enum SaveReviewPresentationBuilder {
       sections.append(SaveReviewSectionPresentation(title: "Axes", rows: axisRows))
     }
 
-    let instanceRows = report.instanceRows.enumerated().map { index, row -> SaveReviewRowPresentation in
-      let category = SaveReviewDisplayCategoryMapper.category(for: row)
-      let fieldTitle = "Instance \(index + 1)"
-      let fieldSubtitle = SaveReviewRowFormatter.instanceSubtitle(
-        coords: row.coords,
-        namingOrder: namingOrder
-      )
-      let afterValue = SaveReviewRowFormatter.instanceAfterValue(row)
-      let wasLine = SaveReviewRowFormatter.instanceWasLine(row)
-      return SaveReviewRowPresentation(
-        id: "fvar:instance:\(row.key)",
-        fieldTitle: fieldTitle,
-        fieldSubtitle: fieldSubtitle,
-        afterValue: afterValue,
-        wasLine: wasLine,
-        noteLine: nil,
-        roleLabel: nil,
-        category: category,
-        searchText: SaveReviewRowFormatter.searchText(
-          fieldTitle: fieldTitle,
-          fieldSubtitle: fieldSubtitle,
-          afterValue: afterValue,
-          wasLine: wasLine,
-          noteLine: nil,
-          roleLabel: nil
-        )
-      )
+    let instanceRows = report.instanceRows.enumerated().flatMap { index, row in
+      makeFvarInstanceRows(index: index, row: row, namingOrder: namingOrder)
     }
     sections.append(SaveReviewSectionPresentation(title: "Instances", rows: instanceRows))
 
@@ -263,11 +238,32 @@ public enum SaveReviewPresentationBuilder {
   ) -> SaveReviewTabPresentation {
     let nameByID = Dictionary(uniqueKeysWithValues: report.nameIDRows.map { ($0.id, $0) })
     let statNameIDToTagValue = statNameIDLookup(diff: diff)
+    let otFeatureByNameID = otFeatureTagLookup(diff: diff)
     var consumedIDs = Set<Int>()
     var sections: [SaveReviewSectionPresentation] = []
 
-    var axisDisplayRows: [SaveReviewRowPresentation] = []
+    var reflowedOTRows: [SaveReviewRowPresentation] = []
     let sequenced = diff?.nameRecordsSequenced ?? []
+    for record in sequenced where record.role == "ot_feature_label" {
+      guard let row = nameByID[record.id] else { continue }
+      reflowedOTRows.append(
+        makeNameRow(
+          row,
+          font: font,
+          diff: diff,
+          tagValue: nil,
+          otFeatureTag: otFeatureByNameID[record.id],
+          consumed: &consumedIDs
+        )
+      )
+    }
+    if !reflowedOTRows.isEmpty {
+      sections.append(
+        SaveReviewSectionPresentation(title: "OpenType feature labels", rows: reflowedOTRows)
+      )
+    }
+
+    var axisDisplayRows: [SaveReviewRowPresentation] = []
     let designTags = statDesignTags(font: font, analysis: analysis)
     for tag in designTags {
       let displayName = font.axes.first(where: { $0.tag == tag })?.displayName
@@ -367,22 +363,91 @@ public enum SaveReviewPresentationBuilder {
 
   // MARK: - Row factories
 
+  private static func makeFvarInstanceRows(
+    index: Int,
+    row: CommitDiffInstanceRow,
+    namingOrder: [String]
+  ) -> [SaveReviewRowPresentation] {
+    let coordsSubtitle = SaveReviewRowFormatter.instanceSubtitle(
+      coords: row.coords,
+      namingOrder: namingOrder
+    )
+    var rows: [SaveReviewRowPresentation] = []
+
+    let subfamilyCategory = SaveReviewDisplayCategoryMapper.category(for: row)
+    let subfamilyTitle = "Instance \(index + 1)"
+    let subfamilyAfter = SaveReviewRowFormatter.instanceAfterValue(row)
+    let subfamilyWas = SaveReviewRowFormatter.instanceWasLine(row)
+    rows.append(
+      SaveReviewRowPresentation(
+        id: "fvar:instance:\(row.key):subfamily",
+        fieldTitle: subfamilyTitle,
+        fieldSubtitle: coordsSubtitle,
+        afterValue: subfamilyAfter,
+        wasLine: subfamilyWas,
+        noteLine: nil,
+        roleLabel: "subfamilyNameID",
+        category: subfamilyCategory,
+        searchText: SaveReviewRowFormatter.searchText(
+          fieldTitle: subfamilyTitle,
+          fieldSubtitle: coordsSubtitle,
+          afterValue: subfamilyAfter,
+          wasLine: subfamilyWas,
+          noteLine: nil,
+          roleLabel: "subfamilyNameID"
+        )
+      )
+    )
+
+    if row.afterPostscriptName != nil || row.beforePostscriptName != nil {
+      let psCategory = SaveReviewDisplayCategoryMapper.postscriptCategory(for: row)
+      let psTitle = "Instance \(index + 1) PostScript"
+      let psAfter = SaveReviewRowFormatter.instancePostscriptAfterValue(row)
+      let psWas = SaveReviewRowFormatter.instancePostscriptWasLine(row)
+      rows.append(
+        SaveReviewRowPresentation(
+          id: "fvar:instance:\(row.key):postscript",
+          fieldTitle: psTitle,
+          fieldSubtitle: "postscriptNameID",
+          afterValue: psAfter,
+          wasLine: psWas,
+          noteLine: nil,
+          roleLabel: "postscriptNameID",
+          category: psCategory,
+          searchText: SaveReviewRowFormatter.searchText(
+            fieldTitle: psTitle,
+            fieldSubtitle: "postscriptNameID",
+            afterValue: psAfter,
+            wasLine: psWas,
+            noteLine: nil,
+            roleLabel: "postscriptNameID"
+          )
+        )
+      )
+    }
+
+    return rows
+  }
+
   private static func makeNameRow(
     _ row: CommitDiffNameIDRow,
     font: FontDocument,
     diff: CommitDiff?,
     tagValue: (tag: String, value: Double)?,
     axisTag: String? = nil,
+    otFeatureTag: String? = nil,
     consumed: inout Set<Int>
   ) -> SaveReviewRowPresentation {
     consumed.insert(row.id)
     let category = SaveReviewDisplayCategoryMapper.category(for: row)
     let resolvedTagValue = tagValue ?? statNameIDLookup(diff: diff)[row.id]
+    let resolvedOTFeature = otFeatureTag ?? otFeatureTagLookup(diff: diff)[row.id]
     let fieldTitle = SaveReviewRowFormatter.nameFieldTitle(
       row: row,
       font: font,
       tagValue: resolvedTagValue,
-      axisTag: axisTag
+      axisTag: axisTag,
+      otFeatureTag: resolvedOTFeature
     )
     let fieldSubtitle = SaveReviewRowFormatter.nameFieldSubtitle(row: row, tagValue: resolvedTagValue)
     let string = row.afterString ?? row.beforeString
@@ -469,6 +534,17 @@ public enum SaveReviewPresentationBuilder {
     for item in diff.statValuesPlanned {
       if let nameID = item.nameID {
         map[nameID] = (item.tag, item.value)
+      }
+    }
+    return map
+  }
+
+  private static func otFeatureTagLookup(diff: CommitDiff?) -> [Int: String] {
+    guard let mapping = diff?.otReflowMapping else { return [:] }
+    var map: [Int: String] = [:]
+    for entry in mapping {
+      if let feature = entry.feature, !feature.isEmpty {
+        map[entry.toID] = feature
       }
     }
     return map

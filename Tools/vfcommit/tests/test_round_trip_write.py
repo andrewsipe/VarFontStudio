@@ -12,6 +12,8 @@ from fontTools.ttLib import TTFont
 from vfcommit_lib.engine import run_commit
 from vfcommit_lib.request_bridge import instance_key
 
+from live_font_fixture import resolve_playfair_roman
+
 _FIXTURE = (
     Path(__file__).resolve().parents[3]
     / "fixtures"
@@ -19,24 +21,12 @@ _FIXTURE = (
     / "playfair-roman-commit-request.json"
 )
 
-_PLAYFAIR_CANDIDATES = [
-    Path.home() / "Downloads" / "PlayfairRomanVF.woff2",
-    Path.home() / "Downloads" / "~Untitled" / "PlayfairRomanVF.woff2",
-]
-
-
-def _resolve_playfair() -> Path | None:
-    for candidate in _PLAYFAIR_CANDIDATES:
-        if candidate.is_file():
-            return candidate
-    return None
-
 
 class RoundTripWriteTests(unittest.TestCase):
     def _base_request(self) -> dict:
         if not _FIXTURE.is_file():
             self.skipTest("fixture missing")
-        source = _resolve_playfair()
+        source = resolve_playfair_roman()
         if source is None:
             self.skipTest("Playfair Roman VF not on disk — see fixtures/fonts/README.md")
         request = json.loads(_FIXTURE.read_text(encoding="utf-8"))
@@ -53,6 +43,7 @@ class RoundTripWriteTests(unittest.TestCase):
             request["dry_run"] = False
             result = run_commit(request)
             self.assertTrue(result.get("ok"), result.get("errors"))
+            self.assertTrue(result.get("validation", {}).get("ok"), result.get("validation"))
             self.assertTrue(output.is_file())
 
             font = TTFont(str(output))
@@ -84,6 +75,7 @@ class RoundTripWriteTests(unittest.TestCase):
             request["dry_run"] = False
             result = run_commit(request)
             self.assertTrue(result.get("ok"), result.get("errors"))
+            self.assertTrue(result.get("validation", {}).get("ok"), result.get("validation"))
             font = TTFont(str(output))
             self.assertEqual(len(font["fvar"].instances), len(keys))
             self.assertEqual(result["summary"]["instances_written"], len(keys))
@@ -102,6 +94,7 @@ class RoundTripWriteTests(unittest.TestCase):
             request["dry_run"] = False
             result = run_commit(request)
             self.assertTrue(result.get("ok"), result.get("errors"))
+            self.assertTrue(result.get("validation", {}).get("ok"), result.get("validation"))
             font = TTFont(str(output))
             stat = font["STAT"].table
             value_names = []

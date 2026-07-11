@@ -45,6 +45,7 @@
 		B2000039 /* StudioShortcutsHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000038 /* StudioShortcutsHelpView.swift */; };
 		B2000040 /* MissingFontsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000039 /* MissingFontsSheet.swift */; };
 		B2000041 /* VarFontProjectType.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000040 /* VarFontProjectType.swift */; };
+		B2000042 /* StudioAppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000042 /* StudioAppPreferences.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -86,6 +87,7 @@
 		F2000038 /* StudioShortcutsHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioShortcutsHelpView.swift; sourceTree = "<group>"; };
 		F2000039 /* MissingFontsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingFontsSheet.swift; sourceTree = "<group>"; };
 		F2000040 /* VarFontProjectType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontProjectType.swift; sourceTree = "<group>"; };
+		F2000042 /* StudioAppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioAppPreferences.swift; sourceTree = "<group>"; };
 		F2000041 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -111,6 +113,7 @@
 				F2000027 /* SaveReviewWindowLifecycle.swift */,
 				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
+				F2000042 /* StudioAppPreferences.swift */,
 				F2000012 /* OpenProject.swift */,
 				F2000040 /* VarFontProjectType.swift */,
 				F2000041 /* Info.plist */,
@@ -284,6 +287,7 @@
 				B2000039 /* StudioShortcutsHelpView.swift in Sources */,
 				B2000040 /* MissingFontsSheet.swift in Sources */,
 				B2000041 /* VarFontProjectType.swift in Sources */,
+				B2000042 /* StudioAppPreferences.swift in Sources */,
 				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000027 /* SourceFontAccess.swift in Sources */,

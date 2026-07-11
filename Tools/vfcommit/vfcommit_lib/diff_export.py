@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from vfcommit_lib.nameid_allocator import AxisDef, NameIDPlan
 
@@ -10,6 +10,8 @@ from vfcommit_lib.nameid_allocator import AxisDef, NameIDPlan
 def build_commit_diff(
     plan: NameIDPlan,
     axis_defs: List[AxisDef],
+    *,
+    ot_reflow_mapping: Optional[List[Dict[str, object]]] = None,
 ) -> Dict[str, Any]:
     """Build structured diff payload for Swift CommitDiffBuilder."""
     name_records: List[Dict[str, Any]] = []
@@ -20,6 +22,13 @@ def build_commit_diff(
             return
         seen_ids.add(nid)
         name_records.append({"id": nid, "string": string, "role": role})
+
+    for entry in ot_reflow_mapping or []:
+        add_record(
+            int(entry["to"]),
+            str(entry.get("string") or ""),
+            "ot_feature_label",
+        )
 
     for tag, nid in sorted(plan.axis_name_ids.items(), key=lambda item: item[1]):
         add_record(nid, plan.axis_names.get(tag, tag), "axis_display_name")
@@ -82,7 +91,7 @@ def build_commit_diff(
             entry["postscript_name_id"] = ps_nid
         instances_planned.append(entry)
 
-    return {
+    result: Dict[str, Any] = {
         "family_ps_prefix": plan.family_ps_prefix,
         "elided_fallback_name": plan.elided_fallback_name,
         "elided_fallback_id": plan.elided_fallback_id,
@@ -92,3 +101,6 @@ def build_commit_diff(
         "stat_values_planned": stat_values_planned,
         "instances_planned": instances_planned,
     }
+    if ot_reflow_mapping:
+        result["ot_reflow_mapping"] = ot_reflow_mapping
+    return result

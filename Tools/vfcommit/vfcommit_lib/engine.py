@@ -16,8 +16,19 @@ from vfcommit_lib.nameid_allocator import (
     naming_order_with_defaults,
     parse_clarifiers,
     effective_elided_fallback,
+    preserved_design_axis_name_ids,
 )
 from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
+from vfcommit_lib.ot_label_reflow import (
+    apply_ot_reflow,
+    build_ot_reflow_diff_entries,
+    build_ot_reflow_plan,
+    build_reflow_pre_wipe_protected,
+    classify_name_ids,
+    detect_reflow_blockers,
+    pre_wipe_for_reflow,
+    scan_ot_label_sites,
+)
 from vfcommit_lib.request_bridge import (
     axis_defs_from_request,
     compound_stat_values_from_request,
@@ -30,6 +41,14 @@ from vfcommit_lib.stat_builder import (
     build_protected_name_ids,
 )
 from vfcommit_lib.diff_export import build_commit_diff
+from vfcommit_lib.post_write_validator import (
+    ValidationExpectations,
+    validate_written_font,
+)
+
+
+def _parse_nameid_strategy(options: Dict[str, Any]) -> str:
+    return str(options.get("nameid_strategy", "preserve")).strip().lower()
 
 
 def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
@@ -53,6 +72,15 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     clarifiers = parse_clarifiers(file_role)
     elided_fallback = effective_elided_fallback(naming, file_role)
 
+    strategy = _parse_nameid_strategy(options)
+    if strategy not in ("preserve", "reflow"):
+        return _error_result(
+            request_id,
+            dry_run,
+            "invalid_nameid_strategy",
+            f"Unknown nameid_strategy: {strategy!r}",
+        )
+
     if not Path(source_path).is_file():
         return _error_result(
             request_id,
@@ -71,8 +99,35 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     pinned = pinned_coords(axes_json)
     compound_defs = compound_stat_values_from_request(compound_json)
 
-    ot_labels = scan_ot_label_nameids(font)
-    ot_label_ids = {rec.name_id for rec in ot_labels}
+    ot_reflow_mapping: Dict[int, int] = {}
+    ot_reflow_end = 255
+    ot_groups: Dict[int, list] = {}
+    orphan_ids_dropped: List[int] = []
+    classification = None
+
+    if strategy == "reflow":
+        ot_groups = scan_ot_label_sites(font)
+        classification = classify_name_ids(font, ot_groups, axis_defs)
+        blockers = detect_reflow_blockers(classification)
+        if blockers:
+            return _error_result(
+                request_id,
+                dry_run,
+                "ot_reflow_blocked",
+                blockers[0],
+            )
+        orphan_ids_dropped = sorted(classification.orphan_ids)
+        pre_wipe_for_reflow(
+            font,
+            build_reflow_pre_wipe_protected(font, ot_groups, axis_defs),
+        )
+        ot_reflow_mapping = build_ot_reflow_plan(ot_groups)
+        ot_reflow_end = apply_ot_reflow(font, ot_reflow_mapping, ot_groups)
+        ot_labels = scan_ot_label_nameids(font)
+        ot_label_ids = {rec.name_id for rec in ot_labels}
+    else:
+        ot_labels = scan_ot_label_nameids(font)
+        ot_label_ids = {rec.name_id for rec in ot_labels}
 
     family_ps_prefix = options.get("family_ps_prefix")
     plan = build_allocation_plan(
@@ -90,6 +145,8 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         compound_defs=compound_defs,
         included_instance_keys=included_keys,
         pinned_coords=pinned,
+        nameid_strategy=strategy,
+        ot_reflow_end=ot_reflow_end if strategy == "reflow" else None,
     )
     collisions = check_for_collisions(plan, font)
     if collisions:
@@ -115,7 +172,17 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             ],
         }
 
-    protected_ids = build_protected_name_ids(font, ot_label_ids)
+    if strategy == "reflow":
+        new_ot_ids = set(ot_reflow_mapping.values()) | {
+            nid for nid in ot_label_ids if nid < 256
+        }
+        preserved_axes = preserved_design_axis_name_ids(
+            font, {axis_def.tag for axis_def in axis_defs}
+        )
+        protected_ids = new_ot_ids | preserved_axes
+    else:
+        protected_ids = build_protected_name_ids(font, ot_label_ids)
+
     instances_to_write = count_included_instances(grid_axes, included_keys, pinned_coords=pinned)
     stat_values_written = sum(len(axis.values) for axis in axis_defs) + len(compound_defs)
     wiped_instances = len(font["fvar"].instances) if "fvar" in font else 0
@@ -130,6 +197,17 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     allocated_ids = [nid for nid in allocated_ids if nid]
 
     warnings: List[Dict[str, Any]] = []
+    if orphan_ids_dropped:
+        warnings.append(
+            {
+                "code": "orphan_nameids_dropped",
+                "message": (
+                    "Orphan name IDs removed during reflow pre-wipe: "
+                    + ", ".join(str(nid) for nid in orphan_ids_dropped[:10])
+                    + ("..." if len(orphan_ids_dropped) > 10 else "")
+                ),
+            }
+        )
 
     if not dry_run:
         if not output_path:
@@ -193,24 +271,61 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
                 }
             )
 
+        validation = validate_written_font(
+            str(out_resolved),
+            expectations=ValidationExpectations(
+                instances_written=instances_to_write,
+                elided_fallback_name=elided_fallback,
+            ),
+        )
+
+    validation_payload: Dict[str, Any] | None = None
+    commit_ok = True
+    errors: List[Dict[str, Any]] = []
+
+    if not dry_run:
+        validation_payload = validation.to_dict()
+        for issue in validation.issues:
+            if issue.severity == "warning":
+                warnings.append({"code": issue.code, "message": issue.message})
+            else:
+                errors.append({"code": issue.code, "message": issue.message})
+        if not validation.ok:
+            commit_ok = False
+
+    summary: Dict[str, Any] = {
+        "instances_written": instances_to_write,
+        "stat_values_written": stat_values_written,
+        "name_ids_allocated": allocated_ids,
+        "wiped_instance_count": wiped_instances,
+        "protected_name_ids": sorted(protected_ids),
+    }
+    if ot_reflow_mapping:
+        summary["ot_reflow_mapping"] = {
+            str(old_id): new_id for old_id, new_id in sorted(ot_reflow_mapping.items())
+        }
+    if orphan_ids_dropped:
+        summary["orphan_nameids_dropped"] = orphan_ids_dropped
+
     result: Dict[str, Any] = {
         "schema_version": 1,
         "request_id": request_id,
-        "ok": True,
+        "ok": commit_ok,
         "output_path": None if dry_run else output_path,
         "dry_run": dry_run,
-        "summary": {
-            "instances_written": instances_to_write,
-            "stat_values_written": stat_values_written,
-            "name_ids_allocated": allocated_ids,
-            "wiped_instance_count": wiped_instances,
-            "protected_name_ids": sorted(protected_ids),
-        },
+        "summary": summary,
         "warnings": warnings,
-        "errors": [],
+        "errors": errors,
     }
+    if validation_payload is not None:
+        result["validation"] = validation_payload
     if dry_run:
-        result["diff"] = build_commit_diff(plan, axis_defs)
+        ot_reflow_diff = build_ot_reflow_diff_entries(ot_reflow_mapping, ot_groups, font)
+        result["diff"] = build_commit_diff(
+            plan,
+            axis_defs,
+            ot_reflow_mapping=ot_reflow_diff,
+        )
     return result
 
 

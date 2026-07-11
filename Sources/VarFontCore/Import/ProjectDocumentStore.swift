@@ -5,7 +5,34 @@ public enum ProjectDocumentStoreError: Error, Equatable, Sendable {
     case writeFailed(String)
 }
 
-/// Resolve stored font paths relative to a `.varfont` file location.
+/// VarFont Studio project file on disk (JSON).
+public enum ProjectFileFormat {
+    public static let preferredExtension = "varf"
+    public static let legacyExtensions = ["varfont"]
+
+    public static func isProjectFileURL(_ url: URL) -> Bool {
+        matchesExtension(url.pathExtension)
+    }
+
+    public static func matchesExtension(_ pathExtension: String) -> Bool {
+        let ext = pathExtension.lowercased()
+        return ext == preferredExtension || legacyExtensions.contains(ext)
+    }
+
+    /// Append `.varf` when the URL has no recognized project extension.
+    public static func normalizedProjectFileURL(_ url: URL) -> URL {
+        if matchesExtension(url.pathExtension) {
+            return url
+        }
+        return url.appendingPathExtension(preferredExtension)
+    }
+
+    public static func defaultFilename(stem: String) -> String {
+        "\(stem).\(preferredExtension)"
+    }
+}
+
+/// Resolve stored font paths relative to a project file location.
 public enum ProjectPathResolver {
     public static func projectDirectory(for projectFileURL: URL) -> URL {
         projectFileURL.deletingLastPathComponent()
@@ -89,7 +116,7 @@ public enum ProjectDocumentStore {
         let data = try encode(copy)
 
         let fileManager = FileManager.default
-        let tempURL = projectDirectory.appendingPathComponent(".varfont-save-\(UUID().uuidString).tmp")
+        let tempURL = projectDirectory.appendingPathComponent(".varf-save-\(UUID().uuidString).tmp")
         do {
             try fileManager.createDirectory(at: projectDirectory, withIntermediateDirectories: true)
             try data.write(to: tempURL, options: .atomic)

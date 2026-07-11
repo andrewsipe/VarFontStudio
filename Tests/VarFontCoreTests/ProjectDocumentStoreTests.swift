@@ -18,7 +18,7 @@ final class ProjectDocumentStoreTests: XCTestCase {
         data = Data(mutated.utf8)
 
         let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("unsupported-\(UUID().uuidString).varfont")
+            .appendingPathComponent("unsupported-\(UUID().uuidString).varf")
         try data.write(to: tempURL)
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
@@ -40,7 +40,7 @@ final class ProjectDocumentStoreTests: XCTestCase {
         var project = try FixtureLoader.decode(ProjectDocument.self, from: "playfair-family-project.json")
         project.fonts[0].sourcePath = fontURL.path
 
-        let projectURL = base.appendingPathComponent("project.varfont")
+        let projectURL = base.appendingPathComponent("project.varf")
         try ProjectDocumentStore.save(project, to: projectURL)
 
         let savedRaw = try VarFontJSON.decode(ProjectDocument.self, from: Data(contentsOf: projectURL))
@@ -58,7 +58,7 @@ final class ProjectDocumentStoreTests: XCTestCase {
 
         let blockerURL = base.appendingPathComponent("blocker")
         FileManager.default.createFile(atPath: blockerURL.path, contents: Data())
-        let projectURL = blockerURL.appendingPathComponent("project.varfont")
+        let projectURL = blockerURL.appendingPathComponent("project.varf")
 
         let project = try FixtureLoader.decode(ProjectDocument.self, from: "playfair-family-project.json")
         XCTAssertThrowsError(try ProjectDocumentStore.save(project, to: projectURL))
@@ -66,5 +66,22 @@ final class ProjectDocumentStoreTests: XCTestCase {
         let contents = try FileManager.default.contentsOfDirectory(atPath: base.path)
         XCTAssertFalse(contents.contains { $0.hasSuffix(".tmp") })
         XCTAssertFalse(FileManager.default.fileExists(atPath: projectURL.path))
+    }
+
+    func testLegacyVarfontExtensionStillRecognized() throws {
+        let url = URL(fileURLWithPath: "/tmp/Playfair.varfont")
+        XCTAssertTrue(ProjectFileFormat.isProjectFileURL(url))
+        XCTAssertEqual(
+            ProjectFileFormat.normalizedProjectFileURL(url).pathExtension,
+            "varfont"
+        )
+    }
+
+    func testUnqualifiedURLGetsVarfExtension() {
+        let url = URL(fileURLWithPath: "/tmp/Playfair")
+        XCTAssertEqual(
+            ProjectFileFormat.normalizedProjectFileURL(url).pathExtension,
+            "varf"
+        )
     }
 }

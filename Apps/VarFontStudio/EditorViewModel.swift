@@ -403,6 +403,11 @@ final class EditorViewModel: ObservableObject {
         publishOpenProjects()
     }
 
+    private func applyDefaultNameIDStrategy(to document: inout ProjectDocument) {
+        document.nameidStrategy = StudioAppPreferences.defaultNameIDStrategy
+        document.syncNameIDStrategyToFonts()
+    }
+
     private func registerSourceBookmark(url: URL, fontID: String) {
         if let bookmark = SourceFontAccess.makeBookmark(for: url) {
             sourceBookmarks[fontID] = bookmark
@@ -753,6 +758,14 @@ final class EditorViewModel: ObservableObject {
             return name
         }
         return effectiveElidedFallbackDisplay.value
+    }
+
+    /// True when the naming preview is the collapsed elided fallback (not a partial compose).
+    var namingChainPreviewIsElidedFallback: Bool {
+        if let instance = selectedInstance ?? instancePlan?.instances.first {
+            return !instance.namingChain.isEmpty && instance.namingChain.allSatisfy(\.elided)
+        }
+        return true
     }
 
     var namingChainPreviewPostScript: String {
@@ -1730,14 +1743,11 @@ final class EditorViewModel: ObservableObject {
         let base = projectTabLabel(for: open)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let sanitized = base.isEmpty ? "Untitled" : base
-        return "\(sanitized).varfont"
+        return ProjectFileFormat.defaultFilename(stem: sanitized.isEmpty ? "Untitled" : sanitized)
     }
 
     private static func normalizedProjectFileURL(_ url: URL) -> URL {
-        if url.pathExtension.lowercased() == "varfont" {
-            return url
-        }
-        return url.appendingPathExtension("varfont")
+        ProjectFileFormat.normalizedProjectFileURL(url)
     }
 
     @MainActor
@@ -1859,6 +1869,15 @@ final class EditorViewModel: ObservableObject {
         return false
     }
 
+    func completeApplicationTermination() {
+        Task {
+            await shutdownCommitWorker()
+            await MainActor.run {
+                NSApplication.shared.reply(toApplicationShouldTerminate: true)
+            }
+        }
+    }
+
     func shutdownCommitWorker() async {
         await CommitService.shutdownWorker()
     }
@@ -1873,7 +1892,7 @@ final class EditorViewModel: ObservableObject {
         }
         openProjects.removeAll()
         activeProjectID = nil
-        NSApplication.shared.reply(toApplicationShouldTerminate: true)
+        completeApplicationTermination()
     }
 
     func confirmQuitCancelAction() {
@@ -1896,7 +1915,7 @@ final class EditorViewModel: ObservableObject {
             return
         }
         confirmQuitRequested = false
-        NSApplication.shared.reply(toApplicationShouldTerminate: true)
+        completeApplicationTermination()
     }
 
     private func saveProjectThenContinueQuit(projectID: String) {
@@ -1952,7 +1971,8 @@ final class EditorViewModel: ObservableObject {
         do {
             let analysis = try FontAnalysisReader.analyze(url: url)
             try validateVariableFont(analysis)
-            let imported = ProjectImporter.newProject(from: analysis, sourceURL: url)
+            var imported = ProjectImporter.newProject(from: analysis, sourceURL: url)
+            applyDefaultNameIDStrategy(to: &imported)
             if let fontID = imported.fonts.first?.id {
                 registerSourceBookmark(url: url, fontID: fontID)
             }
@@ -3232,6 +3252,31 @@ final class EditorViewModel: ObservableObject {
         markProjectFileDirty()
     }
 
+    func nameidStrategy(forProjectID projectID: String) -> NameIDStrategy {
+        openProjects.first(where: { $0.id == projectID })?.document.nameidStrategy ?? .preserve
+    }
+
+    func setNameIDStrategy(forProjectID projectID: String, strategy: NameIDStrategy) {
+        guard let index = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        var document = openProjects[index].document
+        guard document.nameidStrategy != strategy else { return }
+        document.nameidStrategy = strategy
+        document.syncNameIDStrategyToFonts()
+        openProjects[index].document = document
+        if activeProjectID == projectID {
+            project = document
+        }
+        markProjectFileDirty(projectID: projectID)
+
+        let fontIDs = document.fonts.map(\.id)
+        for fontID in fontIDs {
+            clearSaveReviewState(forProjectID: projectID, fontID: fontID)
+        }
+        for fontID in fontIDs {
+            refreshCommitDiffPreview(forProjectID: projectID, fontID: fontID)
+        }
+    }
+
     func displayStopValue(for axis: AxisDefinition, native: Double) -> Double {
         guard coordinateDisplayMode == .reference,
               AxisLadderAlignment.supportsAlignment(axis.tag),
@@ -3658,7 +3703,8 @@ final class EditorViewModel: ObservableObject {
             naming: projectDoc.naming,
             plan: plan,
             outputPath: outputPath,
-            dryRun: true
+            dryRun: true,
+            nameidStrategy: projectDoc.nameidStrategy
         )
 
         let sessionKey = saveReviewSessionKey(projectID: targetProjectID, fontID: targetFontID)
@@ -3698,7 +3744,8 @@ final class EditorViewModel: ObservableObject {
                     naming: projectDoc.naming,
                     plan: plan,
                     outputPath: outputPath,
-                    dryRun: false
+                    dryRun: false,
+                    nameidStrategy: projectDoc.nameidStrategy
                 )
                 writeRequest.sourcePath = helperSourcePath
                 let session = CommitPreflightSession(
@@ -3726,7 +3773,8 @@ final class EditorViewModel: ObservableObject {
                 naming: projectDoc.naming,
                 plan: plan,
                 outputPath: outputPath,
-                dryRun: false
+                dryRun: false,
+                nameidStrategy: projectDoc.nameidStrategy
             )
             writeRequest.sourcePath = dryRunRequest.sourcePath
             let failedSession = CommitPreflightSession(
@@ -4119,7 +4167,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     static func isProjectFile(_ url: URL) -> Bool {
-        url.pathExtension.lowercased() == "varfont"
+        ProjectFileFormat.isProjectFileURL(url)
     }
 
     static let fontDropTypes: [UTType] = [.fileURL, .varfontProject]

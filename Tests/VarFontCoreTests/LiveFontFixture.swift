@@ -8,11 +8,19 @@ enum LiveFontFixture {
     static let playfairRomanCandidates = [
         NSHomeDirectory() + "/Downloads/PlayfairRomanVF.woff2",
         NSHomeDirectory() + "/Downloads/~Untitled/PlayfairRomanVF.woff2",
+        NSHomeDirectory()
+            + "/Downloads/~Untitled/New Folder With Items/Playfair/Playfair-Variable-patched.woff2",
+        NSHomeDirectory()
+            + "/Downloads/~Untitled/New Folder With Items/Playfair/Playfair-Variable.woff2",
     ]
 
     static let playfairItalicCandidates = [
         NSHomeDirectory() + "/Downloads/PlayfairItalicVF.woff2",
         NSHomeDirectory() + "/Downloads/~Untitled/PlayfairItalicVF.woff2",
+        NSHomeDirectory()
+            + "/Downloads/~Untitled/New Folder With Items/Playfair/Playfair-VariableItalic-patched.woff2",
+        NSHomeDirectory()
+            + "/Downloads/~Untitled/New Folder With Items/Playfair/Playfair-VariableItalic.woff2",
     ]
 
     static let robotoFlexCandidates = [
@@ -27,11 +35,19 @@ enum LiveFontFixture {
     }
 
     static var playfairRomanPath: String? {
-        resolvePath(candidates: playfairRomanCandidates)
+        if let envPath = ProcessInfo.processInfo.environment["VFSTUDIO_PLAYFAIR_ROMAN"],
+           FileManager.default.fileExists(atPath: envPath) {
+            return envPath
+        }
+        return resolvePath(candidates: playfairRomanCandidates)
     }
 
     static var playfairItalicPath: String? {
-        resolvePath(candidates: playfairItalicCandidates)
+        if let envPath = ProcessInfo.processInfo.environment["VFSTUDIO_PLAYFAIR_ITALIC"],
+           FileManager.default.fileExists(atPath: envPath) {
+            return envPath
+        }
+        return resolvePath(candidates: playfairItalicCandidates)
     }
 
     static var robotoFlexPath: String? {

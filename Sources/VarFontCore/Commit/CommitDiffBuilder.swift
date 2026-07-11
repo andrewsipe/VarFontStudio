@@ -130,7 +130,15 @@ public enum CommitDiffBuilder {
         let afterByKey = Dictionary(
             uniqueKeysWithValues: plan.instances.filter(\.included).map { ($0.key, $0) }
         )
-        _ = diff
+        let plannedByComposed = Dictionary(
+            uniqueKeysWithValues: (diff?.instancesPlanned ?? []).map { ($0.composedName, $0) }
+        )
+        let nameStringByID = Dictionary(
+            uniqueKeysWithValues: analysis.nameAudit.used.compactMap { use -> (Int, String)? in
+                guard let string = use.string else { return nil }
+                return (use.id, string)
+            }
+        )
 
         var orderedKeys: [String] = []
         var seen = Set<String>()
@@ -159,14 +167,48 @@ public enum CommitDiffBuilder {
             } else {
                 change = .changed
             }
+
+            let afterComposed = after?.composedName
+            let planned = afterComposed.flatMap { plannedByComposed[$0] }
+            let beforePostscript = before.flatMap { postscriptName(for: $0, nameStringByID: nameStringByID) }
+            let afterPostscript = planned?.postscriptName
+            let postscriptChange = instanceNameChangeKind(
+                beforeName: beforePostscript,
+                afterName: afterPostscript
+            )
+
             return CommitDiffInstanceRow(
                 key: key,
                 beforeName: before?.composedName,
                 afterName: after?.composedName,
+                beforePostscriptName: beforePostscript,
+                afterPostscriptName: afterPostscript,
                 coords: after?.coords ?? before?.coords,
-                change: change
+                change: change,
+                postscriptChange: postscriptChange
             )
         }
+    }
+
+    private static func postscriptName(
+        for instance: FontAnalysis.ExistingInstance,
+        nameStringByID: [Int: String]
+    ) -> String? {
+        guard instance.postscriptNameID != 0xFFFF else { return nil }
+        return nameStringByID[instance.postscriptNameID]
+    }
+
+    private static func instanceNameChangeKind(
+        beforeName: String?,
+        afterName: String?
+    ) -> CommitDiffChangeKind {
+        guard let afterName else {
+            return beforeName == nil ? .unchanged : .removed
+        }
+        guard let beforeName, !beforeName.isEmpty else {
+            return .added
+        }
+        return beforeName == afterName ? .unchanged : .changed
     }
 
     // MARK: - Name IDs

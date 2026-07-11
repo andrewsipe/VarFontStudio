@@ -164,6 +164,15 @@ public enum SaveReviewDisplayCategoryMapper {
         }
     }
 
+    public static func postscriptCategory(for instanceRow: CommitDiffInstanceRow) -> SaveReviewDisplayCategory {
+        switch instanceRow.postscriptChange {
+        case .added: return .added
+        case .removed: return .removed
+        case .changed: return .renamed
+        case .unchanged: return .same
+        }
+    }
+
     public static func category(for nameRow: CommitDiffNameIDRow) -> SaveReviewDisplayCategory {
         if nameRow.reflowSuppressed { return .same }
         if nameRow.afterRole == "protected_ot_label" { return .protected }

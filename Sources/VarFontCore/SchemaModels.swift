@@ -414,30 +414,49 @@ public struct FileRole: Codable, Equatable, Sendable {
     }
 }
 
+public enum NameIDStrategy: String, Codable, Equatable, Sendable {
+    case preserve
+    case reflow
+}
+
 public struct CommitOptions: Codable, Equatable, Sendable {
     public var fixFvarDefault: Bool
     public var allocatePostscriptNames: Bool
     public var preserveStatFormat3: Bool?
     /// nameID 25 — prefix for fvar instance PostScript names (e.g. NouveauLEDVariable).
     public var familyPSPrefix: String?
+    /// How OpenType feature label nameIDs (ss/cv/size) are handled on save.
+    public var nameidStrategy: NameIDStrategy
 
     enum CodingKeys: String, CodingKey {
         case fixFvarDefault = "fix_fvar_default"
         case allocatePostscriptNames = "allocate_postscript_names"
         case preserveStatFormat3 = "preserve_stat_format_3"
         case familyPSPrefix = "family_ps_prefix"
+        case nameidStrategy = "nameid_strategy"
     }
 
     public init(
         fixFvarDefault: Bool = false,
         allocatePostscriptNames: Bool = true,
         preserveStatFormat3: Bool? = true,
-        familyPSPrefix: String? = nil
+        familyPSPrefix: String? = nil,
+        nameidStrategy: NameIDStrategy = .preserve
     ) {
         self.fixFvarDefault = fixFvarDefault
         self.allocatePostscriptNames = allocatePostscriptNames
         self.preserveStatFormat3 = preserveStatFormat3
         self.familyPSPrefix = familyPSPrefix
+        self.nameidStrategy = nameidStrategy
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fixFvarDefault = try c.decodeIfPresent(Bool.self, forKey: .fixFvarDefault) ?? false
+        allocatePostscriptNames = try c.decodeIfPresent(Bool.self, forKey: .allocatePostscriptNames) ?? true
+        preserveStatFormat3 = try c.decodeIfPresent(Bool.self, forKey: .preserveStatFormat3)
+        familyPSPrefix = try c.decodeIfPresent(String.self, forKey: .familyPSPrefix)
+        nameidStrategy = try c.decodeIfPresent(NameIDStrategy.self, forKey: .nameidStrategy) ?? .preserve
     }
 }
 
@@ -785,6 +804,8 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
     public var template: ProjectTemplate
     public var fonts: [FontDocument]
     public var coordinateDisplay: CoordinateDisplayMode
+    /// Project-wide OpenType feature label nameID strategy for save/commit.
+    public var nameidStrategy: NameIDStrategy
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -793,6 +814,7 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         case displayName = "display_name"
         case naming, template, fonts
         case coordinateDisplay = "coordinate_display"
+        case nameidStrategy = "nameid_strategy"
     }
 
     public init(
@@ -804,7 +826,8 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         naming: NamingPolicy,
         template: ProjectTemplate,
         fonts: [FontDocument],
-        coordinateDisplay: CoordinateDisplayMode = .reference
+        coordinateDisplay: CoordinateDisplayMode = .reference,
+        nameidStrategy: NameIDStrategy = .preserve
     ) {
         self.schemaVersion = schemaVersion
         self.created = created
@@ -815,6 +838,7 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         self.template = template
         self.fonts = fonts
         self.coordinateDisplay = coordinateDisplay
+        self.nameidStrategy = nameidStrategy
     }
 
     public init(from decoder: Decoder) throws {
@@ -828,7 +852,18 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         template = try c.decode(ProjectTemplate.self, forKey: .template)
         fonts = try c.decode([FontDocument].self, forKey: .fonts)
         coordinateDisplay = try c.decodeIfPresent(CoordinateDisplayMode.self, forKey: .coordinateDisplay) ?? .reference
+        nameidStrategy = try c.decodeIfPresent(NameIDStrategy.self, forKey: .nameidStrategy)
+            ?? fonts.first?.options.nameidStrategy
+            ?? .preserve
         migrateFileRolesIfNeeded()
+        syncNameIDStrategyToFonts()
+    }
+
+    /// Keep per-font commit options aligned with the project preference.
+    public mutating func syncNameIDStrategyToFonts() {
+        for index in fonts.indices where fonts[index].options.nameidStrategy != nameidStrategy {
+            fonts[index].options.nameidStrategy = nameidStrategy
+        }
     }
 
     /// First font is master; others are variants when `file_role` was absent (legacy projects).
@@ -1215,6 +1250,7 @@ public struct CommitResult: Codable, Equatable, Sendable {
     public var dryRun: Bool
     public var summary: CommitSummary?
     public var diff: CommitDiff?
+    public var validation: CommitValidation?
     public var warnings: [PlanWarning]
     public var errors: [CommitError]
 
@@ -1224,7 +1260,39 @@ public struct CommitResult: Codable, Equatable, Sendable {
         case ok
         case outputPath = "output_path"
         case dryRun = "dry_run"
-        case summary, diff, warnings, errors
+        case summary, diff, validation, warnings, errors
+    }
+}
+
+public struct CommitValidation: Codable, Equatable, Sendable {
+    public var ok: Bool
+    public var issueCount: Int
+    public var issues: [CommitValidationIssue]
+
+    enum CodingKeys: String, CodingKey {
+        case ok
+        case issueCount = "issue_count"
+        case issues
+    }
+}
+
+public struct CommitValidationIssue: Codable, Equatable, Sendable {
+    public var code: String
+    public var severity: String
+    public var message: String
+}
+
+public struct CommitDiffOTReflowEntry: Codable, Equatable, Sendable {
+    public var fromID: Int
+    public var toID: Int
+    public var string: String?
+    public var feature: String?
+
+    enum CodingKeys: String, CodingKey {
+        case fromID = "from"
+        case toID = "to"
+        case string
+        case feature
     }
 }
 
@@ -1238,6 +1306,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
     public var nameRecordsSequenced: [CommitNameRecordPlanned]
     public var statValuesPlanned: [CommitDiffStatValuePlanned]
     public var instancesPlanned: [CommitDiffInstancePlanned]
+    public var otReflowMapping: [CommitDiffOTReflowEntry]?
 
     enum CodingKeys: String, CodingKey {
         case familyPSPrefix = "family_ps_prefix"
@@ -1248,6 +1317,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         case nameRecordsSequenced = "name_records_sequenced"
         case statValuesPlanned = "stat_values_planned"
         case instancesPlanned = "instances_planned"
+        case otReflowMapping = "ot_reflow_mapping"
     }
 
     public init(
@@ -1258,7 +1328,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         nameRecordsPlanned: [CommitNameRecordPlanned] = [],
         nameRecordsSequenced: [CommitNameRecordPlanned] = [],
         statValuesPlanned: [CommitDiffStatValuePlanned] = [],
-        instancesPlanned: [CommitDiffInstancePlanned] = []
+        instancesPlanned: [CommitDiffInstancePlanned] = [],
+        otReflowMapping: [CommitDiffOTReflowEntry]? = nil
     ) {
         self.familyPSPrefix = familyPSPrefix
         self.elidedFallbackName = elidedFallbackName
@@ -1268,6 +1339,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         self.nameRecordsSequenced = nameRecordsSequenced.isEmpty ? nameRecordsPlanned : nameRecordsSequenced
         self.statValuesPlanned = statValuesPlanned
         self.instancesPlanned = instancesPlanned
+        self.otReflowMapping = otReflowMapping
     }
 
     public init(from decoder: Decoder) throws {
@@ -1281,6 +1353,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
             ?? nameRecordsPlanned
         statValuesPlanned = try c.decodeIfPresent([CommitDiffStatValuePlanned].self, forKey: .statValuesPlanned) ?? []
         instancesPlanned = try c.decodeIfPresent([CommitDiffInstancePlanned].self, forKey: .instancesPlanned) ?? []
+        otReflowMapping = try c.decodeIfPresent([CommitDiffOTReflowEntry].self, forKey: .otReflowMapping)
     }
 }
 
@@ -1356,10 +1429,33 @@ public struct CommitDiffInstanceRow: Codable, Equatable, Sendable, Identifiable 
     public var key: String
     public var beforeName: String?
     public var afterName: String?
+    public var beforePostscriptName: String?
+    public var afterPostscriptName: String?
     public var coords: [String: Double]?
     public var change: CommitDiffChangeKind
+    public var postscriptChange: CommitDiffChangeKind
 
     public var id: String { key }
+
+    public init(
+        key: String,
+        beforeName: String? = nil,
+        afterName: String? = nil,
+        beforePostscriptName: String? = nil,
+        afterPostscriptName: String? = nil,
+        coords: [String: Double]? = nil,
+        change: CommitDiffChangeKind,
+        postscriptChange: CommitDiffChangeKind = .unchanged
+    ) {
+        self.key = key
+        self.beforeName = beforeName
+        self.afterName = afterName
+        self.beforePostscriptName = beforePostscriptName
+        self.afterPostscriptName = afterPostscriptName
+        self.coords = coords
+        self.change = change
+        self.postscriptChange = postscriptChange
+    }
 }
 
 public struct CommitDiffNameIDRow: Codable, Equatable, Sendable, Identifiable {
@@ -1438,6 +1534,8 @@ public struct CommitSummary: Codable, Equatable, Sendable {
     public var nameIDsAllocated: [Int]
     public var wipedInstanceCount: Int
     public var protectedNameIDs: [Int]
+    public var otReflowMapping: [String: Int]?
+    public var orphanNameIDsDropped: [Int]?
 
     enum CodingKeys: String, CodingKey {
         case instancesWritten = "instances_written"
@@ -1445,6 +1543,37 @@ public struct CommitSummary: Codable, Equatable, Sendable {
         case nameIDsAllocated = "name_ids_allocated"
         case wipedInstanceCount = "wiped_instance_count"
         case protectedNameIDs = "protected_name_ids"
+        case otReflowMapping = "ot_reflow_mapping"
+        case orphanNameIDsDropped = "orphan_nameids_dropped"
+    }
+
+    public init(
+        instancesWritten: Int = 0,
+        statValuesWritten: Int = 0,
+        nameIDsAllocated: [Int] = [],
+        wipedInstanceCount: Int = 0,
+        protectedNameIDs: [Int] = [],
+        otReflowMapping: [String: Int]? = nil,
+        orphanNameIDsDropped: [Int]? = nil
+    ) {
+        self.instancesWritten = instancesWritten
+        self.statValuesWritten = statValuesWritten
+        self.nameIDsAllocated = nameIDsAllocated
+        self.wipedInstanceCount = wipedInstanceCount
+        self.protectedNameIDs = protectedNameIDs
+        self.otReflowMapping = otReflowMapping
+        self.orphanNameIDsDropped = orphanNameIDsDropped
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        instancesWritten = try c.decode(Int.self, forKey: .instancesWritten)
+        statValuesWritten = try c.decode(Int.self, forKey: .statValuesWritten)
+        nameIDsAllocated = try c.decode([Int].self, forKey: .nameIDsAllocated)
+        wipedInstanceCount = try c.decode(Int.self, forKey: .wipedInstanceCount)
+        protectedNameIDs = try c.decode([Int].self, forKey: .protectedNameIDs)
+        otReflowMapping = try c.decodeIfPresent([String: Int].self, forKey: .otReflowMapping)
+        orphanNameIDsDropped = try c.decodeIfPresent([Int].self, forKey: .orphanNameIDsDropped)
     }
 }
 

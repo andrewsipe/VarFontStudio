@@ -99,6 +99,24 @@ public enum SaveReviewRowFormatter {
     }
   }
 
+  public static func instancePostscriptAfterValue(_ row: CommitDiffInstanceRow) -> String? {
+    guard let name = row.afterPostscriptName ?? row.beforePostscriptName else { return nil }
+    return quoted(name)
+  }
+
+  public static func instancePostscriptWasLine(_ row: CommitDiffInstanceRow) -> String? {
+    switch row.postscriptChange {
+    case .changed:
+      return row.beforePostscriptName.map { "was \(quoted($0))" }
+    case .removed:
+      return row.beforePostscriptName.map { "was \(quoted($0))" }
+    case .added:
+      return "new PostScript name"
+    default:
+      return nil
+    }
+  }
+
   public static func instanceSubtitle(
     coords: [String: Double]?,
     namingOrder: [String]
@@ -162,7 +180,8 @@ public enum SaveReviewRowFormatter {
     row: CommitDiffNameIDRow,
     font: FontDocument,
     tagValue: (tag: String, value: Double)?,
-    axisTag: String? = nil
+    axisTag: String? = nil,
+    otFeatureTag: String? = nil
   ) -> String {
     switch row.afterRole {
     case "axis_display_name":
@@ -188,6 +207,14 @@ public enum SaveReviewRowFormatter {
     case "instance_postscript":
       return "PostScript name"
     case "protected_ot_label":
+      return row.afterString ?? "OpenType label"
+    case "ot_feature_label":
+      if let otFeatureTag {
+        if let label = row.afterString, !label.isEmpty {
+          return "\(otFeatureTag) · \(label)"
+        }
+        return "\(otFeatureTag) feature label"
+      }
       return row.afterString ?? "OpenType label"
     default:
       return "nameID \(row.id)"

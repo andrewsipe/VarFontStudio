@@ -141,6 +141,8 @@ enum StudioColors {
     static let surfaceStrokeStrong = Color.primary.opacity(0.10)
     /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
     static let computedHighlight = Color.accentColor
+    /// STAT elided fallback — name when all elidable segments drop (naming footer, instance list).
+    static let elidedFallbackForeground = Color.accentColor
     /// Per-file clarifier labels — metadata, not axis coordinates.
     static let clarifierForeground = Color(red: 0.55, green: 0.45, blue: 0.95)
     static let clarifierBackground = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.14)
@@ -1564,20 +1566,29 @@ struct StudioInstanceComposedName: View {
         hideElided ? links.filter { !$0.elided } : links
     }
 
+    private var showsCollapsedElidedFallback: Bool {
+        hideElided && !links.isEmpty && displayLinks.isEmpty
+    }
+
     var body: some View {
         Group {
             if links.isEmpty {
                 Text(fallback)
                     .foregroundStyle(included ? .primary : .secondary)
-            } else if hideElided, displayLinks.isEmpty {
-                Text("—")
-                    .foregroundStyle(.tertiary)
+            } else if showsCollapsedElidedFallback {
+                Text(fallback)
+                    .foregroundStyle(
+                        included
+                            ? StudioColors.elidedFallbackForeground
+                            : StudioColors.elidedFallbackForeground.opacity(0.55)
+                    )
             } else {
                 composedText(from: displayLinks)
             }
         }
         .font(StudioTypography.bodyMedium)
         .lineLimit(1)
+        .help(showsCollapsedElidedFallback ? "Elided fallback — all elidable segments hidden" : "")
     }
 
     private func composedText(from segments: [NamingChainLink]) -> Text {

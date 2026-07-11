@@ -38,20 +38,38 @@ struct StudioShortcutsHelpView: View {
             ShortcutRow(action: "Include selection", keys: "⌘⇧I"),
             ShortcutRow(action: "Exclude selection", keys: "⌘⇧E"),
         ]),
+        ("Preferences", [
+            ShortcutRow(action: "OpenType feature name IDs (app default)", keys: "Preferences menu"),
+            ShortcutRow(action: "Preserve vs reflow to 256+ (this project)", keys: "Save review tab bar"),
+        ]),
     ]
+
+    private var workflowNotes: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("WORKFLOW")
+                .font(StudioTypography.sectionLabel)
+                .foregroundStyle(.secondary)
+            Text("Save Project writes a .varf file (legacy .varfont still opens). OpenType label reflow is optional: set the app default under Preferences, or override per project in Save review. Reflow compacts ss/cv/size feature labels to ID 256+ before STAT/fvar names are allocated.")
+                .font(StudioTypography.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("VarFont Studio Shortcuts")
                     .font(StudioTypography.emphasis)
-                Text("Alpha build — patched copies are written beside the source file unless you choose another path.")
+                Text("Alpha build — projects save as .varf; patched fonts write beside the source unless you choose another path.")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    workflowNotes
+
                     ForEach(sections, id: \.title) { section in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(section.title.uppercased())
@@ -79,7 +97,7 @@ struct StudioShortcutsHelpView: View {
             }
         }
         .padding(20)
-        .frame(width: 440, height: 480)
+        .frame(width: 460, height: 540)
         .preferredColorScheme(.dark)
     }
 }

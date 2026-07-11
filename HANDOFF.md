@@ -1,6 +1,6 @@
 # VarFont Studio — project handoff
 
-**Last updated:** 2026-07-03 (expanded with out-of-scope & ideas park)  
+**Last updated:** 2026-07-11 (alpha polish — `.varf` projects, OT reflow, save review)  
 **Purpose:** Single entry point for new chats, collaborators, or future you. Read this before changing the app or engine. **Includes rejected and parked ideas** so we do not re-litigate them.
 
 ---
@@ -41,7 +41,7 @@ Reference prototypes (interaction only, not visual design):
 Font file ──analyze──► FontAnalysis
                           │
                           ▼ import
-                     ProjectDocument (.varfont)
+                     ProjectDocument (.varf)
                           │
                           ▼ plan (Swift, live)
                      InstancePlan
@@ -65,17 +65,29 @@ Font file ──analyze──► FontAnalysis
 
 **Do not** open `Package.swift` alone while also using the app — Xcode will fight over the local package (“already opened from another project”).
 
+### Developers (from source)
+
 1. Quit Xcode.
 2. Open **`VarFontEditor/VarFontStudio.xcworkspace`** (not the package folder).
 3. Scheme: **VarFontStudio** · Destination: **My Mac** · Run (⌘R).
+
+### End users (GitHub download)
+
+Pre-built `.app` zips are produced by `scripts/build-release.sh` and published via GitHub Releases (see `README.md`). The bundle includes **vfcommit** and a **Python + fontTools** runtime — no Xcode or pip install required.
+
+```bash
+cd VarFontEditor
+./scripts/build-release.sh          # runs swift test + Release build + zip
+./scripts/build-release.sh --skip-tests
+```
+
+Tag **`v*`** on GitHub to trigger `.github/workflows/release.yml` automatically.
 
 Tests (SwiftPM):
 
 ```bash
 cd VarFontEditor && swift test
 ```
-
-Core-only tests: scheme **VarFontEditor** in the package, or filter with `swift test --filter …`.
 
 ---
 
@@ -113,6 +125,9 @@ Core-only tests: scheme **VarFontEditor** in the package, or filter with `swift 
 - [x] **File clarifiers** bar (width/slope/optical/custom) — lower priority than registration
 - [x] **Conflict resolver** sheet
 - [x] **Save review** window — preflight dry-run, per-file tabs, commit diff presentation
+- [x] **OpenType feature label reflow** — optional compact ss/cv/size labels to ID 256+ before STAT/fvar (`Preferences` menu default; per-project override in Save review)
+- [x] **Project save/open** — `.varf` JSON workspace files (legacy `.varfont` still opens); ⌘⌥S / ⌘⌥⇧S
+- [x] **Shortcuts help** — Help menu reference for alpha testers
 - [x] **Push to tree** — copy master axis stops to sibling files in project
 - [x] **Undo** snapshots for axis edits
 - [x] **StudioDesign** — shared tokens (spacing, typography, row chrome)
@@ -265,7 +280,7 @@ Use separate sessions; do not mix with axis tree polish.
 | **Save round-trip** | vfcommit output vs re-import; fix table write bugs |
 | **Registration completion** | Inference + UI picker + tests; then wire write |
 | **Elided fallback** | UI mirror + commit STAT field |
-| **Name reflow on export** | `EXPORT_DESIGN_NOTES.md` pipeline |
+| **Name reflow on export** | **Partially shipped** — optional `reflow` mode in vfcommit + Save review; see `EXPORT_DESIGN_NOTES.md` |
 | **Prototype instance list** | Formula bar, matrix, tree→list filter |
 | **Test fixture refresh** | After registration naming settled |
 
@@ -277,7 +292,7 @@ Use separate sessions; do not mix with axis tree polish.
 - Keyboard shortcuts audit across stop edit tab order
 - Duplicate instance highlighting improvements in list
 - Project template sync UX polish
-- `.varfont` project file double-click association
+- `.varf` project file double-click association (legacy `.varfont` supported)
 - CI workflow for `swift test` on push
 - VarFontEditor folder tracked in git (`?? VarFontEditor/` in parent repo as of mid-2026)
 
@@ -415,8 +430,8 @@ When **multiple files** in one project:
 
 | What | Status |
 |------|--------|
-| **Font save / commit** | Implemented — `save()` → Save Review → `vfcommit` → output font file |
-| **Project save (`.varfont` JSON)** | Schema defined (`SCHEMA.md`); **no dedicated Save Project UI** verified in app shell — project state lives in workspace session until font commit. Treat `.varfont` persistence as **planned**, not shipped. |
+| **Font save / commit** | Implemented — Save Review → `vfcommit` → output font file |
+| **Project save (`.varf` JSON)** | Implemented — Save Project / Save Project As; persists naming, axes, reflow preference, per-file state |
 | **Undo/redo** | Per-project `ProjectDocument` snapshots in session |
 
 ---
@@ -563,8 +578,7 @@ FontVault is a separate native app (font library). VarFont Studio is the **varia
 
 1. **Manual Save Copy checklist** on Playfair — Font Book + re-open in Studio (see `docs/SAVE_ROUND_TRIP_LOG.md`).
 2. **Re-import grid hydration** — patched fonts should rebuild full instance plan on open.
-3. **Name reflow session** — `EXPORT_DESIGN_NOTES.md` pipeline when OT label collisions appear.
-4. **`.varfont` Save/Open Project** — session persistence.
+3. **Alpha release checklist** — smoke-test multi-file Playfair, OT reflow on/off, `.varf` round-trip.
 
 Do **not** add more axis tree layout tweaks unless fixing a clear bug.
 
@@ -578,4 +592,4 @@ Do **not** add more axis tree layout tweaks unless fixing a clear bug.
 | Mid 2026 | STAT parser fix, lanes, registration axes, conflict resolver |
 | Jun–Jul 2026 | Axis tree layout K, STAT F1/F2/F3 UI, block structure phases 0–7, save review shell |
 | Jul 2026 | Phase 0.5 naming model clarity — registration subtitle picker, role colors, clarifier demotion |
-| Jul 2026 | Expanded HANDOFF: out-of-scope, ideas park, scale, multi-file, prototypes |
+| Jul 2026 | Alpha polish — `.varf` projects, OT label reflow, Save review name tab, fvar PostScript rows, Preferences menu |

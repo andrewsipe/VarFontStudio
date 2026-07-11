@@ -7,7 +7,8 @@ public enum CommitRequestBuilder {
         naming: NamingPolicy,
         plan: InstancePlan,
         outputPath: String,
-        dryRun: Bool
+        dryRun: Bool,
+        nameidStrategy: NameIDStrategy? = nil
     ) -> CommitRequest {
         CommitRequest(
             schemaVersion: 1,
@@ -15,7 +16,7 @@ public enum CommitRequestBuilder {
             sourcePath: font.sourcePath,
             outputPath: outputPath,
             dryRun: dryRun,
-            options: commitOptions(from: font.options),
+            options: commitOptions(from: font.options, nameidStrategy: nameidStrategy),
             naming: namingForCommit(naming, axisTags: font.axes.map(\.tag), font: font),
             fileRole: font.fileRole,
             axes: orderedAxes(font.axes, naming: naming),
@@ -72,7 +73,13 @@ public enum CommitRequestBuilder {
     }
 
     /// Pass-through commit options. fvar axis records are never rewritten on save.
-    private static func commitOptions(from options: CommitOptions) -> CommitOptions {
-        options
+    private static func commitOptions(
+        from options: CommitOptions,
+        nameidStrategy: NameIDStrategy? = nil
+    ) -> CommitOptions {
+        guard let nameidStrategy else { return options }
+        var merged = options
+        merged.nameidStrategy = nameidStrategy
+        return merged
     }
 }

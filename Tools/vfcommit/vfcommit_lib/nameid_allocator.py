@@ -259,6 +259,8 @@ class NameIDPlan:
     clarifiers: Dict[str, str] = field(default_factory=dict)
     free_start: int = 256
     free_end: int = 255
+    nameid_strategy: str = "preserve"
+    ot_reflow_end: int = 255
 
 
 def audit_nameids(font: TTFont, ot_labels: List[OTLabelRecord]) -> Dict[int, str]:
@@ -586,6 +588,8 @@ def build_allocation_plan(
     compound_defs: List[CompoundStatValueDef] | None = None,
     included_instance_keys: List[str] | None = None,
     pinned_coords: Dict[str, float] | None = None,
+    nameid_strategy: str = "preserve",
+    ot_reflow_end: int | None = None,
 ) -> NameIDPlan:
     """Produce nameID allocation plan without modifying the font."""
     grid_axes = instance_axis_defs if instance_axis_defs is not None else axis_defs
@@ -594,6 +598,8 @@ def build_allocation_plan(
     axes_payload = axes_json or []
     registration = file_stat_registration or {}
     preserved_compounds = compound_defs or []
+    reflow_mode = nameid_strategy == "reflow"
+    ot_block_end = ot_reflow_end if ot_reflow_end is not None else 255
     used = audit_nameids(font, ot_labels)
     ot_protected_ids: Set[int] = {rec.name_id for rec in ot_labels if rec.name_id >= 256}
     preserved_axis_name_ids = preserved_design_axis_name_ids(
@@ -611,7 +617,7 @@ def build_allocation_plan(
     snapshot_elided_fallback: Optional[int] = role_snapshot["elided_fallback"]  # type: ignore[assignment]
     snapshot_fvar_instances: Dict[str, Tuple[int, Optional[int]]] = role_snapshot["fvar_instances"]  # type: ignore[assignment]
 
-    cursor = 256
+    cursor = ot_block_end + 1 if reflow_mode else 256
     claimed_ids: Set[int] = set()
 
     def _name_matches(nid: int, expected: str) -> bool:
@@ -621,9 +627,11 @@ def build_allocation_plan(
     def _can_reuse(nid: Optional[int], expected: str) -> bool:
         if not nid or nid < 256:
             return False
+        if reflow_mode and nid <= ot_block_end:
+            return False
         if nid in claimed_ids:
             return False
-        if nid in ot_protected_ids:
+        if not reflow_mode and nid in ot_protected_ids:
             return False
         if nid in preserved_axis_name_ids:
             return False
@@ -631,12 +639,15 @@ def build_allocation_plan(
 
     def alloc_id() -> int:
         nonlocal cursor
-        while (
-            cursor in ot_protected_ids
-            or cursor in preserved_axis_name_ids
-            or cursor in claimed_ids
-        ):
+        while cursor in preserved_axis_name_ids or cursor in claimed_ids:
             cursor += 1
+        if not reflow_mode:
+            while (
+                cursor in ot_protected_ids
+                or cursor in preserved_axis_name_ids
+                or cursor in claimed_ids
+            ):
+                cursor += 1
         nid = cursor
         claimed_ids.add(nid)
         cursor += 1
@@ -768,6 +779,8 @@ def build_allocation_plan(
         file_stat_registration=registration,
         free_start=free_start,
         free_end=free_end,
+        nameid_strategy=nameid_strategy,
+        ot_reflow_end=ot_block_end,
     )
 
 
@@ -783,12 +796,27 @@ def check_for_collisions(plan: NameIDPlan, font: TTFont) -> List[str]:
     for composed, nid in plan.instance_postscript_ids.items():
         ps = plan.instance_postscript_names.get(composed, "")
         all_planned[nid] = f"PS:{ps}"
+    if plan.elided_fallback_id:
+        all_planned[plan.elided_fallback_id] = "elided fallback"
+    for compound_id, nid in plan.compound_value_ids.items():
+        all_planned[nid] = f"compound [{compound_id}]"
     for nid, description in all_planned.items():
         if nid < 256:
             collisions.append(
                 f"nameID {nid} planned for '{description}' is below 256 "
                 "(variable naming must live at 256+)"
             )
+        if nid > 32767:
+            collisions.append(
+                f"nameID {nid} planned for '{description}' exceeds uint16 max 32767"
+            )
+    if plan.nameid_strategy == "reflow":
+        for nid, description in all_planned.items():
+            if nid <= plan.ot_reflow_end:
+                collisions.append(
+                    f"nameID {nid} planned for '{description}' "
+                    f"collides with OT reflow block ending at {plan.ot_reflow_end}"
+                )
     for nid, description in all_planned.items():
         if nid in plan.protected:
             collisions.append(

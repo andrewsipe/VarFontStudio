@@ -138,6 +138,88 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(axisRow?.fieldTitle, "Weight (wght) axis")
     }
 
+    func testOtReflowLabelsAppearBeforeAxisRecords() {
+        let analysis = makeAnalysis()
+        let font = makeFont()
+        let report = CommitDiffReport(
+            statRows: [],
+            instanceRows: [],
+            nameIDRows: [
+                CommitDiffNameIDRow(
+                    id: 256,
+                    beforeString: "Alternate g",
+                    afterString: "Alternate g",
+                    afterRole: "ot_feature_label",
+                    change: .added,
+                    reflowedFromNameID: 763
+                ),
+                CommitDiffNameIDRow(
+                    id: 279,
+                    beforeString: "Weight",
+                    afterString: "Weight",
+                    afterRole: "axis_display_name",
+                    change: .unchanged
+                ),
+            ]
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: analysis,
+            font: font,
+            plan: makePlan(),
+            report: report,
+            diff: CommitDiff(
+                nameRecordsSequenced: [
+                    .init(id: 256, string: "Alternate g", role: "ot_feature_label"),
+                    .init(id: 279, string: "Weight", role: "axis_display_name"),
+                ],
+                otReflowMapping: [
+                    .init(fromID: 763, toID: 256, string: "Alternate g", feature: "ss05"),
+                ]
+            )
+        )
+        let nameTab = presentation.tabs.first { $0.id == .name }
+        let sectionTitles = nameTab?.sections.map(\.title) ?? []
+        XCTAssertEqual(sectionTitles.first, "OpenType feature labels")
+        XCTAssertTrue(sectionTitles.contains("Axis records"))
+        let otRow = nameTab?.sections.first?.rows.first
+        XCTAssertEqual(otRow?.fieldTitle, "ss05 · Alternate g")
+        XCTAssertEqual(otRow?.category, .reflow)
+    }
+
+    func testFvarInstanceRowsIncludePostscriptName() {
+        let analysis = makeAnalysis()
+        let font = makeFont()
+        let report = CommitDiffReport(
+            statRows: [],
+            instanceRows: [
+                CommitDiffInstanceRow(
+                    key: "i1",
+                    beforeName: "Regular",
+                    afterName: "Regular",
+                    beforePostscriptName: "Playfair-Regular",
+                    afterPostscriptName: "Playfair-Regular",
+                    coords: ["wght": 400],
+                    change: .unchanged,
+                    postscriptChange: .unchanged
+                ),
+            ],
+            nameIDRows: []
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: analysis,
+            font: font,
+            plan: makePlan(),
+            report: report,
+            diff: nil
+        )
+        let fvar = presentation.tabs.first { $0.id == .fvar }
+        let instanceSection = fvar?.sections.first { $0.title == "Instances" }
+        XCTAssertEqual(instanceSection?.rows.count, 2)
+        XCTAssertEqual(instanceSection?.rows[0].roleLabel, "subfamilyNameID")
+        XCTAssertEqual(instanceSection?.rows[1].roleLabel, "postscriptNameID")
+        XCTAssertEqual(instanceSection?.rows[1].afterValue, "\"Playfair-Regular\"")
+    }
+
     // MARK: - Fixtures
 
     private func makeAnalysis() -> FontAnalysis {

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import VarFontCore
 
 @MainActor
 final class EditorLayoutPreferences: ObservableObject {
@@ -37,6 +38,11 @@ final class EditorLayoutPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(inspectorWidth, forKey: Keys.inspectorWidth) }
     }
 
+    /// Default OpenType feature label nameID strategy for newly opened fonts/projects.
+    @Published var defaultNameIDStrategy: NameIDStrategy {
+        didSet { StudioAppPreferences.defaultNameIDStrategy = defaultNameIDStrategy }
+    }
+
     var panelVisibilityToken: String {
         "\(showAxisTree)-\(axisTreeCollapsed)-\(showInstances)-\(showInspector)"
     }
@@ -48,6 +54,7 @@ final class EditorLayoutPreferences: ObservableObject {
         axisTreeCollapsed = Self.storedBool(forKey: Keys.axisTreeCollapsed, default: false)
         axisTreeWidth = Self.storedCGFloat(forKey: Keys.axisTreeWidth, default: StudioPanelMetrics.axisTreeDefault)
         inspectorWidth = Self.storedCGFloat(forKey: Keys.inspectorWidth, default: StudioPanelMetrics.inspectorDefault)
+        defaultNameIDStrategy = StudioAppPreferences.defaultNameIDStrategy
     }
 
     func axisTreeOccupiedWidth() -> CGFloat {

@@ -63,6 +63,7 @@ actor CommitWorker {
         stdinHandle = stdinPipe.fileHandleForWriting
         stdoutHandle = stdoutPipe.fileHandleForReading
         stderrHandle = stderrPipe.fileHandleForReading
+        Self.startStderrDrain(stderrPipe.fileHandleForReading)
     }
 
     func ping() async throws {
@@ -81,6 +82,8 @@ actor CommitWorker {
 
     func shutdown() {
         stdinHandle?.closeFile()
+        stdoutHandle?.readabilityHandler = nil
+        stderrHandle?.readabilityHandler = nil
         stdoutHandle?.closeFile()
         stderrHandle?.closeFile()
         if let process, process.isRunning {
@@ -110,22 +113,53 @@ actor CommitWorker {
         }
     }
 
-    private static func readLine(from handle: FileHandle, timeout: TimeInterval) async throws -> Data {
-        try await Task.detached {
-            var buffer = Data()
-            let deadline = Date().addingTimeInterval(timeout)
-            while Date() < deadline {
-                let chunk = handle.availableData
-                if !chunk.isEmpty {
-                    buffer.append(chunk)
-                    if let newlineIndex = buffer.firstIndex(of: 0x0A) {
-                        return Data(buffer[..<newlineIndex])
-                    }
-                }
-                Thread.sleep(forTimeInterval: 0.01)
+    private static func startStderrDrain(_ handle: FileHandle) {
+        handle.readabilityHandler = { fileHandle in
+            let chunk = fileHandle.availableData
+            if chunk.isEmpty {
+                fileHandle.readabilityHandler = nil
             }
-            throw CommitWorkerError.timedOut
-        }.value
+        }
+    }
+
+    private static func readLine(from handle: FileHandle, timeout: TimeInterval) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            let gate = NSLock()
+            var finished = false
+
+            func finish(with result: Result<Data, Error>) {
+                gate.lock()
+                defer { gate.unlock() }
+                guard !finished else { return }
+                finished = true
+                handle.readabilityHandler = nil
+                switch result {
+                case let .success(data):
+                    continuation.resume(returning: data)
+                case let .failure(error):
+                    continuation.resume(throwing: error)
+                }
+            }
+
+            var buffer = Data()
+            handle.readabilityHandler = { fileHandle in
+                let chunk = fileHandle.availableData
+                if chunk.isEmpty {
+                    finish(with: .failure(CommitWorkerError.processExited("stdout closed")))
+                    return
+                }
+                buffer.append(chunk)
+                if let newlineIndex = buffer.firstIndex(of: 0x0A) {
+                    finish(with: .success(Data(buffer[..<newlineIndex])))
+                }
+            }
+
+            Task {
+                let nanoseconds = UInt64(max(0, timeout) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanoseconds)
+                finish(with: .failure(CommitWorkerError.timedOut))
+            }
+        }
     }
 }
 

@@ -17,8 +17,11 @@ public struct CommitService: Sendable {
         self.pythonExecutable = pythonExecutable ?? Self.defaultPythonExecutable()
     }
 
-    /// Prefer Homebrew / usr-local interpreters; GUI apps often lack them on `PATH` for `/usr/bin/env`.
+    /// Prefer bundled Python (release builds), then Homebrew / system interpreters with fontTools.
     public static func defaultPythonExecutable() -> String {
+        if let bundled = bundledPythonExecutable() {
+            return bundled
+        }
         let candidates = [
             "/opt/homebrew/bin/python3",
             "/usr/local/bin/python3",
@@ -30,6 +33,17 @@ public struct CommitService: Sendable {
             }
         }
         return "/usr/bin/env"
+    }
+
+    /// Bundled `Resources/python/bin/python3` from release packaging (includes fontTools).
+    public static func bundledPythonExecutable() -> String? {
+        guard let resourceRoot = Bundle.main.resourceURL else { return nil }
+        let path = resourceRoot.appendingPathComponent("python/bin/python3").path
+        guard FileManager.default.isExecutableFile(atPath: path),
+              canImportFontTools(using: path) else {
+            return nil
+        }
+        return path
     }
 
     private static func canImportFontTools(using pythonPath: String) -> Bool {

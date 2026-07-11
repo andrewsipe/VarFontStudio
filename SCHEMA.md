@@ -12,7 +12,7 @@ Contract between the Swift app (read, plan, UI) and the write helper (`vfcommit`
 Font file ──analyze──► FontAnalysis
                           │
                           ▼ import
-                     ProjectDocument ◄──► .varfont (saved)
+                     ProjectDocument ◄──► .varf (saved)
                           │
                           ▼ plan (Swift, live)
                      InstancePlan
@@ -207,7 +207,7 @@ Sample instances (fixtures truncate; `instances_existing_meta.total` is authorit
 
 ## 2. `ProjectDocument`
 
-Workspace state; multi-file tabs. Saved as `.varfont` JSON or package.
+Workspace state; multi-file tabs. Saved as **`.varf`** JSON (legacy **`.varfont`** still opens).
 
 ```json
 {
@@ -219,10 +219,13 @@ Workspace state; multi-file tabs. Saved as `.varfont` JSON or package.
     "order": ["opsz", "wdth", "wght", "@width", "@slope", "@optical", "@custom"],
     "elided_fallback": "Regular"
   },
+  "nameid_strategy": "preserve",
   "template": { "axes": [], "sync_roles": true },
   "fonts": []
 }
 ```
+
+`nameid_strategy`: `"preserve"` | `"reflow"` — project-wide OpenType feature label nameID handling on save. App **Preferences** menu sets the default for new projects; Save review can override per open project.
 
 ### `fonts[]` — per open file
 
@@ -245,7 +248,8 @@ Workspace state; multi-file tabs. Saved as `.varfont` JSON or package.
   "axes": [],
   "options": {
     "fix_fvar_default": true,
-    "allocate_postscript_names": true
+    "allocate_postscript_names": true,
+    "nameid_strategy": "preserve"
   },
   "included_instance_keys": [],
   "excluded_instance_keys": [],
@@ -370,7 +374,8 @@ Input to `vfcommit`. Subset of project + output paths.
   "options": {
     "fix_fvar_default": true,
     "allocate_postscript_names": true,
-    "preserve_stat_format_3": true
+    "preserve_stat_format_3": true,
+    "nameid_strategy": "preserve"
   },
   "naming": {
     "order": ["opsz", "wdth", "wght", "@width", "@slope", "@optical", "@custom"],
@@ -429,9 +434,19 @@ Alignment with TableEditor YAML: `axes[].values` = `AxisValue`; `options.fix_fva
   ],
   "instances_planned": [
     { "composed_name": "Micro Normal", "subfamily_name_id": 282, "postscript_name": "MyFamilyVF-MicroNormal", "postscript_name_id": 283 }
+  ],
+  "name_records_sequenced": [
+    { "id": 256, "string": "Alternate g", "role": "ot_feature_label" },
+    { "id": 261, "string": "Weight", "role": "axis_display_name" }
+  ],
+  "ot_reflow_mapping": [
+    { "from": 763, "to": 256, "string": "Alternate g", "feature": "ss05" }
   ]
 }
 ```
+
+`name_records_sequenced` — write-order slots for Save review (OT labels first when reflow is on).  
+`ot_reflow_mapping` — present when `nameid_strategy` is `reflow`; maps old OT label IDs to new 256+ block.
 
 Swift merges `FontAnalysis` (before) + `InstancePlan` + `CommitResult.diff` into `CommitDiffReport` for the Save review UI.
 

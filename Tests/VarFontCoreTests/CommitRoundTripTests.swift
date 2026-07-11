@@ -42,6 +42,13 @@ final class CommitRoundTripTests: XCTestCase {
         return analysis.instancesExisting.count
     }
 
+    private func validationIssueMessage(_ result: CommitResult) -> String {
+        guard let issues = result.validation?.issues, !issues.isEmpty else {
+            return "missing or failed post-write validation"
+        }
+        return issues.map { "[\($0.code)] \($0.message)" }.joined(separator: "; ")
+    }
+
     // MARK: - Baseline round-trip
 
     func testPlayfairRomanWriteRoundTrip() async throws {
@@ -64,6 +71,7 @@ final class CommitRoundTripTests: XCTestCase {
         )
         let result = try await service.commit(request)
         XCTAssertTrue(result.ok, result.errors.first?.message ?? "commit failed")
+        XCTAssertTrue(result.validation?.ok ?? false, validationIssueMessage(result))
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
 
         let afterCount = try fvarInstanceCount(at: outputURL.path)
@@ -113,6 +121,7 @@ final class CommitRoundTripTests: XCTestCase {
 
         let result = try await service.commit(request)
         XCTAssertTrue(result.ok, result.errors.first?.message ?? "commit failed")
+        XCTAssertTrue(result.validation?.ok ?? false, validationIssueMessage(result))
         XCTAssertEqual(try fvarInstanceCount(at: outputURL.path), expected)
     }
 
@@ -145,6 +154,7 @@ final class CommitRoundTripTests: XCTestCase {
         )
         let result = try await service.commit(request)
         XCTAssertTrue(result.ok, result.errors.first?.message ?? "commit failed")
+        XCTAssertTrue(result.validation?.ok ?? false, validationIssueMessage(result))
 
         let reanalysis = try FontAnalysisReader.analyzeForCommitDiff(url: outputURL)
         let boldInstances = reanalysis.instancesExisting.filter { ($0.coords["wght"] ?? 0) == 700 }
@@ -177,6 +187,7 @@ final class CommitRoundTripTests: XCTestCase {
         )
         let result = try await service.commit(request)
         XCTAssertTrue(result.ok, result.errors.first?.message ?? "commit failed")
+        XCTAssertTrue(result.validation?.ok ?? false, validationIssueMessage(result))
         XCTAssertGreaterThan(try fvarInstanceCount(at: outputURL.path), 0)
     }
 
@@ -201,6 +212,27 @@ final class CommitRoundTripTests: XCTestCase {
         XCTAssertEqual(request.fileRole?.clarifiers.first?.label, "Condensed")
     }
 
+    func testNameIDStrategyEncodesInCommitRequest() throws {
+        var project = try playfairProject()
+        let fontID = try playfairFontID(in: project)
+        project.nameidStrategy = .reflow
+        project.syncNameIDStrategyToFonts()
+
+        let plan = try XCTUnwrap(InstancePlanner.plan(project: project, fontID: fontID))
+        let request = CommitRequestBuilder.make(
+            font: project.fonts[0],
+            naming: project.naming,
+            plan: plan,
+            outputPath: "/tmp/out.woff2",
+            dryRun: true,
+            nameidStrategy: project.nameidStrategy
+        )
+        XCTAssertEqual(request.options.nameidStrategy, .reflow)
+        let data = try JSONEncoder().encode(request)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(json.contains("\"nameid_strategy\":\"reflow\""))
+    }
+
     func testRobotoFlexWriteRoundTrip() async throws {
         let path = try LiveFontFixture.requireRobotoFlex()
         let service = try commitService()
@@ -221,6 +253,7 @@ final class CommitRoundTripTests: XCTestCase {
         )
         let result = try await service.commit(request)
         XCTAssertTrue(result.ok, result.errors.first?.message ?? "commit failed")
+        XCTAssertTrue(result.validation?.ok ?? false, validationIssueMessage(result))
         XCTAssertEqual(try fvarInstanceCount(at: outputURL.path), plan.formula.totalIncluded)
     }
 }
