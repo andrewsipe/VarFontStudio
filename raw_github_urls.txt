@@ -5,6 +5,10 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Package.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/README.md
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/SCHEMA.md
 
+# .github/workflows/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/.github/workflows/ci.yml
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/.github/workflows/release.yml
+
 # Apps/VarFontStudio/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/CommitPreflightSession.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/EditorLayoutPreferences.swift
@@ -14,6 +18,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/OpenProject.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/SaveReviewWindowLifecycle.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/SourceFontAccess.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/StudioAppPreferences.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontProjectType.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/VarFontStudioApp.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Apps/VarFontStudio/WorkspaceDragSession.swift
@@ -183,8 +188,11 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/v
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_worker.py
 
 # Tools/vfcommit/tests/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/live_font_fixture.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_diff_export.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_nameid_allocator.py
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_ot_label_reflow.py
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_post_write_validation.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_postscript_hyphen.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_registration_naming.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_request_bridge.py
@@ -192,15 +200,19 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/t
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/test_worker.py
 
 # Tools/vfcommit/tests/__pycache__/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/live_font_fixture.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_diff_export.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_diff_export.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_nameid_allocator.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_nameid_allocator.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_ot_label_reflow.cpython-314-pytest-9.0.1.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_post_write_validation.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_postscript_hyphen.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_registration_naming.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_registration_naming.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_request_bridge.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_round_trip_write.cpython-314-pytest-9.0.1.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_round_trip_write.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/tests/__pycache__/test_worker.cpython-314-pytest-9.0.1.pyc
 
@@ -211,7 +223,9 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/v
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/logging_config.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/name_policies.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/nameid_allocator.py
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/ot_label_reflow.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/ot_label_scanner.py
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/post_write_validator.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/request_bridge.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/stat_builder.py
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/string_utils.py
@@ -223,7 +237,9 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/v
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/logging_config.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/name_policies.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/nameid_allocator.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/ot_label_reflow.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/ot_label_scanner.cpython-314.pyc
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/post_write_validator.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/request_bridge.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/stat_builder.cpython-314.pyc
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/Tools/vfcommit/vfcommit_lib/__pycache__/string_utils.cpython-314.pyc
@@ -251,3 +267,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/example
 
 # fixtures/fonts/
 https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/fixtures/fonts/README.md
+
+# scripts/
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/scripts/build-release.sh
+https://raw.githubusercontent.com/andrewsipe/VarFontEditor/main/scripts/bundle-python-runtime.sh
