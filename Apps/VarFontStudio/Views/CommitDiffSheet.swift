@@ -60,7 +60,7 @@ private struct SaveReviewActionBar: View {
                 }
 
                 if showsSaveAll {
-                    Button("Save All…") {
+                    Button("Save All Files") {
                         editor.saveAllFiles(inProjectID: projectID)
                     }
                     .disabled(!session.preflight.ok || editor.isSaveActionBlocked)

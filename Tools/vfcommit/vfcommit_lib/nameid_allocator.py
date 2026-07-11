@@ -32,6 +32,16 @@ REGISTRATION_AXIS_TO_CLARIFIER_CATEGORY: Dict[str, str] = {
 }
 
 DEFAULT_CLARIFIER_TOKENS: List[str] = list(CLARIFIER_TOKEN_TO_CATEGORY.keys())
+PSHYPHEN_TOKEN = "@pshyphen"
+
+
+def ensure_postscript_hyphen(order: List[str]) -> List[str]:
+    """Ensure exactly one PS hyphen marker (default: first in chain)."""
+    without = [token for token in order if token != PSHYPHEN_TOKEN]
+    if PSHYPHEN_TOKEN in order:
+        insert_at = min(order.index(PSHYPHEN_TOKEN), len(without))
+        return without[:insert_at] + [PSHYPHEN_TOKEN] + without[insert_at:]
+    return [PSHYPHEN_TOKEN] + without
 
 
 def clarifier_categories_covered_by_registration(
@@ -75,7 +85,7 @@ def naming_order_with_defaults(naming: dict) -> List[str]:
     for token in DEFAULT_CLARIFIER_TOKENS:
         if token not in order:
             order.append(token)
-    return order
+    return ensure_postscript_hyphen(order)
 
 
 def compose_name_from_order(
@@ -94,6 +104,8 @@ def compose_name_from_order(
     parts: List[str] = []
 
     for token in naming_order:
+        if token == PSHYPHEN_TOKEN:
+            continue
         if token in CLARIFIER_TOKEN_TO_CATEGORY:
             category = CLARIFIER_TOKEN_TO_CATEGORY[token]
             if category in covered_clarifiers:
@@ -118,6 +130,64 @@ def compose_name_from_order(
         if not av.elidable:
             parts.append(av.name)
     return " ".join(parts) if parts else elided_fallback_name
+
+
+def compose_postscript_style_from_order(
+    naming_order: List[str],
+    axis_values_by_tag: Dict[str, AxisValueDef],
+    clarifiers: Dict[str, str],
+    elided_fallback_name: str = "Regular",
+    *,
+    axes_json: Optional[List[dict]] = None,
+    file_stat_registration: Optional[Dict[str, float]] = None,
+) -> str:
+    """Build the style segment of an fvar PostScript name using `@pshyphen` splits."""
+    axis_by_tag = {str(axis["tag"]): axis for axis in (axes_json or [])}
+    registration = file_stat_registration or {}
+    covered_clarifiers = clarifier_categories_covered_by_registration(axes_json, registration)
+    before: List[str] = []
+    after: List[str] = []
+    past_hyphen = False
+
+    for token in naming_order:
+        if token == PSHYPHEN_TOKEN:
+            past_hyphen = True
+            continue
+
+        part: Optional[str] = None
+        if token in CLARIFIER_TOKEN_TO_CATEGORY:
+            category = CLARIFIER_TOKEN_TO_CATEGORY[token]
+            if category not in covered_clarifiers:
+                label = clarifiers.get(category)
+                if label:
+                    part = label
+        else:
+            axis_json = axis_by_tag.get(token)
+            if axis_json and str(axis_json.get("role")) == "design_record_only":
+                reg_value = registration.get(token)
+                if reg_value is not None:
+                    stop = _stop_for_axis_json(axis_json, reg_value)
+                    if stop and not bool(stop.get("elidable", False)):
+                        part = str(stop["name"])
+            else:
+                av = axis_values_by_tag.get(token)
+                if av is not None and not av.elidable:
+                    part = av.name
+
+        if not part:
+            continue
+        if past_hyphen:
+            after.append(part)
+        else:
+            before.append(part)
+
+    before_text = sanitize_postscript("".join(before))
+    after_text = sanitize_postscript("".join(after))
+    if not before_text:
+        return after_text or sanitize_postscript(elided_fallback_name)
+    if not after_text:
+        return before_text
+    return f"{before_text}-{after_text}"
 
 
 def _stop_for_axis_json(axis_json: dict, value: float) -> Optional[dict]:
@@ -385,12 +455,19 @@ def compose_postscript_instance_name(family_prefix: str, subfamily_name: str) ->
     """
     Build PostScript name for one fvar instance.
 
-    Matches common VF patterns: FamilyPrefix-CondensedBold (no spaces in style).
+    One hyphen separates the family-side prefix from the style tail.
+    When the style segment contains an internal hyphen (@pshyphen split),
+    the portion before that hyphen is concatenated onto the family prefix.
     """
     prefix = sanitize_postscript(family_prefix.strip()) or "Font"
     style = sanitize_postscript(subfamily_name.strip())
     if not style or style.lower() == "regular":
         return f"{prefix}-Regular"
+    if "-" in style:
+        before, after = style.split("-", 1)
+        if after:
+            return f"{prefix}{before}-{after}"
+        return f"{prefix}-{before}"
     return f"{prefix}-{style}"
 
 
@@ -431,14 +508,40 @@ def enumerate_instance_names(
     pinned_coords: Optional[Dict[str, float]] = None,
 ) -> List[str]:
     """Cartesian product of axis values into composed instance subfamily names."""
+    return [
+        composed
+        for composed, _ in iterate_instance_name_entries(
+            axis_defs,
+            elided_fallback_name,
+            naming_order=naming_order,
+            clarifiers=clarifiers,
+            axes_json=axes_json,
+            file_stat_registration=file_stat_registration,
+            included_instance_keys=included_instance_keys,
+            pinned_coords=pinned_coords,
+        )
+    ]
+
+
+def iterate_instance_name_entries(
+    axis_defs: List[AxisDef],
+    elided_fallback_name: str = "Regular",
+    *,
+    naming_order: Optional[List[str]] = None,
+    clarifiers: Optional[Dict[str, str]] = None,
+    axes_json: Optional[List[dict]] = None,
+    file_stat_registration: Optional[Dict[str, float]] = None,
+    included_instance_keys: Optional[List[str]] = None,
+    pinned_coords: Optional[Dict[str, float]] = None,
+):
+    """Yield `(composed_name, combo_by_tag)` for each included instance row."""
     if not axis_defs:
-        return []
+        return
 
     from vfcommit_lib.request_bridge import instance_key
 
     value_lists = [ad.values for ad in axis_defs]
     tag_list = [ad.tag for ad in axis_defs]
-    names: List[str] = []
     seen: Set[str] = set()
     allowed = set(included_instance_keys) if included_instance_keys else None
     pinned = pinned_coords or {}
@@ -460,11 +563,11 @@ def enumerate_instance_names(
             axes_json=axes_json,
             file_stat_registration=file_stat_registration,
         )
-        if composed not in seen:
-            seen.add(composed)
-            names.append(composed)
-
-    return names
+        if composed in seen:
+            continue
+        seen.add(composed)
+        combo_by_tag = {tag: av for tag, av in zip(tag_list, combo)}
+        yield composed, combo_by_tag
 
 
 def build_allocation_plan(
@@ -609,7 +712,7 @@ def build_allocation_plan(
     instance_postscript_names: Dict[str, str] = {}
     instance_postscript_ids: Dict[str, int] = {}
 
-    for composed_name in enumerate_instance_names(
+    for composed_name, combo_by_tag in iterate_instance_name_entries(
         grid_axes,
         elided_fallback_name,
         naming_order=order,
@@ -626,7 +729,15 @@ def build_allocation_plan(
         if not allocate_postscript_names:
             continue
 
-        ps_name = compose_postscript_instance_name(family_prefix, composed_name)
+        ps_style = compose_postscript_style_from_order(
+            order,
+            combo_by_tag,
+            clarifier_map,
+            elided_fallback_name,
+            axes_json=axes_payload,
+            file_stat_registration=registration,
+        )
+        ps_name = compose_postscript_instance_name(family_prefix, ps_style)
         instance_postscript_names[composed_name] = ps_name
         # Unique ID per instance slot even when the PS string text coincides.
         _, reuse_ps = snapshot_fvar_instances.get(composed_name, (None, None))

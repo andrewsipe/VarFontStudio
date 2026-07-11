@@ -115,17 +115,24 @@ private struct ProjectTabChip: View {
                 isDragEnabled: editor.canDragProjectForCombine,
                 helpText: "Drag to another project tab to combine projects"
             ) {
-                Text(tabLabel)
-                    .font(StudioTypography.caption)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
-                    .frame(maxWidth: 160, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if !isActive {
-                            editor.activateProject(id: openProject.id)
-                        }
+                HStack(spacing: 4) {
+                    if openProject.projectFileDirty {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 6, height: 6)
                     }
+                    Text(tabLabel)
+                        .font(StudioTypography.caption)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                        .frame(maxWidth: 160, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if !isActive {
+                                editor.activateProject(id: openProject.id)
+                            }
+                        }
+                }
             }
         } trailing: {
             HStack(spacing: 4) {

@@ -32,6 +32,9 @@ public enum NamingComposer {
         var parts: [String] = []
 
         for token in naming.order {
+            if NamingToken.isPostscriptHyphen(token) {
+                continue
+            }
             if NamingToken.isClarifier(token) {
                 guard let category = NamingToken.clarifierCategory(for: token),
                       let label = fileRole?.label(for: category),

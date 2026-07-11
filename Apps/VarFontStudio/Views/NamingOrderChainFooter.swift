@@ -158,14 +158,28 @@ struct NamingOrderChainFooter: View {
     }
 
     private var exampleRow: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+            namingExampleLine(label: "Name", value: editor.namingChainPreviewName, accentLeading: true)
+            namingExampleLine(label: "PostScript", value: editor.namingChainPreviewPostScript, accentLeading: false)
+
+            if editor.selectedInstance != nil {
+                Text("from selection")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.quaternary)
+            }
+        }
+    }
+
+    private func namingExampleLine(label: String, value: String, accentLeading: Bool) -> some View {
         HStack(spacing: StudioSpacing.rowGap) {
-            Text("Example")
+            Text(label)
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
+                .frame(width: 68, alignment: .leading)
 
-            Text(editor.namingChainPreviewName)
+            Text(value)
                 .font(StudioTypography.bodyMedium)
-                .fontWeight(.semibold)
+                .fontWeight(label == "PostScript" ? .medium : .semibold)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .textSelection(.enabled)
@@ -173,17 +187,13 @@ struct NamingOrderChainFooter: View {
                 .padding(.vertical, 3)
                 .background(.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
                 .overlay(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .fill(Color.accentColor.opacity(0.5))
-                        .frame(width: 2)
-                        .padding(.vertical, 2)
+                    if accentLeading {
+                        RoundedRectangle(cornerRadius: StudioRadius.chip)
+                            .fill(Color.accentColor.opacity(0.5))
+                            .frame(width: 2)
+                            .padding(.vertical, 2)
+                    }
                 }
-
-            if editor.selectedInstance != nil {
-                Text("from selection")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.quaternary)
-            }
         }
     }
 
@@ -354,6 +364,9 @@ struct NamingOrderChainFooter: View {
     // MARK: - Chips
 
     private func chainChip(tag: String) -> some View {
+        if editor.isPostscriptHyphenToken(tag) {
+            return AnyView(postscriptHyphenChip(tag: tag))
+        }
         if editor.isClarifierNamingToken(tag) {
             return AnyView(clarifierChainChip(tag: tag))
         }
@@ -386,6 +399,27 @@ struct NamingOrderChainFooter: View {
             }
             .opacity(isDragging ? 0.3 : 1)
         )
+    }
+
+    private func postscriptHyphenChip(tag: String) -> some View {
+        let isDragging = session.draggingTag == tag
+
+        return Text("[-] PS hyphen")
+            .font(StudioTypography.caption.weight(.semibold))
+            .foregroundStyle(Color.accentColor)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .overlay {
+                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    .strokeBorder(Color.accentColor.opacity(0.55), lineWidth: 1)
+            }
+            .opacity(isDragging ? 0.3 : 1)
+            .contentShape(Rectangle())
+            .help("Drag to set where the PostScript hyphen splits the style segment (fvar postscriptNameID).")
+            .gesture(dragGesture(for: tag))
     }
 
     private func clarifierChainChip(tag: String) -> some View {
@@ -471,7 +505,14 @@ struct NamingOrderChainFooter: View {
     private var placeholderChip: some View {
         Group {
             if let tag = session.draggingTag {
-                if editor.isClarifierNamingToken(tag) {
+                if editor.isPostscriptHyphenToken(tag) {
+                    Text("[-] PS hyphen")
+                        .font(StudioTypography.caption.weight(.semibold))
+                        .foregroundStyle(Color.accentColor.opacity(0.5))
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                } else if editor.isClarifierNamingToken(tag) {
                     Text(chainChipLabel(for: tag))
                         .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.clarifierForeground.opacity(0.5))
@@ -530,7 +571,15 @@ struct NamingOrderChainFooter: View {
 
     @ViewBuilder
     private func ghostChip(for tag: String) -> some View {
-        if editor.isClarifierNamingToken(tag) {
+        if editor.isPostscriptHyphenToken(tag) {
+            Text("[-] PS hyphen")
+                .font(StudioTypography.caption.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+        } else if editor.isClarifierNamingToken(tag) {
             Text(chainChipLabel(for: tag))
                 .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.clarifierForeground)

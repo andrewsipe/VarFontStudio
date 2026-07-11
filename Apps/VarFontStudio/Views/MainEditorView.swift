@@ -100,6 +100,29 @@ struct MainEditorView: View {
                     .environmentObject(editor)
             }
         }
+        .sheet(isPresented: $editor.showShortcutsHelp) {
+            StudioShortcutsHelpView()
+        }
+        .sheet(item: $editor.missingFontsRequest) { _ in
+            MissingFontsSheet()
+                .environmentObject(editor)
+        }
+        .confirmationDialog(
+            "Overwrite original font?",
+            isPresented: saveToOriginalConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Overwrite", role: .destructive) {
+                editor.confirmSaveToOriginalAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmSaveToOriginal = nil
+            }
+        } message: {
+            if let session = editor.confirmSaveToOriginal {
+                Text(editor.saveToOriginalConfirmationMessage(for: session))
+            }
+        }
         .confirmationDialog(
             "Remove font?",
             isPresented: removeFontConfirmBinding,
@@ -117,12 +140,18 @@ struct MainEditorView: View {
             }
         }
         .confirmationDialog(
-            "Remove project?",
+            "Close project?",
             isPresented: closeProjectConfirmBinding,
             titleVisibility: .visible
         ) {
-            Button("Remove", role: .destructive) {
-                editor.confirmCloseProjectAction()
+            if let projectID = editor.confirmCloseProjectID,
+               editor.projectNeedsProjectFileSave(projectID: projectID) {
+                Button("Save Project") {
+                    editor.confirmCloseProjectSaveAction()
+                }
+            }
+            Button("Discard", role: .destructive) {
+                editor.confirmCloseProjectDiscardAction()
             }
             Button("Cancel", role: .cancel) {
                 editor.confirmCloseProjectID = nil
@@ -131,6 +160,25 @@ struct MainEditorView: View {
             if let projectID = editor.confirmCloseProjectID {
                 Text(editor.closeProjectConfirmationMessage(for: projectID))
             }
+        }
+        .confirmationDialog(
+            "Quit VarFont Studio?",
+            isPresented: $editor.confirmQuitRequested,
+            titleVisibility: .visible
+        ) {
+            if editor.canSaveProjectOnQuit {
+                Button("Save Project") {
+                    editor.confirmQuitSaveProjectAction()
+                }
+            }
+            Button("Discard", role: .destructive) {
+                editor.confirmQuitDiscardAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.confirmQuitCancelAction()
+            }
+        } message: {
+            Text(editor.quitConfirmationMessage())
         }
         .confirmationDialog(
             "Move font?",
@@ -197,6 +245,13 @@ struct MainEditorView: View {
         Binding(
             get: { editor.confirmRemoveFont != nil },
             set: { if !$0 { editor.confirmRemoveFont = nil } }
+        )
+    }
+
+    private var saveToOriginalConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.confirmSaveToOriginal != nil },
+            set: { if !$0 { editor.confirmSaveToOriginal = nil } }
         )
     }
 

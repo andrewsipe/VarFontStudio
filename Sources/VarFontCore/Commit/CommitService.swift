@@ -48,10 +48,19 @@ public struct CommitService: Sendable {
         }
     }
 
-    /// Bundled `vfcommit/vfcommit.py`, synced into the app cache. Never reads ~/Documents at launch.
+    /// Bundled `vfcommit/vfcommit.py`, synced into the app cache in DEBUG. Resolved once per process.
     public static func defaultHelperURL() -> URL? {
+        cachedDefaultHelperURL
+    }
+
+    private static let cachedDefaultHelperURL: URL? = resolveDefaultHelperURL()
+
+    private static func resolveDefaultHelperURL() -> URL? {
         if let bundled = bundledHelperURL(),
            FileManager.default.fileExists(atPath: bundled.path) {
+            #if !DEBUG
+            return bundled
+            #endif
             return installedHelperURL(preferredSource: bundled.deletingLastPathComponent())
         }
 
@@ -165,7 +174,7 @@ public struct CommitService: Sendable {
         }
     }
 
-    public func commit(_ request: CommitRequest) async throws -> CommitResult {
+    public func commit(_ request: CommitRequest, preferWorker: Bool = true) async throws -> CommitResult {
         guard let helperURL = helperURL ?? Self.defaultHelperURL() else {
             throw CommitServiceError.helperNotFound
         }
@@ -173,6 +182,30 @@ public struct CommitService: Sendable {
             throw CommitServiceError.helperUnavailable(helperURL.path)
         }
 
+        if preferWorker {
+            do {
+                return try await CommitWorkerManager.commit(
+                    request,
+                    helperURL: helperURL,
+                    pythonExecutable: pythonExecutable
+                )
+            } catch {
+                return try await commitOneShot(request, helperURL: helperURL)
+            }
+        }
+        return try await commitOneShot(request, helperURL: helperURL)
+    }
+
+    public func ensureWorkerReady() async {
+        guard let helperURL = helperURL ?? Self.defaultHelperURL() else { return }
+        await CommitWorkerManager.ensureReady(helperURL: helperURL, pythonExecutable: pythonExecutable)
+    }
+
+    public static func shutdownWorker() async {
+        await CommitWorkerManager.shutdown()
+    }
+
+    private func commitOneShot(_ request: CommitRequest, helperURL: URL) async throws -> CommitResult {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let requestData = try encoder.encode(request)

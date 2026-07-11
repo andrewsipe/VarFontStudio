@@ -23,8 +23,6 @@ public enum AxisTreeReviewQueue {
             return 6
         case "ital_slnt_coexistence":
             return 7
-        case "opsz_format2_suggest":
-            return 14
         case "registration_mismatch", "registration_value_missing":
             return 8
         case "empty_instance_axis":

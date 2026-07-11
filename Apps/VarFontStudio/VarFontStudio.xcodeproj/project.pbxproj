@@ -42,6 +42,9 @@
 		B2000036 /* ProjectFilesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000035 /* ProjectFilesSection.swift */; };
 		B2000037 /* AxisStopFillControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000036 /* AxisStopFillControls.swift */; };
 		B2000038 /* CommitDiffReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000037 /* CommitDiffReviewView.swift */; };
+		B2000039 /* StudioShortcutsHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000038 /* StudioShortcutsHelpView.swift */; };
+		B2000040 /* MissingFontsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000039 /* MissingFontsSheet.swift */; };
+		B2000041 /* VarFontProjectType.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000040 /* VarFontProjectType.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -80,6 +83,10 @@
 		F2000035 /* ProjectFilesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFilesSection.swift; sourceTree = "<group>"; };
 		F2000036 /* AxisStopFillControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisStopFillControls.swift; sourceTree = "<group>"; };
 		F2000037 /* CommitDiffReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitDiffReviewView.swift; sourceTree = "<group>"; };
+		F2000038 /* StudioShortcutsHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioShortcutsHelpView.swift; sourceTree = "<group>"; };
+		F2000039 /* MissingFontsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingFontsSheet.swift; sourceTree = "<group>"; };
+		F2000040 /* VarFontProjectType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontProjectType.swift; sourceTree = "<group>"; };
+		F2000041 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +112,8 @@
 				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
 				F2000012 /* OpenProject.swift */,
+				F2000040 /* VarFontProjectType.swift */,
+				F2000041 /* Info.plist */,
 				F2000021 /* WorkspaceDragSession.swift */,
 				G2000005 /* Views */,
 				F2000008 /* Assets.xcassets */,
@@ -142,6 +151,8 @@
 				F2000031 /* CombinationStylesSection.swift */,
 				F2000024 /* CommitDiffSheet.swift */,
 				F2000037 /* CommitDiffReviewView.swift */,
+				F2000038 /* StudioShortcutsHelpView.swift */,
+				F2000039 /* MissingFontsSheet.swift */,
 				F2000006 /* InstanceListPanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
 				F2000009 /* StudioDesign.swift */,
@@ -215,7 +226,7 @@
 		R2000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (
+            files = (
 				B2000008 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -270,6 +281,9 @@
 				B2000036 /* ProjectFilesSection.swift in Sources */,
 				B2000037 /* AxisStopFillControls.swift in Sources */,
 				B2000038 /* CommitDiffReviewView.swift in Sources */,
+				B2000039 /* StudioShortcutsHelpView.swift in Sources */,
+				B2000040 /* MissingFontsSheet.swift in Sources */,
+				B2000041 /* VarFontProjectType.swift in Sources */,
 				B2000025 /* CommitDiffSheet.swift in Sources */,
 				B2000026 /* CommitPreflightSession.swift in Sources */,
 				B2000027 /* SourceFontAccess.swift in Sources */,
@@ -396,6 +410,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VarFont Studio";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
@@ -422,6 +437,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "VarFont Studio";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;

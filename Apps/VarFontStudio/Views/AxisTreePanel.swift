@@ -59,7 +59,6 @@ private enum AxisTreePlanWarningCodes {
         "stat_missing_from_fvar",
         "multiple_elidable",
         "empty_instance_axis",
-        "opsz_format2_suggest",
     ]
 }
 

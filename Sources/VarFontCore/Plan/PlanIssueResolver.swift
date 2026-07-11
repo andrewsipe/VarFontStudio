@@ -18,7 +18,6 @@ public enum PlanIssueCodes {
         "ital_slnt_coexistence",
         "default_instance_excluded",
         "default_instance_not_in_grid",
-        "opsz_format2_suggest",
     ]
 
     public static func issueKey(for warning: PlanWarning) -> String {
@@ -97,7 +96,7 @@ public enum PlanIssueResolver {
             return italSlntCoexistenceProposals(for: warning, font: font)
         case "fvar_missing_from_stat", "stat_missing_from_fvar":
             return acknowledgeOnlyProposals(for: warning)
-        case "opsz_format2_suggest", "default_instance_not_in_grid":
+        case "default_instance_not_in_grid":
             return suggestionProposals(for: warning)
         case "default_instance_excluded":
             return defaultInstanceExcludedProposals(for: warning, font: font)

@@ -210,6 +210,7 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
     public static let clarifierTokenSlope = "@slope"
     public static let clarifierTokenOptical = "@optical"
     public static let clarifierTokenCustom = "@custom"
+    public static let postscriptHyphenToken = "@pshyphen"
 
     public static let defaultClarifierTokens: [String] = [
         clarifierTokenWidth,
@@ -233,11 +234,30 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
 
     /// Appends default clarifier tokens to axis order when missing.
     public static func orderWithDefaultClarifiers(axisOrder: [String]) -> [String] {
-        var result = axisOrder.filter { !NamingToken.isClarifier($0) }
+        var result = axisOrder.filter { !NamingToken.isSpecialToken($0) }
         for token in defaultClarifierTokens where !result.contains(token) {
             result.append(token)
         }
+        return ensurePostscriptHyphen(in: result)
+    }
+
+    /// Ensures exactly one PS hyphen marker exists (default: first in the chain).
+    public static func ensurePostscriptHyphen(in order: [String]) -> [String] {
+        let without = order.filter { $0 != postscriptHyphenToken }
+        if let originalIndex = order.firstIndex(of: postscriptHyphenToken) {
+            var result = without
+            let insertAt = min(originalIndex, result.count)
+            result.insert(postscriptHyphenToken, at: insertAt)
+            return result
+        }
+        var result = without
+        result.insert(postscriptHyphenToken, at: 0)
         return result
+    }
+
+    /// Restore helper — PS hyphen returns to the default first position.
+    public static func resetPostscriptHyphenToDefault(in order: [String]) -> [String] {
+        ensurePostscriptHyphen(in: order.filter { $0 != postscriptHyphenToken })
     }
 
     /// Project naming order filtered to axes present in this file plus clarifier tokens.
@@ -245,8 +265,16 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         var result: [String] = []
         var seenAxes = Set<String>()
         var seenClarifiers = Set<String>()
+        var hasHyphen = false
 
         for token in projectOrder {
+            if NamingToken.isPostscriptHyphen(token) {
+                if !hasHyphen {
+                    result.append(postscriptHyphenToken)
+                    hasHyphen = true
+                }
+                continue
+            }
             if NamingToken.isClarifier(token) {
                 guard !seenClarifiers.contains(token) else { continue }
                 result.append(token)
@@ -263,13 +291,25 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         for token in defaultClarifierTokens where !seenClarifiers.contains(token) {
             result.append(token)
         }
+        if !hasHyphen {
+            result.insert(postscriptHyphenToken, at: 0)
+        }
         return result
     }
 }
 
 public enum NamingToken {
+    public static func isPostscriptHyphen(_ token: String) -> Bool {
+        token == NamingPolicy.postscriptHyphenToken
+    }
+
+    public static func isSpecialToken(_ token: String) -> Bool {
+        isPostscriptHyphen(token) || isClarifier(token)
+    }
+
     public static func isClarifier(_ token: String) -> Bool {
-        token.hasPrefix("@")
+        guard !isPostscriptHyphen(token) else { return false }
+        return token.hasPrefix("@")
     }
 
     public static func clarifierCategory(for token: String) -> FileClarifierCategory? {
@@ -806,6 +846,11 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
             }
         }
     }
+
+    /// Font to focus when opening a project — master when present, otherwise first file.
+    public var preferredSelectedFontID: String? {
+        fonts.first { $0.fileRole?.kind == .master }?.id ?? fonts.first?.id
+    }
 }
 
 public struct ProjectTemplate: Codable, Equatable, Sendable {
@@ -1092,6 +1137,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
     public var includedInstanceKeys: [String]
     public var fileStatRegistration: [String: Double]
     public var compoundStatValues: [CompoundStatValue]
+    public var originalSourcePath: String?
+    public var allowInPlace: Bool
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -1105,6 +1152,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         case includedInstanceKeys = "included_instance_keys"
         case fileStatRegistration = "file_stat_registration"
         case compoundStatValues = "compound_stat_values"
+        case originalSourcePath = "original_source_path"
+        case allowInPlace = "allow_in_place"
     }
 
     public init(
@@ -1119,7 +1168,9 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         axes: [AxisDefinition],
         includedInstanceKeys: [String] = [],
         fileStatRegistration: [String: Double] = [:],
-        compoundStatValues: [CompoundStatValue] = []
+        compoundStatValues: [CompoundStatValue] = [],
+        originalSourcePath: String? = nil,
+        allowInPlace: Bool = false
     ) {
         self.schemaVersion = schemaVersion
         self.requestID = requestID
@@ -1133,6 +1184,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         self.includedInstanceKeys = includedInstanceKeys
         self.fileStatRegistration = fileStatRegistration
         self.compoundStatValues = compoundStatValues
+        self.originalSourcePath = originalSourcePath
+        self.allowInPlace = allowInPlace
     }
 
     public init(from decoder: Decoder) throws {
@@ -1149,6 +1202,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         includedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .includedInstanceKeys) ?? []
         fileStatRegistration = try c.decodeIfPresent([String: Double].self, forKey: .fileStatRegistration) ?? [:]
         compoundStatValues = try c.decodeIfPresent([CompoundStatValue].self, forKey: .compoundStatValues) ?? []
+        originalSourcePath = try c.decodeIfPresent(String.self, forKey: .originalSourcePath)
+        allowInPlace = try c.decodeIfPresent(Bool.self, forKey: .allowInPlace) ?? false
     }
 }
 

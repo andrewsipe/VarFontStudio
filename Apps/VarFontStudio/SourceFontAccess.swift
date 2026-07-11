@@ -66,6 +66,16 @@ enum SourceFontAccess {
         }
     }
 
+    static func invalidateCache(fontID: String) {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: cacheDirectory,
+            includingPropertiesForKeys: nil
+        ) else { return }
+        for url in contents where url.lastPathComponent.hasPrefix("\(fontID).") {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
     private static func syncCache(from source: URL, to cache: URL) throws {
         let sourceValues = try source.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
         if FileManager.default.fileExists(atPath: cache.path),

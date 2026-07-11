@@ -86,6 +86,7 @@ final class EditorViewModel: ObservableObject {
     private var reviewSession: AxisTreeReviewSession?
     @Published private(set) var saveReviewSessionsByKey: [String: CommitPreflightSession] = [:]
     @Published var presentCommitDiffSheet = false
+    @Published var showShortcutsHelp = false
     @Published private(set) var saveReviewOpenRequest: SaveReviewOpenRequest?
     @Published private(set) var saveReviewLoadingKeys: Set<String> = []
     @Published private(set) var saveReviewSelectedFontIDByProjectID: [String: String] = [:]
@@ -114,6 +115,10 @@ final class EditorViewModel: ObservableObject {
     @Published var confirmSplitFont: FontSplitRequest?
     /// Project workspace tab id pending close confirmation.
     @Published var confirmCloseProjectID: String?
+    /// When true, app quit was requested while projects have unsaved state.
+    @Published var confirmQuitRequested = false
+    @Published var missingFontsRequest: MissingFontsRequest?
+    @Published var confirmSaveToOriginal: CommitPreflightSession?
     @Published var pendingAddFontProjectID: String?
     /// Pick another open project as move/combine target.
     @Published var projectTargetPickerMode: ProjectTargetPickerMode?
@@ -129,6 +134,53 @@ final class EditorViewModel: ObservableObject {
     private static let statusMessageDisplayDuration: TimeInterval = 4
 
     var hasOpenProjects: Bool { !openProjects.isEmpty }
+
+    var canSaveProject: Bool {
+        guard let projectID = activeProjectID,
+              openProjects.contains(where: { $0.id == projectID }) else { return false }
+        guard let open = openProject(for: projectID) else { return false }
+        return open.projectFileDirty || open.projectFileURL == nil
+    }
+
+    func projectFileDirty(for projectID: String) -> Bool {
+        openProject(for: projectID)?.projectFileDirty ?? false
+    }
+
+    func projectNeedsProjectFileSave(projectID: String) -> Bool {
+        guard let project = openProject(for: projectID) else { return false }
+        return project.projectFileDirty || project.projectFileURL == nil
+    }
+
+    func projectHasDirtyFonts(projectID: String) -> Bool {
+        openProject(for: projectID)?.document.fonts.contains(where: \.dirty) ?? false
+    }
+
+    func firstProjectNeedingProjectFileSave() -> String? {
+        openProjects.first { projectNeedsProjectFileSave(projectID: $0.id) }?.id
+    }
+
+    var anyOpenProjectHasDirtyFonts: Bool {
+        openProjects.contains { $0.document.fonts.contains(where: \.dirty) }
+    }
+
+    var canSaveProjectOnQuit: Bool {
+        firstProjectNeedingProjectFileSave() != nil
+    }
+
+    func quitConfirmationMessage() -> String {
+        let needsProjectSave = firstProjectNeedingProjectFileSave() != nil
+        let needsFontSave = anyOpenProjectHasDirtyFonts
+        switch (needsProjectSave, needsFontSave) {
+        case (true, true):
+            return "Some projects have unsaved project files and some fonts have unsaved edits. Save project files here; use Save Copy for font files."
+        case (true, false):
+            return "One or more projects have unsaved project file changes."
+        case (false, true):
+            return "One or more font files have unsaved edits. Use Save Copy to write patched fonts before quitting."
+        case (false, false):
+            return "One or more projects have unsaved changes."
+        }
+    }
 
     var canDragProjectForCombine: Bool { openProjects.count > 1 }
 
@@ -233,6 +285,40 @@ final class EditorViewModel: ObservableObject {
         saveReviewExplicitlyOpenedProjectIDs.insert(targetID)
         resetSaveReviewUIState(forProjectID: targetID)
         saveReviewOpenRequest = SaveReviewOpenRequest(projectID: targetID, token: UUID())
+        Task {
+            await commitService.ensureWorkerReady()
+        }
+    }
+
+    func toggleSaveReviewWindow(forProjectID projectID: String? = nil) {
+        let targetID = projectID ?? activeProjectID
+        guard let targetID else {
+            postStatusMessage("Open a project first.")
+            return
+        }
+        if isSaveReviewWindowOpen(forProjectID: targetID) {
+            closeSaveReviewWindow(forProjectID: targetID)
+            return
+        }
+        presentSaveReviewWindow(forProjectID: targetID)
+    }
+
+    func presentShortcutsHelp() {
+        showShortcutsHelp = true
+    }
+
+    func isSaveReviewWindowOpen(forProjectID projectID: String) -> Bool {
+        let title = saveReviewWindowTitle(forProjectID: projectID)
+        return NSApplication.shared.windows.contains { window in
+            SaveReviewWindowLifecycle.isSaveReviewWindow(window) && window.title == title
+        }
+    }
+
+    func closeSaveReviewWindow(forProjectID projectID: String) {
+        let title = saveReviewWindowTitle(forProjectID: projectID)
+        for window in NSApplication.shared.windows where SaveReviewWindowLifecycle.isSaveReviewWindow(window) && window.title == title {
+            window.close()
+        }
     }
 
     private func resetSaveReviewUIState(forProjectID projectID: String) {
@@ -307,6 +393,14 @@ final class EditorViewModel: ObservableObject {
     var canPreviewSaveReview: Bool {
         guard let activeProjectID else { return false }
         return canPreviewSaveReview(forProjectID: activeProjectID)
+    }
+
+    private func markProjectFileDirty(projectID: String? = nil) {
+        guard let id = projectID ?? activeProjectID,
+              let idx = openProjects.firstIndex(where: { $0.id == id }) else { return }
+        guard !openProjects[idx].projectFileDirty else { return }
+        openProjects[idx].projectFileDirty = true
+        publishOpenProjects()
     }
 
     private func registerSourceBookmark(url: URL, fontID: String) {
@@ -589,6 +683,7 @@ final class EditorViewModel: ObservableObject {
     /// Full naming order filtered to naming-visible axes plus clarifier tokens.
     var namingChainInstanceTags: [String] {
         namingChainTags.filter { tag in
+            if NamingToken.isPostscriptHyphen(tag) { return true }
             if NamingToken.isClarifier(tag) { return true }
             guard let axis = selectedFont?.axes.first(where: { $0.tag == tag }) else { return false }
             return axis.role == .instance || axis.isDesignRecordOnly
@@ -660,6 +755,23 @@ final class EditorViewModel: ObservableObject {
         return effectiveElidedFallbackDisplay.value
     }
 
+    var namingChainPreviewPostScript: String {
+        guard let project, let font = selectedFont else { return "" }
+        let prefix = font.options.familyPSPrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let familyPrefix = (prefix?.isEmpty == false) ? prefix! : "Family"
+        let coords = selectedInstance?.coords
+            ?? instancePlan?.instances.first?.coords
+            ?? [:]
+        return PostScriptNaming.composeInstanceName(
+            familyPrefix: familyPrefix,
+            coords: coords,
+            axes: font.axes,
+            naming: project.naming,
+            fileRole: font.fileRole,
+            fileStatRegistration: font.fileStatRegistration
+        )
+    }
+
     var effectiveElidedFallbackDisplay: (value: String, inferred: Bool) {
         guard let project, let font = selectedFont else {
             return (project?.naming.elidedFallback ?? "Regular", false)
@@ -688,6 +800,10 @@ final class EditorViewModel: ObservableObject {
         NamingToken.isClarifier(tag)
     }
 
+    func isPostscriptHyphenToken(_ tag: String) -> Bool {
+        NamingToken.isPostscriptHyphen(tag)
+    }
+
     func setNamingOrder(_ tags: [String]) {
         guard var project, let font = selectedFont else { return }
         let axisTags = font.axes.map(\.tag)
@@ -714,6 +830,7 @@ final class EditorViewModel: ObservableObject {
             projectOrder: project.naming.inferredOrder ?? project.naming.order,
             axisTags: font.axes.map(\.tag)
         )
+        project.naming.order = NamingPolicy.resetPostscriptHyphenToDefault(in: project.naming.order)
 
         for index in project.fonts[fontIndex].axes.indices {
             if let inferred = project.fonts[fontIndex].axes[index].roleInferred {
@@ -1551,6 +1668,276 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
+    func presentOpenProjectPanel() {
+        let panel = NSOpenPanel()
+        panel.title = "Open Project"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.varfontProject]
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                await self?.openProjectFile(at: url)
+            }
+        }
+    }
+
+    func saveProject() {
+        guard let projectID = activeProjectID,
+              let open = openProject(for: projectID) else {
+            postStatusMessage("No project selected.")
+            return
+        }
+        if let url = open.projectFileURL {
+            Task { @MainActor in
+                await self.saveProject(document: open.document, to: url, projectID: projectID)
+            }
+        } else {
+            presentSaveProjectAsPanel()
+        }
+    }
+
+    func saveProjectAs() {
+        presentSaveProjectAsPanel()
+    }
+
+    private func presentSaveProjectAsPanel() {
+        guard let projectID = activeProjectID,
+              let open = openProject(for: projectID) else {
+            postStatusMessage("No project selected.")
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.title = "Save Project As"
+        panel.canCreateDirectories = true
+        panel.allowedContentTypes = [.varfontProject]
+        panel.nameFieldStringValue = defaultProjectFilename(for: open)
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            let normalized = Self.normalizedProjectFileURL(url)
+            Task { @MainActor in
+                await self?.saveProject(document: open.document, to: normalized, projectID: projectID)
+            }
+        }
+    }
+
+    private func defaultProjectFilename(for open: OpenProject) -> String {
+        if let url = open.projectFileURL {
+            return url.lastPathComponent
+        }
+        let base = projectTabLabel(for: open)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let sanitized = base.isEmpty ? "Untitled" : base
+        return "\(sanitized).varfont"
+    }
+
+    private static func normalizedProjectFileURL(_ url: URL) -> URL {
+        if url.pathExtension.lowercased() == "varfont" {
+            return url
+        }
+        return url.appendingPathExtension("varfont")
+    }
+
+    @MainActor
+    private func saveProject(document: ProjectDocument, to url: URL, projectID: String) async {
+        guard let idx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            try ProjectDocumentStore.save(openProjects[idx].document, to: url)
+            openProjects[idx].projectFileURL = url
+            openProjects[idx].projectFileDirty = false
+            publishOpenProjects()
+            postStatusMessage("Saved project — \(url.lastPathComponent)")
+        } catch {
+            postStatusMessage("Could not save project: \(error.localizedDescription)")
+        }
+    }
+
+    func openProjectFile(at url: URL) async {
+        let normalized = url.standardizedFileURL
+        if let existing = openProjects.first(where: {
+            $0.projectFileURL?.standardizedFileURL == normalized
+        }) {
+            activateProject(id: existing.id)
+            postStatusMessage("Already open — \(normalized.lastPathComponent)")
+            return
+        }
+
+        isBusy = true
+        defer { isBusy = false }
+        do {
+            let document = try ProjectDocumentStore.load(from: normalized)
+            let missing = missingFontEntries(in: document)
+            if missing.isEmpty {
+                await finishOpeningProject(document: document, projectFileURL: normalized)
+            } else {
+                missingFontsRequest = MissingFontsRequest(
+                    projectFileURL: normalized,
+                    document: document,
+                    entries: missing
+                )
+            }
+        } catch {
+            postStatusMessage("Could not open project: \(error.localizedDescription)")
+        }
+    }
+
+    private func missingFontEntries(in document: ProjectDocument) -> [MissingFontEntry] {
+        document.fonts.compactMap { font in
+            let path = font.sourcePath
+            guard !FileManager.default.fileExists(atPath: path) else { return nil }
+            return MissingFontEntry(fontID: font.id, storedPath: path, resolvedURL: nil)
+        }
+    }
+
+    func locateMissingFont(fontID: String) {
+        guard var request = missingFontsRequest,
+              let entryIndex = request.entries.firstIndex(where: { $0.fontID == fontID }) else { return }
+
+        let panel = NSOpenPanel()
+        panel.title = "Locate Font"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = Self.fontContentTypes
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            request.entries[entryIndex].resolvedURL = url.standardizedFileURL
+            self?.missingFontsRequest = request
+        }
+    }
+
+    func cancelMissingFontsRequest() {
+        missingFontsRequest = nil
+    }
+
+    func completeMissingFontsRequest() {
+        guard let request = missingFontsRequest, request.allResolved else { return }
+        var document = request.document
+        for entry in request.entries {
+            guard let resolvedURL = entry.resolvedURL,
+                  let fontIndex = document.fonts.firstIndex(where: { $0.id == entry.fontID }) else { continue }
+            document.fonts[fontIndex].sourcePath = resolvedURL.path
+        }
+        let projectURL = request.projectFileURL
+        missingFontsRequest = nil
+        Task { @MainActor in
+            await self.finishOpeningProject(document: document, projectFileURL: projectURL)
+        }
+    }
+
+    @MainActor
+    private func finishOpeningProject(document: ProjectDocument, projectFileURL: URL) async {
+        for font in document.fonts {
+            let url = URL(fileURLWithPath: font.sourcePath)
+            registerSourceBookmark(url: url, fontID: font.id)
+        }
+
+        let open = OpenProject(
+            document: document,
+            selectedFontID: document.preferredSelectedFontID,
+            projectFileURL: projectFileURL,
+            projectFileDirty: false
+        )
+        openProjects.append(open)
+        activateProject(id: open.id)
+        selectedInstanceKey = nil
+        selectedInstanceKeys = []
+        selectedAxisStopID = nil
+        clearUndoHistory()
+        regeneratePlan()
+        canSave = document.fonts.contains(where: \.dirty)
+        postStatusMessage("Opened project — \(projectFileURL.lastPathComponent)")
+    }
+
+    func handleApplicationTerminateRequest() -> Bool {
+        guard firstProjectNeedingCloseConfirmation() != nil else { return true }
+        confirmQuitRequested = true
+        return false
+    }
+
+    func shutdownCommitWorker() async {
+        await CommitService.shutdownWorker()
+    }
+
+    func confirmQuitDiscardAction() {
+        confirmQuitRequested = false
+        for project in openProjects {
+            clearSaveReviewState(forProjectID: project.id)
+            for font in project.document.fonts {
+                removeSourceBookmark(fontID: font.id)
+            }
+        }
+        openProjects.removeAll()
+        activeProjectID = nil
+        NSApplication.shared.reply(toApplicationShouldTerminate: true)
+    }
+
+    func confirmQuitCancelAction() {
+        confirmQuitRequested = false
+        NSApplication.shared.reply(toApplicationShouldTerminate: false)
+    }
+
+    func confirmQuitSaveProjectAction() {
+        guard let projectID = firstProjectNeedingProjectFileSave() else { return }
+        saveProjectThenContinueQuit(projectID: projectID)
+    }
+
+    private func continueQuitAfterHandlingProjectSaves() {
+        if firstProjectNeedingProjectFileSave() != nil {
+            confirmQuitSaveProjectAction()
+            return
+        }
+        if anyOpenProjectHasDirtyFonts {
+            confirmQuitRequested = true
+            return
+        }
+        confirmQuitRequested = false
+        NSApplication.shared.reply(toApplicationShouldTerminate: true)
+    }
+
+    private func saveProjectThenContinueQuit(projectID: String) {
+        guard let open = openProject(for: projectID) else {
+            continueQuitAfterHandlingProjectSaves()
+            return
+        }
+        if let url = open.projectFileURL {
+            Task { @MainActor in
+                await self.saveProject(document: open.document, to: url, projectID: projectID)
+                if self.openProject(for: projectID)?.projectFileDirty == false {
+                    self.continueQuitAfterHandlingProjectSaves()
+                }
+            }
+        } else {
+            presentSaveProjectAsPanelForQuit(projectID: projectID)
+        }
+    }
+
+    private func presentSaveProjectAsPanelForQuit(projectID: String) {
+        guard let open = openProject(for: projectID) else { return }
+        let panel = NSSavePanel()
+        panel.title = "Save Project Before Quit"
+        panel.canCreateDirectories = true
+        panel.allowedContentTypes = [.varfontProject]
+        panel.nameFieldStringValue = defaultProjectFilename(for: open)
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else {
+                self?.confirmQuitCancelAction()
+                return
+            }
+            let normalized = Self.normalizedProjectFileURL(url)
+            Task { @MainActor in
+                await self?.saveProject(document: open.document, to: normalized, projectID: projectID)
+                if self?.openProject(for: projectID)?.projectFileDirty == false {
+                    self?.continueQuitAfterHandlingProjectSaves()
+                }
+            }
+        }
+    }
+
     /// Opens a new project tab with the font at `url`.
     func createProject(from url: URL) async {
         if let existing = findFont(normalizedPath: Self.normalizedPath(url)) {
@@ -1569,7 +1956,12 @@ final class EditorViewModel: ObservableObject {
             if let fontID = imported.fonts.first?.id {
                 registerSourceBookmark(url: url, fontID: fontID)
             }
-            let open = OpenProject(document: imported, selectedFontID: imported.fonts.first?.id)
+            let open = OpenProject(
+                document: imported,
+                selectedFontID: imported.preferredSelectedFontID,
+                projectFileURL: nil,
+                projectFileDirty: true
+            )
             openProjects.append(open)
             activateProject(id: open.id)
             selectedInstanceKey = nil
@@ -1590,7 +1982,7 @@ final class EditorViewModel: ObservableObject {
         await createProject(from: url)
     }
 
-    func addFont(at url: URL, toProjectID: String? = nil) async {
+    func addFont(at url: URL, toProjectID: String? = nil, selectAfterAdd: Bool = true) async {
         let targetID = toProjectID ?? activeProjectID
         if openProjects.isEmpty {
             await createProject(from: url)
@@ -1620,8 +2012,9 @@ final class EditorViewModel: ObservableObject {
             if let newFontID {
                 registerSourceBookmark(url: url, fontID: newFontID)
             }
+            markProjectFileDirty(projectID: targetID)
             activateProject(id: targetID)
-            if let newFontID {
+            if selectAfterAdd, let newFontID {
                 selectFont(id: newFontID)
             }
             publishOpenProjects()
@@ -1649,6 +2042,16 @@ final class EditorViewModel: ObservableObject {
         selectedInstanceKey = nil
         selectedInstanceKeys = []
         regeneratePlan()
+    }
+
+    func selectMasterFont(for projectID: String? = nil) {
+        let targetID = projectID ?? activeProjectID
+        guard let targetID, let masterID = masterFontID(for: targetID) else { return }
+        if targetID == activeProjectID {
+            selectFont(id: masterID)
+        } else if let idx = openProjects.firstIndex(where: { $0.id == targetID }) {
+            openProjects[idx].selectedFontID = masterID
+        }
     }
 
     func focusInspectorProjectScope(fontID: String? = nil) {
@@ -1695,6 +2098,9 @@ final class EditorViewModel: ObservableObject {
     }
 
     func projectTabLabel(for openProject: OpenProject) -> String {
+        if let url = openProject.projectFileURL {
+            return url.deletingPathExtension().lastPathComponent
+        }
         if let name = openProject.document.displayName, !name.isEmpty {
             return name
         }
@@ -1782,6 +2188,7 @@ final class EditorViewModel: ObservableObject {
         }
 
         activateProject(id: projectID)
+        markProjectFileDirty(projectID: projectID)
         publishOpenProjects()
         refreshCanSave()
         regeneratePlan()
@@ -1902,6 +2309,8 @@ final class EditorViewModel: ObservableObject {
 
         activateProject(id: toProjectID)
         selectFont(id: fontID)
+        markProjectFileDirty(projectID: fromProjectID)
+        markProjectFileDirty(projectID: toProjectID)
         publishOpenProjects()
         refreshCanSave()
         regeneratePlan()
@@ -1944,13 +2353,19 @@ final class EditorViewModel: ObservableObject {
             fonts: [font]
         )
 
-        let newOpen = OpenProject(document: newDocument, selectedFontID: font.id)
+        let newOpen = OpenProject(
+            document: newDocument,
+            selectedFontID: font.id,
+            projectFileURL: nil,
+            projectFileDirty: true
+        )
         openProjects.append(newOpen)
 
         if openProjects[fromIdx].selectedFontID == fontID {
             openProjects[fromIdx].selectedFontID = openProjects[fromIdx].document.fonts.first?.id
         }
         openProjects[fromIdx].document.modified = Date()
+        markProjectFileDirty(projectID: fromProjectID)
 
         activateProject(id: newOpen.id)
         selectFont(id: font.id)
@@ -2005,6 +2420,7 @@ final class EditorViewModel: ObservableObject {
         }
 
         openProjects[targetIdx].document.modified = Date()
+        markProjectFileDirty(projectID: targetID)
         closeProject(id: sourceID, force: true)
 
         if movedCount > 0 {
@@ -2037,22 +2453,79 @@ final class EditorViewModel: ObservableObject {
 
     func requestCloseProject(id: String) {
         guard openProjects.contains(where: { $0.id == id }) else { return }
-        confirmCloseProjectID = id
+        if projectNeedsCloseConfirmation(projectID: id) {
+            confirmCloseProjectID = id
+            return
+        }
+        closeProject(id: id, force: true)
     }
 
-    func confirmCloseProjectAction() {
+    func projectNeedsCloseConfirmation(projectID: String) -> Bool {
+        guard let project = openProject(for: projectID) else { return false }
+        return project.projectFileDirty || project.document.fonts.contains(where: \.dirty)
+    }
+
+    func firstProjectNeedingCloseConfirmation() -> String? {
+        openProjects.first(where: { projectNeedsCloseConfirmation(projectID: $0.id) })?.id
+    }
+
+    func confirmCloseProjectDiscardAction() {
         guard let id = confirmCloseProjectID else { return }
         confirmCloseProjectID = nil
         closeProject(id: id, force: true)
     }
 
+    func confirmCloseProjectSaveAction() {
+        guard let projectID = confirmCloseProjectID,
+              let open = openProject(for: projectID) else { return }
+        if let url = open.projectFileURL {
+            Task { @MainActor in
+                await self.saveProject(document: open.document, to: url, projectID: projectID)
+                if self.openProject(for: projectID)?.projectFileDirty == false {
+                    self.confirmCloseProjectID = nil
+                    self.closeProject(id: projectID, force: true)
+                }
+            }
+        } else {
+            confirmCloseProjectID = projectID
+            presentSaveProjectAsPanelForClose(projectID: projectID)
+        }
+    }
+
+    private func presentSaveProjectAsPanelForClose(projectID: String) {
+        guard let open = openProject(for: projectID) else { return }
+        let panel = NSSavePanel()
+        panel.title = "Save Project Before Closing"
+        panel.canCreateDirectories = true
+        panel.allowedContentTypes = [.varfontProject]
+        panel.nameFieldStringValue = defaultProjectFilename(for: open)
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            let normalized = Self.normalizedProjectFileURL(url)
+            Task { @MainActor in
+                await self?.saveProject(document: open.document, to: normalized, projectID: projectID)
+                if self?.openProject(for: projectID)?.projectFileDirty == false {
+                    self?.confirmCloseProjectID = nil
+                    self?.closeProject(id: projectID, force: true)
+                }
+            }
+        }
+    }
+
+    func confirmCloseProjectAction() {
+        confirmCloseProjectDiscardAction()
+    }
+
     func closeProject(id: String, force: Bool) {
         guard let idx = openProjects.firstIndex(where: { $0.id == id }) else { return }
-        if !force, openProjects[idx].document.fonts.contains(where: \.dirty) {
+        if !force, projectNeedsCloseConfirmation(projectID: id) {
             confirmCloseProjectID = id
             return
         }
 
+        for font in openProjects[idx].document.fonts {
+            removeSourceBookmark(fontID: font.id)
+        }
         openProjects.remove(at: idx)
         clearSaveReviewState(forProjectID: id)
 
@@ -2142,13 +2615,22 @@ final class EditorViewModel: ObservableObject {
 
     func closeProjectConfirmationMessage(for projectID: String) -> String {
         guard let project = openProjects.first(where: { $0.id == projectID }) else {
-            return "Remove this project from the workspace?"
+            return "Close this project?"
         }
         let name = projectTabLabel(for: project)
-        if project.document.fonts.contains(where: \.dirty) {
-            return "Remove \(name)? One or more files have unsaved changes."
+        let hasProjectDirty = project.projectFileDirty
+        let hasFontDirty = project.document.fonts.contains(where: \.dirty)
+
+        switch (hasProjectDirty, hasFontDirty) {
+        case (true, true):
+            return "Close \(name)? The project file has unsaved changes and one or more font files have unsaved edits. Save the project file here; use Save Copy to write patched fonts."
+        case (true, false):
+            return "Close \(name)? The project file has unsaved changes."
+        case (false, true):
+            return "Close \(name)? One or more font files have unsaved edits — use Save Copy to write patched fonts."
+        case (false, false):
+            return "Close \(name)?"
         }
-        return "Remove \(name) from the workspace?"
     }
 
     private func fontDocument(fontID: String, projectID: String) -> FontDocument? {
@@ -2157,9 +2639,16 @@ final class EditorViewModel: ObservableObject {
     }
 
     func importDroppedFonts(_ urls: [URL], target: WorkspaceDropTarget) async {
+        let projectURLs = urls.filter { Self.isProjectFile($0) }
+        for projectURL in projectURLs {
+            await openProjectFile(at: projectURL)
+        }
+
         let valid = Self.collectFontURLs(from: urls)
         guard !valid.isEmpty else {
-            postStatusMessage("No supported font files (.ttf, .otf, .woff, .woff2)")
+            if projectURLs.isEmpty {
+                postStatusMessage("No supported font or project files")
+            }
             return
         }
 
@@ -2168,8 +2657,9 @@ final class EditorViewModel: ObservableObject {
             await createProjectWithFonts(valid)
         case .project(let projectID):
             for url in valid {
-                await addFont(at: url, toProjectID: projectID)
+                await addFont(at: url, toProjectID: projectID, selectAfterAdd: false)
             }
+            selectMasterFont(for: projectID)
         case .reorderFont, .reorderFontEnd:
             break
         }
@@ -2181,8 +2671,9 @@ final class EditorViewModel: ObservableObject {
         await createProject(from: first)
         guard let projectID = activeProjectID else { return }
         for url in urls.dropFirst() {
-            await addFont(at: url, toProjectID: projectID)
+            await addFont(at: url, toProjectID: projectID, selectAfterAdd: false)
         }
+        selectMasterFont(for: projectID)
     }
 
     func suggestsSameFamily(analysis: FontAnalysis, project: ProjectDocument) -> Bool {
@@ -2548,7 +3039,9 @@ final class EditorViewModel: ObservableObject {
             updated.fonts[index].axes = AxisTreeMerge.mergeAxesFromMaster(
                 master: masterFont.axes,
                 into: updated.fonts[index].axes,
-                syncRoles: updated.template.syncRoles
+                syncRoles: updated.template.syncRoles,
+                targetFileStatRegistration: updated.fonts[index].fileStatRegistration,
+                targetIsItalicFile: RegistrationAxisSupport.isItalicFile(font: updated.fonts[index])
             )
             updated.fonts[index].dirty = true
         }
@@ -2736,6 +3229,7 @@ final class EditorViewModel: ObservableObject {
         guard var project else { return }
         project.coordinateDisplay = mode
         self.project = project
+        markProjectFileDirty()
     }
 
     func displayStopValue(for axis: AxisDefinition, native: Double) -> Double {
@@ -2799,6 +3293,7 @@ final class EditorViewModel: ObservableObject {
             selectedFontID = project?.fonts.first?.id
         }
         canSave = project?.fonts.contains(where: \.dirty) ?? false
+        markProjectFileDirty()
         refreshCanSave()
         regeneratePlan()
     }
@@ -2808,6 +3303,7 @@ final class EditorViewModel: ObservableObject {
         undoStack.append(current)
         project = next
         canSave = next.fonts.contains(where: \.dirty)
+        markProjectFileDirty()
         regeneratePlan()
     }
 
@@ -2823,6 +3319,7 @@ final class EditorViewModel: ObservableObject {
             undoStack = Array(undoStack.suffix(100))
         }
         redoStack.removeAll()
+        markProjectFileDirty()
     }
 
     func removeAxisStop(axisTag: String, stopID: String) {
@@ -3000,6 +3497,42 @@ final class EditorViewModel: ObservableObject {
         refreshCommitDiffPreview(presentSheet: true)
     }
 
+    func requestSaveToOriginal() {
+        guard canSave else {
+            postStatusMessage("Nothing to save — make an edit first.")
+            return
+        }
+        Task {
+            guard let projectID = activeProjectID, let fontID = selectedFontID else { return }
+            guard let session = await ensureSaveReviewSession(projectID: projectID, fontID: fontID) else { return }
+            guard session.preflight.ok else {
+                postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+                return
+            }
+            confirmSaveToOriginal = session
+        }
+    }
+
+    func confirmSaveToOriginalAction() {
+        guard let session = confirmSaveToOriginal,
+              let font = font(forProjectID: session.projectID, fontID: session.fontID) else { return }
+        confirmSaveToOriginal = nil
+        Task {
+            await performSave(
+                session: session,
+                to: URL(fileURLWithPath: font.sourcePath),
+                inPlace: true
+            )
+        }
+    }
+
+    func saveToOriginalConfirmationMessage(for session: CommitPreflightSession) -> String {
+        guard let font = font(forProjectID: session.projectID, fontID: session.fontID) else {
+            return "Overwrite the original font file? This cannot be undone."
+        }
+        return "Overwrite \(URL(fileURLWithPath: font.sourcePath).lastPathComponent)? A .vfstudio-backup copy is written beside the original first."
+    }
+
     /// Write to `font.outputPath` when set; otherwise open Save Review (same as Save Copy).
     func save() {
         guard canSave else {
@@ -3041,10 +3574,15 @@ final class EditorViewModel: ObservableObject {
     private func saveActiveFontUsingRememberedPathOrReview() async {
         guard let projectID = activeProjectID, let fontID = selectedFontID else { return }
 
-        if let outputURL = rememberedOutputURL(forProjectID: projectID, fontID: fontID) {
+        if let outputURL = rememberedOutputURL(forProjectID: projectID, fontID: fontID),
+           let font = font(forProjectID: projectID, fontID: fontID) {
             guard let session = await ensureSaveReviewSession(projectID: projectID, fontID: fontID) else { return }
             guard session.preflight.ok else {
                 postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
+                return
+            }
+            if Self.normalizedPath(outputURL) == Self.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
+                confirmSaveToOriginal = session
                 return
             }
             await performSave(session: session, to: outputURL)
@@ -3055,12 +3593,20 @@ final class EditorViewModel: ObservableObject {
     }
 
     @MainActor
-    func ensureSaveReviewSession(projectID: String, fontID: String) async -> CommitPreflightSession? {
+    func ensureSaveReviewSession(
+        projectID: String,
+        fontID: String,
+        preferWorker: Bool = true
+    ) async -> CommitPreflightSession? {
         if let session = saveReviewSession(forProjectID: projectID, fontID: fontID),
            session.preflight.ok {
             return session
         }
-        return await refreshCommitDiffPreviewAsync(forProjectID: projectID, fontID: fontID)
+        return await refreshCommitDiffPreviewAsync(
+            forProjectID: projectID,
+            fontID: fontID,
+            preferWorker: preferWorker
+        )
     }
 
     @discardableResult
@@ -3068,7 +3614,8 @@ final class EditorViewModel: ObservableObject {
     func refreshCommitDiffPreviewAsync(
         forProjectID projectID: String? = nil,
         fontID: String? = nil,
-        presentSheet: Bool = false
+        presentSheet: Bool = false,
+        preferWorker: Bool = true
     ) async -> CommitPreflightSession? {
         let targetProjectID = projectID ?? activeProjectID
         guard let targetProjectID,
@@ -3131,7 +3678,7 @@ final class EditorViewModel: ObservableObject {
                 fontID: font.id
             )
             dryRunRequest.sourcePath = helperSourcePath
-            let result = try await commitService.commit(dryRunRequest)
+            let result = try await commitService.commit(dryRunRequest, preferWorker: preferWorker)
             if result.ok {
                 let diffReport = CommitDiffBuilder.build(
                     analysis: analysis,
@@ -3277,6 +3824,12 @@ final class EditorViewModel: ObservableObject {
 
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
+            let normalizedOutput = Self.normalizedPath(url)
+            let normalizedSource = Self.normalizedPath(URL(fileURLWithPath: font.sourcePath))
+            if normalizedOutput == normalizedSource {
+                self?.confirmSaveToOriginal = session
+                return
+            }
             Task { @MainActor in
                 await self?.performSave(session: session, to: url)
             }
@@ -3296,7 +3849,13 @@ final class EditorViewModel: ObservableObject {
             return
         }
 
-        if usingRememberedPath, let url = rememberedOutputURL(forProjectID: session.projectID, fontID: session.fontID) {
+        if usingRememberedPath,
+           let url = rememberedOutputURL(forProjectID: session.projectID, fontID: session.fontID),
+           let font = font(forProjectID: session.projectID, fontID: session.fontID) {
+            if Self.normalizedPath(url) == Self.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
+                confirmSaveToOriginal = session
+                return
+            }
             await performSave(session: session, to: url)
             return
         }
@@ -3334,8 +3893,25 @@ final class EditorViewModel: ObservableObject {
         }
 
         var sessions: [String: CommitPreflightSession] = [:]
+        await withTaskGroup(of: (String, CommitPreflightSession?).self) { group in
+            for font in targets {
+                let fontID = font.id
+                group.addTask { @MainActor in
+                    let session = await self.ensureSaveReviewSession(
+                        projectID: projectID,
+                        fontID: fontID,
+                        preferWorker: false
+                    )
+                    return (fontID, session)
+                }
+            }
+            for await (fontID, session) in group {
+                sessions[fontID] = session
+            }
+        }
+
         for font in targets {
-            guard let session = await ensureSaveReviewSession(projectID: projectID, fontID: font.id) else {
+            guard let session = sessions[font.id] else {
                 postStatusMessage("Save preview failed for \(fontBasename(for: font)).")
                 return
             }
@@ -3343,12 +3919,15 @@ final class EditorViewModel: ObservableObject {
                 postStatusMessage(session.preflight.errors.first?.message ?? "Save preview failed.")
                 return
             }
-            sessions[font.id] = session
         }
 
         var outputURLs: [String: URL] = [:]
         for font in targets {
             if let url = rememberedOutputURL(forProjectID: projectID, fontID: font.id) {
+                if url.path == font.sourcePath {
+                    postStatusMessage("Save All cannot overwrite originals — use Save to Original per file.")
+                    return
+                }
                 outputURLs[font.id] = url
             }
         }
@@ -3402,14 +3981,22 @@ final class EditorViewModel: ObservableObject {
         return isSaveReviewLoading(forProjectID: projectID)
     }
 
-    func performSave(session: CommitPreflightSession, to outputURL: URL, manageBusyState: Bool = true) async {
+    func performSave(
+        session: CommitPreflightSession,
+        to outputURL: URL,
+        inPlace: Bool = false,
+        manageBusyState: Bool = true
+    ) async {
         guard let projectIndex = openProjects.firstIndex(where: { $0.id == session.projectID }),
               let fontIndex = openProjects[projectIndex].document.fonts.firstIndex(where: { $0.id == session.fontID }) else {
             return
         }
 
         var request = session.baseRequest
+        let originalSourcePath = openProjects[projectIndex].document.fonts[fontIndex].sourcePath
         request.outputPath = outputURL.path
+        request.originalSourcePath = originalSourcePath
+        request.allowInPlace = inPlace
         request.dryRun = false
         request.requestID = UUID().uuidString.lowercased()
 
@@ -3425,7 +4012,14 @@ final class EditorViewModel: ObservableObject {
             }
 
             var project = openProjects[projectIndex].document
-            project.fonts[fontIndex].outputPath = outputURL.path
+            if inPlace {
+                SourceFontAccess.invalidateCache(fontID: session.fontID)
+                let sourceURL = URL(fileURLWithPath: originalSourcePath)
+                registerSourceBookmark(url: sourceURL, fontID: session.fontID)
+                project.fonts[fontIndex].outputPath = originalSourcePath
+            } else {
+                project.fonts[fontIndex].outputPath = outputURL.path
+            }
             project.fonts[fontIndex].dirty = false
             openProjects[projectIndex].document = project
             publishOpenProjects()
@@ -3436,7 +4030,10 @@ final class EditorViewModel: ObservableObject {
             clearSaveReviewState(forProjectID: session.projectID, fontID: session.fontID)
             presentCommitDiffSheet = false
 
-            if let count = result.summary?.instancesWritten {
+            if inPlace {
+                let backupName = URL(fileURLWithPath: originalSourcePath).lastPathComponent + ".vfstudio-backup"
+                postStatusMessage("Saved to original (backup: \(backupName))")
+            } else if let count = result.summary?.instancesWritten {
                 postStatusMessage("Saved \(count) instances to \(outputURL.lastPathComponent)")
             } else {
                 postStatusMessage("Saved \(outputURL.lastPathComponent)")
@@ -3468,14 +4065,20 @@ final class EditorViewModel: ObservableObject {
     }
 
     func importDroppedFonts(_ urls: [URL]) async {
+        let projectURLs = urls.filter { Self.isProjectFile($0) }
+        for projectURL in projectURLs {
+            await openProjectFile(at: projectURL)
+        }
+
         let valid = Self.collectFontURLs(from: urls)
         guard !valid.isEmpty else { return }
         if openProjects.isEmpty {
             await createProjectWithFonts(valid)
         } else if let activeProjectID {
             for url in valid {
-                await addFont(at: url, toProjectID: activeProjectID)
+                await addFont(at: url, toProjectID: activeProjectID, selectAfterAdd: false)
             }
+            selectMasterFont(for: activeProjectID)
         }
     }
 
@@ -3515,7 +4118,11 @@ final class EditorViewModel: ObservableObject {
         fontFileExtensions.contains(url.pathExtension.lowercased())
     }
 
-    static let fontDropTypes: [UTType] = [.fileURL]
+    static func isProjectFile(_ url: URL) -> Bool {
+        url.pathExtension.lowercased() == "varfont"
+    }
+
+    static let fontDropTypes: [UTType] = [.fileURL, .varfontProject]
 
     private static let fontFileExtensions: Set<String> = ["ttf", "otf", "woff", "woff2"]
     private static let fontContentTypes: [UTType] = [

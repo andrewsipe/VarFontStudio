@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Set
 
@@ -137,13 +139,32 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
                 "missing_output_path",
                 "output_path is required when dry_run is false",
             )
-        if Path(output_path).resolve() == Path(source_path).resolve():
+        allow_in_place = bool(request.get("allow_in_place", False))
+        original_source_path = str(request.get("original_source_path") or source_path)
+        out_resolved = Path(output_path).resolve()
+        src_resolved = Path(source_path).resolve()
+        original_resolved = Path(original_source_path).resolve()
+        if out_resolved == src_resolved and not allow_in_place:
             return _error_result(
                 request_id,
                 dry_run,
                 "in_place_output",
                 "output_path must differ from source_path",
             )
+        if allow_in_place and out_resolved != original_resolved:
+            return _error_result(
+                request_id,
+                dry_run,
+                "in_place_target_mismatch",
+                "allow_in_place requires output_path to match original_source_path",
+            )
+
+        backup_path = None
+        if allow_in_place and out_resolved == original_resolved and out_resolved.is_file():
+            backup_path = out_resolved.with_name(out_resolved.name + ".vfstudio-backup")
+            if backup_path.exists():
+                backup_path.unlink()
+            shutil.copy2(out_resolved, backup_path)
 
         working = deepcopy(font)
         apply_table_edits(
@@ -159,7 +180,18 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             compound_defs=compound_defs,
             included_instance_keys=included_keys,
         )
-        working.save(output_path)
+        temp_path = out_resolved.with_name(out_resolved.name + ".vfcommit-tmp")
+        if temp_path.exists():
+            temp_path.unlink()
+        working.save(str(temp_path))
+        os.replace(temp_path, out_resolved)
+        if backup_path is not None:
+            warnings.append(
+                {
+                    "code": "backup_created",
+                    "message": f"Backup written to {backup_path}",
+                }
+            )
 
     result: Dict[str, Any] = {
         "schema_version": 1,

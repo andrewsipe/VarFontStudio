@@ -23,4 +23,8 @@ enum VarFontJSON {
     static func decode<T: Decodable>(_ type: T.Type, from url: URL) throws -> T {
         try decode(type, from: Data(contentsOf: url))
     }
+
+    static func encode<T: Encodable>(_ value: T) throws -> Data {
+        try encoder.encode(value)
+    }
 }

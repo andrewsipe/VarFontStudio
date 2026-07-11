@@ -13,7 +13,7 @@ public enum OpenTypeAxisAudit {
         warnings.append(contentsOf: fvarStatParityWarnings(font: font))
         warnings.append(contentsOf: italSlntCoexistenceWarnings(font: font, namingOrder: namingOrder))
         warnings.append(contentsOf: defaultInstanceWarnings(font: font, instances: instances))
-        warnings.append(contentsOf: opszFormat2SuggestWarnings(font: font))
+        // opsz Format 2 suggestion withheld until Fill stops can offer a real conversion path.
         return warnings
     }
 

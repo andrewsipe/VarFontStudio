@@ -30,7 +30,7 @@ final class AxisTreeMergeTests: XCTestCase {
         XCTAssertNotEqual(wght.values.first?.id, "m1")
     }
 
-    func testPushPreservesRegistrationAxisStopsOnTarget() throws {
+    func testPushPreservesRegistrationAxisStopsOnTargetWhenMasterUsesFormat1() throws {
         let masterItal = italAxis(
             role: .designRecordOnly,
             values: [AxisValue(id: "roman", value: 0, name: "Regular", elidable: true)]
@@ -50,7 +50,9 @@ final class AxisTreeMergeTests: XCTestCase {
         let merged = AxisTreeMerge.mergeAxesFromMaster(
             master: [masterWght, masterItal],
             into: [targetWght, targetItal],
-            syncRoles: true
+            syncRoles: true,
+            targetFileStatRegistration: ["ital": 1],
+            targetIsItalicFile: true
         )
 
         let ital = try XCTUnwrap(merged.first { $0.tag == "ital" })
@@ -58,9 +60,40 @@ final class AxisTreeMergeTests: XCTestCase {
         XCTAssertEqual(ital.values[0].value, 1)
         XCTAssertEqual(ital.values[0].name, "Italic")
         XCTAssertEqual(ital.values[0].id, "italic")
+        XCTAssertEqual(ital.values[0].statFormat, 1)
 
         let wght = try XCTUnwrap(merged.first { $0.tag == "wght" })
         XCTAssertEqual(wght.values.map(\.value), [700, 900])
+    }
+
+    func testPushMirrorsItalFormat3ToVariantWhenMasterUsesFormat3() throws {
+        let masterItal = italAxis(
+            role: .designRecordOnly,
+            values: [
+                AxisValue(id: "roman", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+            ]
+        )
+        let targetItal = italAxis(
+            role: .designRecordOnly,
+            values: [
+                AxisValue(id: "italic", value: 1, name: "Italic", elidable: false, statFormat: 1),
+            ]
+        )
+
+        let merged = AxisTreeMerge.mergeAxesFromMaster(
+            master: [masterItal],
+            into: [targetItal],
+            syncRoles: true,
+            targetFileStatRegistration: ["ital": 1],
+            targetIsItalicFile: true
+        )
+
+        let ital = try XCTUnwrap(merged.first)
+        XCTAssertEqual(ital.values[0].value, 1)
+        XCTAssertEqual(ital.values[0].name, "Italic")
+        XCTAssertEqual(ital.values[0].id, "italic")
+        XCTAssertEqual(ital.values[0].statFormat, 3)
+        XCTAssertEqual(ital.values[0].linkedValue, 0)
     }
 
     func testPushDoesNotSyncRoleOntoRegistrationAxis() throws {

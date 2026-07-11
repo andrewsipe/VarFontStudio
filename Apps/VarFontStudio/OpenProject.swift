@@ -8,12 +8,40 @@ struct OpenProject: Identifiable, Equatable {
     var selectedFontID: String?
     var undoStack: [ProjectDocument] = []
     var redoStack: [ProjectDocument] = []
+    var projectFileURL: URL?
+    var projectFileDirty: Bool
 
-    init(document: ProjectDocument, selectedFontID: String? = nil) {
+    init(
+        document: ProjectDocument,
+        selectedFontID: String? = nil,
+        projectFileURL: URL? = nil,
+        projectFileDirty: Bool = true
+    ) {
         id = UUID().uuidString
         self.document = document
-        self.selectedFontID = selectedFontID ?? document.fonts.first?.id
+        self.selectedFontID = selectedFontID ?? document.preferredSelectedFontID
+        self.projectFileURL = projectFileURL
+        self.projectFileDirty = projectFileDirty
     }
+}
+
+struct MissingFontEntry: Identifiable, Equatable {
+    let fontID: String
+    var storedPath: String
+    var resolvedURL: URL?
+
+    var id: String { fontID }
+    var isResolved: Bool { resolvedURL != nil }
+    var basename: String { URL(fileURLWithPath: storedPath).lastPathComponent }
+}
+
+struct MissingFontsRequest: Identifiable {
+    let id = UUID()
+    let projectFileURL: URL
+    var document: ProjectDocument
+    var entries: [MissingFontEntry]
+
+    var allResolved: Bool { entries.allSatisfy(\.isResolved) }
 }
 
 struct FontRemovalRequest: Identifiable, Equatable {

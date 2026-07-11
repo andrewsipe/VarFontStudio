@@ -18,6 +18,9 @@ struct VarFontStudioApp: App {
                 .environmentObject(layout)
                 .environment(editor.workspaceDrag)
                 .frame(minWidth: 960, minHeight: 620)
+                .onAppear {
+                    appDelegate.editor = editor
+                }
         }
         .commands {
             mainWindowCommands
@@ -36,6 +39,11 @@ struct VarFontStudioApp: App {
     @CommandsBuilder
     private var mainWindowCommands: some Commands {
             CommandGroup(replacing: .newItem) {
+                Button("Open Project…") {
+                    editor.presentOpenProjectPanel()
+                }
+                .keyboardShortcut("o", modifiers: [.command, .option])
+
                 Button("Open Font…") {
                     editor.presentOpenPanel()
                 }
@@ -46,9 +54,23 @@ struct VarFontStudioApp: App {
                 }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
                 .disabled(!editor.hasOpenProjects)
-            }
 
-            CommandGroup(after: .saveItem) {
+                Divider()
+
+                Button("Save Project") {
+                    editor.saveProject()
+                }
+                .keyboardShortcut("s", modifiers: [.command, .option])
+                .disabled(!editor.canSaveProject)
+
+                Button("Save Project As…") {
+                    editor.saveProjectAs()
+                }
+                .keyboardShortcut("s", modifiers: [.command, .option, .shift])
+                .disabled(!editor.hasOpenProjects)
+
+                Divider()
+
                 Button("Save") {
                     editor.save()
                 }
@@ -61,9 +83,15 @@ struct VarFontStudioApp: App {
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(!editor.canSave || editor.isSaveActionBlocked)
 
+                Button("Save to Original…") {
+                    editor.requestSaveToOriginal()
+                }
+                .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                .help("Overwrite the source font file after confirmation")
+
                 if let projectID = editor.activeProjectID,
                    editor.openProjects.first(where: { $0.id == projectID })?.document.fonts.count ?? 0 > 1 {
-                    Button("Save All Files…") {
+                    Button("Save All Files") {
                         editor.saveAllFiles(inProjectID: projectID)
                     }
                     .disabled(!editor.canSave || editor.isSaveActionBlocked)
@@ -77,6 +105,12 @@ struct VarFontStudioApp: App {
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
                 .disabled(!editor.canPreviewSaveReview)
+            }
+
+            CommandGroup(replacing: .help) {
+                Button("VarFont Studio Shortcuts…") {
+                    editor.presentShortcutsHelp()
+                }
             }
 
             CommandGroup(replacing: .undoRedo) {
@@ -113,8 +147,8 @@ struct VarFontStudioApp: App {
 
                 Divider()
 
-                Button("Save Review Window") {
-                    editor.presentSaveReviewWindow()
+                Button("Toggle Save Review Window") {
+                    editor.toggleSaveReviewWindow()
                 }
                 .keyboardShortcut("4", modifiers: [.command, .control])
                 .disabled(!editor.canPreviewSaveReview)
@@ -151,11 +185,24 @@ struct VarFontStudioApp: App {
 }
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
+    weak var editor: EditorViewModel?
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         SaveReviewWindowLifecycle.closeRestoredWindows()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         SaveReviewWindowLifecycle.scheduleCloseRestoredWindows()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let editor else { return .terminateNow }
+        if editor.handleApplicationTerminateRequest() {
+            Task {
+                await editor.shutdownCommitWorker()
+            }
+            return .terminateNow
+        }
+        return .terminateLater
     }
 }

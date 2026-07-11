@@ -202,8 +202,8 @@ final class PlanIssueResolverTests: XCTestCase {
         XCTAssertFalse(visible.contains { PlanIssueCodes.issueKey(for: $0) == key })
     }
 
-    func testDismissedOpszSuggestionStaysHiddenAfterPlanRebuild() throws {
-        var font = FontDocument(
+    func testOpszFormat2SuggestionNotSurfacedInPlan() throws {
+        let font = FontDocument(
             id: "f1",
             sourcePath: "/tmp/font.ttf",
             axes: [
@@ -218,17 +218,10 @@ final class PlanIssueResolverTests: XCTestCase {
             ]
         )
 
-        let warning = try XCTUnwrap(
-            OpenTypeAxisAudit.opszFormat2SuggestWarnings(font: font).first
-        )
-        let key = PlanIssueCodes.issueKey(for: warning)
-        PlanIssueResolver.apply(.acknowledgeIssue(issueKey: key), to: &font)
+        XCTAssertFalse(OpenTypeAxisAudit.opszFormat2SuggestWarnings(font: font).isEmpty)
 
         let plan = InstancePlanner.plan(font: font, naming: NamingPolicy(order: ["opsz"]))
-        XCTAssertFalse(plan.warnings.contains { PlanIssueCodes.issueKey(for: $0) == key })
-
-        let proposal = PlanIssueResolver.proposals(for: warning, font: font).first
-        XCTAssertEqual(proposal?.title, "Don't change")
+        XCTAssertFalse(plan.warnings.contains { $0.code == "opsz_format2_suggest" })
     }
 
     func testDuplicateComposedNameOffersAxisNeutralsForNouveau() {

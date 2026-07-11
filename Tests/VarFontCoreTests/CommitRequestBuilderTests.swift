@@ -54,7 +54,7 @@ final class CommitRequestBuilderTests: XCTestCase {
             axisTags: ["wght"]
         )
 
-        XCTAssertEqual(order, ["wght", "@width", "@slope", "@optical", "@custom"])
+        XCTAssertEqual(order, ["@pshyphen", "wght", "@width", "@slope", "@optical", "@custom"])
         XCTAssertFalse(order.contains("slnt"))
         XCTAssertFalse(order.contains("ital"))
     }
