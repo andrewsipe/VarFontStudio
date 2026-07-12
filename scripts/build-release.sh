@@ -93,10 +93,12 @@ echo "Re-signing app bundle…"
 /usr/bin/codesign --force --deep --sign - --options runtime "$APP"
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo "0.0.0")"
-BUILD="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Contents/Info.plist" 2>/dev/null || echo "0")"
-STAMP="$(date +%Y%m%d)"
-ARCH="$(uname -m)"
-ZIP_NAME="VarFontStudio-${VERSION}-b${BUILD}-${STAMP}-${ARCH}.zip"
+case "$(uname -m)" in
+  arm64) ARCH_LABEL="Apple-Silicon" ;;
+  x86_64) ARCH_LABEL="Intel" ;;
+  *) ARCH_LABEL="$(uname -m)" ;;
+esac
+ZIP_NAME="VarFontStudio-${VERSION}-${ARCH_LABEL}.zip"
 
 mkdir -p "$DIST"
 ZIP_PATH="$DIST/$ZIP_NAME"

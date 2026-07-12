@@ -12,16 +12,16 @@ Pre-built apps are on **[GitHub Releases](https://github.com/andrewsipe/VarFontE
 
 ### 1. Pick the right download
 
-Each release attaches **two** zip files. The filename ends with the CPU type:
+Each release attaches **two** zip files:
 
-| Suffix | Mac |
-|--------|-----|
-| **`arm64`** | Apple Silicon (M1, M2, M3, …) |
-| **`x86_64`** | Intel |
+| Filename | Mac |
+|----------|-----|
+| **`VarFontStudio-…-Apple-Silicon.zip`** | Apple Silicon (M1, M2, M3, …) |
+| **`VarFontStudio-…-Intel.zip`** | Intel |
 
 **Apple menu → About This Mac → Chip or Processor** tells you which you need.
 
-The app UI is a Universal binary, but **Save** uses a bundled Python runtime that is **native to the zip you downloaded**. An `arm64` zip on an Intel Mac will open fine until you try to Save — download the matching zip instead.
+The app UI is a Universal binary, but **Save** uses a bundled Python runtime that is **native to the zip you downloaded**. An Apple Silicon zip on an Intel Mac will open fine until you try to Save — download the matching zip instead.
 
 **Requires macOS 14 (Sonoma) or later.**
 
@@ -73,10 +73,10 @@ Swift package + Xcode app live in this repo.
 ```bash
 chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
 ./scripts/build-release.sh
-# output: dist/VarFontStudio-<version>-<date>-<arch>.zip
+# output: dist/VarFontStudio-<version>-Apple-Silicon.zip  (or -Intel.zip)
 ```
 
-**Publish via GitHub:** push a tag — CI builds **both** arm64 and x86_64 zips and attaches them to the Release.
+**Publish via GitHub:** push a tag — CI builds **both** Apple Silicon and Intel zips and attaches them to the Release.
 
 ```bash
 git tag v0.1.0-alpha
