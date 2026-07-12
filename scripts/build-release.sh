@@ -35,6 +35,12 @@ echo "Xcode: $(xcodebuild -version | tr '\n' ' ')"
 
 build_with_project() {
   echo "Using project: $PROJECT"
+  echo "Resolving Swift package dependencies…"
+  xcodebuild \
+    -project "$PROJECT" \
+    -scheme "$SCHEME" \
+    -derivedDataPath "$DERIVED" \
+    -resolvePackageDependencies
   echo "Schemes in project:"
   xcodebuild -project "$PROJECT" -list
   xcodebuild \
@@ -49,6 +55,12 @@ build_with_project() {
 
 build_with_workspace() {
   echo "Using workspace: $WORKSPACE"
+  echo "Resolving Swift package dependencies…"
+  xcodebuild \
+    -workspace "$WORKSPACE" \
+    -scheme "$SCHEME" \
+    -derivedDataPath "$DERIVED" \
+    -resolvePackageDependencies
   echo "Schemes in workspace:"
   xcodebuild -workspace "$WORKSPACE" -list
   xcodebuild \
