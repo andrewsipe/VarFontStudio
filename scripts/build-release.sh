@@ -93,12 +93,14 @@ echo "Re-signing app bundle…"
 /usr/bin/codesign --force --deep --sign - --options runtime "$APP"
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo "0.0.0")"
+# Keep in sync with MACOSX_DEPLOYMENT_TARGET / Info.plist LSMinimumSystemVersion (14.0).
+MACOS_LABEL="macOS14+"
 case "$(uname -m)" in
   arm64) ARCH_LABEL="Apple-Silicon" ;;
   x86_64) ARCH_LABEL="Intel" ;;
   *) ARCH_LABEL="$(uname -m)" ;;
 esac
-ZIP_NAME="VarFontStudio-${VERSION}-${ARCH_LABEL}.zip"
+ZIP_NAME="VarFontStudio-${VERSION}-${MACOS_LABEL}-${ARCH_LABEL}.zip"
 
 mkdir -p "$DIST"
 ZIP_PATH="$DIST/$ZIP_NAME"

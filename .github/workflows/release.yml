@@ -61,5 +61,22 @@ jobs:
         with:
           files: dist/*.zip
           generate_release_notes: true
+          body: |
+            ## Requirements
+
+            - **macOS 14 (Sonoma) or later**
+            - Download the zip that matches your Mac chip
+
+            | File | Mac |
+            |------|-----|
+            | `…-macOS14+-Apple-Silicon.zip` | Apple Silicon (M1, M2, M3, …) |
+            | `…-macOS14+-Intel.zip` | Intel |
+
+            ## Install
+
+            1. Unzip and drag **VarFont Studio.app** to Applications.
+            2. First launch: **Control-click → Open** (ad-hoc signed; Gatekeeper warning is expected).
+
+            See the [README](https://github.com/andrewsipe/VarFontEditor#install-no-xcode-required) for details.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

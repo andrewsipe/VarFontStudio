@@ -1,5 +1,7 @@
 # VarFont Studio (alpha)
 
+**Requires macOS 14 (Sonoma) or later** · Apple Silicon or Intel
+
 **VarFont Studio** is a macOS app for planning and writing **variable font instances** — the combinations of weight, width, optical size, and other axes that show up in design apps and in your font’s `STAT`, `fvar`, and `name` tables.
 
 You define axis stops, generate the instance grid, tune naming, preview what will change, then save a patched copy of your font. No glyph editing; no raw TTX browser.
@@ -10,20 +12,25 @@ You define axis stops, generate the instance grid, tune naming, preview what wil
 
 Pre-built apps are on **[GitHub Releases](https://github.com/andrewsipe/VarFontEditor/releases)**.
 
+### Requirements
+
+| | |
+|--|--|
+| **macOS** | **14 (Sonoma) or later** |
+| **Chip** | Apple Silicon **or** Intel (download the matching zip) |
+
 ### 1. Pick the right download
 
-Each release attaches **two** zip files:
+Each release attaches **two** zip files. Names look like:
 
 | Filename | Mac |
 |----------|-----|
-| **`VarFontStudio-…-Apple-Silicon.zip`** | Apple Silicon (M1, M2, M3, …) |
-| **`VarFontStudio-…-Intel.zip`** | Intel |
+| **`…-macOS14+-Apple-Silicon.zip`** | Apple Silicon (M1, M2, M3, …) |
+| **`…-macOS14+-Intel.zip`** | Intel |
 
-**Apple menu → About This Mac → Chip or Processor** tells you which you need.
+**Apple menu → About This Mac** shows both your macOS version and Chip / Processor.
 
 The app UI is a Universal binary, but **Save** uses a bundled Python runtime that is **native to the zip you downloaded**. An Apple Silicon zip on an Intel Mac will open fine until you try to Save — download the matching zip instead.
-
-**Requires macOS 14 (Sonoma) or later.**
 
 ### 2. Unzip and move to Applications
 
@@ -73,7 +80,7 @@ Swift package + Xcode app live in this repo.
 ```bash
 chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
 ./scripts/build-release.sh
-# output: dist/VarFontStudio-<version>-Apple-Silicon.zip  (or -Intel.zip)
+# output: dist/VarFontStudio-<version>-macOS14+-Apple-Silicon.zip  (or -Intel.zip)
 ```
 
 **Publish via GitHub:** push a tag — CI builds **both** Apple Silicon and Intel zips and attaches them to the Release.
