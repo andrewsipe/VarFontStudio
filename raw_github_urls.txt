@@ -12,6 +12,10 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorLayoutPreferences.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel+FileClarifiers.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel+Inspector.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel+ProjectIO.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel+WorkspaceOps.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel+ImportHelpers.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel+NamingOrder.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Info.plist
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/InspectorFocusStore.swift

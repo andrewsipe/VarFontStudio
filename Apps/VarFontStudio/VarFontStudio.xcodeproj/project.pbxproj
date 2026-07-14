@@ -22,6 +22,10 @@
 		B2000049 /* EditorViewModel+IssueResolvers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000049 /* EditorViewModel+IssueResolvers.swift */; };
 		B2000054 /* EditorViewModel+NamingOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000054 /* EditorViewModel+NamingOrder.swift */; };
 		B2000055 /* EditorViewModel+FileClarifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000055 /* EditorViewModel+FileClarifiers.swift */; };
+		B2000056 /* EditorViewModel+Inspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000056 /* EditorViewModel+Inspector.swift */; };
+		B2000057 /* EditorViewModel+ProjectIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000057 /* EditorViewModel+ProjectIO.swift */; };
+		B2000058 /* EditorViewModel+WorkspaceOps.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000058 /* EditorViewModel+WorkspaceOps.swift */; };
+		B2000059 /* EditorViewModel+ImportHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000059 /* EditorViewModel+ImportHelpers.swift */; };
 		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
@@ -78,6 +82,10 @@
 		F2000049 /* EditorViewModel+IssueResolvers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+IssueResolvers.swift"; sourceTree = "<group>"; };
 		F2000054 /* EditorViewModel+NamingOrder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+NamingOrder.swift"; sourceTree = "<group>"; };
 		F2000055 /* EditorViewModel+FileClarifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+FileClarifiers.swift"; sourceTree = "<group>"; };
+		F2000056 /* EditorViewModel+Inspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+Inspector.swift"; sourceTree = "<group>"; };
+		F2000057 /* EditorViewModel+ProjectIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+ProjectIO.swift"; sourceTree = "<group>"; };
+		F2000058 /* EditorViewModel+WorkspaceOps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+WorkspaceOps.swift"; sourceTree = "<group>"; };
+		F2000059 /* EditorViewModel+ImportHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+ImportHelpers.swift"; sourceTree = "<group>"; };
 		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
@@ -147,6 +155,10 @@
 				F2000049 /* EditorViewModel+IssueResolvers.swift */,
 				F2000054 /* EditorViewModel+NamingOrder.swift */,
 				F2000055 /* EditorViewModel+FileClarifiers.swift */,
+				F2000056 /* EditorViewModel+Inspector.swift */,
+				F2000057 /* EditorViewModel+ProjectIO.swift */,
+				F2000058 /* EditorViewModel+WorkspaceOps.swift */,
+				F2000059 /* EditorViewModel+ImportHelpers.swift */,
 				F2000025 /* CommitPreflightSession.swift */,
 				F2000026 /* SourceFontAccess.swift */,
 				F2000027 /* SaveReviewWindowLifecycle.swift */,
@@ -316,6 +328,10 @@
 				B2000049 /* EditorViewModel+IssueResolvers.swift in Sources */,
 				B2000054 /* EditorViewModel+NamingOrder.swift in Sources */,
 				B2000055 /* EditorViewModel+FileClarifiers.swift in Sources */,
+				B2000056 /* EditorViewModel+Inspector.swift in Sources */,
+				B2000057 /* EditorViewModel+ProjectIO.swift in Sources */,
+				B2000058 /* EditorViewModel+WorkspaceOps.swift in Sources */,
+				B2000059 /* EditorViewModel+ImportHelpers.swift in Sources */,
 				B2000023 /* InspectorSupport.swift in Sources */,
 				B2000019 /* EditorLayoutPreferences.swift in Sources */,
 				B2000013 /* OpenProject.swift in Sources */,
