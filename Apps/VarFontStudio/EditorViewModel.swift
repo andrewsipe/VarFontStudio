@@ -90,14 +90,9 @@ final class EditorViewModel: ObservableObject {
     @Published var conflictResolverRequest: AxisConflictResolverSession?
     @Published var planIssueResolverRequest: PlanIssueResolverSession?
     private var reviewSession: AxisTreeReviewSession?
-    @Published private(set) var saveReviewSessionsByKey: [String: CommitPreflightSession] = [:]
-    @Published var presentCommitDiffSheet = false
+    /// Review / export chrome and preflight sessions (Track B1 carve-out).
+    let saveReview = SaveReviewStore()
     @Published var showShortcutsHelp = false
-    @Published private(set) var saveReviewOpenRequest: SaveReviewOpenRequest?
-    @Published private(set) var saveReviewLoadingKeys: Set<String> = []
-    @Published private(set) var saveReviewSelectedFontIDByProjectID: [String: String] = [:]
-    @Published private(set) var saveReviewExplicitlyOpenedProjectIDs: Set<String> = []
-    @Published var saveReviewUIStateByProjectID: [String: SaveReviewUIState] = [:]
     @Published var searchText = ""
     @Published private(set) var instanceSearchFocusToken: UUID?
     @Published var instanceFilter: InstanceFilter = .all
@@ -126,10 +121,8 @@ final class EditorViewModel: ObservableObject {
     /// When true, app quit was requested while projects have unsaved state.
     @Published var confirmQuitRequested = false
     @Published var missingFontsRequest: MissingFontsRequest?
-    @Published var confirmSaveToOriginal: CommitPreflightSession?
     @Published var confirmSetAsMasterFontID: String?
     @Published var confirmPushAxisTree = false
-    @Published var persistentSaveError: String?
     @Published var pendingAddFontProjectID: String?
     /// Pick another open project as move/combine target.
     @Published var projectTargetPickerMode: ProjectTargetPickerMode?
@@ -217,7 +210,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func saveReviewSelectedFontID(forProjectID projectID: String) -> String? {
-        if let selected = saveReviewSelectedFontIDByProjectID[projectID] {
+        if let selected = saveReview.selectedFontID(projectID: projectID) {
             return selected
         }
         return openProject(for: projectID)?.selectedFontID
@@ -225,32 +218,23 @@ final class EditorViewModel: ObservableObject {
 
     func saveReviewSession(forProjectID projectID: String, fontID: String? = nil) -> CommitPreflightSession? {
         guard let fontID = fontID ?? saveReviewSelectedFontID(forProjectID: projectID) else { return nil }
-        return saveReviewSessionsByKey[saveReviewSessionKey(projectID: projectID, fontID: fontID)]
+        return saveReview.session(projectID: projectID, fontID: fontID)
     }
 
     func saveReviewUIState(forProjectID projectID: String) -> SaveReviewUIState {
-        saveReviewUIStateByProjectID[projectID] ?? SaveReviewUIState()
+        saveReview.uiState(forProjectID: projectID)
     }
 
     func updateSaveReviewUIState(forProjectID projectID: String, _ transform: (inout SaveReviewUIState) -> Void) {
-        var state = saveReviewUIState(forProjectID: projectID)
-        transform(&state)
-        saveReviewUIStateByProjectID[projectID] = state
+        saveReview.updateUIState(forProjectID: projectID, transform)
     }
 
     func isSaveReviewLoading(forProjectID projectID: String, fontID: String? = nil) -> Bool {
-        if let fontID {
-            return saveReviewLoadingKeys.contains(saveReviewSessionKey(projectID: projectID, fontID: fontID))
-        }
-        return saveReviewLoadingKeys.contains { $0.hasPrefix("\(projectID)|") }
+        saveReview.isLoading(projectID: projectID, fontID: fontID)
     }
 
     func selectSaveReviewFont(projectID: String, fontID: String) {
-        let previousFontID = saveReviewSelectedFontIDByProjectID[projectID]
-        saveReviewSelectedFontIDByProjectID[projectID] = fontID
-        if previousFontID != fontID {
-            updateSaveReviewUIState(forProjectID: projectID) { $0.searchQuery = "" }
-        }
+        saveReview.selectFont(projectID: projectID, fontID: fontID)
         guard canPreviewSaveReview(forProjectID: projectID, fontID: fontID) else { return }
         let isDirty = openProjects
             .first(where: { $0.id == projectID })?
@@ -262,7 +246,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func saveReviewWasExplicitlyOpened(forProjectID projectID: String) -> Bool {
-        saveReviewExplicitlyOpenedProjectIDs.contains(projectID)
+        saveReview.wasExplicitlyOpened(projectID: projectID)
     }
 
     func presentSaveReviewWindow(forProjectID projectID: String? = nil) {
@@ -275,15 +259,14 @@ final class EditorViewModel: ObservableObject {
             postStatusMessage("Nothing to preview — select a font in this project first.")
             return
         }
-        if saveReviewSelectedFontIDByProjectID[targetID] == nil,
-           let fontID = selectedFont(forProjectID: targetID)?.id {
-            saveReviewSelectedFontIDByProjectID[targetID] = fontID
+        if let fontID = selectedFont(forProjectID: targetID)?.id {
+            saveReview.ensureSelectedFont(projectID: targetID, fontID: fontID)
         }
         let fontID = saveReviewSelectedFontID(forProjectID: targetID)
         refreshCommitDiffPreview(forProjectID: targetID, fontID: fontID, presentSheet: false)
-        saveReviewExplicitlyOpenedProjectIDs.insert(targetID)
-        resetSaveReviewUIState(forProjectID: targetID)
-        saveReviewOpenRequest = SaveReviewOpenRequest(projectID: targetID, token: UUID())
+        saveReview.markExplicitlyOpened(projectID: targetID)
+        saveReview.resetUIState(forProjectID: targetID)
+        saveReview.requestOpen(projectID: targetID)
         Task {
             await commitService.ensureWorkerReady()
         }
@@ -320,38 +303,9 @@ final class EditorViewModel: ObservableObject {
         }
     }
 
-    private func resetSaveReviewUIState(forProjectID projectID: String) {
-        saveReviewUIStateByProjectID[projectID] = SaveReviewUIState()
-    }
-
     /// Drop save-review payload when quitting or closing a restored auxiliary window.
     func clearSaveReviewState(forProjectID projectID: String? = nil, fontID: String? = nil) {
-        if let projectID, let fontID {
-            let key = saveReviewSessionKey(projectID: projectID, fontID: fontID)
-            saveReviewSessionsByKey.removeValue(forKey: key)
-            saveReviewLoadingKeys.remove(key)
-        } else if let projectID {
-            for key in saveReviewSessionsByKey.keys where key.hasPrefix("\(projectID)|") {
-                saveReviewSessionsByKey.removeValue(forKey: key)
-            }
-            for key in saveReviewLoadingKeys where key.hasPrefix("\(projectID)|") {
-                saveReviewLoadingKeys.remove(key)
-            }
-            saveReviewSelectedFontIDByProjectID.removeValue(forKey: projectID)
-            saveReviewExplicitlyOpenedProjectIDs.remove(projectID)
-            saveReviewUIStateByProjectID.removeValue(forKey: projectID)
-        } else {
-            saveReviewSessionsByKey.removeAll()
-            saveReviewLoadingKeys.removeAll()
-            saveReviewSelectedFontIDByProjectID.removeAll()
-            saveReviewExplicitlyOpenedProjectIDs.removeAll()
-            saveReviewUIStateByProjectID.removeAll()
-        }
-        presentCommitDiffSheet = false
-    }
-
-    private func saveReviewSessionKey(projectID: String, fontID: String) -> String {
-        "\(projectID)|\(fontID)"
+        saveReview.clear(projectID: projectID, fontID: fontID)
     }
 
     func openProject(for id: String) -> OpenProject? {
@@ -554,6 +508,12 @@ final class EditorViewModel: ObservableObject {
     }
 
     init() {
+        saveReview.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
         Publishers.CombineLatest4(
             $instancePlan,
             $selectedAxisStopID,
@@ -2911,11 +2871,11 @@ final class EditorViewModel: ObservableObject {
     }
 
     func dismissPersistentSaveError() {
-        persistentSaveError = nil
+        saveReview.setPersistentError(nil)
     }
 
     private func postSaveFailure(_ message: String) {
-        persistentSaveError = message
+        saveReview.setPersistentError(message)
         postStatusMessage(message)
     }
 
@@ -3640,14 +3600,14 @@ final class EditorViewModel: ObservableObject {
                 postStatusMessage(session.preflight.errors.first?.message ?? "Export preview failed. Check the Review window for details.")
                 return
             }
-            confirmSaveToOriginal = session
+            saveReview.confirmSaveToOriginal = session
         }
     }
 
     func confirmSaveToOriginalAction() {
-        guard let session = confirmSaveToOriginal,
+        guard let session = saveReview.confirmSaveToOriginal,
               let font = font(forProjectID: session.projectID, fontID: session.fontID) else { return }
-        confirmSaveToOriginal = nil
+        saveReview.confirmSaveToOriginal = nil
         Task {
             await performSave(
                 session: session,
@@ -3713,7 +3673,7 @@ final class EditorViewModel: ObservableObject {
                 return
             }
             if Self.normalizedPath(outputURL) == Self.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
-                confirmSaveToOriginal = session
+                saveReview.confirmSaveToOriginal = session
                 return
             }
             await performSave(session: session, to: outputURL)
@@ -3793,9 +3753,8 @@ final class EditorViewModel: ObservableObject {
             nameidStrategy: projectDoc.nameidStrategy
         )
 
-        let sessionKey = saveReviewSessionKey(projectID: targetProjectID, fontID: targetFontID)
-        saveReviewLoadingKeys.insert(sessionKey)
-        defer { saveReviewLoadingKeys.remove(sessionKey) }
+        saveReview.beginLoading(projectID: targetProjectID, fontID: targetFontID)
+        defer { saveReview.endLoading(projectID: targetProjectID, fontID: targetFontID) }
 
         do {
             let analysis = try SourceFontAccess.withReadableSourceURL(
@@ -3847,9 +3806,9 @@ final class EditorViewModel: ObservableObject {
                         font: font
                     )
                 )
-                saveReviewSessionsByKey[sessionKey] = session
+                saveReview.storeSession(session, projectID: targetProjectID, fontID: font.id)
                 if presentSheet {
-                    presentCommitDiffSheet = true
+                    saveReview.presentSheet()
                 }
                 return session
             }
@@ -3873,10 +3832,10 @@ final class EditorViewModel: ObservableObject {
                 presentation: .empty,
                 informationalNotes: []
             )
-            saveReviewSessionsByKey[sessionKey] = failedSession
+            saveReview.storeSession(failedSession, projectID: targetProjectID, fontID: font.id)
             postStatusMessage(message)
             if presentSheet {
-                presentCommitDiffSheet = true
+                saveReview.presentSheet()
             }
             return failedSession
         } catch {
@@ -3886,7 +3845,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func dismissCommitDiffSheet() {
-        presentCommitDiffSheet = false
+        saveReview.dismissSheet()
     }
 
     /// Re-read the source font and run vfcommit dry-run to build the save review diff.
@@ -3965,7 +3924,7 @@ final class EditorViewModel: ObservableObject {
             let normalizedOutput = Self.normalizedPath(url)
             let normalizedSource = Self.normalizedPath(URL(fileURLWithPath: font.sourcePath))
             if normalizedOutput == normalizedSource {
-                self?.confirmSaveToOriginal = session
+                self?.saveReview.confirmSaveToOriginal = session
                 return
             }
             Task { @MainActor in
@@ -3991,7 +3950,7 @@ final class EditorViewModel: ObservableObject {
            let url = rememberedOutputURL(forProjectID: session.projectID, fontID: session.fontID),
            let font = font(forProjectID: session.projectID, fontID: session.fontID) {
             if Self.normalizedPath(url) == Self.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
-                confirmSaveToOriginal = session
+                saveReview.confirmSaveToOriginal = session
                 return
             }
             await performSave(session: session, to: url)
@@ -4182,7 +4141,7 @@ final class EditorViewModel: ObservableObject {
                 refreshCanSave()
             }
             clearSaveReviewState(forProjectID: session.projectID, fontID: session.fontID)
-            presentCommitDiffSheet = false
+            saveReview.dismissSheet()
 
             if inPlace {
                 let backupName = URL(fileURLWithPath: originalSourcePath).lastPathComponent + ".vfstudio-backup"

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		B2000001 /* VarFontStudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000001 /* VarFontStudioApp.swift */; };
 		B2000002 /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000002 /* EditorViewModel.swift */; };
+		B2000043 /* SaveReviewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000043 /* SaveReviewStore.swift */; };
 		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
@@ -52,6 +53,7 @@
 		E2000001 /* VarFontStudio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VarFontStudio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2000001 /* VarFontStudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontStudioApp.swift; sourceTree = "<group>"; };
 		F2000002 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
+		F2000043 /* SaveReviewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewStore.swift; sourceTree = "<group>"; };
 		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 			children = (
 				F2000001 /* VarFontStudioApp.swift */,
 				F2000002 /* EditorViewModel.swift */,
+				F2000043 /* SaveReviewStore.swift */,
 				F2000025 /* CommitPreflightSession.swift */,
 				F2000026 /* SourceFontAccess.swift */,
 				F2000027 /* SaveReviewWindowLifecycle.swift */,
@@ -264,6 +267,7 @@
 			files = (
 				B2000001 /* VarFontStudioApp.swift in Sources */,
 				B2000002 /* EditorViewModel.swift in Sources */,
+				B2000043 /* SaveReviewStore.swift in Sources */,
 				B2000023 /* InspectorSupport.swift in Sources */,
 				B2000019 /* EditorLayoutPreferences.swift in Sources */,
 				B2000013 /* OpenProject.swift in Sources */,

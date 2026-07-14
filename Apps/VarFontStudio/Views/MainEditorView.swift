@@ -90,11 +90,14 @@ struct MainEditorView: View {
             // transition unless the view's identity actually changes.
             .id(session.id)
         }
-        .onChange(of: editor.saveReviewOpenRequest) { _, request in
+        .onChange(of: editor.saveReview.openRequest) { _, request in
             guard let request else { return }
             openWindow(id: "save-review", value: request.projectID)
         }
-        .sheet(isPresented: $editor.presentCommitDiffSheet) {
+        .sheet(isPresented: Binding(
+            get: { editor.saveReview.presentCommitDiffSheet },
+            set: { editor.saveReview.presentCommitDiffSheet = $0 }
+        )) {
             if let projectID = editor.activeProjectID,
                let fontID = editor.selectedFontID {
                 if let session = editor.saveReviewSession(forProjectID: projectID, fontID: fontID) {
@@ -125,10 +128,10 @@ struct MainEditorView: View {
                 editor.confirmSaveToOriginalAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmSaveToOriginal = nil
+                editor.saveReview.confirmSaveToOriginal = nil
             }
         } message: {
-            if let session = editor.confirmSaveToOriginal {
+            if let session = editor.saveReview.confirmSaveToOriginal {
                 Text(editor.saveToOriginalConfirmationMessage(for: session))
             }
         }
@@ -287,8 +290,8 @@ struct MainEditorView: View {
 
     private var saveToOriginalConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.confirmSaveToOriginal != nil },
-            set: { if !$0 { editor.confirmSaveToOriginal = nil } }
+            get: { editor.saveReview.confirmSaveToOriginal != nil },
+            set: { if !$0 { editor.saveReview.confirmSaveToOriginal = nil } }
         )
     }
 
@@ -329,7 +332,7 @@ struct MainEditorView: View {
 
     private var editorChrome: some View {
         VStack(spacing: 0) {
-            if let error = editor.persistentSaveError {
+            if let error = editor.saveReview.persistentSaveError {
                 HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Cannot export")
