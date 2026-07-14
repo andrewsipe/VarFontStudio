@@ -28,6 +28,11 @@
 		B2000059 /* EditorViewModel+ImportHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000059 /* EditorViewModel+ImportHelpers.swift */; };
 		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
+		B2000060 /* AxisTreeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000060 /* AxisTreeModels.swift */; };
+		B2000061 /* AxisTreeAxisHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000061 /* AxisTreeAxisHeader.swift */; };
+		B2000062 /* AxisTreeStopViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000062 /* AxisTreeStopViews.swift */; };
+		B2000063 /* AxisTreeSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000063 /* AxisTreeSheets.swift */; };
+		B2000064 /* AxisTreeTabKeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000064 /* AxisTreeTabKeyMonitor.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
 		B2000007 /* InspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* InspectorPanel.swift */; };
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
@@ -88,6 +93,11 @@
 		F2000059 /* EditorViewModel+ImportHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+ImportHelpers.swift"; sourceTree = "<group>"; };
 		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
+		F2000060 /* AxisTreeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeModels.swift; sourceTree = "<group>"; };
+		F2000061 /* AxisTreeAxisHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeAxisHeader.swift; sourceTree = "<group>"; };
+		F2000062 /* AxisTreeStopViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeStopViews.swift; sourceTree = "<group>"; };
+		F2000063 /* AxisTreeSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeSheets.swift; sourceTree = "<group>"; };
+		F2000064 /* AxisTreeTabKeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeTabKeyMonitor.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -200,6 +210,11 @@
 				F2000017 /* WorkspaceDropOverlay.swift */,
 				F2000019 /* StudioPanelSplitView.swift */,
 				F2000005 /* AxisTreePanel.swift */,
+				F2000060 /* AxisTreeModels.swift */,
+				F2000061 /* AxisTreeAxisHeader.swift */,
+				F2000062 /* AxisTreeStopViews.swift */,
+				F2000063 /* AxisTreeSheets.swift */,
+				F2000064 /* AxisTreeTabKeyMonitor.swift */,
 				F2000023 /* AxisConflictResolverSheet.swift */,
 				F2000030 /* PlanIssueResolverSheet.swift */,
 				F2000031 /* CombinationStylesSection.swift */,
@@ -343,6 +358,11 @@
 				B2000018 /* WorkspaceDropOverlay.swift in Sources */,
 				B2000020 /* StudioPanelSplitView.swift in Sources */,
 				B2000005 /* AxisTreePanel.swift in Sources */,
+				B2000060 /* AxisTreeModels.swift in Sources */,
+				B2000061 /* AxisTreeAxisHeader.swift in Sources */,
+				B2000062 /* AxisTreeStopViews.swift in Sources */,
+				B2000063 /* AxisTreeSheets.swift in Sources */,
+				B2000064 /* AxisTreeTabKeyMonitor.swift in Sources */,
 				B2000024 /* AxisConflictResolverSheet.swift in Sources */,
 				B2000031 /* PlanIssueResolverSheet.swift in Sources */,
 				B2000032 /* CombinationStylesSection.swift in Sources */,

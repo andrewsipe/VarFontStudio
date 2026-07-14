@@ -62,6 +62,11 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisConflictResolverSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisStopFillControls.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisTreePanel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisTreeModels.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisTreeAxisHeader.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisTreeStopViews.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisTreeSheets.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisTreeTabKeyMonitor.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/CombinationStylesSection.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/CommitDiffReviewView.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/CommitDiffSheet.swift

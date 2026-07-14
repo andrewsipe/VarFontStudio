@@ -1,0 +1,525 @@
+import SwiftUI
+import VarFontCore
+
+// MARK: - Stop table header
+
+struct AxisStopTableHeader: View {
+    let showElidable: Bool
+    var showDefaultMark: Bool = false
+    var showRemoveSlot: Bool = true
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: AxisBlockLayout.stopIndentWidth)
+
+            if showDefaultMark {
+                Color.clear
+                    .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .leading)
+                    .padding(.trailing, AxisBlockLayout.defaultMarkTrailingGap)
+            }
+
+            Text("Fmt")
+                .font(StudioTypography.columnLabel)
+                .foregroundStyle(.tertiary)
+                .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .leading)
+
+            Text("Value")
+                .font(StudioTypography.columnLabel)
+                .foregroundStyle(.tertiary)
+                .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
+
+            Text("Name")
+                .font(StudioTypography.columnLabel)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, AxisBlockLayout.nameGap)
+
+            if showElidable {
+                Text("Elid")
+                    .font(StudioTypography.columnLabel)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: AxisBlockLayout.elidableWidth, alignment: .center)
+                    .help("Omit this stop from the composed style name when it is the default choice")
+            }
+
+            // Mirrors AxisTreeStopRow's removeSlot exactly — same width, same
+            // leading gap — so Name/Elid stay aligned with the rows beneath
+            // this header instead of drifting by however wide that slot is.
+            if showRemoveSlot {
+                Color.clear
+                    .frame(width: AxisBlockLayout.removeSlotWidth)
+                    .padding(.leading, AxisBlockLayout.removeSlotLeadingGap)
+            }
+        }
+        .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
+        .padding(.bottom, 2)
+    }
+}
+
+// MARK: - Stop row
+
+struct AxisTreeStopRow: View {
+    let stop: AxisValue
+    var linkedTargetName: String?
+    var isRegistrationStop: Bool = false
+    var linkTargetCandidates: [AxisValue] = []
+    let isSelected: Bool
+    let editingField: StopEditField?
+    let showElidable: Bool
+    var showDefaultMark: Bool = false
+    var isFvarDefault: Bool = false
+    var allowsRemove: Bool = true
+    var valueEditable: Bool = true
+    let isElidable: Bool
+    let onSelect: () -> Void
+    let onBeginEdit: (StopEditField) -> Void
+    let onEndEdit: () -> Void
+    let onChangeFormat: () -> Void
+    let onRegisterTabNavigation: (((Bool) -> Void)?) -> Void
+    let onTabForwardFromLastField: () -> Void
+    let onTabBackwardFromFirstField: () -> Void
+    let onRemove: () -> Void
+    let onCommitPin: (Double) -> Void
+    let onCommitMin: (Double) -> Void
+    let onCommitMax: (Double) -> Void
+    let onCommitName: (String) -> Void
+    let onToggleElidable: () -> Void
+    var onSelectLinkTarget: ((String) -> Void)?
+
+    @State private var isHovered = false
+    @State private var editingMin = ""
+    @State private var editingPin = ""
+    @State private var editingMax = ""
+    @State private var editingName = ""
+    @State private var confirmRemove = false
+    @State private var selectTask: Task<Void, Never>?
+    @FocusState private var focusedField: StopEditField?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            primaryRow
+
+            if stop.statFormat == 2 {
+                format2RangeSubline
+            }
+        }
+        .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
+        .padding(.vertical, StudioSpacing.instanceRowVertical)
+        .background {
+            StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
+                .padding(.leading, -AxisBlockLayout.rowHorizontalPadding)
+        }
+        .overlay(alignment: .leading) {
+            if isRegistrationStop {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(StudioColors.registrationForeground.opacity(0.85))
+                    .frame(width: 3)
+                    .padding(.leading, 2)
+            }
+        }
+        .onHover { isHovered = $0 }
+        .onAppear { syncDrafts() }
+        .onChange(of: stop.value) { _, _ in syncDrafts() }
+        .onChange(of: stop.rangeMin) { _, _ in syncDrafts() }
+        .onChange(of: stop.rangeMax) { _, _ in syncDrafts() }
+        .onChange(of: stop.name) { _, _ in syncDrafts() }
+        .onChange(of: editingField) { _, field in
+            syncDrafts()
+            if let field {
+                onRegisterTabNavigation { forward in
+                    navigateTab(forward: forward)
+                }
+                Task { @MainActor in
+                    focusedField = field
+                }
+            } else {
+                onRegisterTabNavigation(nil)
+                focusedField = nil
+            }
+        }
+        .onKeyPress(.escape) {
+            guard editingField != nil else { return .ignored }
+            commitCurrentEdit()
+            onEndEdit()
+            return .handled
+        }
+        .alert("Remove Stop?", isPresented: $confirmRemove) {
+            Button("Remove", role: .destructive, action: onRemove)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Remove “\(stop.name)” at \(StudioFormatting.axisValue(stop.value))?")
+        }
+    }
+
+    private var primaryRow: some View {
+        HStack(alignment: .center, spacing: 0) {
+            Color.clear
+                .frame(width: AxisBlockLayout.stopIndentWidth)
+
+            defaultMarkCell
+
+            StudioStatFormatBadge(format: stop.statFormat, action: onChangeFormat)
+                .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .leading)
+
+            valueCell
+                .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
+
+            nameColumn
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, AxisBlockLayout.nameGap)
+
+            if showElidable {
+                StudioElidableRadio(isOn: isElidable, action: onToggleElidable)
+                    .frame(width: AxisBlockLayout.elidableWidth)
+            }
+
+            // Real reserved column, not an overlay — sized to the button alone,
+            // so it's contained by the row's own background automatically instead
+            // of needing a separately hand-tuned offset/background pair to agree.
+            removeSlot
+        }
+        .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
+    }
+
+    @ViewBuilder
+    private var defaultMarkCell: some View {
+        if showDefaultMark {
+            Group {
+                if isFvarDefault {
+                    Image(systemName: "d.square.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .help("fvar default coordinate")
+                        .accessibilityLabel("fvar default")
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .leading)
+            .padding(.trailing, AxisBlockLayout.defaultMarkTrailingGap)
+        }
+    }
+
+    @ViewBuilder
+    private var removeSlot: some View {
+        if allowsRemove {
+            ZStack {
+                if isHovered {
+                    Button {
+                        confirmRemove = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: AxisBlockLayout.removeButtonSize))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Remove stop")
+                }
+            }
+            .frame(width: AxisBlockLayout.removeSlotWidth)
+            .padding(.leading, AxisBlockLayout.removeSlotLeadingGap)
+        }
+    }
+
+    @ViewBuilder
+    private var valueCell: some View {
+        Group {
+            if editingField == .pin, valueEditable {
+                StudioInlineTextField(
+                    placeholder: "Value",
+                    text: $editingPin,
+                    font: StudioTypography.monoValue,
+                    foreground: StudioColors.axisValue,
+                    rowHeight: StudioFieldMetrics.listRowMinHeight,
+                    alignment: .trailing,
+                    onSubmit: commitAndEndEdit,
+                    onCancel: cancelInlineEdit
+                )
+                .focused($focusedField, equals: .pin)
+            } else if valueEditable {
+                Text(StudioFormatting.axisValue(stop.value))
+                    .font(StudioTypography.monoValue)
+                    .foregroundStyle(StudioColors.axisValue)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
+                    .contentShape(Rectangle())
+                    .gesture(clickGesture(for: .pin))
+            } else {
+                Text(StudioFormatting.axisValue(stop.value))
+                    .font(StudioTypography.monoValue)
+                    .foregroundStyle(StudioColors.axisValue)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
+                    .contentShape(Rectangle())
+                    .gesture(selectOnlyGesture)
+            }
+        }
+        .transaction { $0.animation = nil }
+    }
+
+    @ViewBuilder
+    private var format2RangeSubline: some View {
+        HStack(spacing: 4) {
+            sublineLabel("min")
+            sublineField(.min, value: stop.rangeMin, placeholder: "Min")
+            sublineSeparator
+            sublineLabel("nom")
+            Text(StudioFormatting.axisValue(stop.value))
+                .font(StudioTypography.monoMeta)
+                .foregroundStyle(StudioColors.axisValue)
+            sublineSeparator
+            sublineLabel("max")
+            sublineField(.max, value: stop.rangeMax, placeholder: "Max")
+        }
+        .padding(.leading, AxisBlockLayout.rangeSublineLeading(showDefaultMark: showDefaultMark))
+        .padding(.bottom, 3)
+    }
+
+    private func sublineLabel(_ text: String) -> some View {
+        Text(text)
+            .font(StudioTypography.meta)
+            .foregroundStyle(.tertiary)
+    }
+
+    private var sublineSeparator: some View {
+        Text("·")
+            .font(StudioTypography.meta)
+            .foregroundStyle(.tertiary)
+    }
+
+    @ViewBuilder
+    private func sublineField(_ field: StopEditField, value: Double?, placeholder: String) -> some View {
+        if editingField == field, valueEditable {
+            StudioInlineTextField(
+                placeholder: placeholder,
+                text: binding(for: field),
+                font: StudioTypography.monoMeta,
+                foreground: StudioColors.axisValue,
+                rowHeight: StudioFieldMetrics.captionRowHeight,
+                alignment: .trailing,
+                onSubmit: commitAndEndEdit,
+                onCancel: cancelInlineEdit
+            )
+            .frame(width: 44)
+            .focused($focusedField, equals: field)
+        } else if let value {
+            if valueEditable {
+                Text(StudioFormatting.axisValue(value))
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(StudioColors.axisValue)
+                    .contentShape(Rectangle())
+                    .gesture(clickGesture(for: field))
+            } else {
+                Text(StudioFormatting.axisValue(value))
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(StudioColors.axisValue)
+                    .contentShape(Rectangle())
+                    .gesture(selectOnlyGesture)
+            }
+        } else {
+            Text("—")
+                .font(StudioTypography.monoMeta)
+                .foregroundStyle(.tertiary.opacity(0.45))
+        }
+    }
+
+    private func binding(for field: StopEditField) -> Binding<String> {
+        switch field {
+        case .min: $editingMin
+        case .pin: $editingPin
+        case .max: $editingMax
+        case .name: $editingName
+        }
+    }
+
+    @ViewBuilder
+    private var nameColumn: some View {
+        Group {
+            if editingField == .name {
+                StudioInlineTextField(
+                    placeholder: "Stop name",
+                    text: $editingName,
+                    font: StudioTypography.bodyMedium,
+                    rowHeight: StudioFieldMetrics.listRowMinHeight,
+                    onSubmit: commitAndEndEdit,
+                    onCancel: cancelInlineEdit
+                )
+                .focused($focusedField, equals: .name)
+            } else {
+                HStack(spacing: 4) {
+                    Text(stop.name)
+                        .font(StudioTypography.bodyMedium)
+                        .lineLimit(1)
+                    if stop.statFormat == 3 {
+                        if !linkTargetCandidates.isEmpty, let onSelectLinkTarget {
+                            Menu {
+                                ForEach(linkTargetCandidates) { target in
+                                    Button {
+                                        onSelectLinkTarget(target.id)
+                                    } label: {
+                                        if let linkedTargetName, target.name == linkedTargetName {
+                                            Label(target.name, systemImage: "checkmark")
+                                        } else {
+                                            Text(target.name)
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "link")
+                                        .font(StudioTypography.caption)
+                                        .foregroundStyle(.tertiary)
+                                    Text(linkedTargetName ?? "Link…")
+                                        .font(StudioTypography.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .menuStyle(.borderlessButton)
+                        } else if let linkedTargetName {
+                            Image(systemName: "link")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.tertiary)
+                            Text(linkedTargetName)
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .leading)
+                .contentShape(Rectangle())
+                .gesture(clickGesture(for: .name))
+            }
+        }
+        .transaction { $0.animation = nil }
+    }
+
+    private func clickGesture(for field: StopEditField) -> some Gesture {
+        TapGesture(count: 2)
+            .onEnded {
+                selectTask?.cancel()
+                onBeginEdit(field)
+            }
+            .simultaneously(with:
+                TapGesture(count: 1)
+                    .onEnded {
+                        selectTask?.cancel()
+                        selectTask = Task {
+                            try? await Task.sleep(nanoseconds: 220_000_000)
+                            guard !Task.isCancelled else { return }
+                            await MainActor.run { onSelect() }
+                        }
+                    }
+            )
+    }
+
+    private var selectOnlyGesture: some Gesture {
+        TapGesture(count: 1)
+            .onEnded {
+                selectTask?.cancel()
+                onSelect()
+            }
+    }
+
+    private func syncDrafts() {
+        editingMin = stop.rangeMin.map(StudioFormatting.axisValue) ?? ""
+        editingPin = StudioFormatting.axisValue(stop.value)
+        editingMax = stop.rangeMax.map(StudioFormatting.axisValue) ?? ""
+        editingName = stop.name
+    }
+
+    private func editableFields() -> [StopEditField] {
+        if valueEditable, stop.statFormat == 2 {
+            return [.pin, .min, .max, .name]
+        }
+        if valueEditable {
+            return [.pin, .name]
+        }
+        return [.name]
+    }
+
+    private func commitCurrentEdit() {
+        guard let editingField else { return }
+        switch editingField {
+        case .min: commitMin()
+        case .pin: commitPin()
+        case .max: commitMax()
+        case .name: commitName()
+        }
+    }
+
+    private func commitMin() {
+        let trimmed = editingMin.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmed) else {
+            syncDrafts()
+            return
+        }
+        if let current = stop.rangeMin, AxisCoordinate.valuesEqual(value, current) { return }
+        Task { @MainActor in onCommitMin(value) }
+    }
+
+    private func commitPin() {
+        let trimmed = editingPin.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmed) else {
+            syncDrafts()
+            return
+        }
+        guard !AxisCoordinate.valuesEqual(value, stop.value) else { return }
+        Task { @MainActor in onCommitPin(value) }
+    }
+
+    private func commitMax() {
+        let trimmed = editingMax.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmed) else {
+            syncDrafts()
+            return
+        }
+        if let current = stop.rangeMax, AxisCoordinate.valuesEqual(value, current) { return }
+        Task { @MainActor in onCommitMax(value) }
+    }
+
+    private func commitName() {
+        let trimmed = editingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            syncDrafts()
+            return
+        }
+        guard trimmed != stop.name else { return }
+        Task { @MainActor in onCommitName(trimmed) }
+    }
+
+    private func navigateTab(forward: Bool) {
+        guard let editingField else { return }
+        let fields = editableFields()
+        guard let index = fields.firstIndex(of: editingField) else { return }
+
+        if forward {
+            commitCurrentEdit()
+            if index + 1 < fields.count {
+                onBeginEdit(fields[index + 1])
+            } else {
+                onTabForwardFromLastField()
+            }
+        } else if index > 0 {
+            commitCurrentEdit()
+            onBeginEdit(fields[index - 1])
+        } else {
+            onTabBackwardFromFirstField()
+        }
+    }
+
+    /// Return commits the current field and leaves edit mode — does not advance like Tab.
+    private func commitAndEndEdit() {
+        commitCurrentEdit()
+        onEndEdit()
+    }
+
+    private func cancelInlineEdit() {
+        syncDrafts()
+        onEndEdit()
+    }
+}
+
