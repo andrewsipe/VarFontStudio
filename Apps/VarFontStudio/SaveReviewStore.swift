@@ -2,10 +2,19 @@ import Combine
 import Foundation
 import VarFontCore
 
-/// Chrome and session state for the Review / export flow.
-/// Owned by `EditorViewModel`; export I/O and project lookups stay on the editor.
+/// Review / export chrome state **and** orchestration (via `SaveReviewHost`).
 @MainActor
 final class SaveReviewStore: ObservableObject {
+    /// Set by `EditorViewModel` in `init`.
+    weak var host: (any SaveReviewHost)?
+
+    var requireHost: any SaveReviewHost {
+        guard let host else {
+            preconditionFailure("SaveReviewStore.host was not set")
+        }
+        return host
+    }
+
     @Published private(set) var sessionsByKey: [String: CommitPreflightSession] = [:]
     @Published var presentCommitDiffSheet = false
     @Published private(set) var openRequest: SaveReviewOpenRequest?

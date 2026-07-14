@@ -10,6 +10,8 @@
 		B2000001 /* VarFontStudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000001 /* VarFontStudioApp.swift */; };
 		B2000002 /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000002 /* EditorViewModel.swift */; };
 		B2000043 /* SaveReviewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000043 /* SaveReviewStore.swift */; };
+		B2000051 /* SaveReviewStore+Orchestration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000051 /* SaveReviewStore+Orchestration.swift */; };
+		B2000050 /* SaveReviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000050 /* SaveReviewHost.swift */; };
 		B2000044 /* IssueResolverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000044 /* IssueResolverStore.swift */; };
 		B2000045 /* InspectorFocusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000045 /* InspectorFocusStore.swift */; };
 		B2000046 /* ProjectWorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000046 /* ProjectWorkspaceStore.swift */; };
@@ -60,6 +62,8 @@
 		F2000001 /* VarFontStudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontStudioApp.swift; sourceTree = "<group>"; };
 		F2000002 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
 		F2000043 /* SaveReviewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewStore.swift; sourceTree = "<group>"; };
+		F2000051 /* SaveReviewStore+Orchestration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SaveReviewStore+Orchestration.swift"; sourceTree = "<group>"; };
+		F2000050 /* SaveReviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SaveReviewHost.swift"; sourceTree = "<group>"; };
 		F2000044 /* IssueResolverStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueResolverStore.swift; sourceTree = "<group>"; };
 		F2000045 /* InspectorFocusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorFocusStore.swift; sourceTree = "<group>"; };
 		F2000046 /* ProjectWorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectWorkspaceStore.swift; sourceTree = "<group>"; };
@@ -123,6 +127,8 @@
 				F2000001 /* VarFontStudioApp.swift */,
 				F2000002 /* EditorViewModel.swift */,
 				F2000043 /* SaveReviewStore.swift */,
+				F2000051 /* SaveReviewStore+Orchestration.swift */,
+				F2000050 /* SaveReviewHost.swift */,
 				F2000044 /* IssueResolverStore.swift */,
 				F2000045 /* InspectorFocusStore.swift */,
 				F2000046 /* ProjectWorkspaceStore.swift */,
@@ -286,6 +292,8 @@
 				B2000001 /* VarFontStudioApp.swift in Sources */,
 				B2000002 /* EditorViewModel.swift in Sources */,
 				B2000043 /* SaveReviewStore.swift in Sources */,
+				B2000051 /* SaveReviewStore+Orchestration.swift in Sources */,
+				B2000050 /* SaveReviewHost.swift in Sources */,
 				B2000044 /* IssueResolverStore.swift in Sources */,
 				B2000045 /* InspectorFocusStore.swift in Sources */,
 				B2000046 /* ProjectWorkspaceStore.swift in Sources */,

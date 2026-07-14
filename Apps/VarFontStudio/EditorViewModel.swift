@@ -325,6 +325,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     init() {
+        saveReview.host = self
         saveReview.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -3186,3 +3187,6 @@ final class EditorViewModel: ObservableObject {
         UTType(filenameExtension: "woff2")!,
     ]
 }
+
+
+extension EditorViewModel: SaveReviewHost {}
