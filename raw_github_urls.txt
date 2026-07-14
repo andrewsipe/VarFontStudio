@@ -76,7 +76,12 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStud
 
 # Sources/VarFontCore/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/JSONCoding.swift
-https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/SchemaModels.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/SchemaSharedModels.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/SchemaFileClarifierModels.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/SchemaFontAnalysis.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/SchemaProjectDocument.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/SchemaInstancePlan.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/SchemaCommitModels.swift
 
 # Sources/VarFontCore/Commit/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Commit/CommitDiffBuilder.swift
@@ -113,7 +118,10 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ClarifierSlotCoverage.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ComposedNameWarningRollup.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/CompoundStatCoordinateSync.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ConflictModels.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ConflictResolver.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ConflictResolver+Strategies.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ConflictResolver+Suggestions.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ElidedFallbackResolver.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/InstanceKeyBuilder.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/InstancePlanner.swift
