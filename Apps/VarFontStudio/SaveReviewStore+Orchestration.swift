@@ -93,9 +93,6 @@ extension SaveReviewStore {
         markExplicitlyOpened(projectID: targetID)
         resetUIState(forProjectID: targetID)
         requestOpen(projectID: targetID)
-        Task {
-            await requireHost.commitService.ensureWorkerReady()
-        }
     }
 
     func toggleSaveReviewWindow(forProjectID projectID: String? = nil) {

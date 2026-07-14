@@ -163,25 +163,49 @@ actor CommitWorker {
     }
 }
 
-enum CommitWorkerManager {
-    private static var worker: CommitWorker?
-    private static var configurationKey: String?
+actor CommitWorkerManager {
+    private var worker: CommitWorker?
+    private var configurationKey: String?
 
-    static func commit(
+    static let shared = CommitWorkerManager()
+
+    func commit(
         _ request: CommitRequest,
         helperURL: URL,
         pythonExecutable: String
     ) async throws -> CommitResult {
-        try await commitOnce(request, helperURL: helperURL, pythonExecutable: pythonExecutable)
+        let worker = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
+        do {
+            return try await worker.commit(request)
+        } catch {
+            await worker.shutdown()
+            self.worker = nil
+            self.configurationKey = nil
+            let restarted = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
+            return try await restarted.commit(request)
+        }
     }
 
-    private static func commitOnce(
-        _ request: CommitRequest,
-        helperURL: URL,
-        pythonExecutable: String
-    ) async throws -> CommitResult {
+    func ensureReady(helperURL: URL, pythonExecutable: String) async {
+        do {
+            let worker = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
+            try await worker.ping()
+        } catch {
+            // Fall back to one-shot commits when the worker cannot start.
+        }
+    }
+
+    func shutdown() async {
+        if let worker {
+            await worker.shutdown()
+        }
+        worker = nil
+        configurationKey = nil
+    }
+
+    private func readyWorker(helperURL: URL, pythonExecutable: String) async throws -> CommitWorker {
         let key = "\(helperURL.path)|\(pythonExecutable)"
-        if configurationKey != key {
+        if configurationKey != key || worker == nil {
             if let worker {
                 await worker.shutdown()
             }
@@ -191,42 +215,6 @@ enum CommitWorkerManager {
         guard let worker else {
             throw CommitWorkerError.notStarted
         }
-
-        do {
-            return try await worker.commit(request)
-        } catch {
-            await worker.shutdown()
-            self.worker = CommitWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
-            configurationKey = key
-            guard let restarted = self.worker else {
-                throw CommitWorkerError.notStarted
-            }
-            return try await restarted.commit(request)
-        }
-    }
-
-    static func ensureReady(helperURL: URL, pythonExecutable: String) async {
-        do {
-            let key = "\(helperURL.path)|\(pythonExecutable)"
-            if configurationKey != key {
-                if let worker {
-                    await worker.shutdown()
-                }
-                worker = CommitWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
-                configurationKey = key
-            }
-            guard let worker else { return }
-            try await worker.ping()
-        } catch {
-            // Fall back to one-shot commits when the worker cannot start.
-        }
-    }
-
-    static func shutdown() async {
-        if let worker {
-            await worker.shutdown()
-        }
-        worker = nil
-        configurationKey = nil
+        return worker
     }
 }

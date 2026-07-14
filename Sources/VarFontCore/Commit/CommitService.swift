@@ -198,7 +198,7 @@ public struct CommitService: Sendable {
 
         if preferWorker {
             do {
-                return try await CommitWorkerManager.commit(
+                return try await CommitWorkerManager.shared.commit(
                     request,
                     helperURL: helperURL,
                     pythonExecutable: pythonExecutable
@@ -212,11 +212,11 @@ public struct CommitService: Sendable {
 
     public func ensureWorkerReady() async {
         guard let helperURL = helperURL ?? Self.defaultHelperURL() else { return }
-        await CommitWorkerManager.ensureReady(helperURL: helperURL, pythonExecutable: pythonExecutable)
+        await CommitWorkerManager.shared.ensureReady(helperURL: helperURL, pythonExecutable: pythonExecutable)
     }
 
     public static func shutdownWorker() async {
-        await CommitWorkerManager.shutdown()
+        await CommitWorkerManager.shared.shutdown()
     }
 
     private func commitOneShot(_ request: CommitRequest, helperURL: URL) async throws -> CommitResult {
