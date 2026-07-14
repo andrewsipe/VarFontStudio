@@ -47,24 +47,6 @@ struct AxisTreeFocusRequest: Equatable {
     let token: UUID
 }
 
-struct AxisConflictResolverSession: Identifiable {
-    let id = UUID()
-    let bundle: AxisConflictBundle
-    let reviewPosition: Int?
-    let reviewTotal: Int?
-}
-
-struct PlanIssueResolverSession: Identifiable {
-    let id = UUID()
-    let warning: PlanWarning
-    let reviewPosition: Int?
-    let reviewTotal: Int?
-}
-
-private struct AxisTreeReviewSession {
-    var state: AxisTreeReviewSessionState
-}
-
 enum InspectorPanelScope: Equatable {
     case project
     case instance
@@ -87,11 +69,10 @@ final class EditorViewModel: ObservableObject {
     @Published var inspectorFocusedAxisTag: String?
     /// Bumps when the axis tree should expand and scroll to a stop (inspector / warnings).
     @Published var axisTreeFocusRequest: AxisTreeFocusRequest?
-    @Published var conflictResolverRequest: AxisConflictResolverSession?
-    @Published var planIssueResolverRequest: PlanIssueResolverSession?
-    private var reviewSession: AxisTreeReviewSession?
     /// Review / export chrome and preflight sessions (Track B1 carve-out).
     let saveReview = SaveReviewStore()
+    /// Conflict / plan-issue resolver sheets and review-queue walk (Track B2).
+    let issueResolvers = IssueResolverStore()
     @Published var showShortcutsHelp = false
     @Published var searchText = ""
     @Published private(set) var instanceSearchFocusToken: UUID?
@@ -509,6 +490,12 @@ final class EditorViewModel: ObservableObject {
 
     init() {
         saveReview.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        issueResolvers.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
@@ -1149,7 +1136,7 @@ final class EditorViewModel: ObservableObject {
 
     func presentConflictResolver(bundle: AxisConflictBundle) {
         let position = reviewSessionPosition(for: .axisConflict(bundle))
-        conflictResolverRequest = AxisConflictResolverSession(
+        issueResolvers.presentConflict(
             bundle: bundle,
             reviewPosition: position?.current,
             reviewTotal: position?.total
@@ -1163,8 +1150,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func dismissConflictResolver() {
-        conflictResolverRequest = nil
-        reviewSession = nil
+        issueResolvers.dismissConflictResolver(clearReviewSession: true)
     }
 
     func reviewQueue() -> [AxisTreeReviewItem] {
@@ -1199,7 +1185,7 @@ final class EditorViewModel: ObservableObject {
         } else {
             index = 0
         }
-        reviewSession = AxisTreeReviewSession(
+        issueResolvers.startReviewSession(
             state: AxisTreeReviewSessionState(scope: .full, initialTotal: queue.count)
         )
         presentReviewItem(at: index, in: queue)
@@ -1208,7 +1194,7 @@ final class EditorViewModel: ObservableObject {
     func startAxisReviewSession(on axisTag: String) {
         let queue = AxisTreeReviewQueue.filter(reviewQueue(), axisTag: axisTag)
         guard !queue.isEmpty else { return }
-        reviewSession = AxisTreeReviewSession(
+        issueResolvers.startReviewSession(
             state: AxisTreeReviewSessionState(scope: .axis(axisTag), initialTotal: queue.count)
         )
         presentReviewItem(at: 0, in: queue)
@@ -1219,49 +1205,46 @@ final class EditorViewModel: ObservableObject {
     }
 
     func advanceReviewSession() {
-        guard var session = reviewSession else { return }
-        session.state.completedCount += 1
+        guard issueResolvers.hasActiveReviewSession else { return }
+        issueResolvers.updateReviewSession { session in
+            session.state.completedCount += 1
+        }
         let queue = scopedReviewQueue()
         guard !queue.isEmpty else {
-            planIssueResolverRequest = nil
-            conflictResolverRequest = nil
-            reviewSession = nil
+            issueResolvers.clearBothResolversAndReviewSession()
             return
         }
-        reviewSession = session
         presentReviewItem(at: 0, in: queue)
     }
 
     private func scopedReviewQueue() -> [AxisTreeReviewItem] {
         let full = reviewQueue()
-        guard let session = reviewSession else { return full }
+        guard let session = issueResolvers.reviewSession else { return full }
         return session.state.scopedQueue(from: full)
     }
 
     func endReviewSession() {
-        reviewSession = nil
+        issueResolvers.endReviewSession()
     }
 
     private func presentReviewItem(at index: Int, in queue: [AxisTreeReviewItem]) {
         guard index < queue.count else {
-            planIssueResolverRequest = nil
-            conflictResolverRequest = nil
+            issueResolvers.clearBothResolvers()
             return
         }
         switch queue[index] {
         case let .planIssue(warning):
-            conflictResolverRequest = nil
+            issueResolvers.conflictResolverRequest = nil
             presentPlanIssueResolver(for: warning)
         case let .axisConflict(bundle):
-            planIssueResolverRequest = nil
+            issueResolvers.planIssueResolverRequest = nil
             presentConflictResolver(bundle: bundle)
         }
     }
 
     private func reviewSessionPosition(for item: AxisTreeReviewItem) -> (current: Int, total: Int)? {
-        guard let session = reviewSession else { return nil }
         _ = item
-        return session.state.displayPosition()
+        return issueResolvers.reviewSessionPosition()
     }
 
     func resolvablePlanWarnings(for axisTag: String) -> [PlanWarning] {
@@ -1279,7 +1262,7 @@ final class EditorViewModel: ObservableObject {
 
     func applyPlanIssueFix(_ action: PlanIssueAction, andContinue: Bool = false) {
         if case .openAxisConflicts(let axisTag) = action {
-            planIssueResolverRequest = nil
+            issueResolvers.planIssueResolverRequest = nil
             if let tag = axisTag, let bundle = bundle(for: tag) {
                 presentConflictResolver(bundle: bundle)
             } else if let first = axisConflictBundles.first {
@@ -1301,15 +1284,14 @@ final class EditorViewModel: ObservableObject {
         if andContinue {
             advanceReviewSession()
         } else {
-            planIssueResolverRequest = nil
-            reviewSession = nil
+            issueResolvers.dismissPlanIssueResolver(clearReviewSession: true)
         }
     }
 
     func presentPlanIssueResolver(for warning: PlanWarning) {
         let item = AxisTreeReviewItem.planIssue(warning)
         let position = reviewSessionPosition(for: item)
-        planIssueResolverRequest = PlanIssueResolverSession(
+        issueResolvers.presentPlanIssue(
             warning: warning,
             reviewPosition: position?.current,
             reviewTotal: position?.total
@@ -1369,8 +1351,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func dismissPlanIssueResolver() {
-        planIssueResolverRequest = nil
-        reviewSession = nil
+        issueResolvers.dismissPlanIssueResolver(clearReviewSession: true)
     }
 
     func applyConflictFix(_ action: ConflictFixAction, axisTag: String, andContinue: Bool = false) {
@@ -1387,9 +1368,9 @@ final class EditorViewModel: ObservableObject {
         if andContinue {
             advanceReviewSession()
         } else {
-            conflictResolverRequest = nil
-            if reviewSession != nil {
-                reviewSession = nil
+            issueResolvers.conflictResolverRequest = nil
+            if issueResolvers.hasActiveReviewSession {
+                issueResolvers.endReviewSession()
             } else if let sameAxis = axisConflictBundles.first(where: { $0.axisTag == axisTag }) {
                 presentConflictResolver(bundle: sameAxis)
             } else if let next = axisConflictBundles.first {

@@ -68,7 +68,7 @@ struct MainEditorView: View {
             ProjectTargetPickerSheet(mode: mode)
                 .environmentObject(editor)
         }
-        .sheet(item: $editor.conflictResolverRequest) { session in
+        .sheet(item: conflictResolverBinding) { session in
             AxisConflictResolverSheet(
                 bundle: session.bundle,
                 reviewPosition: session.reviewPosition,
@@ -77,7 +77,7 @@ struct MainEditorView: View {
             .environmentObject(editor)
             .preferredColorScheme(.dark)
         }
-        .sheet(item: $editor.planIssueResolverRequest) { session in
+        .sheet(item: planIssueResolverBinding) { session in
             PlanIssueResolverSheet(
                 warning: session.warning,
                 reviewPosition: session.reviewPosition,
@@ -94,10 +94,7 @@ struct MainEditorView: View {
             guard let request else { return }
             openWindow(id: "save-review", value: request.projectID)
         }
-        .sheet(isPresented: Binding(
-            get: { editor.saveReview.presentCommitDiffSheet },
-            set: { editor.saveReview.presentCommitDiffSheet = $0 }
-        )) {
+        .sheet(isPresented: commitDiffSheetBinding) {
             if let projectID = editor.activeProjectID,
                let fontID = editor.selectedFontID {
                 if let session = editor.saveReviewSession(forProjectID: projectID, fontID: fontID) {
@@ -285,6 +282,27 @@ struct MainEditorView: View {
         Binding(
             get: { editor.confirmRemoveFont != nil },
             set: { if !$0 { editor.confirmRemoveFont = nil } }
+        )
+    }
+
+    private var conflictResolverBinding: Binding<AxisConflictResolverSession?> {
+        Binding(
+            get: { editor.issueResolvers.conflictResolverRequest },
+            set: { editor.issueResolvers.conflictResolverRequest = $0 }
+        )
+    }
+
+    private var planIssueResolverBinding: Binding<PlanIssueResolverSession?> {
+        Binding(
+            get: { editor.issueResolvers.planIssueResolverRequest },
+            set: { editor.issueResolvers.planIssueResolverRequest = $0 }
+        )
+    }
+
+    private var commitDiffSheetBinding: Binding<Bool> {
+        Binding(
+            get: { editor.saveReview.presentCommitDiffSheet },
+            set: { editor.saveReview.presentCommitDiffSheet = $0 }
         )
     }
 
