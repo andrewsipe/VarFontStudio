@@ -29,8 +29,8 @@ struct ProjectInspectorPanel: View {
                     .frame(maxHeight: .infinity, alignment: .top)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .onChange(of: editor.inspectorRevealToken) { _, _ in
-                guard editor.inspectorFileNamingFocus != nil else { return }
+            .onChange(of: editor.inspectorFocus.revealToken) { _, _ in
+                guard editor.inspectorFocus.fileNamingFocus != nil else { return }
                 withAnimation(.easeOut(duration: 0.12)) {
                     isFileNamingExpanded = true
                 }

@@ -131,7 +131,7 @@ struct AxisTreePanel: View {
                     .padding(.bottom, StudioSpacing.panelVertical)
                 }
                 .transaction { $0.animation = nil }
-                .onChange(of: editor.axisTreeFocusRequest) { _, request in
+                .onChange(of: editor.inspectorFocus.axisTreeFocusRequest) { _, request in
                     guard let request else { return }
                     scrollToAxisStop(
                         scrollProxy: scrollProxy,
@@ -139,13 +139,13 @@ struct AxisTreePanel: View {
                         stopID: request.stopID
                     )
                 }
-                .onChange(of: editor.inspectorFocusedAxisTag) { _, tag in
+                .onChange(of: editor.inspectorFocus.focusedAxisTag) { _, tag in
                     if let tag {
                         expandedAxes.insert(tag)
                     }
                 }
                 .onChange(of: editor.selectedAxisStopID) { _, stopID in
-                    guard let stopID, editor.axisTreeFocusRequest == nil else { return }
+                    guard let stopID, editor.inspectorFocus.axisTreeFocusRequest == nil else { return }
                     expandAxisContaining(stopID: stopID)
                     DispatchQueue.main.async {
                         withAnimation(.easeOut(duration: 0.2)) {

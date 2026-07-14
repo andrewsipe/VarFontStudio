@@ -15,7 +15,7 @@ struct FileClarifierFields: View {
                 clarifierRow(category: category, fontID: font.id)
             }
         }
-        .onChange(of: editor.inspectorRevealToken) { _, _ in
+        .onChange(of: editor.inspectorFocus.revealToken) { _, _ in
             applyFileNamingFocusIfNeeded()
         }
         .onAppear {
@@ -24,7 +24,7 @@ struct FileClarifierFields: View {
     }
 
     private func applyFileNamingFocusIfNeeded() {
-        guard editor.inspectorFileNamingFocus == .postScriptPrefix else { return }
+        guard editor.inspectorFocus.fileNamingFocus == .postScriptPrefix else { return }
         highlightPostScriptPrefix = true
         DispatchQueue.main.async {
             postScriptPrefixFocused = true

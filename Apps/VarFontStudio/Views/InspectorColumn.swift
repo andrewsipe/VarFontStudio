@@ -18,7 +18,7 @@ struct InspectorColumn: View {
             Divider()
 
             Group {
-                switch editor.inspectorPanelScope {
+                switch editor.inspectorFocus.panelScope {
                 case .project:
                     ProjectInspectorPanel()
                 case .instance:
@@ -34,7 +34,7 @@ struct InspectorColumn: View {
         .onChange(of: editor.selectedInstanceKeys) { _, _ in
             editor.updateInspectorScopeForSelection()
         }
-        .onChange(of: editor.inspectorRevealToken) { _, _ in
+        .onChange(of: editor.inspectorFocus.revealToken) { _, _ in
             if !layout.showInspector {
                 layout.showInspector = true
             }
@@ -43,7 +43,7 @@ struct InspectorColumn: View {
 
     @ViewBuilder
     private var inspectorHeaderMeta: some View {
-        switch editor.inspectorPanelScope {
+        switch editor.inspectorFocus.panelScope {
         case .project:
             if let project = editor.project {
                 HStack(spacing: 3) {
@@ -83,9 +83,9 @@ struct InspectorColumn: View {
     }
 
     private func scopeButton(title: String, scope: InspectorPanelScope) -> some View {
-        let isOn = editor.inspectorPanelScope == scope
+        let isOn = editor.inspectorFocus.panelScope == scope
         return Button {
-            editor.inspectorPanelScope = scope
+            editor.inspectorFocus.panelScope = scope
         } label: {
             Text(title)
                 .font(StudioTypography.meta)

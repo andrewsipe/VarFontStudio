@@ -47,17 +47,6 @@ struct AxisTreeFocusRequest: Equatable {
     let token: UUID
 }
 
-enum InspectorPanelScope: Equatable {
-    case project
-    case instance
-}
-
-/// Where Project-inspector File naming should land after a footer jump.
-enum InspectorFileNamingFocus: Equatable {
-    case section
-    case postScriptPrefix
-}
-
 @MainActor
 final class EditorViewModel: ObservableObject {
     @Published var openProjects: [OpenProject] = []
@@ -65,14 +54,12 @@ final class EditorViewModel: ObservableObject {
     @Published var selectedInstanceKey: String?
     @Published var selectedInstanceKeys: Set<String> = []
     @Published var selectedAxisStopID: String?
-    /// Axis tag to expand when inspector navigates to a stop.
-    @Published var inspectorFocusedAxisTag: String?
-    /// Bumps when the axis tree should expand and scroll to a stop (inspector / warnings).
-    @Published var axisTreeFocusRequest: AxisTreeFocusRequest?
     /// Review / export chrome and preflight sessions (Track B1 carve-out).
     let saveReview = SaveReviewStore()
     /// Conflict / plan-issue resolver sheets and review-queue walk (Track B2).
     let issueResolvers = IssueResolverStore()
+    /// Inspector scope / reveal / axis-tree focus chrome (Track B3).
+    let inspectorFocus = InspectorFocusStore()
     @Published var showShortcutsHelp = false
     @Published var searchText = ""
     @Published private(set) var instanceSearchFocusToken: UUID?
@@ -83,11 +70,6 @@ final class EditorViewModel: ObservableObject {
     @Published var isBusy = false
     @Published private(set) var instanceListDisplay = InstanceListDisplay.empty
     @Published private(set) var canSave = false
-    @Published var inspectorPanelScope: InspectorPanelScope = .project
-    /// Bumped when chrome should reveal the inspector column (e.g. footer clarifier tap).
-    @Published private(set) var inspectorRevealToken = 0
-    /// Optional File naming focus target paired with `inspectorRevealToken`.
-    @Published private(set) var inspectorFileNamingFocus: InspectorFileNamingFocus?
 
     /// Confirmation for removing a dirty font file.
     @Published var confirmRemoveFont: FontRemovalRequest?
@@ -496,6 +478,12 @@ final class EditorViewModel: ObservableObject {
             .store(in: &cancellables)
 
         issueResolvers.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        inspectorFocus.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
@@ -1297,14 +1285,10 @@ final class EditorViewModel: ObservableObject {
             reviewTotal: position?.total
         )
         if let axis = warning.axis {
-            inspectorFocusedAxisTag = axis
+            inspectorFocus.focusedAxisTag = axis
             if let stopID = warning.stopIDs?.first {
                 selectedAxisStopID = stopID
-                axisTreeFocusRequest = AxisTreeFocusRequest(
-                    axisTag: axis,
-                    stopID: stopID,
-                    token: UUID()
-                )
+                inspectorFocus.requestAxisTreeFocus(axisTag: axis, stopID: stopID)
             }
         }
     }
@@ -1380,14 +1364,10 @@ final class EditorViewModel: ObservableObject {
     }
 
     private func focusConflictAxis(_ bundle: AxisConflictBundle) {
-        inspectorFocusedAxisTag = bundle.axisTag
+        inspectorFocus.focusedAxisTag = bundle.axisTag
         guard let stopID = bundle.involvedStopIDs.first else { return }
         selectedAxisStopID = stopID
-        axisTreeFocusRequest = AxisTreeFocusRequest(
-            axisTag: bundle.axisTag,
-            stopID: stopID,
-            token: UUID()
-        )
+        inspectorFocus.requestAxisTreeFocus(axisTag: bundle.axisTag, stopID: stopID)
     }
 
     func axisStop(for instance: PlannedInstance, tag: String) -> (axisTag: String, stopID: String)? {
@@ -1401,7 +1381,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func focusInspectorAxisStop(tag: String, stopID: String) {
-        inspectorFocusedAxisTag = tag
+        inspectorFocus.focusAxisTag(tag)
         selectedAxisStopID = stopID
     }
 
@@ -2030,21 +2010,17 @@ final class EditorViewModel: ObservableObject {
         if let fontID {
             selectFont(id: fontID)
         }
-        inspectorPanelScope = .project
-        inspectorFileNamingFocus = fileNaming
-        inspectorRevealToken &+= 1
+        inspectorFocus.revealProjectScope(fileNaming: fileNaming)
     }
 
     func clearInspectorFileNamingFocus() {
-        inspectorFileNamingFocus = nil
+        inspectorFocus.clearFileNamingFocus()
     }
 
     func updateInspectorScopeForSelection() {
-        if inspectorInspectableInstance != nil {
-            inspectorPanelScope = .instance
-        } else {
-            inspectorPanelScope = .project
-        }
+        inspectorFocus.updateScopeForInstanceSelection(
+            hasInspectableInstance: inspectorInspectableInstance != nil
+        )
     }
 
     func renameProject(id: String, displayName: String) {
