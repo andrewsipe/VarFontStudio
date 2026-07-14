@@ -20,6 +20,16 @@ jobs:
           xcodebuild -version
           swift test
 
+      - name: App store tests
+        working-directory: Apps/VarFontStudio
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme VarFontStudio \
+            -destination 'platform=macOS' \
+            -only-testing:VarFontStudioTests \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

@@ -68,6 +68,10 @@
 		B2000040 /* MissingFontsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000039 /* MissingFontsSheet.swift */; };
 		B2000041 /* VarFontProjectType.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000040 /* VarFontProjectType.swift */; };
 		B2000042 /* StudioAppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000042 /* StudioAppPreferences.swift */; };
+		B2000065 /* InspectorFocusStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000065 /* InspectorFocusStoreTests.swift */; };
+		B2000066 /* ProjectWorkspaceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000066 /* ProjectWorkspaceStoreTests.swift */; };
+		B2000067 /* IssueResolverStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000067 /* IssueResolverStoreTests.swift */; };
+		B2000068 /* SaveReviewStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000068 /* SaveReviewStoreTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -133,7 +137,22 @@
 		F2000040 /* VarFontProjectType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontProjectType.swift; sourceTree = "<group>"; };
 		F2000042 /* StudioAppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioAppPreferences.swift; sourceTree = "<group>"; };
 		F2000041 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E2000002 /* VarFontStudioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VarFontStudioTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2000065 /* InspectorFocusStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorFocusStoreTests.swift; sourceTree = "<group>"; };
+		F2000066 /* ProjectWorkspaceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectWorkspaceStoreTests.swift; sourceTree = "<group>"; };
+		F2000067 /* IssueResolverStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueResolverStoreTests.swift; sourceTree = "<group>"; };
+		F2000068 /* SaveReviewStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		XP200001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR200001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T2000001;
+			remoteInfo = VarFontStudio;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C2000001 /* Frameworks */ = {
@@ -141,6 +160,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B2000009 /* VarFontCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -181,6 +207,7 @@
 				F2000021 /* WorkspaceDragSession.swift */,
 				G2000005 /* Views */,
 				F2000008 /* Assets.xcassets */,
+				G2000006 /* VarFontStudioTests */,
 				G2000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -189,6 +216,7 @@
 			isa = PBXGroup;
 			children = (
 				E2000001 /* VarFontStudio.app */,
+				E2000002 /* VarFontStudioTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -231,6 +259,18 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		G2000006 /* VarFontStudioTests */ = {
+			isa = PBXGroup;
+			children = (
+				F2000065 /* InspectorFocusStoreTests.swift */,
+				F2000066 /* ProjectWorkspaceStoreTests.swift */,
+				F2000067 /* IssueResolverStoreTests.swift */,
+				F2000068 /* SaveReviewStoreTests.swift */,
+			);
+			name = VarFontStudioTests;
+			path = ../VarFontStudioTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -255,6 +295,23 @@
 			productReference = E2000001 /* VarFontStudio.app */;
 			productType = "com.apple.product-type.application";
 		};
+		T2000002 /* VarFontStudioTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = X2000004 /* Build configuration list for PBXNativeTarget "VarFontStudioTests" */;
+			buildPhases = (
+				S2000002 /* Sources */,
+				C2000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D2000001 /* PBXTargetDependency */,
+			);
+			name = VarFontStudioTests;
+			productName = VarFontStudioTests;
+			productReference = E2000002 /* VarFontStudioTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -267,6 +324,10 @@
 				TargetAttributes = {
 					T2000001 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					T2000002 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = T2000001;
 					};
 				};
 			};
@@ -287,6 +348,7 @@
 			projectRoot = "";
 			targets = (
 				T2000001 /* VarFontStudio */,
+				T2000002 /* VarFontStudioTests */,
 			);
 		};
 /* End PBXProject section */
@@ -390,7 +452,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		S2000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2000065 /* InspectorFocusStoreTests.swift in Sources */,
+				B2000066 /* ProjectWorkspaceStoreTests.swift in Sources */,
+				B2000067 /* IssueResolverStoreTests.swift in Sources */,
+				B2000068 /* SaveReviewStoreTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D2000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T2000001 /* VarFontStudio */;
+			targetProxy = XP200001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		XC200001 /* Debug */ = {
@@ -497,6 +578,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				ENABLE_TESTABILITY = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 3;
 				DEAD_CODE_STRIPPING = YES;
@@ -548,6 +630,40 @@
 			};
 			name = Release;
 		};
+		XC200005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.goodfontscripts.VarFontStudioTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VarFontStudio.app/Contents/MacOS/VarFontStudio";
+			};
+			name = Debug;
+		};
+		XC200006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.goodfontscripts.VarFontStudioTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VarFontStudio.app/Contents/MacOS/VarFontStudio";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -565,6 +681,15 @@
 			buildConfigurations = (
 				XC200003 /* Debug */,
 				XC200004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		X2000004 /* Build configuration list for PBXNativeTarget "VarFontStudioTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				XC200005 /* Debug */,
+				XC200006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

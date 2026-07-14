@@ -287,3 +287,9 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/packaging/INSTAL
 # scripts/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/scripts/build-release.sh
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/scripts/bundle-python-runtime.sh
+
+# Apps/VarFontStudioTests/
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudioTests/InspectorFocusStoreTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudioTests/IssueResolverStoreTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudioTests/ProjectWorkspaceStoreTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudioTests/SaveReviewStoreTests.swift
