@@ -13,6 +13,9 @@
 		B2000044 /* IssueResolverStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000044 /* IssueResolverStore.swift */; };
 		B2000045 /* InspectorFocusStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000045 /* InspectorFocusStore.swift */; };
 		B2000046 /* ProjectWorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000046 /* ProjectWorkspaceStore.swift */; };
+		B2000047 /* EditorViewModel+SaveReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000047 /* EditorViewModel+SaveReview.swift */; };
+		B2000048 /* EditorViewModel+Export.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000048 /* EditorViewModel+Export.swift */; };
+		B2000049 /* EditorViewModel+IssueResolvers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000049 /* EditorViewModel+IssueResolvers.swift */; };
 		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
@@ -60,6 +63,9 @@
 		F2000044 /* IssueResolverStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueResolverStore.swift; sourceTree = "<group>"; };
 		F2000045 /* InspectorFocusStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorFocusStore.swift; sourceTree = "<group>"; };
 		F2000046 /* ProjectWorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectWorkspaceStore.swift; sourceTree = "<group>"; };
+		F2000047 /* EditorViewModel+SaveReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+SaveReview.swift"; sourceTree = "<group>"; };
+		F2000048 /* EditorViewModel+Export.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+Export.swift"; sourceTree = "<group>"; };
+		F2000049 /* EditorViewModel+IssueResolvers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+IssueResolvers.swift"; sourceTree = "<group>"; };
 		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
@@ -120,6 +126,9 @@
 				F2000044 /* IssueResolverStore.swift */,
 				F2000045 /* InspectorFocusStore.swift */,
 				F2000046 /* ProjectWorkspaceStore.swift */,
+				F2000047 /* EditorViewModel+SaveReview.swift */,
+				F2000048 /* EditorViewModel+Export.swift */,
+				F2000049 /* EditorViewModel+IssueResolvers.swift */,
 				F2000025 /* CommitPreflightSession.swift */,
 				F2000026 /* SourceFontAccess.swift */,
 				F2000027 /* SaveReviewWindowLifecycle.swift */,
@@ -280,6 +289,9 @@
 				B2000044 /* IssueResolverStore.swift in Sources */,
 				B2000045 /* InspectorFocusStore.swift in Sources */,
 				B2000046 /* ProjectWorkspaceStore.swift in Sources */,
+				B2000047 /* EditorViewModel+SaveReview.swift in Sources */,
+				B2000048 /* EditorViewModel+Export.swift in Sources */,
+				B2000049 /* EditorViewModel+IssueResolvers.swift in Sources */,
 				B2000023 /* InspectorSupport.swift in Sources */,
 				B2000019 /* EditorLayoutPreferences.swift in Sources */,
 				B2000013 /* OpenProject.swift in Sources */,
