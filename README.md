@@ -10,7 +10,7 @@ You define axis stops, generate the instance grid, tune naming, preview what wil
 
 ## Install (no Xcode required)
 
-Pre-built apps are on **[GitHub Releases](https://github.com/andrewsipe/VarFontEditor/releases)**.
+Pre-built apps are on **[GitHub Releases](https://github.com/andrewsipe/VarFontStudio/releases)**.
 
 ### Requirements
 
@@ -85,7 +85,7 @@ Swift package + Xcode app live in this repo.
 
 **Run from source:** open `VarFontStudio.xcworkspace` → scheme **VarFontStudio** → My Mac (⌘R).
 
-**Tests:** `swift test`
+**Tests:** `swift test` · `cd Tools/vfcommit && python3 -m pytest tests -q`
 
 **Build a release zip locally** (uses your Mac’s native Python arch):
 

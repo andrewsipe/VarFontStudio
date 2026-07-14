@@ -19,3 +19,16 @@ jobs:
           swift --version
           xcodebuild -version
           swift test
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python vfcommit tests
+        working-directory: Tools/vfcommit
+        run: |
+          python --version
+          python -m pip install -r requirements.txt pytest
+          # Live font files are not in the repo; integration tests skip when missing.
+          python -m pytest tests -q --tb=short
