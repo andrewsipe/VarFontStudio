@@ -60,6 +60,8 @@ final class EditorViewModel: ObservableObject {
     let issueResolvers = IssueResolverStore()
     /// Inspector scope / reveal / axis-tree focus chrome (Track B3).
     let inspectorFocus = InspectorFocusStore()
+    /// Workspace confirmations / missing-fonts / target picker (Track B4).
+    let workspace = ProjectWorkspaceStore()
     @Published var showShortcutsHelp = false
     @Published var searchText = ""
     @Published private(set) var instanceSearchFocusToken: UUID?
@@ -71,25 +73,8 @@ final class EditorViewModel: ObservableObject {
     @Published private(set) var instanceListDisplay = InstanceListDisplay.empty
     @Published private(set) var canSave = false
 
-    /// Confirmation for removing a dirty font file.
-    @Published var confirmRemoveFont: FontRemovalRequest?
-    /// Confirmation before moving a dirty font to another project.
-    @Published var confirmMoveFont: FontMoveRequest?
-    /// Confirmation before combining projects that contain dirty files.
-    @Published var confirmCombineProjects: ProjectCombineRequest?
-    /// Confirmation before splitting a font into a new project.
-    @Published var confirmSplitFont: FontSplitRequest?
-    /// Project workspace tab id pending close confirmation.
-    @Published var confirmCloseProjectID: String?
-    /// When true, app quit was requested while projects have unsaved state.
-    @Published var confirmQuitRequested = false
-    @Published var missingFontsRequest: MissingFontsRequest?
-    @Published var confirmSetAsMasterFontID: String?
-    @Published var confirmPushAxisTree = false
-    @Published var pendingAddFontProjectID: String?
-    /// Pick another open project as move/combine target.
-    @Published var projectTargetPickerMode: ProjectTargetPickerMode?
-
+    /// Workspace confirmations / missing-fonts / target picker (Track B4).
+    
     let workspaceDrag = WorkspaceDragCoordinator()
 
     private var debouncedPlanTask: Task<Void, Never>?
@@ -484,6 +469,12 @@ final class EditorViewModel: ObservableObject {
             .store(in: &cancellables)
 
         inspectorFocus.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        workspace.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
@@ -1583,7 +1574,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func presentAddFontPanel(projectID: String? = nil) {
-        pendingAddFontProjectID = projectID ?? activeProjectID
+        workspace.pendingAddFontProjectID = projectID ?? activeProjectID
         let panel = NSOpenPanel()
         panel.title = "Add Font to Project"
         panel.canChooseFiles = true
@@ -1593,8 +1584,8 @@ final class EditorViewModel: ObservableObject {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
-                await self?.addFont(at: url, toProjectID: self?.pendingAddFontProjectID ?? self?.activeProjectID)
-                self?.pendingAddFontProjectID = nil
+                await self?.addFont(at: url, toProjectID: self?.workspace.pendingAddFontProjectID ?? self?.activeProjectID)
+                self?.workspace.pendingAddFontProjectID = nil
             }
         }
     }
@@ -1717,7 +1708,7 @@ final class EditorViewModel: ObservableObject {
             if missing.isEmpty {
                 await finishOpeningProject(document: document, projectFileURL: normalized)
             } else {
-                missingFontsRequest = MissingFontsRequest(
+                workspace.missingFontsRequest = MissingFontsRequest(
                     projectFileURL: normalized,
                     document: document,
                     entries: missing
@@ -1737,7 +1728,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func locateMissingFont(fontID: String) {
-        guard var request = missingFontsRequest,
+        guard var request = workspace.missingFontsRequest,
               let entryIndex = request.entries.firstIndex(where: { $0.fontID == fontID }) else { return }
 
         let panel = NSOpenPanel()
@@ -1749,16 +1740,16 @@ final class EditorViewModel: ObservableObject {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             request.entries[entryIndex].resolvedURL = url.standardizedFileURL
-            self?.missingFontsRequest = request
+            self?.workspace.missingFontsRequest = request
         }
     }
 
     func cancelMissingFontsRequest() {
-        missingFontsRequest = nil
+        workspace.missingFontsRequest = nil
     }
 
     func completeMissingFontsRequest() {
-        guard let request = missingFontsRequest, request.allResolved else { return }
+        guard let request = workspace.missingFontsRequest, request.allResolved else { return }
         var document = request.document
         for entry in request.entries {
             guard let resolvedURL = entry.resolvedURL,
@@ -1766,7 +1757,7 @@ final class EditorViewModel: ObservableObject {
             document.fonts[fontIndex].sourcePath = resolvedURL.path
         }
         let projectURL = request.projectFileURL
-        missingFontsRequest = nil
+        workspace.missingFontsRequest = nil
         Task { @MainActor in
             await self.finishOpeningProject(document: document, projectFileURL: projectURL)
         }
@@ -1798,7 +1789,7 @@ final class EditorViewModel: ObservableObject {
 
     func handleApplicationTerminateRequest() -> Bool {
         guard firstProjectNeedingProjectFileSave() != nil else { return true }
-        confirmQuitRequested = true
+        workspace.confirmQuitRequested = true
         return false
     }
 
@@ -1816,7 +1807,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func confirmQuitDiscardAction() {
-        confirmQuitRequested = false
+        workspace.confirmQuitRequested = false
         for project in openProjects {
             clearSaveReviewState(forProjectID: project.id)
             for font in project.document.fonts {
@@ -1829,7 +1820,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func confirmQuitCancelAction() {
-        confirmQuitRequested = false
+        workspace.confirmQuitRequested = false
         NSApplication.shared.reply(toApplicationShouldTerminate: false)
     }
 
@@ -1843,7 +1834,7 @@ final class EditorViewModel: ObservableObject {
             confirmQuitSaveProjectAction()
             return
         }
-        confirmQuitRequested = false
+        workspace.confirmQuitRequested = false
         completeApplicationTermination()
     }
 
@@ -2119,12 +2110,12 @@ final class EditorViewModel: ObservableObject {
         guard openProjects.contains(where: { $0.id == projectID }),
               openProjects.first(where: { $0.id == projectID })?
                 .document.fonts.contains(where: { $0.id == fontID }) == true else { return }
-        confirmRemoveFont = FontRemovalRequest(projectID: projectID, fontID: fontID)
+        workspace.confirmRemoveFont = FontRemovalRequest(projectID: projectID, fontID: fontID)
     }
 
     func confirmRemoveFontAction() {
-        guard let request = confirmRemoveFont else { return }
-        confirmRemoveFont = nil
+        guard let request = workspace.confirmRemoveFont else { return }
+        workspace.confirmRemoveFont = nil
         removeFont(id: request.fontID, fromProjectID: request.projectID)
     }
 
@@ -2198,20 +2189,20 @@ final class EditorViewModel: ObservableObject {
     }
 
     func presentMoveFontPicker(fontID: String, fromProjectID: String) {
-        projectTargetPickerMode = .moveFont(fontID: fontID, fromProjectID: fromProjectID)
+        workspace.projectTargetPickerMode = .moveFont(fontID: fontID, fromProjectID: fromProjectID)
     }
 
     func presentCombineProjectsPicker(into targetProjectID: String) {
-        projectTargetPickerMode = .combineInto(targetProjectID: targetProjectID)
+        workspace.projectTargetPickerMode = .combineInto(targetProjectID: targetProjectID)
     }
 
     func cancelProjectTargetPicker() {
-        projectTargetPickerMode = nil
+        workspace.projectTargetPickerMode = nil
     }
 
     func completeProjectTargetPicker(selectedProjectID: String) {
-        guard let mode = projectTargetPickerMode else { return }
-        projectTargetPickerMode = nil
+        guard let mode = workspace.projectTargetPickerMode else { return }
+        workspace.projectTargetPickerMode = nil
         switch mode {
         case let .moveFont(fontID, fromProjectID):
             requestMoveFont(fontID: fontID, fromProjectID: fromProjectID, toProjectID: selectedProjectID)
@@ -2225,7 +2216,7 @@ final class EditorViewModel: ObservableObject {
               let fromIdx = openProjects.firstIndex(where: { $0.id == fromProjectID }),
               openProjects[fromIdx].document.fonts.contains(where: { $0.id == fontID }) else { return }
 
-        confirmMoveFont = FontMoveRequest(
+        workspace.confirmMoveFont = FontMoveRequest(
             fontID: fontID,
             fromProjectID: fromProjectID,
             toProjectID: toProjectID
@@ -2233,8 +2224,8 @@ final class EditorViewModel: ObservableObject {
     }
 
     func confirmMoveFontAction() {
-        guard let request = confirmMoveFont else { return }
-        confirmMoveFont = nil
+        guard let request = workspace.confirmMoveFont else { return }
+        workspace.confirmMoveFont = nil
         moveFont(
             fontID: request.fontID,
             fromProjectID: request.fromProjectID,
@@ -2280,12 +2271,12 @@ final class EditorViewModel: ObservableObject {
 
     func requestSplitFontToNewProject(fontID: String, fromProjectID: String) {
         guard canSplitFont(fontID: fontID, fromProjectID: fromProjectID) else { return }
-        confirmSplitFont = FontSplitRequest(fontID: fontID, fromProjectID: fromProjectID)
+        workspace.confirmSplitFont = FontSplitRequest(fontID: fontID, fromProjectID: fromProjectID)
     }
 
     func confirmSplitFontAction() {
-        guard let request = confirmSplitFont else { return }
-        confirmSplitFont = nil
+        guard let request = workspace.confirmSplitFont else { return }
+        workspace.confirmSplitFont = nil
         splitFontToNewProject(fontID: request.fontID, fromProjectID: request.fromProjectID)
     }
 
@@ -2341,15 +2332,15 @@ final class EditorViewModel: ObservableObject {
               openProjects.contains(where: { $0.id == sourceID }),
               openProjects.contains(where: { $0.id == targetID }) else { return }
 
-        confirmCombineProjects = ProjectCombineRequest(
+        workspace.confirmCombineProjects = ProjectCombineRequest(
             sourceProjectID: sourceID,
             targetProjectID: targetID
         )
     }
 
     func confirmCombineProjectsAction() {
-        guard let request = confirmCombineProjects else { return }
-        confirmCombineProjects = nil
+        guard let request = workspace.confirmCombineProjects else { return }
+        workspace.confirmCombineProjects = nil
         combineProjects(sourceID: request.sourceProjectID, intoTargetID: request.targetProjectID)
     }
 
@@ -2415,7 +2406,7 @@ final class EditorViewModel: ObservableObject {
     func requestCloseProject(id: String) {
         guard openProjects.contains(where: { $0.id == id }) else { return }
         if projectNeedsCloseConfirmation(projectID: id) {
-            confirmCloseProjectID = id
+            workspace.confirmCloseProjectID = id
             return
         }
         closeProject(id: id, force: true)
@@ -2431,24 +2422,24 @@ final class EditorViewModel: ObservableObject {
     }
 
     func confirmCloseProjectDiscardAction() {
-        guard let id = confirmCloseProjectID else { return }
-        confirmCloseProjectID = nil
+        guard let id = workspace.confirmCloseProjectID else { return }
+        workspace.confirmCloseProjectID = nil
         closeProject(id: id, force: true)
     }
 
     func confirmCloseProjectSaveAction() {
-        guard let projectID = confirmCloseProjectID,
+        guard let projectID = workspace.confirmCloseProjectID,
               let open = openProject(for: projectID) else { return }
         if let url = open.projectFileURL {
             Task { @MainActor in
                 await self.saveProject(document: open.document, to: url, projectID: projectID)
                 if self.openProject(for: projectID)?.projectFileDirty == false {
-                    self.confirmCloseProjectID = nil
+                    self.workspace.confirmCloseProjectID = nil
                     self.closeProject(id: projectID, force: true)
                 }
             }
         } else {
-            confirmCloseProjectID = projectID
+            workspace.confirmCloseProjectID = projectID
             presentSaveProjectAsPanelForClose(projectID: projectID)
         }
     }
@@ -2466,7 +2457,7 @@ final class EditorViewModel: ObservableObject {
             Task { @MainActor in
                 await self?.saveProject(document: open.document, to: normalized, projectID: projectID)
                 if self?.openProject(for: projectID)?.projectFileDirty == false {
-                    self?.confirmCloseProjectID = nil
+                    self?.workspace.confirmCloseProjectID = nil
                     self?.closeProject(id: projectID, force: true)
                 }
             }
@@ -2480,7 +2471,7 @@ final class EditorViewModel: ObservableObject {
     func closeProject(id: String, force: Bool) {
         guard let idx = openProjects.firstIndex(where: { $0.id == id }) else { return }
         if !force, projectNeedsCloseConfirmation(projectID: id) {
-            confirmCloseProjectID = id
+            workspace.confirmCloseProjectID = id
             return
         }
 
@@ -2809,21 +2800,21 @@ final class EditorViewModel: ObservableObject {
     }
 
     func requestSetAsMaster(fontID: String) {
-        confirmSetAsMasterFontID = fontID
+        workspace.confirmSetAsMasterFontID = fontID
     }
 
     func confirmSetAsMasterAction() {
-        guard let fontID = confirmSetAsMasterFontID else { return }
-        confirmSetAsMasterFontID = nil
+        guard let fontID = workspace.confirmSetAsMasterFontID else { return }
+        workspace.confirmSetAsMasterFontID = nil
         setFontAsMaster(fontID: fontID)
     }
 
     func requestPushMasterAxisTree() {
-        confirmPushAxisTree = true
+        workspace.confirmPushAxisTree = true
     }
 
     func confirmPushAxisTreeAction() {
-        confirmPushAxisTree = false
+        workspace.confirmPushAxisTree = false
         pushMasterAxisTreeToAllFonts()
     }
 

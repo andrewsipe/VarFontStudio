@@ -112,7 +112,7 @@ struct MainEditorView: View {
         .sheet(isPresented: $editor.showShortcutsHelp) {
             StudioShortcutsHelpView()
         }
-        .sheet(item: $editor.missingFontsRequest) { _ in
+        .sheet(item: missingFontsBinding) { _ in
             MissingFontsSheet()
                 .environmentObject(editor)
         }
@@ -141,10 +141,10 @@ struct MainEditorView: View {
                 editor.confirmRemoveFontAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmRemoveFont = nil
+                editor.workspace.confirmRemoveFont = nil
             }
         } message: {
-            if let request = editor.confirmRemoveFont {
+            if let request = editor.workspace.confirmRemoveFont {
                 Text(editor.removeFontConfirmationMessage(for: request))
             }
         }
@@ -153,7 +153,7 @@ struct MainEditorView: View {
             isPresented: closeProjectConfirmBinding,
             titleVisibility: .visible
         ) {
-            if let projectID = editor.confirmCloseProjectID,
+            if let projectID = editor.workspace.confirmCloseProjectID,
                editor.projectNeedsProjectFileSave(projectID: projectID) {
                 Button("Save Project") {
                     editor.confirmCloseProjectSaveAction()
@@ -163,16 +163,16 @@ struct MainEditorView: View {
                 editor.confirmCloseProjectDiscardAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmCloseProjectID = nil
+                editor.workspace.confirmCloseProjectID = nil
             }
         } message: {
-            if let projectID = editor.confirmCloseProjectID {
+            if let projectID = editor.workspace.confirmCloseProjectID {
                 Text(editor.closeProjectConfirmationMessage(for: projectID))
             }
         }
         .confirmationDialog(
             "Quit VarFont Studio?",
-            isPresented: $editor.confirmQuitRequested,
+            isPresented: quitConfirmBinding,
             titleVisibility: .visible
         ) {
             if editor.canSaveProjectOnQuit {
@@ -198,10 +198,10 @@ struct MainEditorView: View {
                 editor.confirmMoveFontAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmMoveFont = nil
+                editor.workspace.confirmMoveFont = nil
             }
         } message: {
-            if let request = editor.confirmMoveFont {
+            if let request = editor.workspace.confirmMoveFont {
                 Text(editor.moveFontConfirmationMessage(for: request))
             }
         }
@@ -214,10 +214,10 @@ struct MainEditorView: View {
                 editor.confirmCombineProjectsAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmCombineProjects = nil
+                editor.workspace.confirmCombineProjects = nil
             }
         } message: {
-            if let request = editor.confirmCombineProjects {
+            if let request = editor.workspace.confirmCombineProjects {
                 Text(editor.combineProjectsConfirmationMessage(for: request))
             }
         }
@@ -230,10 +230,10 @@ struct MainEditorView: View {
                 editor.confirmSplitFontAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmSplitFont = nil
+                editor.workspace.confirmSplitFont = nil
             }
         } message: {
-            if let request = editor.confirmSplitFont {
+            if let request = editor.workspace.confirmSplitFont {
                 Text(editor.splitFontConfirmationMessage(for: request))
             }
         }
@@ -246,21 +246,21 @@ struct MainEditorView: View {
                 editor.confirmSetAsMasterAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmSetAsMasterFontID = nil
+                editor.workspace.confirmSetAsMasterFontID = nil
             }
         } message: {
             Text("This file will become the shared axis-tree source for this project.")
         }
         .confirmationDialog(
             "Push to Tree?",
-            isPresented: $editor.confirmPushAxisTree,
+            isPresented: pushAxisTreeConfirmBinding,
             titleVisibility: .visible
         ) {
             Button("Push", role: .destructive) {
                 editor.confirmPushAxisTreeAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.confirmPushAxisTree = false
+                editor.workspace.confirmPushAxisTree = false
             }
         } message: {
             Text(editor.pushAxisTreeConfirmationMessage())
@@ -271,17 +271,38 @@ struct MainEditorView: View {
         }
     }
 
+    private var missingFontsBinding: Binding<MissingFontsRequest?> {
+        Binding(
+            get: { editor.workspace.missingFontsRequest },
+            set: { editor.workspace.missingFontsRequest = $0 }
+        )
+    }
+
+    private var quitConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.workspace.confirmQuitRequested },
+            set: { editor.workspace.confirmQuitRequested = $0 }
+        )
+    }
+
+    private var pushAxisTreeConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.workspace.confirmPushAxisTree },
+            set: { editor.workspace.confirmPushAxisTree = $0 }
+        )
+    }
+
     private var projectTargetPickerBinding: Binding<ProjectTargetPickerMode?> {
         Binding(
-            get: { editor.projectTargetPickerMode },
-            set: { editor.projectTargetPickerMode = $0 }
+            get: { editor.workspace.projectTargetPickerMode },
+            set: { editor.workspace.projectTargetPickerMode = $0 }
         )
     }
 
     private var removeFontConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.confirmRemoveFont != nil },
-            set: { if !$0 { editor.confirmRemoveFont = nil } }
+            get: { editor.workspace.confirmRemoveFont != nil },
+            set: { if !$0 { editor.workspace.confirmRemoveFont = nil } }
         )
     }
 
@@ -315,36 +336,36 @@ struct MainEditorView: View {
 
     private var closeProjectConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.confirmCloseProjectID != nil },
-            set: { if !$0 { editor.confirmCloseProjectID = nil } }
+            get: { editor.workspace.confirmCloseProjectID != nil },
+            set: { if !$0 { editor.workspace.confirmCloseProjectID = nil } }
         )
     }
 
     private var moveFontConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.confirmMoveFont != nil },
-            set: { if !$0 { editor.confirmMoveFont = nil } }
+            get: { editor.workspace.confirmMoveFont != nil },
+            set: { if !$0 { editor.workspace.confirmMoveFont = nil } }
         )
     }
 
     private var combineProjectsConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.confirmCombineProjects != nil },
-            set: { if !$0 { editor.confirmCombineProjects = nil } }
+            get: { editor.workspace.confirmCombineProjects != nil },
+            set: { if !$0 { editor.workspace.confirmCombineProjects = nil } }
         )
     }
 
     private var splitFontConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.confirmSplitFont != nil },
-            set: { if !$0 { editor.confirmSplitFont = nil } }
+            get: { editor.workspace.confirmSplitFont != nil },
+            set: { if !$0 { editor.workspace.confirmSplitFont = nil } }
         )
     }
 
     private var setAsMasterConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.confirmSetAsMasterFontID != nil },
-            set: { if !$0 { editor.confirmSetAsMasterFontID = nil } }
+            get: { editor.workspace.confirmSetAsMasterFontID != nil },
+            set: { if !$0 { editor.workspace.confirmSetAsMasterFontID = nil } }
         )
     }
 

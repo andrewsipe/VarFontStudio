@@ -7,7 +7,7 @@ struct MissingFontsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        if let request = editor.missingFontsRequest {
+        if let request = editor.workspace.missingFontsRequest {
             sheetContent(request)
         }
     }
