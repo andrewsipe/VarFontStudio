@@ -79,20 +79,21 @@ struct AxisStopTableHeader: View {
     }
 
     private var valueSortSymbol: String {
+        // Prefer .some/.none — `case true` on Bool? is not exhaustive under Xcode 16.4 WMO.
         switch valueSortAscending {
-        case true: return "chevron.up"
-        case false: return "chevron.down"
-        case nil: return "chevron.up.chevron.down"
+        case .some(true): return "chevron.up"
+        case .some(false): return "chevron.down"
+        case .none: return "chevron.up.chevron.down"
         }
     }
 
     private var valueSortHelp: String {
         switch valueSortAscending {
-        case true:
+        case .some(true):
             return "Sorted low → high. Click to sort high → low (affects Instance list order)."
-        case false:
+        case .some(false):
             return "Sorted high → low. Click to sort low → high (affects Instance list order)."
-        case nil:
+        case .none:
             return "Click to sort stops by value (affects Instance list order)."
         }
     }
