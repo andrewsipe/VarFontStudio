@@ -31,6 +31,12 @@ struct VarFontStudioApp: App {
             mainWindowCommands
         }
 
+        Settings {
+            StudioSettingsView()
+                .environmentObject(layout)
+                .environmentObject(editor)
+        }
+
         WindowGroup(id: "save-review", for: String.self) { $projectID in
             if let projectID {
                 SaveReviewWindow(projectID: projectID)
@@ -187,29 +193,6 @@ struct VarFontStudioApp: App {
                 }
                 .keyboardShortcut(InstanceInclusionCommands.excludeSelectionShortcut)
                 .disabled(editor.activeInstanceSelection.isEmpty)
-            }
-
-            CommandMenu("Preferences") {
-                Button {
-                    layout.defaultNameIDStrategy = .preserve
-                } label: {
-                    if layout.defaultNameIDStrategy == .preserve {
-                        Label("Preserve OpenType Feature Name IDs", systemImage: "checkmark")
-                    } else {
-                        Text("Preserve OpenType Feature Name IDs")
-                    }
-                }
-
-                Button {
-                    layout.defaultNameIDStrategy = .reflow
-                } label: {
-                    if layout.defaultNameIDStrategy == .reflow {
-                        Label("Repack feature labels (starting at ID 256)", systemImage: "checkmark")
-                    } else {
-                        Text("Repack feature labels (starting at ID 256)")
-                    }
-                }
-                .help("Renumbers internal OpenType feature name IDs so they start at 256, avoiding conflicts with reserved low IDs.")
             }
     }
 }

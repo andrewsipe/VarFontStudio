@@ -19,10 +19,11 @@ public enum CommitRequestBuilder {
             options: commitOptions(from: font.options, nameidStrategy: nameidStrategy),
             naming: namingForCommit(naming, axisTags: font.axes.map(\.tag), font: font),
             fileRole: font.fileRole,
-            axes: orderedAxes(font.axes, naming: naming),
+            axes: font.axes,
             includedInstanceKeys: includedInstanceKeys(font: font, plan: plan),
             fileStatRegistration: font.fileStatRegistration,
-            compoundStatValues: font.compoundStatValues
+            compoundStatValues: font.compoundStatValues,
+            statDesignAxisTags: resolvedDesignAxisTags(for: font)
         )
     }
 
@@ -41,17 +42,21 @@ public enum CommitRequestBuilder {
     }
 
     public static func orderedAxes(_ axes: [AxisDefinition], naming: NamingPolicy) -> [AxisDefinition] {
-        let byTag = Dictionary(uniqueKeysWithValues: axes.map { ($0.tag, $0) })
-        var ordered: [AxisDefinition] = []
-        for tag in naming.order {
-            if let axis = byTag[tag] {
-                ordered.append(axis)
-            }
+        axes
+    }
+
+    public static func resolvedDesignAxisTags(for font: FontDocument) -> [String] {
+        if !font.statDesignAxisTags.isEmpty {
+            return font.statDesignAxisTags
         }
-        for axis in axes where !naming.order.contains(axis.tag) {
-            ordered.append(axis)
-        }
-        return ordered
+        return font.axes.map(\.tag)
+    }
+
+    public static func resolvedFvarAxisTags(for font: FontDocument) -> [String] {
+        AxisOrderRealigner.fvarTagOrder(
+            from: font.axes.map(\.tag),
+            axes: font.axes
+        )
     }
 
     /// Always emit the live plan's included keys so vfcommit never treats an empty
@@ -78,7 +83,8 @@ public enum CommitRequestBuilder {
         )
     }
 
-    /// Pass-through commit options. fvar axis records are never rewritten on save.
+    /// Pass-through commit options. STAT DesignAxisRecord order may be rewritten on
+    /// save; fvar axis record order and scales are not.
     private static func commitOptions(
         from options: CommitOptions,
         nameidStrategy: NameIDStrategy? = nil

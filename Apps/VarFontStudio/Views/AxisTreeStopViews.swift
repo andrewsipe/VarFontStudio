@@ -7,6 +7,9 @@ struct AxisStopTableHeader: View {
     let showElidable: Bool
     var showDefaultMark: Bool = false
     var showRemoveSlot: Bool = true
+    /// `true` ascending, `false` descending, `nil` mixed / single stop.
+    var valueSortAscending: Bool? = nil
+    var onToggleValueSort: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 0) {
@@ -23,9 +26,7 @@ struct AxisStopTableHeader: View {
                 .foregroundStyle(.tertiary)
                 .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .leading)
 
-            Text("Value")
-                .font(StudioTypography.columnLabel)
-                .foregroundStyle(.tertiary)
+            valueHeader
                 .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
 
             Text("Name")
@@ -53,6 +54,47 @@ struct AxisStopTableHeader: View {
         }
         .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
         .padding(.bottom, 2)
+    }
+
+    @ViewBuilder
+    private var valueHeader: some View {
+        let label = HStack(spacing: 2) {
+            Text("Value")
+                .font(StudioTypography.columnLabel)
+            Image(systemName: valueSortSymbol)
+                .font(.system(size: 8, weight: .semibold))
+        }
+        .foregroundStyle(valueSortAscending == nil ? Color.secondary.opacity(0.7) : Color.accentColor.opacity(0.85))
+        .contentShape(Rectangle())
+        .help(valueSortHelp)
+
+        if let onToggleValueSort {
+            Button(action: onToggleValueSort) {
+                label
+            }
+            .buttonStyle(.plain)
+        } else {
+            label
+        }
+    }
+
+    private var valueSortSymbol: String {
+        switch valueSortAscending {
+        case true: return "chevron.up"
+        case false: return "chevron.down"
+        case nil: return "chevron.up.chevron.down"
+        }
+    }
+
+    private var valueSortHelp: String {
+        switch valueSortAscending {
+        case true:
+            return "Sorted low → high. Click to sort high → low (affects Instance list order)."
+        case false:
+            return "Sorted high → low. Click to sort low → high (affects Instance list order)."
+        case nil:
+            return "Click to sort stops by value (affects Instance list order)."
+        }
     }
 }
 
@@ -202,23 +244,21 @@ struct AxisTreeStopRow: View {
 
     @ViewBuilder
     private var removeSlot: some View {
-        if allowsRemove {
-            ZStack {
-                if isHovered {
-                    Button {
-                        confirmRemove = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: AxisBlockLayout.removeButtonSize))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Remove stop")
+        ZStack {
+            if allowsRemove, isHovered {
+                Button {
+                    confirmRemove = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: AxisBlockLayout.removeButtonSize))
+                        .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain)
+                .help("Remove stop")
             }
-            .frame(width: AxisBlockLayout.removeSlotWidth)
-            .padding(.leading, AxisBlockLayout.removeSlotLeadingGap)
         }
+        .frame(width: AxisBlockLayout.removeSlotWidth)
+        .padding(.leading, AxisBlockLayout.removeSlotLeadingGap)
     }
 
     @ViewBuilder

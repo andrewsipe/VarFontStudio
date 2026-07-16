@@ -15,6 +15,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
     public var includedInstanceKeys: [String]
     public var fileStatRegistration: [String: Double]
     public var compoundStatValues: [CompoundStatValue]
+    public var statDesignAxisTags: [String]
     public var originalSourcePath: String?
     public var allowInPlace: Bool
 
@@ -30,6 +31,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         case includedInstanceKeys = "included_instance_keys"
         case fileStatRegistration = "file_stat_registration"
         case compoundStatValues = "compound_stat_values"
+        case statDesignAxisTags = "stat_design_axis_tags"
         case originalSourcePath = "original_source_path"
         case allowInPlace = "allow_in_place"
     }
@@ -47,6 +49,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         includedInstanceKeys: [String] = [],
         fileStatRegistration: [String: Double] = [:],
         compoundStatValues: [CompoundStatValue] = [],
+        statDesignAxisTags: [String] = [],
         originalSourcePath: String? = nil,
         allowInPlace: Bool = false
     ) {
@@ -62,6 +65,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         self.includedInstanceKeys = includedInstanceKeys
         self.fileStatRegistration = fileStatRegistration
         self.compoundStatValues = compoundStatValues
+        self.statDesignAxisTags = statDesignAxisTags
         self.originalSourcePath = originalSourcePath
         self.allowInPlace = allowInPlace
     }
@@ -80,6 +84,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         includedInstanceKeys = try c.decodeIfPresent([String].self, forKey: .includedInstanceKeys) ?? []
         fileStatRegistration = try c.decodeIfPresent([String: Double].self, forKey: .fileStatRegistration) ?? [:]
         compoundStatValues = try c.decodeIfPresent([CompoundStatValue].self, forKey: .compoundStatValues) ?? []
+        statDesignAxisTags = try c.decodeIfPresent([String].self, forKey: .statDesignAxisTags) ?? []
         originalSourcePath = try c.decodeIfPresent(String.self, forKey: .originalSourcePath)
         allowInPlace = try c.decodeIfPresent(Bool.self, forKey: .allowInPlace) ?? false
     }

@@ -389,11 +389,55 @@ extension EditorViewModel {
             let previousValue = font.axes[axisIndex].values[stopIndex].value
             let wasRegistered = font.fileStatRegistration[axisTag]
                 .map { AxisCoordinate.valuesEqual($0, previousValue) } ?? false
+            // Preserve the user's ascending/descending preference when possible.
+            let preferAscending = Self.axisStopsValueSortAscending(font.axes[axisIndex].values) ?? true
             font.axes[axisIndex].values[stopIndex].value = clamped
-            font.axes[axisIndex].values.sort { $0.value < $1.value }
+            font.axes[axisIndex].values.sort {
+                preferAscending ? $0.value < $1.value : $0.value > $1.value
+            }
             if wasRegistered {
                 font.fileStatRegistration[axisTag] = clamped
             }
+        }
+    }
+
+    /// `true` when values are non-decreasing, `false` when non-increasing, else `nil`.
+    static func axisStopsValueSortAscending(_ values: [AxisValue]) -> Bool? {
+        guard values.count >= 2 else { return nil }
+        let ascending = zip(values, values.dropFirst()).allSatisfy { $0.value <= $1.value }
+        let descending = zip(values, values.dropFirst()).allSatisfy { $0.value >= $1.value }
+        if ascending && descending { return true }
+        if ascending { return true }
+        if descending { return false }
+        return nil
+    }
+
+    /// Toggles stop order between ascending and descending by value.
+    /// Instance planner products over this array order, so the Instance list follows.
+    func toggleAxisStopsValueSort(axisTag: String) {
+        guard var project,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }),
+              let axisIndex = project.fonts[fontIndex].axes.firstIndex(where: { $0.tag == axisTag }) else {
+            return
+        }
+        let values = project.fonts[fontIndex].axes[axisIndex].values
+        guard values.count >= 2 else { return }
+        let ascending = Self.axisStopsValueSortAscending(values) ?? true
+        let nextAscending = !ascending
+        let sorted = values.sorted {
+            nextAscending ? $0.value < $1.value : $0.value > $1.value
+        }
+        guard sorted.map(\.id) != values.map(\.id) else { return }
+
+        pushUndoSnapshot()
+        project.fonts[fontIndex].axes[axisIndex].values = sorted
+        project.fonts[fontIndex].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+        if let projectID = activeProjectID {
+            resortIncludedInstanceKeys(forProjectID: projectID)
         }
     }
 
@@ -479,14 +523,49 @@ extension EditorViewModel {
         markProjectFileDirty()
     }
 
-    func nameidStrategy(forProjectID projectID: String) -> NameIDStrategy {
-        openProjects.first(where: { $0.id == projectID })?.document.nameidStrategy ?? .preserve
+    func nameidStrategy(forProjectID projectID: String, fontID: String? = nil) -> NameIDStrategy {
+        guard let open = openProjects.first(where: { $0.id == projectID }) else {
+            return StudioAppPreferences.defaultNameIDStrategy
+        }
+        if let fontID,
+           let font = open.document.fonts.first(where: { $0.id == fontID }) {
+            return font.options.nameidStrategy
+        }
+        return open.document.nameidStrategy
     }
 
+    /// Review / export override for one file only — does not change Settings or other files.
+    func setNameIDStrategy(
+        forProjectID projectID: String,
+        fontID: String,
+        strategy: NameIDStrategy
+    ) {
+        guard let projectIndex = openProjects.firstIndex(where: { $0.id == projectID }),
+              let fontIndex = openProjects[projectIndex].document.fonts.firstIndex(where: { $0.id == fontID })
+        else { return }
+        guard openProjects[projectIndex].document.fonts[fontIndex].options.nameidStrategy != strategy else {
+            return
+        }
+        openProjects[projectIndex].document.fonts[fontIndex].options.nameidStrategy = strategy
+        openProjects[projectIndex].document.fonts[fontIndex].dirty = true
+        openProjects[projectIndex].document.modified = Date()
+        if activeProjectID == projectID {
+            project = openProjects[projectIndex].document
+        }
+        markProjectFileDirty(projectID: projectID)
+        publishOpenProjects()
+        clearSaveReviewState(forProjectID: projectID, fontID: fontID)
+        refreshCommitDiffPreview(forProjectID: projectID, fontID: fontID)
+    }
+
+    /// Legacy project-wide setter — prefer `setNameIDStrategy(forProjectID:fontID:)`.
     func setNameIDStrategy(forProjectID projectID: String, strategy: NameIDStrategy) {
         guard let index = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
         var document = openProjects[index].document
-        guard document.nameidStrategy != strategy else { return }
+        guard document.nameidStrategy != strategy
+            || document.fonts.contains(where: { $0.options.nameidStrategy != strategy }) else {
+            return
+        }
         document.nameidStrategy = strategy
         document.syncNameIDStrategyToFonts()
         openProjects[index].document = document

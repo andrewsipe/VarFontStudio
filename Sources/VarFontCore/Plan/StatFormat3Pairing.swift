@@ -67,7 +67,7 @@ public enum StatFormat3Pairing {
         return warnings
     }
 
-    /// Format 3 links that follow registered axis conventions (e.g. ital 0↔1, wght 400↔700) do not
+    /// Format 3 links that follow registered axis conventions (e.g. ital 0↔1, wght 400→700) do not
     /// require a named stop at the linked coordinate.
     public static func isConventionStyleLink(
         axis: AxisDefinition,
@@ -85,10 +85,8 @@ public enum StatFormat3Pairing {
                 return true
             }
         case "wght":
+            // STAT style-linking maps non-bold → bold (Regular 400 → Bold 700), not the reverse.
             if AxisCoordinate.valuesEqual(stop.value, 400), AxisCoordinate.valuesEqual(linked, 700) {
-                return true
-            }
-            if AxisCoordinate.valuesEqual(stop.value, 700), AxisCoordinate.valuesEqual(linked, 400) {
                 return true
             }
         default:
@@ -116,7 +114,7 @@ public enum StatFormat3Pairing {
             if axis.tag == "ital" {
                 hint = "Format 3 expresses Roman↔Italic style linking without requiring a named stop at the linked value."
             } else {
-                hint = "Format 3 expresses Regular↔Bold weight linking without requiring a named stop at the linked value."
+                hint = "Format 3 expresses Regular→Bold weight style-linking without requiring a named stop at the linked value."
             }
             warnings.append(
                 PlanWarning(
@@ -143,8 +141,8 @@ public enum StatFormat3Pairing {
             if AxisCoordinate.valuesEqual(stopValue, 0) { return 1 }
             if AxisCoordinate.valuesEqual(stopValue, 1) { return 0 }
         case "wght":
+            // Only Regular → Bold. Bold does not need a reverse Format 3 link.
             if AxisCoordinate.valuesEqual(stopValue, 400) { return 700 }
-            if AxisCoordinate.valuesEqual(stopValue, 700) { return 400 }
         default:
             break
         }

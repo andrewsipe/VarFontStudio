@@ -130,7 +130,7 @@ public enum SaveReviewRowFormatter {
     }.joined(separator: " ")
   }
 
-  public static let fvarProtectedNote = "read-only — design space is not written on save"
+  public static let fvarProtectedNote = "read-only — fvar axis order and scales are not written on save"
 
   public static func fvarAxisFieldTitle(displayName: String?, tag: String) -> String {
     let label = displayName ?? tag

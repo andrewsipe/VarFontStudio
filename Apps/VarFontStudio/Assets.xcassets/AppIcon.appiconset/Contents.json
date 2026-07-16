@@ -1,61 +1,61 @@
 {
   "images" : [
     {
-      "filename" : "VarFontStudio-6.png",
+      "filename" : "Varf16.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "16x16"
     },
     {
-      "filename" : "VarFontStudio-5.png",
+      "filename" : "Varf32 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "16x16"
     },
     {
-      "filename" : "VarFontStudio-5 1.png",
+      "filename" : "Varf32.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "32x32"
     },
     {
-      "filename" : "VarFontStudio-4.png",
+      "filename" : "Varf64.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "32x32"
     },
     {
-      "filename" : "VarFontStudio-3.png",
+      "filename" : "Varf128.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "128x128"
     },
     {
-      "filename" : "VarFontStudio-2 1.png",
+      "filename" : "Varf256 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "128x128"
     },
     {
-      "filename" : "VarFontStudio-2.png",
+      "filename" : "Varf256.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "256x256"
     },
     {
-      "filename" : "VarFontStudio-1 1.png",
+      "filename" : "Varf512 1.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "256x256"
     },
     {
-      "filename" : "VarFontStudio-1.png",
+      "filename" : "Varf512.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "512x512"
     },
     {
-      "filename" : "VarFontStudio.png",
+      "filename" : "Varf1024.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "512x512"

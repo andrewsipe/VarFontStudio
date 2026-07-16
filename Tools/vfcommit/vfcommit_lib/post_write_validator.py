@@ -29,6 +29,8 @@ class ValidationIssue:
 class ValidationExpectations:
     instances_written: Optional[int] = None
     elided_fallback_name: Optional[str] = None
+    design_axis_tags: Optional[List[str]] = None
+    fvar_axis_tags: Optional[List[str]] = None
 
 
 @dataclass
@@ -88,6 +90,15 @@ def validate_written_font(
 
     if "fvar" in font:
         axes = font["fvar"].axes
+        if expectations and expectations.fvar_axis_tags is not None:
+            written_fvar = [axis.axisTag for axis in axes]
+            if written_fvar != list(expectations.fvar_axis_tags):
+                _add(
+                    issues,
+                    "fvar_axis_order_mismatch",
+                    "error",
+                    f"fvar axis order is {written_fvar!r}; expected {expectations.fvar_axis_tags!r}",
+                )
         axis_ranges = {
             axis.axisTag: (float(axis.minValue), float(axis.maxValue))
             for axis in axes
@@ -159,6 +170,25 @@ def validate_written_font(
         design_axes = list(getattr(design, "Axis", []) or []) if design else []
         if not design_axes:
             _add(issues, "stat_no_design_axes", "error", "STAT DesignAxisRecord.Axis is empty")
+        elif expectations and expectations.design_axis_tags is not None:
+            written_design = [getattr(ax, "AxisTag", "?") for ax in design_axes]
+            if written_design != list(expectations.design_axis_tags):
+                _add(
+                    issues,
+                    "design_axis_order_mismatch",
+                    "error",
+                    f"STAT design axis order is {written_design!r}; expected {expectations.design_axis_tags!r}",
+                )
+            for index, axis in enumerate(design_axes):
+                expected_ordering = getattr(axis, "AxisOrdering", None)
+                if expected_ordering is not None and int(expected_ordering) != index:
+                    tag = getattr(axis, "AxisTag", "?")
+                    _add(
+                        issues,
+                        "design_axis_ordering_mismatch",
+                        "error",
+                        f"STAT design axis {tag}: AxisOrdering={expected_ordering}; expected {index}",
+                    )
 
         axis_values = getattr(stat, "AxisValueArray", None)
         value_records = list(getattr(axis_values, "AxisValue", []) or []) if axis_values else []

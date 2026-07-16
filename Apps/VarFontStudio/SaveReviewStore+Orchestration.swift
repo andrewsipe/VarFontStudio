@@ -315,7 +315,7 @@ extension SaveReviewStore {
             plan: plan,
             outputPath: outputPath,
             dryRun: true,
-            nameidStrategy: projectDoc.nameidStrategy
+            nameidStrategy: font.options.nameidStrategy
         )
 
         beginLoading(projectID: targetProjectID, fontID: targetFontID)
@@ -366,7 +366,7 @@ extension SaveReviewStore {
                     plan: plan,
                     outputPath: outputPath,
                     dryRun: false,
-                    nameidStrategy: projectDoc.nameidStrategy
+                    nameidStrategy: font.options.nameidStrategy
                 )
                 writeRequest.sourcePath = helperSourcePath
                 let session = CommitPreflightSession(
@@ -395,7 +395,7 @@ extension SaveReviewStore {
                 plan: plan,
                 outputPath: outputPath,
                 dryRun: false,
-                nameidStrategy: projectDoc.nameidStrategy
+                nameidStrategy: font.options.nameidStrategy
             )
             writeRequest.sourcePath = dryRunRequest.sourcePath
             let failedSession = CommitPreflightSession(

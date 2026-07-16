@@ -182,6 +182,25 @@ final class OpenTypeAxisAuditTests: XCTestCase {
             role: .instance,
             values: [
                 AxisValue(
+                    id: "regular",
+                    value: 400,
+                    name: "Regular",
+                    elidable: true,
+                    statFormat: 3,
+                    linkedValue: 700
+                ),
+            ]
+        )
+        XCTAssertTrue(StatFormat3Pairing.isConventionStyleLink(axis: axis, stop: axis.values[0]))
+        XCTAssertTrue(StatFormat3Pairing.orphanLinkWarnings(for: axis).isEmpty)
+    }
+
+    func testWghtBoldToRegularIsNotConventionAndIsNotSuggested() {
+        let boldFormat3 = AxisDefinition(
+            tag: "wght",
+            role: .instance,
+            values: [
+                AxisValue(
                     id: "bold",
                     value: 700,
                     name: "Bold",
@@ -191,7 +210,27 @@ final class OpenTypeAxisAuditTests: XCTestCase {
                 ),
             ]
         )
-        XCTAssertTrue(StatFormat3Pairing.isConventionStyleLink(axis: axis, stop: axis.values[0]))
-        XCTAssertTrue(StatFormat3Pairing.orphanLinkWarnings(for: axis).isEmpty)
+        XCTAssertFalse(StatFormat3Pairing.isConventionStyleLink(axis: boldFormat3, stop: boldFormat3.values[0]))
+        XCTAssertEqual(StatFormat3Pairing.orphanLinkWarnings(for: boldFormat3).count, 1)
+
+        let bothFormat1 = FontDocument(
+            id: "f1",
+            sourcePath: "/tmp/font.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "wght",
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "regular", value: 400, name: "Regular", elidable: true, statFormat: 1),
+                        AxisValue(id: "bold", value: 700, name: "Bold", elidable: false, statFormat: 1),
+                    ]
+                ),
+            ]
+        )
+        let warnings = RegistrationAxisSupport.wghtFormat1UpgradeWarnings(font: bothFormat1)
+        XCTAssertEqual(warnings.count, 1)
+        XCTAssertEqual(warnings[0].stopIDs, ["regular"])
+        XCTAssertNil(StatFormat3Pairing.format3LinkedValue(for: 700, axisTag: "wght"))
+        XCTAssertEqual(StatFormat3Pairing.format3LinkedValue(for: 400, axisTag: "wght"), 700)
     }
 }

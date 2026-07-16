@@ -43,8 +43,12 @@ struct CommitDiffReviewView: View {
             if let activeTab, !session.presentation.tabs.isEmpty {
                 headlineView(for: activeTab)
                     .padding(.horizontal, SaveReviewLayout.horizontalPadding)
-                    .padding(.top, 10)
-                    .padding(.bottom, 2)
+                    .padding(.vertical, SaveReviewLayout.toolRowVerticalPadding)
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: SaveReviewLayout.toolRowMinHeight,
+                        alignment: .leading
+                    )
                 rowScrollContent(for: activeTab)
                     .layoutPriority(1)
             } else if session.preflight.ok {
@@ -219,8 +223,8 @@ struct CommitDiffReviewView: View {
                 nameidStrategyPreference
             }
             .padding(.horizontal, SaveReviewLayout.horizontalPadding)
-            .padding(.vertical, 6)
-            .frame(minHeight: 34)
+            .padding(.vertical, SaveReviewLayout.toolRowVerticalPadding)
+            .frame(minHeight: SaveReviewLayout.toolRowMinHeight)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(StudioColors.surfaceStroke).frame(height: 0.5)
             }
@@ -230,8 +234,8 @@ struct CommitDiffReviewView: View {
 
     private var nameidStrategyPreference: some View {
         let strategy = Binding<NameIDStrategy>(
-            get: { editor.nameidStrategy(forProjectID: projectID) },
-            set: { editor.setNameIDStrategy(forProjectID: projectID, strategy: $0) }
+            get: { editor.nameidStrategy(forProjectID: projectID, fontID: session.fontID) },
+            set: { editor.setNameIDStrategy(forProjectID: projectID, fontID: session.fontID, strategy: $0) }
         )
         return HStack(spacing: 8) {
             Text("OpenType labels")
@@ -248,7 +252,10 @@ struct CommitDiffReviewView: View {
             .disabled(editor.isSaveReviewLoading(forProjectID: projectID, fontID: session.fontID))
         }
         .layoutPriority(1)
-        .help("Preserve keeps existing feature name IDs. Repack renumbers them to start at 256, avoiding conflicts with reserved low IDs.")
+        .help(
+            "Override for this file only. "
+                + "App Settings sets the default for other files and new imports."
+        )
     }
 
     @ViewBuilder

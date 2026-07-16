@@ -36,6 +36,7 @@ from vfcommit_lib.request_bridge import (
     grid_axis_defs,
     pinned_coords,
 )
+from vfcommit_lib.axis_order_rewriter import reorder_axis_tables
 from vfcommit_lib.stat_builder import (
     apply_table_edits,
     build_protected_name_ids,
@@ -70,6 +71,9 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         for tag, value in (request.get("file_stat_registration") or {}).items()
     }
     compound_json = list(request.get("compound_stat_values") or [])
+    design_axis_tags = list(request.get("stat_design_axis_tags") or [])
+    if not design_axis_tags:
+        design_axis_tags = [str(axis["tag"]) for axis in axes_json]
 
     naming_order = naming_order_with_defaults(naming)
     clarifiers = parse_clarifiers(file_role)
@@ -249,6 +253,13 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             shutil.copy2(out_resolved, backup_path)
 
         working = deepcopy(font)
+        source_fvar_axis_tags = (
+            [ax.axisTag for ax in working["fvar"].axes] if "fvar" in working else []
+        )
+        reorder_axis_tables(
+            working,
+            design_axis_tags=design_axis_tags,
+        )
         apply_table_edits(
             working,
             axis_defs,
@@ -280,6 +291,10 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             expectations=ValidationExpectations(
                 instances_written=instances_to_write,
                 elided_fallback_name=elided_fallback,
+                design_axis_tags=design_axis_tags,
+                # fvar axis record order is locked to the source font (variation data
+                # is index-parallel). Assert it was not rewritten on save.
+                fvar_axis_tags=source_fvar_axis_tags or None,
             ),
         )
 

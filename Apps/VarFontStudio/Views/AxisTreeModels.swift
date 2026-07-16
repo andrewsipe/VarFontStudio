@@ -71,6 +71,70 @@ enum AxisDetailSpacing {
     static let lastStopToAddButtonGap: CGFloat = StudioSpacing.controlGap
 }
 
+// MARK: - Axis header reorder drag
+
+struct AxisTreeAxisDragSession {
+    var draggingTag: String?
+    private(set) var originalTags: [String] = []
+    private(set) var fromIndex: Int = 0
+    var targetGapIndex: Int?
+    /// Top-leading origin of the ghost in the reorder coordinate space.
+    var ghostOrigin: CGPoint = .zero
+    /// Pointer offset within the header when the drag began (keeps ghost under finger).
+    var grabOffset: CGSize = .zero
+    /// Header size captured at drag start so the ghost matches the live bar.
+    var ghostSize: CGSize = .zero
+    /// Header frames frozen at drag start so drop-gap insertion doesn't jitter hit-testing.
+    var frozenHeaderFrames: [String: CGRect] = [:]
+    /// After a completed drag, ignore the synthetic click that would toggle expansion.
+    var suppressNextExpansionToggle = false
+
+    var isDragging: Bool { draggingTag != nil }
+
+    /// True when the pointer is over a gap that would actually move the axis.
+    var showsDropGap: Bool {
+        guard let gap = targetGapIndex else { return false }
+        return gap != fromIndex && gap != fromIndex + 1
+    }
+
+    mutating func begin(
+        tag: String,
+        axisTags: [String],
+        grabOffset: CGSize,
+        ghostOrigin: CGPoint,
+        ghostSize: CGSize,
+        headerFrames: [String: CGRect]
+    ) {
+        draggingTag = tag
+        originalTags = axisTags
+        fromIndex = axisTags.firstIndex(of: tag) ?? 0
+        targetGapIndex = nil
+        self.grabOffset = grabOffset
+        self.ghostOrigin = ghostOrigin
+        self.ghostSize = ghostSize
+        frozenHeaderFrames = headerFrames
+        suppressNextExpansionToggle = true
+    }
+
+    mutating func updateGhost(at location: CGPoint) {
+        ghostOrigin = CGPoint(
+            x: location.x - grabOffset.width,
+            y: location.y - grabOffset.height
+        )
+    }
+
+    mutating func reset() {
+        draggingTag = nil
+        targetGapIndex = nil
+        originalTags = []
+        fromIndex = 0
+        ghostOrigin = .zero
+        grabOffset = .zero
+        ghostSize = .zero
+        frozenHeaderFrames = [:]
+    }
+}
+
 
 // MARK: - Axis block layout
 
@@ -111,5 +175,13 @@ enum AxisBlockLayout {
     /// needing a separately hand-tuned offset to agree with it.
     static let removeSlotWidth: CGFloat = removeButtonSize + 4
     static let removeSlotLeadingGap: CGFloat = 6
+}
+
+struct AxisHeaderFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] { [:] }
+
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
 }
 

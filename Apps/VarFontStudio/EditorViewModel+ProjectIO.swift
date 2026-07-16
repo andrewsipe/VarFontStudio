@@ -213,6 +213,13 @@ extension EditorViewModel {
         selectedInstanceKeys = []
         selectedAxisStopID = nil
         clearUndoHistory()
+        // Axis Tree is primary: bring naming chips in line without forcing a dirty save
+        // unless the project would already need one for other reasons.
+        _ = reconcileNamingToAxisTreeOrder(
+            projectID: open.id,
+            authorityFontID: open.selectedFontID,
+            markProjectDirtyIfChanged: false
+        )
         regeneratePlan()
         canSave = document.fonts.contains(where: \.dirty)
         postStatusMessage("Opened project — \(projectFileURL.lastPathComponent)")
@@ -339,6 +346,11 @@ extension EditorViewModel {
             selectedInstanceKeys = []
             selectedAxisStopID = nil
             clearUndoHistory()
+            _ = reconcileNamingToAxisTreeOrder(
+                projectID: open.id,
+                authorityFontID: open.selectedFontID,
+                markProjectDirtyIfChanged: true
+            )
             regeneratePlan()
             postStatusMessage("Opened \(url.lastPathComponent)")
             canSave = false
@@ -388,6 +400,12 @@ extension EditorViewModel {
             if selectAfterAdd, let newFontID {
                 selectFont(id: newFontID)
             }
+            // Keep family naming chips aligned to the newly selected / added Axis Tree.
+            _ = reconcileNamingToAxisTreeOrder(
+                projectID: targetID,
+                authorityFontID: newFontID ?? openProjects[idx].selectedFontID,
+                markProjectDirtyIfChanged: true
+            )
             publishOpenProjects()
             regeneratePlan()
             postStatusMessage("Added \(url.lastPathComponent)")

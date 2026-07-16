@@ -142,13 +142,20 @@ private struct ProjectTabChip: View {
                     .padding(.vertical, 1)
                     .background(.quaternary.opacity(0.5), in: Capsule())
 
-                StudioToolbarIconMenu(help: "Project actions") {
-                    ProjectTabContextMenu(projectID: openProject.id)
+                StudioToolbarIconButton(
+                    systemName: "xmark.circle",
+                    help: "Close project"
+                ) {
+                    editor.requestCloseProject(id: openProject.id)
                 }
             }
         }
         .contextMenu {
-            ProjectTabContextMenu(projectID: openProject.id)
+            Button(role: .destructive) {
+                editor.requestCloseProject(id: openProject.id)
+            } label: {
+                Label("Close Project", systemImage: "xmark.circle")
+            }
         }
         .background {
             GeometryReader { geometry in
@@ -157,19 +164,6 @@ private struct ProjectTabChip: View {
                     value: [openProject.id: geometry.frame(in: .global)]
                 )
             }
-        }
-    }
-}
-
-private struct ProjectTabContextMenu: View {
-    @EnvironmentObject private var editor: EditorViewModel
-    let projectID: String
-
-    var body: some View {
-        Button(role: .destructive) {
-            editor.requestCloseProject(id: projectID)
-        } label: {
-            Label("Close Project", systemImage: "xmark.circle")
         }
     }
 }

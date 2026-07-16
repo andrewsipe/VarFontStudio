@@ -156,21 +156,48 @@ public enum SaveReviewPresentationBuilder {
   ) -> SaveReviewTabPresentation {
     var sections: [SaveReviewSectionPresentation] = []
 
-    let fvarAxes = font.axes.filter(\.hasFvarScale)
-    let axisRows = fvarAxes.enumerated().map { index, axis -> SaveReviewRowPresentation in
-      let noteParts = fvarAxisNoteLines(axisTag: axis.tag, analysis: analysis, font: font)
+    // fvar axis records are not rewritten on save — list them in the source font's
+    // fvar order with matching Axis[n] indices, not project/STAT tree order.
+    let projectByTag = Dictionary(
+      uniqueKeysWithValues: font.axes.filter(\.hasFvarScale).map { ($0.tag, $0) }
+    )
+    var seen = Set<String>()
+    var orderedFvarTags: [String] = []
+    for axis in analysis.axes where axis.roleInferred != .designRecordOnly {
+      if seen.insert(axis.tag).inserted {
+        orderedFvarTags.append(axis.tag)
+      }
+    }
+    for axis in font.axes where axis.hasFvarScale {
+      if seen.insert(axis.tag).inserted {
+        orderedFvarTags.append(axis.tag)
+      }
+    }
+
+    let sourceByTag = Dictionary(
+      uniqueKeysWithValues: analysis.axes
+        .filter { $0.roleInferred != .designRecordOnly }
+        .map { ($0.tag, $0) }
+    )
+
+    let axisRows = orderedFvarTags.enumerated().compactMap { index, tag -> SaveReviewRowPresentation? in
+      let project = projectByTag[tag]
+      let source = sourceByTag[tag]
+      let displayName = project?.displayName ?? source?.displayName
+      let noteParts = fvarAxisNoteLines(axisTag: tag, analysis: analysis, font: font)
       let noteLine = noteParts.isEmpty
         ? SaveReviewRowFormatter.fvarProtectedNote
         : ([SaveReviewRowFormatter.fvarProtectedNote] + noteParts).joined(separator: " · ")
-      let fieldTitle = SaveReviewRowFormatter.fvarAxisFieldTitle(displayName: axis.displayName, tag: axis.tag)
+      let fieldTitle = SaveReviewRowFormatter.fvarAxisFieldTitle(displayName: displayName, tag: tag)
       let fieldSubtitle = SaveReviewRowFormatter.fvarAxisFieldSubtitle(index: index)
+      // Scales shown are the source fvar values that remain on disk (not rewritten).
       let afterValue = SaveReviewRowFormatter.fvarAxisAfterValue(
-        min: axis.min,
-        default: axis.default,
-        max: axis.max
+        min: source?.min ?? project?.min,
+        default: source?.default ?? project?.default,
+        max: source?.max ?? project?.max
       )
       return SaveReviewRowPresentation(
-        id: "fvar:axis:\(axis.tag)",
+        id: "fvar:axis:\(tag)",
         fieldTitle: fieldTitle,
         fieldSubtitle: fieldSubtitle,
         afterValue: afterValue,
@@ -189,7 +216,9 @@ public enum SaveReviewPresentationBuilder {
       )
     }
     if !axisRows.isEmpty {
-      sections.append(SaveReviewSectionPresentation(title: "Axes", rows: axisRows))
+      sections.append(
+        SaveReviewSectionPresentation(title: "Axes (source fvar order)", rows: axisRows)
+      )
     }
 
     let instanceRows = report.instanceRows.enumerated().flatMap { index, row in
@@ -200,7 +229,7 @@ public enum SaveReviewPresentationBuilder {
     return tabPresentation(
       id: .fvar,
       label: SaveReviewTableTab.fvar.label,
-      headline: "fvar instances (axes are read-only)",
+      headline: "fvar instances (axis record order + scales are read-only)",
       sections: sections
     )
   }

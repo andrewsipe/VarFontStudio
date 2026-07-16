@@ -13,6 +13,9 @@ struct AxisTreePanel: View {
     @State private var tabKeyMonitor: TabKeyMonitor?
     @State private var activeTabNavigation: ((Bool) -> Void)?
     @State private var activeTabStopID: String?
+    @State private var axisDragSession = AxisTreeAxisDragSession()
+    @State private var axisHeaderFrames: [String: CGRect] = [:]
+    private let axisReorderCoordinateSpace = "axisTreeAxisReorder"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -286,13 +289,29 @@ struct AxisTreePanel: View {
         if let font = editor.selectedFont {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(font.axes.enumerated()), id: \.element.id) { index, axis in
-                    if index > 0 {
+                    if shouldShowAxisDropGap(before: index) {
+                        axisReorderDropGap(
+                            height: max(axisDragSession.ghostSize.height, 36)
+                        )
+                        .padding(.vertical, StudioSpacing.rowGap)
+                    } else if index > 0 {
                         Divider()
                             .padding(.vertical, StudioSpacing.rowGap)
+                            .opacity(axisDragSession.draggingTag == axis.tag ? 0.2 : 1)
                     }
-                    axisBlock(axis)
+                    axisBlock(axis, axisIndex: index)
                         .id(axis.tag)
                 }
+                if shouldShowAxisDropGap(before: font.axes.count) {
+                    axisReorderDropGap(
+                        height: max(axisDragSession.ghostSize.height, 36)
+                    )
+                    .padding(.top, StudioSpacing.rowGap)
+                }
+            }
+            .coordinateSpace(name: axisReorderCoordinateSpace)
+            .overlay(alignment: .topLeading) {
+                axisReorderGhostOverlay
             }
 
             if !font.compoundStatValues.isEmpty {
@@ -303,7 +322,7 @@ struct AxisTreePanel: View {
     }
 
     @ViewBuilder
-    private func axisBlock(_ axis: AxisDefinition) -> some View {
+    private func axisBlock(_ axis: AxisDefinition, axisIndex: Int) -> some View {
         let isExpanded = expandedAxes.contains(axis.tag)
         let resolvableWarnings = axisPlanWarnings(for: axis.tag)
             .filter { PlanIssueCodes.resolvable.contains($0.code) }
@@ -324,7 +343,7 @@ struct AxisTreePanel: View {
                     editor.setFileStatRegistration(tag: axis.tag, value: stop.value, forFontID: font.id)
                 } : nil,
                 isInstanceAxis: instanceAxisBinding(for: axis.tag),
-                onToggleExpansion: { toggleExpansion(for: axis.tag) },
+                onToggleExpansion: { toggleAxisExpansion(for: axis.tag) },
                 onResolveConflict: {
                     editor.presentConflictResolver(for: axis.tag)
                 },
@@ -332,12 +351,180 @@ struct AxisTreePanel: View {
                     editor.presentFirstResolvablePlanIssue(on: axis.tag)
                 }
             )
+            .opacity(axisDragSession.draggingTag == axis.tag ? 0.28 : 1)
+            .overlay {
+                if axisDragSession.draggingTag == axis.tag {
+                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        .strokeBorder(
+                            Color.secondary.opacity(0.35),
+                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                        )
+                }
+            }
+            .contentShape(Rectangle())
+            .simultaneousGesture(axisReorderPressThenDragGesture(for: axis.tag))
+            .help("Click to expand · click and hold to reorder")
+            .background {
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: AxisHeaderFramePreferenceKey.self,
+                        value: [axis.tag: proxy.frame(in: .named(axisReorderCoordinateSpace))]
+                    )
+                }
+            }
+            .onPreferenceChange(AxisHeaderFramePreferenceKey.self) { frames in
+                axisHeaderFrames.merge(frames) { _, new in new }
+            }
 
-            if isExpanded {
+            if isExpanded, axisDragSession.draggingTag != axis.tag {
                 axisDetail(axis)
                     .padding(.top, 4)
+                    .padding(.leading, AxisBlockLayout.stopIndentWidth)
             }
         }
+    }
+
+    @ViewBuilder
+    private var axisReorderGhostOverlay: some View {
+        if let tag = axisDragSession.draggingTag,
+           let axis = editor.selectedFont?.axes.first(where: { $0.tag == tag }) {
+            let width = max(axisDragSession.ghostSize.width, 120)
+            AxisTreeAxisHeader(
+                axis: axis,
+                isExpanded: expandedAxes.contains(tag),
+                hasConflict: false,
+                axisWarnings: [],
+                resolvablePlanWarnings: [],
+                fileRegistrationLabel: axis.lane == .registration ? registrationLabel(for: axis) : nil,
+                registrationStops: axis.lane == .registration ? axis.values : [],
+                selectedRegistrationStopID: registrationStopID(for: axis),
+                isInstanceAxis: .constant(axis.role == .instance),
+                onToggleExpansion: {}
+            )
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .frame(width: width, alignment: .leading)
+            .background(
+                Color.accentColor.opacity(0.16),
+                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    .strokeBorder(
+                        Color.accentColor.opacity(0.75),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [5, 3])
+                    )
+            }
+            .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
+            .offset(x: axisDragSession.ghostOrigin.x, y: axisDragSession.ghostOrigin.y)
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func axisReorderDropGap(height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: StudioRadius.chip)
+            .strokeBorder(
+                Color.secondary.opacity(0.45),
+                style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])
+            )
+            .background(
+                Color.secondary.opacity(0.06),
+                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .accessibilityLabel("Drop axis here")
+    }
+
+    private func shouldShowAxisDropGap(before index: Int) -> Bool {
+        guard axisDragSession.showsDropGap,
+              let gap = axisDragSession.targetGapIndex else { return false }
+        return gap == index
+    }
+
+    /// Click-and-hold on the header starts a reorder drag; a short click still expands/collapses
+    /// via the header button (suppressed after a drag).
+    private func axisReorderPressThenDragGesture(for tag: String) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.22)
+            .sequenced(before: DragGesture(
+                minimumDistance: 0,
+                coordinateSpace: .named(axisReorderCoordinateSpace)
+            ))
+            .onChanged { value in
+                guard let font = editor.selectedFont else { return }
+                switch value {
+                case .second(true, let drag):
+                    guard let drag else { return }
+                    if axisDragSession.draggingTag == nil {
+                        let headerFrame = axisHeaderFrames[tag] ?? .zero
+                        let grabOffset = CGSize(
+                            width: drag.startLocation.x - headerFrame.minX,
+                            height: drag.startLocation.y - headerFrame.minY
+                        )
+                        axisDragSession.begin(
+                            tag: tag,
+                            axisTags: font.axes.map(\.tag),
+                            grabOffset: grabOffset,
+                            ghostOrigin: CGPoint(x: headerFrame.minX, y: headerFrame.minY),
+                            ghostSize: headerFrame.size,
+                            headerFrames: axisHeaderFrames
+                        )
+                    }
+                    axisDragSession.updateGhost(at: drag.location)
+                    axisDragSession.targetGapIndex = axisReorderTargetGap(at: drag.location.y)
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                commitAxisReorderOrCancel()
+            }
+    }
+
+    private func toggleAxisExpansion(for tag: String) {
+        if axisDragSession.suppressNextExpansionToggle {
+            axisDragSession.suppressNextExpansionToggle = false
+            return
+        }
+        toggleExpansion(for: tag)
+    }
+
+    private func axisReorderTargetGap(at y: CGFloat) -> Int? {
+        let tags = axisDragSession.originalTags
+        guard !tags.isEmpty else { return nil }
+        let frames = axisDragSession.frozenHeaderFrames
+        for (index, tag) in tags.enumerated() {
+            guard let frame = frames[tag] else { continue }
+            if y < frame.midY {
+                return index
+            }
+        }
+        return tags.count
+    }
+
+    private func commitAxisReorderOrCancel() {
+        defer {
+            // Swallow the click that often follows a press-drag, then clear.
+            if axisDragSession.suppressNextExpansionToggle {
+                DispatchQueue.main.async {
+                    axisDragSession.suppressNextExpansionToggle = false
+                }
+            }
+        }
+        guard let tag = axisDragSession.draggingTag,
+              let gap = axisDragSession.targetGapIndex else {
+            if axisDragSession.draggingTag != nil {
+                axisDragSession.reset()
+                axisDragSession.suppressNextExpansionToggle = true
+            }
+            return
+        }
+        let originalIndex = axisDragSession.fromIndex
+        let landedSameSpot = gap == originalIndex || gap == originalIndex + 1
+        axisDragSession.reset()
+        axisDragSession.suppressNextExpansionToggle = true
+        guard !landedSameSpot else { return }
+        editor.reorderAxisTree(moving: tag, toIndex: gap)
     }
 
     // MARK: - Axis detail
@@ -371,8 +558,12 @@ struct AxisTreePanel: View {
             } else {
                 AxisStopTableHeader(
                     showElidable: showElidable,
-                    showDefaultMark: axis.hasFvarScale,
-                    showRemoveSlot: !axis.isDesignRecordOnly
+                    showDefaultMark: true,
+                    showRemoveSlot: true,
+                    valueSortAscending: EditorViewModel.axisStopsValueSortAscending(axis.values),
+                    onToggleValueSort: {
+                        editor.toggleAxisStopsValueSort(axisTag: axis.tag)
+                    }
                 )
                 .padding(.bottom, AxisDetailSpacing.tableHeaderToFirstRowGap)
 
@@ -489,7 +680,7 @@ struct AxisTreePanel: View {
             isSelected: editor.selectedAxisStopID == stop.id,
             editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
             showElidable: showElidable,
-            showDefaultMark: axis.hasFvarScale,
+            showDefaultMark: true,
             isFvarDefault: isFvarDefault,
             allowsRemove: !axis.isDesignRecordOnly,
             valueEditable: axis.hasFvarScale || axis.isDesignRecordOnly,

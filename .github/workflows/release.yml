@@ -84,12 +84,12 @@ jobs:
 
             ## What’s new in this alpha
 
+            - **Axis order:** drag Axis Tree headers or Naming chips to keep order linked; Export rewrites **STAT DesignAxisRecords** to match. **fvar axis order stays locked** to the source font (avoids swapped Width/Weight sliders).
+            - **Value sort:** click the Value column header to sort stops ascending/descending (drives Instance list order — useful for negative `slnt`).
+            - **Settings:** OpenType label Preserve/Repack lives under **VarFontStudio → Settings…** (app-wide default). Review can override per file without changing Settings.
+            - **Project tabs:** close with an **X** (same confirmation as before).
+            - **Review fvar Axes:** listed in source-font order so protected rows match what Export leaves alone.
             - **Allow First Launch helper** in each release zip — clears Gatekeeper quarantine without a Developer ID / notarization.
-            - **Save vs Export:** **Save** (⌘S) writes the `.varf` project; **Export…** (⌘E) writes patched fonts. Multi-file projects can **Export All…** into a folder with original filenames.
-            - **Review:** The preflight window is **Review** (⌘⇧R). JSON “save plan” dump removed from the chrome.
-            - **Safer single Export…:** defaults to a `-patched` name beside the source; macOS warns if the name already exists.
-            - **Quit:** only prompts for unsaved **project** files — unexported font edits no longer block exit.
-            - **Drop `.varf`:** empty workspace accepts project files (opens at the real path so relative fonts resolve correctly).
-            - Copy and inclusion labels aligned (**Export inclusion**, shortcuts help, empty-state hint).
+            - **Save vs Export:** **Save** (⌘S) writes the `.varf` project; **Export…** (⌘E) writes patched fonts.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

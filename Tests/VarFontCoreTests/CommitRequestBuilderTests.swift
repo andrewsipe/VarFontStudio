@@ -21,7 +21,8 @@ final class CommitRequestBuilderTests: XCTestCase {
         XCTAssertEqual(request.sourcePath, font.sourcePath)
         XCTAssertTrue(request.dryRun)
         XCTAssertEqual(request.axes.count, font.axes.count)
-        XCTAssertEqual(request.axes.map(\.tag), CommitRequestBuilder.orderedAxes(font.axes, naming: project.naming).map(\.tag))
+        XCTAssertEqual(request.axes.map(\.tag), font.axes.map(\.tag))
+        XCTAssertEqual(request.statDesignAxisTags, CommitRequestBuilder.resolvedDesignAxisTags(for: font))
         XCTAssertEqual(request.includedInstanceKeys.count, plan.formula.totalIncluded)
         XCTAssertEqual(
             Set(request.includedInstanceKeys),

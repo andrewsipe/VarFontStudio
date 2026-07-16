@@ -26,6 +26,8 @@
 		B2000057 /* EditorViewModel+ProjectIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000057 /* EditorViewModel+ProjectIO.swift */; };
 		B2000058 /* EditorViewModel+WorkspaceOps.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000058 /* EditorViewModel+WorkspaceOps.swift */; };
 		B2000059 /* EditorViewModel+ImportHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000059 /* EditorViewModel+ImportHelpers.swift */; };
+		B2000069 /* EditorViewModel+AxisOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000069 /* EditorViewModel+AxisOrder.swift */; };
+		B2000070 /* StudioSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000070 /* StudioSettingsView.swift */; };
 		B2000003 /* MainEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000003 /* MainEditorView.swift */; };
 		B2000005 /* AxisTreePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* AxisTreePanel.swift */; };
 		B2000060 /* AxisTreeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000060 /* AxisTreeModels.swift */; };
@@ -95,6 +97,8 @@
 		F2000057 /* EditorViewModel+ProjectIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+ProjectIO.swift"; sourceTree = "<group>"; };
 		F2000058 /* EditorViewModel+WorkspaceOps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+WorkspaceOps.swift"; sourceTree = "<group>"; };
 		F2000059 /* EditorViewModel+ImportHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+ImportHelpers.swift"; sourceTree = "<group>"; };
+		F2000069 /* EditorViewModel+AxisOrder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+AxisOrder.swift"; sourceTree = "<group>"; };
+		F2000070 /* StudioSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioSettingsView.swift; sourceTree = "<group>"; };
 		F2000003 /* MainEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainEditorView.swift; sourceTree = "<group>"; };
 		F2000005 /* AxisTreePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreePanel.swift; sourceTree = "<group>"; };
 		F2000060 /* AxisTreeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeModels.swift; sourceTree = "<group>"; };
@@ -195,6 +199,7 @@
 				F2000057 /* EditorViewModel+ProjectIO.swift */,
 				F2000058 /* EditorViewModel+WorkspaceOps.swift */,
 				F2000059 /* EditorViewModel+ImportHelpers.swift */,
+				F2000069 /* EditorViewModel+AxisOrder.swift */,
 				F2000025 /* CommitPreflightSession.swift */,
 				F2000026 /* SourceFontAccess.swift */,
 				F2000027 /* SaveReviewWindowLifecycle.swift */,
@@ -225,6 +230,7 @@
 			isa = PBXGroup;
 			children = (
 				F2000003 /* MainEditorView.swift */,
+				F2000070 /* StudioSettingsView.swift */,
 				F2000013 /* ProjectToolbar.swift */,
 				F2000015 /* ProjectFileSubBar.swift */,
 				F2000029 /* ProjectFileCommands.swift */,
@@ -409,6 +415,8 @@
 				B2000057 /* EditorViewModel+ProjectIO.swift in Sources */,
 				B2000058 /* EditorViewModel+WorkspaceOps.swift in Sources */,
 				B2000059 /* EditorViewModel+ImportHelpers.swift in Sources */,
+				B2000069 /* EditorViewModel+AxisOrder.swift in Sources */,
+				B2000070 /* StudioSettingsView.swift in Sources */,
 				B2000023 /* InspectorSupport.swift in Sources */,
 				B2000019 /* EditorLayoutPreferences.swift in Sources */,
 				B2000013 /* OpenProject.swift in Sources */,

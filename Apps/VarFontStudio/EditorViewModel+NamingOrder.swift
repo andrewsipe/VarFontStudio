@@ -169,13 +169,15 @@ extension EditorViewModel {
         guard var project, let font = selectedFont else { return }
         let axisTags = font.axes.map(\.tag)
         let normalized = Self.mergedNamingOrder(projectOrder: tags, axisTags: axisTags)
-        guard normalized != project.naming.order else { return }
+        let previousOrder = project.naming.order
+        guard normalized != previousOrder else { return }
 
         pushUndoSnapshot()
         project.naming.order = normalized
         project.modified = Date()
         self.project = project
         canSave = true
+        realignAxesAfterNamingOrderChange(previousOrder: previousOrder, newOrder: normalized)
         regeneratePlan()
     }
 
@@ -203,7 +205,19 @@ extension EditorViewModel {
         project.modified = Date()
         self.project = project
         canSave = true
-        regeneratePlan()
+        if let projectID = activeProjectID {
+            let canonical = AxisOrderRealigner.canonicalAxisTagOrder(
+                namingOrder: project.naming.order,
+                fontAxisTags: project.fonts[fontIndex].axes.map(\.tag)
+            )
+            applyProjectAxisTagOrder(
+                projectID: projectID,
+                canonicalOrder: canonical,
+                syncNamingFromCanonical: false
+            )
+        } else {
+            regeneratePlan()
+        }
     }
 
     /// Moves `draggedTag` so it sits immediately before the item that occupied

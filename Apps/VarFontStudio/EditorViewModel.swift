@@ -178,6 +178,36 @@ final class EditorViewModel: ObservableObject {
         document.syncNameIDStrategyToFonts()
     }
 
+    /// Settings default — persists app-wide and applies to every open project/file.
+    func applyAppDefaultNameIDStrategy(_ strategy: NameIDStrategy) {
+        StudioAppPreferences.defaultNameIDStrategy = strategy
+        for projectIndex in openProjects.indices {
+            var document = openProjects[projectIndex].document
+            guard document.nameidStrategy != strategy
+                || document.fonts.contains(where: { $0.options.nameidStrategy != strategy }) else {
+                continue
+            }
+            document.nameidStrategy = strategy
+            document.syncNameIDStrategyToFonts()
+            document.modified = Date()
+            openProjects[projectIndex].document = document
+            markProjectFileDirty(projectID: openProjects[projectIndex].id)
+            let projectID = openProjects[projectIndex].id
+            let fontIDs = document.fonts.map(\.id)
+            for fontID in fontIDs {
+                clearSaveReviewState(forProjectID: projectID, fontID: fontID)
+            }
+            for fontID in fontIDs {
+                refreshCommitDiffPreview(forProjectID: projectID, fontID: fontID)
+            }
+        }
+        if let activeID = activeProjectID,
+           let document = openProjects.first(where: { $0.id == activeID })?.document {
+            project = document
+        }
+        publishOpenProjects()
+    }
+
     func registerSourceBookmark(url: URL, fontID: String) {
         if let bookmark = SourceFontAccess.makeBookmark(for: url) {
             sourceBookmarks[fontID] = bookmark

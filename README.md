@@ -98,8 +98,8 @@ chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
 **Publish via GitHub:** push a tag — CI builds **both** Apple Silicon and Intel zips and attaches them to the Release.
 
 ```bash
-git tag v0.1.2-alpha
-git push origin v0.1.2-alpha
+git tag v0.1.3-alpha
+git push origin v0.1.3-alpha
 ```
 
 ---
@@ -108,6 +108,6 @@ git push origin v0.1.2-alpha
 
 - Instance modeling, naming, STAT/fvar commit via bundled **vfcommit**
 - **Save** = project (`.varf`); **Export** = patched fonts; **Review** = preflight diff
-- Optional **OpenType feature label reflow** (Preferences menu + Review tab bar)
+- Optional **OpenType feature label reflow** (Settings + per-file Review override)
 - Drag/drop fonts and **`.varf`** projects (legacy `.varfont` still opens)
 - Notarized / Developer ID distribution: not yet — use **Allow First Launch** in the release zip

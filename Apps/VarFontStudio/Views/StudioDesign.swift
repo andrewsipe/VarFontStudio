@@ -629,6 +629,9 @@ enum SaveReviewLayout {
     static let filterBadgeGap: CGFloat = 6
     static let fieldColumnWidth: CGFloat = 200
     static let rowVerticalPadding: CGFloat = 9
+    /// Search row + tab headline band (shared so those toolbars stay the same height).
+    static let toolRowMinHeight: CGFloat = 34
+    static let toolRowVerticalPadding: CGFloat = 6
     static let gutterWidth: CGFloat = 3
     static let gutterLeadingPadding: CGFloat = 22
     static let gutterTrailingPadding: CGFloat = 12

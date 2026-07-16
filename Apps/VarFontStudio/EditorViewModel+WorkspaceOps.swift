@@ -450,8 +450,9 @@ extension EditorViewModel {
     }
 
     func projectNeedsCloseConfirmation(projectID: String) -> Bool {
-        guard let project = openProject(for: projectID) else { return false }
-        return project.projectFileDirty || project.document.fonts.contains(where: \.dirty)
+        // Only the .varf project file gates close/quit. Font `dirty` means “needs Export”,
+        // which is optional and must not block discarding the in-memory workspace.
+        projectNeedsProjectFileSave(projectID: projectID)
     }
 
     func firstProjectNeedingCloseConfirmation() -> String? {
@@ -555,9 +556,6 @@ extension EditorViewModel {
             return "Remove this file from the project?"
         }
         let name = fontBasename(for: font)
-        if font.dirty {
-            return "Remove \(name)? This file has unsaved changes."
-        }
         return "Remove \(name) from this project?"
     }
 
@@ -568,9 +566,6 @@ extension EditorViewModel {
         }
         let name = fontBasename(for: font)
         let targetName = projectTabLabel(for: target)
-        if font.dirty {
-            return "Move \(name) into \(targetName)? This file has unsaved changes."
-        }
         return "Move \(name) into \(targetName)?"
     }
 
@@ -579,9 +574,6 @@ extension EditorViewModel {
             return "Move this file to a new project?"
         }
         let name = fontBasename(for: font)
-        if font.dirty {
-            return "Move \(name) to a new project? This file has unsaved changes."
-        }
         return "Move \(name) to a new project?"
     }
 
@@ -593,12 +585,7 @@ extension EditorViewModel {
         let sourceName = projectTabLabel(for: source)
         let targetName = projectTabLabel(for: target)
         let fileCount = source.document.fonts.count
-        let hasDirtyFiles = source.document.fonts.contains(where: \.dirty)
-            || target.document.fonts.contains(where: \.dirty)
         let filePhrase = "\(fileCount) file\(fileCount == 1 ? "" : "s")"
-        if hasDirtyFiles {
-            return "Move \(filePhrase) from \(sourceName) into \(targetName) and close \(sourceName)? One or more files have unsaved changes."
-        }
         return "Move \(filePhrase) from \(sourceName) into \(targetName) and close \(sourceName)?"
     }
 
@@ -607,19 +594,10 @@ extension EditorViewModel {
             return "Close this project?"
         }
         let name = projectTabLabel(for: project)
-        let hasProjectDirty = project.projectFileDirty
-        let hasFontDirty = project.document.fonts.contains(where: \.dirty)
-
-        switch (hasProjectDirty, hasFontDirty) {
-        case (true, true):
-            return "Close \(name)? The project file has unsaved changes and one or more font files have unsaved edits. Save the project file here; use Export… to write patched fonts."
-        case (true, false):
+        if projectNeedsProjectFileSave(projectID: projectID) {
             return "Close \(name)? The project file has unsaved changes."
-        case (false, true):
-            return "Close \(name)? One or more font files have unsaved edits — use Export… to write patched fonts."
-        case (false, false):
-            return "Close \(name)?"
         }
+        return "Close \(name)?"
     }
 
     func fontDocument(fontID: String, projectID: String) -> FontDocument? {

@@ -101,8 +101,8 @@ def apply_table_edits(
     Write all changes to the font in memory. Does not save.
 
     Order: optional wipe confirmation → wipe → name records
-    → fvar instances → STAT. DesignAxisRecord is preserved (not wiped).
-    fvar axis min/default/max are never rewritten.
+    → fvar instances → STAT. DesignAxisRecord order may be rewritten; scales are not.
+    fvar axis record order and min/default/max are never rewritten.
     """
     if protected_ids is None:
         protected_ids = set()
