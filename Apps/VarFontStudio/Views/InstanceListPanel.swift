@@ -8,6 +8,9 @@ struct InstanceListPanel: View {
     @AppStorage("instanceListHideElided") private var hideElidedNames = false
     @FocusState private var isSearchFocused: Bool
 
+    /// When hosted under middle-column chrome, the column owns the title header.
+    var showsPanelHeader: Bool = true
+
     /// Matches list row checkbox column: list inset + row horizontal padding.
     private static let checkboxLeading = StudioSpacing.listInset + StudioSpacing.rowHorizontal
 
@@ -17,9 +20,9 @@ struct InstanceListPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StudioPanelHeader(title: "Instances") {
-                if !display.isEmpty {
-                    instanceHeaderCounts
+            if showsPanelHeader {
+                StudioPanelHeader(title: "Instances") {
+                    Self.headerCounts(editor: editor)
                 }
             }
 
@@ -64,24 +67,30 @@ struct InstanceListPanel: View {
         display.groups.reduce(0) { $0 + $1.instances.count }
     }
 
-    private var instanceHeaderCounts: some View {
-        HStack(spacing: 3) {
-            Text("\(visibleInstanceCount)")
-                .foregroundStyle(StudioColors.computedHighlight)
-            Text("shown")
-                .foregroundStyle(.secondary)
-
-            if let plan = editor.instancePlan {
-                Text("·")
-                    .foregroundStyle(.quaternary)
-                Text("\(plan.formula.totalIncluded)")
+    /// Trailing header meta shared with the middle-column chrome.
+    @ViewBuilder
+    static func headerCounts(editor: EditorViewModel) -> some View {
+        let display = editor.instanceListDisplay
+        let visible = display.groups.reduce(0) { $0 + $1.instances.count }
+        if !display.isEmpty {
+            HStack(spacing: 3) {
+                Text("\(visible)")
                     .foregroundStyle(StudioColors.computedHighlight)
-                Text("included")
+                Text("shown")
                     .foregroundStyle(.secondary)
+
+                if let plan = editor.instancePlan {
+                    Text("·")
+                        .foregroundStyle(.quaternary)
+                    Text("\(plan.formula.totalIncluded)")
+                        .foregroundStyle(StudioColors.computedHighlight)
+                    Text("included")
+                        .foregroundStyle(.secondary)
+                }
             }
+            .font(StudioTypography.meta)
+            .lineLimit(1)
         }
-        .font(StudioTypography.meta)
-        .lineLimit(1)
     }
 
     private var instanceList: some View {

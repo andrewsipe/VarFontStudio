@@ -309,14 +309,6 @@ extension SaveReviewStore {
 
         let bookmark = requireHost.sourceBookmarks[font.id]
         let outputPath = font.outputPath ?? CommitRequestBuilder.suggestedOutputPath(for: font.sourcePath)
-        var dryRunRequest = CommitRequestBuilder.make(
-            font: font,
-            naming: projectDoc.naming,
-            plan: plan,
-            outputPath: outputPath,
-            dryRun: true,
-            nameidStrategy: font.options.nameidStrategy
-        )
 
         beginLoading(projectID: targetProjectID, fontID: targetFontID)
         defer { endLoading(projectID: targetProjectID, fontID: targetFontID) }
@@ -344,6 +336,15 @@ extension SaveReviewStore {
             }.value
             let analysis = analysisAndHelper.0
             let helperSourcePath = analysisAndHelper.1
+            var dryRunRequest = CommitRequestBuilder.make(
+                font: font,
+                naming: projectDoc.naming,
+                plan: plan,
+                outputPath: outputPath,
+                dryRun: true,
+                nameidStrategy: font.options.nameidStrategy,
+                windowsNameTable: analysis.windowsNameTable
+            )
             dryRunRequest.sourcePath = helperSourcePath
             let result = try await requireHost.commitService.commit(dryRunRequest, preferWorker: preferWorker)
             if result.ok {
@@ -366,7 +367,8 @@ extension SaveReviewStore {
                     plan: plan,
                     outputPath: outputPath,
                     dryRun: false,
-                    nameidStrategy: font.options.nameidStrategy
+                    nameidStrategy: font.options.nameidStrategy,
+                    windowsNameTable: analysis.windowsNameTable
                 )
                 writeRequest.sourcePath = helperSourcePath
                 let session = CommitPreflightSession(
@@ -395,7 +397,8 @@ extension SaveReviewStore {
                 plan: plan,
                 outputPath: outputPath,
                 dryRun: false,
-                nameidStrategy: font.options.nameidStrategy
+                nameidStrategy: font.options.nameidStrategy,
+                windowsNameTable: analysis.windowsNameTable
             )
             writeRequest.sourcePath = dryRunRequest.sourcePath
             let failedSession = CommitPreflightSession(

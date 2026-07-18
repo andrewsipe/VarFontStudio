@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VarFont Studio — Name Table Panel Prototype</title>
+<style>
+  :root{
+    --bg:#1c1c1e; --panel:#242426; --panel-2:#2a2a2c;
+    --border:#38383a; --border-strong:#48484a;
+    --text:#eaeaec; --text-dim:#9a9a9e; --text-faint:#68686c;
+    --accent:#0a84ff;
+    --c-dirty:#f0a020; --c-managed:#8e6ff7; --c-link:#64d2ff; --c-ok:#30a46c;
+    --mono:"SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    --tree-w:200px; --inst-w:480px; --insp-w:300px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#0e0e10; color:var(--text);
+    font-family:var(--sans); padding:16px 16px 48px;
+  }
+  .page{ max-width:1200px; margin:0 auto; }
+
+  .intro{ margin-bottom:12px; }
+  .intro-head{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .intro h1{ font-size:15px; margin:0; font-weight:600; }
+  .intro-toggle{
+    font-family:var(--sans); font-size:11px; color:var(--text-dim);
+    background:transparent; border:none; cursor:pointer; padding:4px 0;
+  }
+  .intro-toggle:hover{ color:var(--text); }
+  .intro-body{
+    display:none; margin-top:8px; color:var(--text-dim);
+    font-size:11.5px; line-height:1.55; max-width:820px;
+  }
+  .intro.open .intro-body{ display:block; }
+  .intro-body code{
+    font-family:var(--mono); font-size:10.5px;
+    background:var(--panel-2); padding:1px 5px; border-radius:4px;
+  }
+
+  .mockwin{
+    background:var(--bg); border:1px solid #000; border-radius:11px;
+    overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.65);
+    display:flex; flex-direction:column; min-height:720px; height:min(86vh, 820px);
+  }
+  .titlebar{
+    height:38px; background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000;
+    display:flex; align-items:center; padding:0 12px; gap:8px; position:relative; flex-shrink:0;
+  }
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .titlebar .wtitle{
+    position:absolute; left:0; right:0; text-align:center;
+    font-size:12.5px; color:var(--text-dim); font-weight:500; pointer-events:none;
+  }
+
+  .filebar{
+    display:flex; align-items:center; gap:8px; padding:7px 14px;
+    background:#1f1f21; border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .filebar .lbl{ font-size:9px; font-weight:600; letter-spacing:.06em; color:var(--text-faint); }
+  .filechip{
+    font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer;
+    background:var(--panel-2); color:var(--text-dim); border:1px solid transparent;
+  }
+  .filechip:hover{ color:var(--text); }
+  .filechip.on{
+    background:rgba(10,132,255,.12); color:var(--text);
+    border-color:rgba(10,132,255,.35); font-weight:600;
+  }
+  .filechip .star{ color:#f0a020; font-size:9px; margin-right:3px; }
+
+  .workspace{ display:flex; flex:1; min-height:0; }
+
+  .col{
+    display:flex; flex-direction:column; min-height:0; min-width:0;
+    border-right:1px solid var(--border);
+  }
+  .col:last-child{ border-right:none; }
+  .col-tree{ width:var(--tree-w); flex-shrink:0; background:var(--panel); }
+  .col-mid{
+    width:var(--inst-w); flex-shrink:0; background:var(--bg);
+  }
+  .col-insp{
+    flex:1; min-width:260px; background:var(--panel);
+    transition: opacity .15s ease;
+  }
+  .col-insp.dimmed{ opacity:.55; }
+
+  .panel-hdr{
+    padding:8px 12px; border-bottom:1px solid var(--border); flex-shrink:0;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    min-height:34px;
+  }
+  .panel-hdr .title{
+    font-size:10px; font-weight:600; letter-spacing:.04em;
+    text-transform:uppercase; color:var(--text-faint);
+  }
+  .panel-hdr .meta{ font-size:10px; color:var(--text-dim); }
+  .panel-hdr .meta b{ color:var(--accent); font-weight:600; }
+
+  .placeholder{
+    padding:14px 12px; color:var(--text-faint); font-size:11px; line-height:1.45;
+  }
+
+  /* Shared scope switcher — same chrome as Inspector Project | Instance */
+  .scope-switch{
+    display:flex; gap:2px; padding:8px 10px; border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  .scope-btn{
+    flex:1; padding:6px 6px; font-family:var(--sans); font-size:10px;
+    border:1px solid var(--border); border-radius:6px;
+    background:transparent; color:var(--text-dim); cursor:pointer;
+  }
+  .scope-btn:hover{ color:var(--text); background:rgba(255,255,255,.03); }
+  .scope-btn.on{
+    background:rgba(10,132,255,.12); border-color:rgba(10,132,255,.35);
+    color:var(--accent); font-weight:600;
+  }
+  .scope-btn .dot-dirty{
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--c-dirty); margin-left:4px; vertical-align:middle;
+  }
+
+  .mid-body{ flex:1; display:none; flex-direction:column; min-height:0; }
+  .mid-body.active{ display:flex; }
+
+  .inst-list{ flex:1; overflow:auto; }
+  .inst-row{
+    padding:7px 12px; border-bottom:1px solid #26262a;
+    font-size:11.5px; cursor:pointer; color:var(--text-dim);
+  }
+  .inst-row:hover{ background:rgba(255,255,255,.03); color:var(--text); }
+  .inst-row.sel{
+    background:rgba(10,132,255,.12); color:var(--text); font-weight:600;
+  }
+
+  .insp-scroll{ flex:1; overflow:auto; min-height:0; }
+  .insp-body{ display:none; }
+  .insp-body.active{ display:block; }
+
+  .proj-scope{
+    padding:12px 12px 10px; background:var(--bg); border-bottom:1px solid var(--border);
+  }
+  .proj-title{ font-size:14px; font-weight:600; letter-spacing:-.01em; }
+  .proj-sub{ font-size:10.5px; color:var(--text-dim); margin-top:3px; }
+  .block{ padding:12px; border-bottom:1px solid var(--border); }
+  .block-title{
+    font-size:9px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--text-faint); margin-bottom:8px;
+  }
+  .field-row{
+    display:grid; grid-template-columns:72px 1fr; gap:6px; align-items:center;
+    margin-bottom:6px;
+  }
+  .field-row label{ font-size:10.5px; color:var(--text-dim); }
+  .field-row input, .field-row .muted{
+    font-family:var(--sans); font-size:11.5px; padding:5px 7px; border-radius:5px;
+    border:1px solid var(--border); background:var(--bg); color:var(--text); width:100%;
+  }
+  .field-row .muted{ border:none; background:transparent; color:var(--text-faint); padding-left:0; }
+  .field-hint{
+    font-size:10px; color:var(--text-faint); line-height:1.35;
+    margin:-2px 0 8px; padding-left:78px;
+  }
+  .field-hint b{ color:var(--text-dim); font-weight:500; }
+  .pill{
+    font-family:var(--mono); font-size:9px; padding:1px 5px; border-radius:3px;
+    background:var(--panel-2); color:var(--text-dim); margin-left:4px;
+  }
+
+  /* Names content in middle column */
+  .names-head{
+    padding:10px 12px 8px; border-bottom:1px solid var(--border);
+    background:var(--panel); flex-shrink:0;
+  }
+  .names-head-top{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
+  }
+  .names-title{ font-size:13px; font-weight:600; }
+  .names-sub{ font-size:10.5px; color:var(--text-dim); margin-top:2px; line-height:1.4; }
+  .plat-chip{
+    font-size:9.5px; font-family:var(--mono); padding:3px 7px; border-radius:4px;
+    background:rgba(10,132,255,.12); color:var(--accent);
+    border:1px solid rgba(10,132,255,.28); white-space:nowrap; flex-shrink:0;
+  }
+  .names-toolbar{
+    display:flex; align-items:center; gap:6px; margin-top:8px; position:relative;
+  }
+  .search{
+    display:flex; align-items:center; gap:5px; width:132px; flex-shrink:0;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:6px;
+    padding:4px 8px;
+  }
+  .search input{
+    border:none; background:transparent; color:var(--text); outline:none;
+    font-family:var(--sans); font-size:11.5px; width:100%; min-width:0;
+  }
+  .search svg{ opacity:.4; flex-shrink:0; }
+  .dirty-count{
+    font-size:10px; color:var(--c-dirty); font-weight:600; white-space:nowrap;
+    margin-left:auto;
+  }
+  .btn-add{
+    font-family:var(--sans); font-size:11px; font-weight:600;
+    padding:5px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;
+    border:1px solid rgba(10,132,255,.4); background:rgba(10,132,255,.12);
+    color:var(--accent); white-space:nowrap;
+  }
+  .btn-add:hover{ background:rgba(10,132,255,.2); }
+  .btn-add:disabled{ opacity:.4; cursor:default; }
+  .btn-add.open{ background:rgba(10,132,255,.22); }
+
+  /* Add picker popover */
+  .add-pop{
+    display:none; position:absolute; top:calc(100% + 6px); right:0; z-index:20;
+    width:min(300px, calc(100% - 8px)); max-height:320px;
+    background:var(--panel); border:1px solid var(--border-strong); border-radius:8px;
+    box-shadow:0 12px 40px rgba(0,0,0,.55); overflow:hidden;
+    flex-direction:column;
+  }
+  .add-pop.open{ display:flex; }
+  .add-pop-head{
+    padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .add-pop-head .t{ font-size:11px; font-weight:600; }
+  .add-pop-head .s{ font-size:10px; color:var(--text-faint); margin-top:2px; }
+  .add-pop-search{
+    margin-top:6px; width:100%; font-family:var(--sans); font-size:11px;
+    padding:4px 7px; border-radius:5px; border:1px solid var(--border);
+    background:var(--bg); color:var(--text); outline:none;
+  }
+  .add-pop-search:focus{ border-color:rgba(10,132,255,.5); }
+  .add-pop-list{ overflow:auto; flex:1; padding:4px; }
+  .add-pop-item{
+    display:flex; align-items:center; gap:8px; width:100%;
+    padding:6px 8px; border:none; border-radius:5px; cursor:pointer;
+    background:transparent; color:var(--text); font-family:var(--sans); text-align:left;
+  }
+  .add-pop-item:hover{ background:rgba(10,132,255,.12); }
+  .add-pop-item .aid{
+    font-family:var(--mono); font-size:11px; font-weight:600; color:var(--accent);
+    width:22px; flex-shrink:0;
+  }
+  .add-pop-item .alabel{ font-size:11.5px; }
+  .add-pop-empty{
+    padding:16px 10px; text-align:center; color:var(--text-faint); font-size:11px;
+  }
+
+  .names-scroll{ flex:1; overflow:auto; min-height:0; padding:2px 0 8px; }
+
+  .nr{
+    padding:8px 12px 7px;
+    border-bottom:1px solid #26262a;
+  }
+  .nr:hover{ background:rgba(255,255,255,.025); }
+  .nr.dirty{ background:rgba(240,160,32,.05); }
+  .nr.focused{ background:rgba(10,132,255,.06); }
+  .nr.fresh{ animation: nrIn .25s ease; }
+  @keyframes nrIn{
+    from{ background:rgba(10,132,255,.18); }
+    to{ background:transparent; }
+  }
+
+  .nr-meta{
+    display:flex; align-items:baseline; gap:8px;
+    margin-bottom:4px; min-width:0;
+  }
+  .nr-id{
+    font-family:var(--mono); font-size:11px; font-weight:600; color:var(--accent);
+    font-variant-numeric:tabular-nums; flex-shrink:0;
+  }
+  .nr-label{
+    font-size:10px; font-weight:500; color:var(--text-dim);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
+  }
+  .nr-label .link-tag{
+    font-size:8.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+    color:var(--c-link); margin-left:6px; vertical-align:middle;
+  }
+  .nr.linked-ps .nr-value{
+    color:var(--c-link);
+  }
+
+  .nr-value{
+    width:100%; font-family:var(--mono); font-size:11px; line-height:1.35;
+    padding:4px 7px; border-radius:5px; color:var(--text);
+    border:1px solid transparent; background:transparent;
+    outline:none; resize:none; display:block;
+    overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+    height:26px; max-height:26px;
+    transition: max-height .12s ease, background .1s ease, border-color .1s ease;
+  }
+  .nr:hover .nr-value{
+    border-color:var(--border); background:var(--panel);
+  }
+  .nr-value:focus,
+  .nr.expanded .nr-value{
+    white-space:pre-wrap; overflow:auto; text-overflow:clip;
+    height:auto; max-height:160px;
+    border-color:rgba(10,132,255,.55); background:var(--panel);
+    box-shadow:0 0 0 2px rgba(10,132,255,.12);
+  }
+  .nr.dirty .nr-value{
+    border-color:rgba(240,160,32,.4); background:var(--panel);
+  }
+  .nr.expanded.dirty .nr-value:focus{
+    border-color:rgba(10,132,255,.55);
+  }
+
+
+
+  .nr-value-row{
+    display:flex; align-items:flex-start; gap:4px;
+  }
+  .nr-value-row .nr-value{ flex:1; min-width:0; }
+  .policy-fill{
+    flex-shrink:0; width:24px; height:26px; padding:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    border:none; background:transparent; color:var(--text-faint);
+    border-radius:4px; cursor:pointer;
+  }
+  .policy-fill:hover{ color:var(--accent); background:rgba(10,132,255,.12); }
+  .policy-fill:active{ color:var(--accent); }
+  .policy-fill svg{ width:14px; height:14px; display:block; }
+  .policy-fill.applied{ color:var(--c-ok, #30a46c); }
+
+  .names-footer{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:8px 12px; border-top:1px solid var(--border); background:#1f1f21;
+    flex-shrink:0;
+  }
+  .btn{
+    font-family:var(--sans); font-size:11.5px; padding:5px 11px; border-radius:6px;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text); cursor:pointer;
+  }
+  .btn:hover{ background:#333336; }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .btn.primary:hover{ filter:brightness(1.08); }
+  .btn:disabled{ opacity:.4; cursor:default; }
+  .footer-note{ font-size:10px; color:var(--text-faint); }
+
+  .note-bar{
+    padding:7px 14px; font-size:10.5px; color:var(--c-link);
+    background:rgba(100,210,255,.07); border-top:1px solid rgba(100,210,255,.2);
+    flex-shrink:0; line-height:1.45;
+  }
+  .note-bar strong{ color:var(--text); font-weight:600; }
+
+  .empty-filter{
+    padding:28px 16px; text-align:center; color:var(--text-faint); font-size:11.5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="intro" id="intro">
+    <div class="intro-head">
+      <h1>Name table panel prototype</h1>
+      <button type="button" class="intro-toggle" id="introToggle">About this prototype</button>
+    </div>
+    <div class="intro-body">
+      Windows name records (<code>platformID=3</code>, <code>platEncID=1</code>, <code>langID=0x409</code>, IDs <strong>0–25</strong>)
+      in the middle column (~480px). Populated rows only; <strong>Add ID…</strong> for missing.
+      Document+ offers FontCore VF policy fill when available. <strong>ID 25</strong> is the same field as Inspector <strong>PS prefix</strong> (not the file chip stem).
+    </div>
+  </div>
+
+  <div class="mockwin" id="mockwin">
+    <div class="titlebar">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="wtitle">VarFont Studio — Playfair Micro SmCond</div>
+    </div>
+
+    <div class="filebar">
+      <span class="lbl">FILE</span>
+      <div class="filechip on" data-file="roman"><span class="star">★</span>PlayfairRomanVF</div>
+      <div class="filechip" data-file="sparse">SparseVF</div>
+    </div>
+
+    <div class="workspace">
+      <div class="col col-tree">
+        <div class="panel-hdr"><span class="title">Axis tree</span></div>
+        <div class="placeholder">opsz · wdth · wght<br>Registration: ital</div>
+      </div>
+
+      <!-- MIDDLE: Instances | Names -->
+      <div class="col col-mid" id="colMid">
+        <div class="panel-hdr">
+          <span class="title" id="midHdrTitle">Instances</span>
+          <span class="meta" id="midHdrMeta"><b>252</b> / 252</span>
+        </div>
+
+        <div class="scope-switch" id="midSwitch">
+          <button type="button" class="scope-btn on" data-mid="instances">Instances</button>
+          <button type="button" class="scope-btn" data-mid="names" id="midNamesBtn">Names</button>
+        </div>
+
+        <div class="mid-body active" data-mid-body="instances" id="bodyInstances">
+          <div class="inst-list">
+            <div class="inst-row" data-inst="0">Micro SemiCond SemiBold</div>
+            <div class="inst-row" data-inst="1">Micro SemiCond Bold</div>
+            <div class="inst-row" data-inst="2">Text SemiCond Regular</div>
+            <div class="inst-row" data-inst="3">Display SemiCond Black</div>
+            <div class="inst-row" data-inst="4">Display SemiCond Bold</div>
+            <div class="inst-row" data-inst="5">Text Normal Regular</div>
+          </div>
+        </div>
+
+        <div class="mid-body" data-mid-body="names" id="bodyNames">
+          <div class="names-head">
+            <div class="names-head-top">
+              <div>
+                <div class="names-title">Windows name table</div>
+                <div class="names-sub" id="namesSub">PlayfairRomanVF · populated IDs only</div>
+              </div>
+              <span class="plat-chip">plat 3 · enc 1 · 0x409</span>
+            </div>
+            <div class="names-toolbar">
+              <div class="search">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+                <input type="search" id="nameSearch" placeholder="Filter…" autocomplete="off">
+              </div>
+              <span class="dirty-count" id="dirtyCount"></span>
+              <button type="button" class="btn-add" id="btnAdd" aria-expanded="false" aria-controls="addPop">Add ID…</button>
+              <div class="add-pop" id="addPop" role="dialog" aria-label="Add name ID">
+                <div class="add-pop-head">
+                  <div class="t" id="addPopTitle">Add name ID</div>
+                  <div class="s" id="addPopSub">Missing Windows records</div>
+                  <input type="search" class="add-pop-search" id="addPopSearch" placeholder="Filter missing…" autocomplete="off">
+                </div>
+                <div class="add-pop-list" id="addPopList"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="names-scroll" id="namesGroups"></div>
+
+          <div class="names-footer">
+            <span class="footer-note">Policy fill · document+ when FontCore can suggest a value</span>
+            <div style="display:flex;gap:6px">
+              <button type="button" class="btn" id="btnRevert" disabled>Revert</button>
+              <button type="button" class="btn primary" id="btnKeep" disabled>Keep edits</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSPECTOR: Project | Instance only -->
+      <div class="col col-insp" id="colInsp">
+        <div class="panel-hdr">
+          <span class="title">Inspector</span>
+          <span class="meta" id="inspMeta"><b>2</b> files</span>
+        </div>
+
+        <div class="scope-switch" id="inspSwitch">
+          <button type="button" class="scope-btn on" data-insp="project">Project</button>
+          <button type="button" class="scope-btn" data-insp="instance">Instance</button>
+        </div>
+
+        <div class="insp-scroll">
+          <div class="insp-body active" data-insp-body="project" id="bodyProject">
+            <div class="proj-scope">
+              <div class="proj-title">Playfair Micro SmCond</div>
+              <div class="proj-sub" id="projSub">2 files · source stems · PS prefix shared with ID 25</div>
+            </div>
+            <div class="block">
+              <div class="block-title">File naming <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-dim)" id="namingCtx">· PlayfairRomanVF</span></div>
+              <div class="field-row"><label>PS prefix</label><input id="psPrefixField" value="PlayfairDisplay" spellcheck="false"></div>
+              <div class="field-hint" id="psPrefixHint">Same value as name ID 25 · writes Variations PostScript Name Prefix</div>
+              <div class="field-row"><label>slope</label><span class="muted">Covered by STAT registration</span></div>
+              <div class="field-row"><label>width</label><span class="muted">Covered by axis stops<span class="pill">wdth</span></span></div>
+              <div class="field-row"><label>optical</label><span class="muted">Covered by axis stops<span class="pill">opsz</span></span></div>
+            </div>
+            <div class="block">
+              <div class="block-title">Fonts</div>
+              <div class="placeholder" style="padding:0">★ Master · PlayfairRomanVF<br>SparseVF</div>
+            </div>
+            <div class="block" id="namesHintBlock" style="display:none">
+              <div class="block-title">Name table</div>
+              <div class="placeholder" style="padding:0;color:var(--text-dim)">
+                Windows IDs 0–25 in the middle panel.
+                <b style="color:var(--text-dim);font-weight:500">ID 25 ≡ PS prefix</b> above (one value).
+                File chips are source stems — not the PostScript prefix.
+              </div>
+            </div>
+          </div>
+
+          <div class="insp-body" data-insp-body="instance" id="bodyInstance">
+            <div class="block">
+              <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px" id="instName">Micro SemiCond SemiBold</div>
+              <div class="block-title">Coordinates</div>
+              <div class="field-row"><label>opsz</label><span class="muted">Micro</span></div>
+              <div class="field-row"><label>wdth</label><span class="muted">SemiCond</span></div>
+              <div class="field-row"><label>wght</label><span class="muted">SemiBold</span></div>
+            </div>
+            <div class="block">
+              <div class="block-title">Name table IDs</div>
+              <div class="placeholder" style="padding:0">
+                Planned writes for this instance (subfamily / PostScript ≥256).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-bar" id="noteBar">
+      Middle column: <strong>Instances | Names</strong> — same toggle pattern as Inspector’s Project | Instance. Selecting an instance returns to Instances and opens the Instance inspector.
+    </div>
+  </div>
+</div>
+
+<script>
+const NAME_SPEC = [
+  { id:0,  label:'Copyright' },
+  { id:1,  label:'Font Family' },
+  { id:2,  label:'Font Subfamily' },
+  { id:3,  label:'Unique ID' },
+  { id:4,  label:'Full Name' },
+  { id:5,  label:'Version' },
+  { id:6,  label:'PostScript Name' },
+  { id:7,  label:'Trademark' },
+  { id:8,  label:'Manufacturer' },
+  { id:9,  label:'Designer' },
+  { id:10, label:'Description' },
+  { id:11, label:'Vendor URL' },
+  { id:12, label:'Designer URL' },
+  { id:13, label:'License' },
+  { id:14, label:'License URL' },
+  { id:16, label:'Typographic Family' },
+  { id:17, label:'Typographic Subfamily' },
+  { id:18, label:'Compatible Full' },
+  { id:19, label:'Sample Text' },
+  { id:20, label:'PostScript CID' },
+  { id:21, label:'WWS Family' },
+  { id:22, label:'WWS Subfamily' },
+  { id:23, label:'Light Palette' },
+  { id:24, label:'Dark Palette' },
+  { id:25, label:'Variations PS Prefix' },
+];
+
+const SPEC_BY_ID = Object.fromEntries(NAME_SPEC.map(s => [s.id, s]));
+
+/** document.badge.plus — SF Symbol–style */
+const POLICY_ICON = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+  <path d="M9.5 1H3.75A1.75 1.75 0 0 0 2 2.75v10.5C2 14.216 2.784 15 3.75 15H8.1a4.5 4.5 0 0 1-.6-1.5H3.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25H9v2.5A1.75 1.75 0 0 0 10.75 6.75H13v1.1c.54.1 1.05.3 1.5.56V5.5L9.5 1z"/>
+  <path d="M11.5 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm.75 1.75v1.25H13.5a.75.75 0 0 1 0 1.5h-1.25V14a.75.75 0 0 1-1.5 0v-1.25H9.5a.75.75 0 0 1 0-1.5h1.25V10.25a.75.75 0 0 1 1.5 0z"/>
+</svg>`;
+
+/*
+ * Mock FontCore VF policy fills (filename slots → builders).
+ * Only IDs with a suggestion show the icon.
+ * roman: PlayfairDisplay-Variable → slots root=Playfair Display
+ * sparse: Example-VariableItalic → root=Example, slope=Italic
+ */
+const FILES = {
+  roman: {
+    label: 'PlayfairRomanVF',          // source file stem (chip) — not PS prefix
+    filename: 'PlayfairDisplay-Variable.ttf',
+    psPrefix: 'PlayfairDisplay',       // ≡ name ID 25 / File naming PS prefix
+    values: {
+      0: 'Copyright 2017 The Playfair Display Project Authors (https://github.com/clauseggers/Playfair-Display), with Reserved Font Name "Playfair Display".',
+      1: 'Playfair Display',
+      2: 'Regular',
+      3: '2.100;UKWN;PlayfairDisplay-Regular',
+      4: 'Playfair Display Regular',
+      5: 'Version 2.100',
+      6: 'PlayfairDisplay-Regular',  // legacy table; policy → PlayfairDisplay-Variable
+      7: 'Playfair Display is a trademark of Claus Eggers Sørensen.',
+      8: 'Claus Eggers Sørensen',
+      9: 'Claus Eggers Sørensen',
+      10: 'Playfair Display is a transitional design. In the tradition of Garalde faces from the mid‑16th century, it was originally intended for large sizes — display and titling — where its high contrast and sharp serifs can shine.',
+      11: 'http://www.forthehearts.net',
+      12: 'http://www.forthehearts.net',
+      13: 'This Font Software is licensed under the SIL Open Font License, Version 1.1.',
+      14: 'http://scripts.sil.org/OFL',
+      16: 'Playfair Display',
+      17: 'Regular',
+      19: 'The quick brown fox jumps over the lazy dog',
+      21: 'Playfair Display',
+      22: 'Regular',
+      // 25 omitted from values — always read/write via psPrefix
+    },
+    policy: {
+      1:  { value: 'Playfair Display', source: 'VF slots → ID1 (root; no Variable)' },
+      2:  { value: 'Regular', source: 'VF default subfamily' },
+      3:  { value: '2.100;UKWN;PlayfairDisplay-Variable', source: 'build_id3(version; vendor; VF filename)' },
+      4:  { value: 'Playfair Display Variable', source: 'VF slots → ID4 (root + Variable)' },
+      5:  { value: 'Version 2.100', source: 'build_id5_version_string(head.fontRevision)' },
+      6:  { value: 'PlayfairDisplay-Variable', source: 'NameID6 VF: {PS base}-Variable' },
+      16: { value: 'Playfair Display Variable', source: 'VF slots → ID16 ({root} Variable)' },
+      17: { value: 'Regular', source: 'VF slots → ID17 (elided slope → Regular)' },
+      25: { value: 'PlayfairDisplay', source: 'Infer ID 25 / family PS prefix (from name table)' },
+    },
+  },
+  sparse: {
+    label: 'SparseVF',
+    filename: 'Example-VariableItalic.ttf',
+    psPrefix: 'Example',
+    values: {
+      0: 'Copyright 2024 Example Foundry',
+      2: 'Regular',
+      16: 'Example',
+    },
+    policy: {
+      1:  { value: 'Example', source: 'VF slots → ID1' },
+      2:  { value: 'Italic', source: 'VF slots → slope (non-elidable)' },
+      3:  { value: '1.000;UKWN;Example-VariableItalic', source: 'build_id3(version; vendor; VF filename)' },
+      4:  { value: 'Example Variable Italic', source: 'VF slots → ID4' },
+      5:  { value: 'Version 1.000', source: 'build_id5_version_string(head.fontRevision)' },
+      6:  { value: 'Example-VariableItalic', source: 'NameID6 VF: {PS base}-VariableItalic' },
+      16: { value: 'Example Variable', source: 'VF slots → ID16' },
+      17: { value: 'Italic', source: 'VF slots → ID17' },
+      25: { value: 'Example', source: 'Infer ID 25 / family PS prefix' },
+    },
+  },
+};
+
+const INST_NAMES = [
+  'Micro SemiCond SemiBold',
+  'Micro SemiCond Bold',
+  'Text SemiCond Regular',
+  'Display SemiCond Black',
+  'Display SemiCond Bold',
+  'Text Normal Regular',
+];
+
+const state = {
+  mid: 'names',
+  insp: 'project',
+  file: 'roman',
+  instance: -1,
+  search: '',
+  dirty: {},
+  baseline: {},
+  focusId: null,
+  addOpen: false,
+  addRange: null,
+  addQuery: '',
+};
+
+function cloneValues(fileKey) {
+  return { ...FILES[fileKey].values };
+}
+
+function initBaseline() {
+  for (const k of Object.keys(FILES)) {
+    state.baseline[k] = cloneValues(k);
+    state.baseline[k].__psPrefix = FILES[k].psPrefix;
+    state.dirty[k] = {};
+  }
+}
+
+function getPSPrefix() {
+  return FILES[state.file].psPrefix ?? '';
+}
+
+function setPSPrefix(value) {
+  FILES[state.file].psPrefix = value;
+  syncPSPrefixField();
+}
+
+function syncPSPrefixField() {
+  const el = document.getElementById('psPrefixField');
+  if (el && el.value !== getPSPrefix()) el.value = getPSPrefix();
+}
+
+function currentValue(id) {
+  if (id === 25) return getPSPrefix();
+  const d = state.dirty[state.file];
+  if (d && Object.prototype.hasOwnProperty.call(d, id)) return d[id];
+  return FILES[state.file].values[id] ?? '';
+}
+
+function baselineValue(id) {
+  if (id === 25) return state.baseline[state.file].__psPrefix ?? '';
+  return state.baseline[state.file][id] ?? '';
+}
+
+function isDirty(id) {
+  if (id === 25) {
+    return getPSPrefix() !== (state.baseline[state.file].__psPrefix ?? '');
+  }
+  const hasBase = Object.prototype.hasOwnProperty.call(state.baseline[state.file], id);
+  const hasCur = Object.prototype.hasOwnProperty.call(FILES[state.file].values, id)
+    || (state.dirty[state.file] && Object.prototype.hasOwnProperty.call(state.dirty[state.file], id));
+  if (!hasBase && hasCur) return true;
+  return currentValue(id) !== baselineValue(id);
+}
+
+function isPresent(id) {
+  if (id === 25) {
+    return isDirty(25) || getPSPrefix().trim() !== '';
+  }
+  if (isDirty(id)) return true;
+  return Object.prototype.hasOwnProperty.call(FILES[state.file].values, id)
+    && String(FILES[state.file].values[id]).trim() !== '';
+}
+
+function policyFor(id) {
+  return FILES[state.file].policy?.[id] || null;
+}
+
+function populatedSpecs() {
+  return NAME_SPEC.filter(s => isPresent(s.id));
+}
+
+function missingSpecs(range) {
+  return NAME_SPEC.filter(s => {
+    if (isPresent(s.id)) return false;
+    if (range && (s.id < range.min || s.id > range.max)) return false;
+    return true;
+  });
+}
+
+function dirtyCount() {
+  return NAME_SPEC.filter(s => isDirty(s.id)).length;
+}
+
+function setDirty(id, value) {
+  if (id === 25) {
+    setPSPrefix(value);
+    return;
+  }
+  const baseHas = Object.prototype.hasOwnProperty.call(state.baseline[state.file], id);
+  const base = baseHas ? state.baseline[state.file][id] : undefined;
+  if (baseHas && value === base) delete state.dirty[state.file][id];
+  else state.dirty[state.file][id] = value;
+  FILES[state.file].values[id] = value;
+}
+
+function addNameID(id) {
+  if (isPresent(id)) return;
+  setDirty(id, '');
+  state.focusId = id;
+  closeAddPop();
+  renderNames();
+  updateChrome();
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.nr-value[data-id="${id}"]`);
+    if (el) {
+      el.focus();
+      el.closest('.nr')?.classList.add('fresh');
+    }
+  });
+}
+
+function applyPolicy(id) {
+  const p = policyFor(id);
+  if (!p) return;
+  setDirty(id, p.value);
+  renderNames();
+  updateChrome();
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.nr-value[data-id="${id}"]`);
+    const btn = document.querySelector(`.policy-fill[data-policy-id="${id}"]`);
+    if (el) {
+      el.focus();
+      const row = el.closest('.nr');
+      row?.classList.add('focused', 'expanded', 'fresh');
+      fitValue(el);
+    }
+    if (btn) {
+      btn.classList.add('applied');
+      setTimeout(() => btn.classList.remove('applied'), 800);
+    }
+  });
+}
+
+function revertAll() {
+  const base = { ...state.baseline[state.file] };
+  const ps = base.__psPrefix ?? '';
+  delete base.__psPrefix;
+  FILES[state.file].values = base;
+  FILES[state.file].psPrefix = ps;
+  state.dirty[state.file] = {};
+  state.focusId = null;
+  syncPSPrefixField();
+  renderNames();
+  updateChrome();
+}
+
+function keepEdits() {
+  const next = {};
+  for (const s of NAME_SPEC) {
+    if (s.id === 25) continue;
+    if (!isPresent(s.id)) continue;
+    const v = currentValue(s.id);
+    if (String(v).trim() !== '') next[s.id] = v;
+  }
+  FILES[state.file].values = next;
+  state.baseline[state.file] = cloneValues(state.file);
+  state.baseline[state.file].__psPrefix = FILES[state.file].psPrefix;
+  state.dirty[state.file] = {};
+  state.focusId = null;
+  syncPSPrefixField();
+  renderNames();
+  updateChrome();
+}
+
+function matchesSearch(spec, value) {
+  if (!state.search) return true;
+  const q = state.search.toLowerCase();
+  return (
+    String(spec.id).includes(q) ||
+    spec.label.toLowerCase().includes(q) ||
+    value.toLowerCase().includes(q)
+  );
+}
+
+function escapeAttr(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+function renderRecord(spec) {
+  const value = currentValue(spec.id);
+  const dirty = isDirty(spec.id);
+  const policy = policyFor(spec.id);
+  const linked = spec.id === 25;
+  const fillBtn = policy
+    ? `<button type="button" class="policy-fill" data-policy-id="${spec.id}"
+         title="Fill from font · ${escapeAttr(policy.source)}&#10;→ ${escapeAttr(policy.value)}">${POLICY_ICON}</button>`
+    : '';
+  const linkTag = linked
+    ? `<span class="link-tag" title="Same value as File naming → PS prefix">≡ PS prefix</span>`
+    : '';
+  return `
+    <div class="nr${dirty ? ' dirty' : ''}${linked ? ' linked-ps' : ''}" data-id="${spec.id}">
+      <div class="nr-meta">
+        <span class="nr-id">${spec.id}</span>
+        <span class="nr-label">${spec.label}${linkTag}</span>
+      </div>
+      <div class="nr-value-row">
+        <textarea class="nr-value" data-id="${spec.id}" rows="1" spellcheck="false">${escapeAttr(value)}</textarea>
+        ${fillBtn}
+      </div>
+    </div>`;
+}
+
+function fitValue(el) {
+  const row = el.closest('.nr');
+  const expanded = row?.classList.contains('expanded') || document.activeElement === el;
+  if (!expanded) {
+    el.style.height = '26px';
+    return;
+  }
+  el.style.height = 'auto';
+  const next = Math.min(Math.max(el.scrollHeight, 26), 160);
+  el.style.height = next + 'px';
+}
+
+function renderNames() {
+  const host = document.getElementById('namesGroups');
+  const rows = populatedSpecs().filter(s => matchesSearch(s, currentValue(s.id)));
+  const missing = missingSpecs(null).length;
+
+  if (!rows.length) {
+    host.innerHTML = `<div class="empty-filter">No populated name records. Use <strong>Add ID…</strong></div>`;
+  } else {
+    host.innerHTML = rows.map(renderRecord).join('');
+  }
+
+  document.getElementById('namesSub').textContent =
+    `${FILES[state.file].label} · ${rows.length} shown · ${missing} missing · ${FILES[state.file].filename}`;
+
+  bindNameInputs();
+  bindPolicyFills();
+  updateAddButton();
+}
+
+function bindPolicyFills() {
+  document.querySelectorAll('[data-policy-id]').forEach(btn => {
+    btn.addEventListener('mousedown', e => e.preventDefault()); // keep focus behavior clean
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      applyPolicy(Number(btn.dataset.policyId));
+    });
+  });
+}
+
+function bindNameInputs() {
+  document.querySelectorAll('#namesGroups .nr-value').forEach(el => {
+    el.addEventListener('focus', () => {
+      document.querySelectorAll('.nr').forEach(r => {
+        r.classList.remove('focused', 'expanded');
+        const other = r.querySelector('.nr-value');
+        if (other && other !== el) fitValue(other);
+      });
+      const row = el.closest('.nr');
+      row?.classList.add('focused', 'expanded');
+      fitValue(el);
+    });
+    el.addEventListener('blur', () => {
+      const row = el.closest('.nr');
+      row?.classList.remove('focused', 'expanded');
+      fitValue(el);
+    });
+    el.addEventListener('input', () => {
+      const id = Number(el.dataset.id);
+      setDirty(id, el.value);
+      el.closest('.nr')?.classList.toggle('dirty', isDirty(id));
+      fitValue(el);
+      if (id === 25) syncPSPrefixField();
+      updateChrome();
+    });
+  });
+}
+
+function updateAddButton() {
+  const missing = missingSpecs(null).length;
+  const btn = document.getElementById('btnAdd');
+  btn.disabled = missing === 0;
+  btn.title = missing ? `${missing} missing name IDs` : 'All catalog IDs present';
+}
+
+function openAddPop(range) {
+  state.addOpen = true;
+  state.addRange = range || null;
+  state.addQuery = '';
+  document.getElementById('addPopSearch').value = '';
+  document.getElementById('btnAdd').classList.add('open');
+  document.getElementById('btnAdd').setAttribute('aria-expanded', 'true');
+  document.getElementById('addPop').classList.add('open');
+  document.getElementById('addPopTitle').textContent = 'Add name ID';
+  document.getElementById('addPopSub').textContent = 'Missing Windows records';
+  renderAddList();
+  requestAnimationFrame(() => document.getElementById('addPopSearch').focus());
+}
+
+function closeAddPop() {
+  state.addOpen = false;
+  state.addRange = null;
+  document.getElementById('btnAdd').classList.remove('open');
+  document.getElementById('btnAdd').setAttribute('aria-expanded', 'false');
+  document.getElementById('addPop').classList.remove('open');
+}
+
+function renderAddList() {
+  const list = document.getElementById('addPopList');
+  let items = missingSpecs(state.addRange);
+  const q = state.addQuery.trim().toLowerCase();
+  if (q) {
+    items = items.filter(s =>
+      String(s.id).includes(q) || s.label.toLowerCase().includes(q)
+    );
+  }
+  if (!items.length) {
+    list.innerHTML = `<div class="add-pop-empty">${q ? 'No matches' : 'Nothing missing'}</div>`;
+    return;
+  }
+  list.innerHTML = items.map(s => {
+    const hasPolicy = !!policyFor(s.id);
+    return `
+    <button type="button" class="add-pop-item" data-pick-id="${s.id}">
+      <span class="aid">${s.id}</span>
+      <span class="alabel">${s.label}${hasPolicy ? ' · policy' : ''}</span>
+    </button>`;
+  }).join('');
+  list.querySelectorAll('[data-pick-id]').forEach(btn => {
+    btn.addEventListener('click', () => addNameID(Number(btn.dataset.pickId)));
+  });
+}
+
+function setMid(mode) {
+  state.mid = mode;
+  document.querySelectorAll('#midSwitch .scope-btn').forEach(b => {
+    b.classList.toggle('on', b.dataset.mid === mode);
+  });
+  document.querySelectorAll('.mid-body').forEach(b => {
+    b.classList.toggle('active', b.dataset.midBody === mode);
+  });
+
+  const colInsp = document.getElementById('colInsp');
+  if (mode === 'names') {
+    setInsp('project');
+    colInsp.classList.add('dimmed');
+    document.getElementById('namesHintBlock').style.display = '';
+    document.getElementById('noteBar').innerHTML =
+      '<strong>ID 25 ≡ File naming PS prefix</strong> (one value — edit either place). File chips are source stems, not the prefix. Document+ applies FontCore policy (ID3/5/6/1/4/16/17/25…) when available — try ID6: Regular → <strong>PlayfairDisplay-Variable</strong>.';
+  } else {
+    colInsp.classList.remove('dimmed');
+    document.getElementById('namesHintBlock').style.display = 'none';
+    closeAddPop();
+    document.getElementById('noteBar').innerHTML =
+      'Middle column: <strong>Instances | Names</strong> — same toggle pattern as Inspector’s Project | Instance.';
+  }
+
+  updateChrome();
+}
+
+function setInsp(scope) {
+  state.insp = scope;
+  document.querySelectorAll('#inspSwitch .scope-btn').forEach(b => {
+    b.classList.toggle('on', b.dataset.insp === scope);
+  });
+  document.querySelectorAll('.insp-body').forEach(b => {
+    b.classList.toggle('active', b.dataset.inspBody === scope);
+  });
+  updateChrome();
+}
+
+function updateChrome() {
+  const n = dirtyCount();
+  const populated = populatedSpecs().length;
+  document.getElementById('dirtyCount').textContent = n ? `${n} edited` : '';
+  document.getElementById('btnRevert').disabled = n === 0;
+  document.getElementById('btnKeep').disabled = n === 0;
+
+  const namesBtn = document.getElementById('midNamesBtn');
+  const existing = namesBtn.querySelector('.dot-dirty');
+  if (n > 0) {
+    if (!existing) {
+      const d = document.createElement('span');
+      d.className = 'dot-dirty';
+      namesBtn.appendChild(d);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+
+  document.getElementById('namingCtx').textContent = '· ' + FILES[state.file].label;
+  document.getElementById('midHdrTitle').textContent =
+    state.mid === 'names' ? 'Names' : 'Instances';
+  document.getElementById('midHdrMeta').innerHTML =
+    state.mid === 'names'
+      ? `<b>${populated}</b> records`
+      : `<b>252</b> / 252`;
+
+  document.getElementById('inspMeta').innerHTML =
+    state.insp === 'instance' && state.instance >= 0
+      ? '<b>1</b> instance'
+      : '<b>2</b> files';
+
+  updateAddButton();
+}
+
+function selectFile(file) {
+  state.file = file;
+  closeAddPop();
+  document.querySelectorAll('.filechip').forEach(c => {
+    c.classList.toggle('on', c.dataset.file === file);
+  });
+  syncPSPrefixField();
+  renderNames();
+  updateChrome();
+}
+
+function selectInstance(i) {
+  if (state.mid === 'names') setMid('instances');
+
+  if (state.instance === i) {
+    state.instance = -1;
+    document.querySelectorAll('.inst-row').forEach(r => r.classList.remove('sel'));
+    setInsp('project');
+    return;
+  }
+  state.instance = i;
+  document.querySelectorAll('.inst-row').forEach(r => {
+    r.classList.toggle('sel', Number(r.dataset.inst) === i);
+  });
+  document.getElementById('instName').textContent = INST_NAMES[i];
+  setInsp('instance');
+}
+
+document.getElementById('introToggle').addEventListener('click', () => {
+  document.getElementById('intro').classList.toggle('open');
+});
+
+document.querySelectorAll('.filechip').forEach(chip => {
+  chip.addEventListener('click', () => selectFile(chip.dataset.file));
+});
+
+document.querySelectorAll('#midSwitch .scope-btn').forEach(btn => {
+  btn.addEventListener('click', () => setMid(btn.dataset.mid));
+});
+
+document.querySelectorAll('#inspSwitch .scope-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.insp === 'instance' && state.mid === 'names') {
+      setMid('instances');
+    }
+    setInsp(btn.dataset.insp);
+  });
+});
+
+document.querySelectorAll('.inst-row').forEach(row => {
+  row.addEventListener('click', () => selectInstance(Number(row.dataset.inst)));
+});
+
+document.getElementById('nameSearch').addEventListener('input', e => {
+  state.search = e.target.value.trim();
+  renderNames();
+});
+
+document.getElementById('btnRevert').addEventListener('click', revertAll);
+document.getElementById('btnKeep').addEventListener('click', keepEdits);
+
+document.getElementById('btnAdd').addEventListener('click', e => {
+  e.stopPropagation();
+  if (state.addOpen) closeAddPop();
+  else openAddPop(null);
+});
+
+document.getElementById('addPopSearch').addEventListener('input', e => {
+  state.addQuery = e.target.value;
+  renderAddList();
+});
+
+document.getElementById('addPop').addEventListener('click', e => e.stopPropagation());
+
+document.addEventListener('click', () => {
+  if (state.addOpen) closeAddPop();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.addOpen) closeAddPop();
+});
+
+
+document.getElementById('psPrefixField').addEventListener('input', e => {
+  setPSPrefix(e.target.value);
+  // Refresh ID 25 row without stealing focus from inspector
+  const row = document.querySelector('.nr[data-id="25"] .nr-value');
+  if (row && document.activeElement !== row) {
+    row.value = getPSPrefix();
+    row.closest('.nr')?.classList.toggle('dirty', isDirty(25));
+  } else if (!row) {
+    renderNames();
+  }
+  updateChrome();
+});
+
+initBaseline();
+syncPSPrefixField();
+renderNames();
+setMid('names');
+updateChrome();
+</script>
+</body>
+</html>

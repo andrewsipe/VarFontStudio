@@ -17,16 +17,26 @@ public enum FileRoleKind: String, Codable, Sendable {
 public struct FileClarifier: Codable, Equatable, Sendable, Identifiable {
     public var category: FileClarifierCategory
     public var label: String
+    /// Optional classification fragment for `@code` naming (editable even when label is locked on master).
+    public var code: String?
 
     public var id: FileClarifierCategory { category }
 
     enum CodingKeys: String, CodingKey {
-        case category, label
+        case category, label, code
     }
 
-    public init(category: FileClarifierCategory, label: String) {
+    public init(category: FileClarifierCategory, label: String, code: String? = nil) {
         self.category = category
         self.label = label
+        self.code = code
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        category = try c.decode(FileClarifierCategory.self, forKey: .category)
+        label = try c.decode(String.self, forKey: .label)
+        code = try c.decodeIfPresent(String.self, forKey: .code)
     }
 }
 
@@ -57,6 +67,10 @@ public struct FileRole: Codable, Equatable, Sendable {
 
     public func label(for category: FileClarifierCategory) -> String? {
         clarifiers.first { $0.category == category }?.label
+    }
+
+    public func code(for category: FileClarifierCategory) -> String? {
+        clarifiers.first { $0.category == category }?.code
     }
 
     public static func master() -> FileRole {

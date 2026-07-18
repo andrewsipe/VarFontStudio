@@ -104,6 +104,7 @@ struct InspectorColumn: View {
                                 )
                         }
                 }
+                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
         }
         .buttonStyle(.plain)
     }

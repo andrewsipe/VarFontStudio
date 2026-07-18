@@ -138,6 +138,7 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         ot_label_ids = {rec.name_id for rec in ot_labels}
 
     family_ps_prefix = options.get("family_ps_prefix")
+    windows_name_patches = list(request.get("windows_name_patches") or [])
     plan = build_allocation_plan(
         font,
         ot_labels,
@@ -155,6 +156,8 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         pinned_coords=pinned,
         nameid_strategy=strategy,
         ot_reflow_end=ot_reflow_end if strategy == "reflow" else None,
+        windows_name_patches=windows_name_patches,
+        file_role=file_role if isinstance(file_role, dict) else None,
     )
     collisions = check_for_collisions(plan, font)
     if collisions:

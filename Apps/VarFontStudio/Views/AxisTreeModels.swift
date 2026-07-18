@@ -5,12 +5,17 @@ enum StopEditField: Equatable {
     case min
     case pin
     case max
+    case code
     case name
 }
 
 struct AddAxisStopRequest: Identifiable {
     let axisTag: String
     var id: String { axisTag }
+}
+
+struct AddRegistrationAxisRequest: Identifiable {
+    let id = UUID()
 }
 
 struct FillStopsRequest: Identifiable {
@@ -37,9 +42,9 @@ struct StopFormatChangeRequest: Identifiable {
 // | variation   | N         | Y     | Y    | min – def – max                       | empty | YES      |
 // | pinned      | N         | N     | N    | min – def – max · Pinned at X         | YES   | NO       |
 // | pinned      | N         | Y     | N    | min – def – max · Pinned at X         | empty | NO       |
-// | registration| Y         | N     | —    | No fvar scale · {stop}▾              | YES   | NO       |
-// | registration| Y         | Y     | —    | No fvar scale · {stop?}▾             | empty | NO       |
-// | registration| N         | *     | —    | No fvar scale [· {stop?}▾]           | *     | NO       |
+// | registration| Y         | N     | —    | No fvar scale · {stop}▾              | YES   | YES      |
+// | registration| Y         | Y     | —    | No fvar scale · {stop?}▾             | empty | YES      |
+// | registration| N         | *     | —    | No fvar scale [· {stop?}▾]           | *     | YES*     |
 //
 // hasConflict → warning icon + Resolve in header (all lanes). hasAxisWarning → warning icon in header;
 // axis-scoped plan warnings do not repeat in the scroll banner (rollup only when 2+ axes need attention).
@@ -152,19 +157,22 @@ enum AxisBlockLayout {
     static let defaultMarkTrailingGap: CGFloat = 4
     static let fmtColumnWidth: CGFloat = 36
     static let valueColumnWidth: CGFloat = 52
+    static let codeColumnWidth: CGFloat = 36
+    static let codeGap: CGFloat = 6
     static let nameGap: CGFloat = 6
     static let elidableWidth: CGFloat = 26
 
-    static func nameLeading(showDefaultMark: Bool) -> CGFloat {
+    static func nameLeading(showDefaultMark: Bool, showCode: Bool = false) -> CGFloat {
         stopIndentWidth
             + (showDefaultMark ? defaultMarkWidth + defaultMarkTrailingGap : 0)
             + fmtColumnWidth
             + valueColumnWidth
+            + (showCode ? codeGap + codeColumnWidth : 0)
             + nameGap
     }
 
-    static func rangeSublineLeading(showDefaultMark: Bool) -> CGFloat {
-        nameLeading(showDefaultMark: showDefaultMark)
+    static func rangeSublineLeading(showDefaultMark: Bool, showCode: Bool = false) -> CGFloat {
+        nameLeading(showDefaultMark: showDefaultMark, showCode: showCode)
     }
 
     static let stopCountBadgeWidth: CGFloat = 32

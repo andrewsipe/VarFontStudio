@@ -6,6 +6,11 @@ enum InspectorPanelScope: Equatable {
     case instance
 }
 
+enum MiddlePanelScope: Equatable {
+    case instances
+    case names
+}
+
 /// Where Project-inspector File naming should land after a footer jump.
 enum InspectorFileNamingFocus: Equatable {
     case section
@@ -17,6 +22,7 @@ enum InspectorFileNamingFocus: Equatable {
 @MainActor
 final class InspectorFocusStore: ObservableObject {
     @Published var panelScope: InspectorPanelScope = .project
+    @Published var middlePanelScope: MiddlePanelScope = .instances
     /// Bumped when chrome should reveal the inspector column (e.g. footer clarifier tap).
     @Published private(set) var revealToken = 0
     /// Optional File naming focus target paired with `revealToken`.
@@ -38,6 +44,14 @@ final class InspectorFocusStore: ObservableObject {
 
     func updateScopeForInstanceSelection(hasInspectableInstance: Bool) {
         panelScope = hasInspectableInstance ? .instance : .project
+        if hasInspectableInstance {
+            middlePanelScope = .instances
+        }
+    }
+
+    func showNamesPanel() {
+        middlePanelScope = .names
+        panelScope = .project
     }
 
     func focusAxisTag(_ tag: String?) {

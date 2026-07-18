@@ -582,6 +582,10 @@ FontVault is a separate native app (font library). VarFont Studio is the **varia
 
 Do **not** add more axis tree layout tweaks unless fixing a clear bug.
 
+### Names middle panel (Windows 0–25)
+
+The middle column toggles **Instances | Names**. Names edits Windows English name IDs 0–25 only (`3/1/0x409`); **ID 25 ≡ File naming PS prefix**. It is not a full name-table / TTX browser (no Mac or other langs). Policy fill (document+) uses FontCore-aligned VF builders for IDs 1/3/4/5/6/16/17/25.
+
 ---
 
 ## Changelog (high level)
@@ -593,3 +597,4 @@ Do **not** add more axis tree layout tweaks unless fixing a clear bug.
 | Jun–Jul 2026 | Axis tree layout K, STAT F1/F2/F3 UI, block structure phases 0–7, save review shell |
 | Jul 2026 | Phase 0.5 naming model clarity — registration subtitle picker, role colors, clarifier demotion |
 | Jul 2026 | Alpha polish — `.varf` projects, OT label reflow, Save review name tab, fvar PostScript rows, Preferences menu |
+| Jul 2026 | Names middle panel — Windows 0–25 editor, ID25≡PS prefix, vfcommit low-ID patches |

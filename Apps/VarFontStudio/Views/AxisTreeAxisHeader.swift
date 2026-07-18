@@ -102,10 +102,10 @@ struct AxisTreeAxisHeader: View {
                 }
                 .buttonStyle(.plain)
                 .help(lane == .registration
-                    ? "STAT design axis — edit the axis label and stop names below."
+                    ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
                     : "Expand axis stops")
 
-                // Registration stop menu must stay outside the expand button.
+                // File-axis stop menu must stay outside the expand button.
                 if lane == .registration {
                     registrationSubtitle
                 } else if let subtitleText {
@@ -143,7 +143,7 @@ struct AxisTreeAxisHeader: View {
                         .help(
                             "When on, stops on this axis generate named instances. "
                                 + "When off, the axis stays at its default for every instance. "
-                                + "Registration axes never use this toggle."
+                                + "Naming axes never use this toggle."
                         )
                         .accessibilityLabel("Instance axis")
                 }

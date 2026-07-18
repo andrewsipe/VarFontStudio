@@ -428,3 +428,213 @@ struct ChangeAxisStopFormatSheet: View {
     }
 }
 
+// MARK: - Add naming axis
+
+struct AddFileAxisSheet: View {
+    @EnvironmentObject private var editor: EditorViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    let onComplete: () -> Void
+
+    private enum Kind: String, CaseIterable, Identifiable {
+        case slope, width, optical, custom
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .slope: return "Slope (ital)"
+            case .width: return "Width (wdth)"
+            case .optical: return "Optical (opsz)"
+            case .custom: return "Custom tag"
+            }
+        }
+
+        var template: RegistrationAxisFactory.TemplateKind? {
+            switch self {
+            case .slope: return .slope
+            case .width: return .width
+            case .optical: return .optical
+            case .custom: return nil
+            }
+        }
+    }
+
+    @State private var kind: Kind = .slope
+    @State private var tagText = ""
+    @State private var nameText = ""
+    @FocusState private var focusedField: Field?
+
+    private enum Field: Hashable {
+        case tag, name
+    }
+
+    private var sanitizedTag: String {
+        RegistrationAxisFactory.sanitizeAxisTag(tagText)
+    }
+
+    private var templateAvailable: Bool {
+        guard let template = kind.template else { return true }
+        return editor.canAddRegistrationTemplate(template)
+    }
+
+    private var customCollision: Bool {
+        guard kind == .custom, let axes = editor.selectedFont?.axes, !sanitizedTag.isEmpty else {
+            return false
+        }
+        return !RegistrationAxisFactory.canAddRegistrationAxis(tag: sanitizedTag, axes: axes)
+    }
+
+    private var canAdd: Bool {
+        switch kind {
+        case .slope, .width, .optical:
+            return templateAvailable
+        case .custom:
+            return !sanitizedTag.isEmpty
+                && !customCollision
+                && !nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+            Text("Add Naming Axis")
+                .font(StudioTypography.emphasis)
+
+            infoBlock
+
+            Picker("Kind", selection: $kind) {
+                ForEach(Kind.allCases) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: kind) { _, newKind in
+                if newKind != .custom {
+                    focusedField = nil
+                } else {
+                    focusedField = .tag
+                }
+            }
+
+            kindDetail
+
+            if kind != .custom, !templateAvailable {
+                Text("An axis with this tag already exists in the Axis Tree.")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.red)
+            }
+            if customCollision {
+                Text("An axis with tag “\(sanitizedTag)” already exists.")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    onComplete()
+                    dismiss()
+                }
+                Button("Add Axis") {
+                    addIfValid()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canAdd)
+            }
+        }
+        .padding(20)
+        .frame(width: 440)
+        .onAppear {
+            if !editor.canAddRegistrationTemplate(.slope) {
+                if editor.canAddRegistrationTemplate(.width) {
+                    kind = .width
+                } else if editor.canAddRegistrationTemplate(.optical) {
+                    kind = .optical
+                } else {
+                    kind = .custom
+                    focusedField = .tag
+                }
+            }
+        }
+    }
+
+    private var infoBlock: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+            Text("Naming axes contribute style names across files in a family — Roman vs Italic, or a custom GRADE — without joining the instance grid. They have no fvar scale: each file carries the stop that describes that file.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Italic (ital) follows Playfair’s STAT pattern: the Roman file has one Format 3 stop at 0 (Roman, linked to 1); the Italic file has one Format 3 stop at 1 (Italic, linked to 0). The linked value is a convention pointer — not a second named stop on the same file. Width, optical, and custom naming axes use ordinary named stops instead of a 0/1 switch.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        .overlay {
+            RoundedRectangle(cornerRadius: StudioRadius.row)
+                .strokeBorder(StudioColors.registrationStroke, lineWidth: 0.5)
+        }
+    }
+
+    @ViewBuilder
+    private var kindDetail: some View {
+        switch kind {
+        case .slope:
+            Text("Adds `ital` with one Format 3 stop per file — Roman 0→1 on upright files, Italic 1→0 on italic files.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+        case .width:
+            Text("Adds `wdth` as a naming axis only when Width isn’t already an instance axis.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+        case .optical:
+            Text("Adds `opsz` as a naming axis only when Optical Size isn’t already an instance axis.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+        case .custom:
+            VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                Text("Any unique 4-character tag (e.g. GRAD) plus a display name.")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                StudioTextField(
+                    placeholder: "Tag (e.g. GRAD)",
+                    text: $tagText,
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: StudioColors.registrationForeground
+                )
+                .focused($focusedField, equals: .tag)
+                StudioTextField(
+                    placeholder: "Display name (e.g. Grade)",
+                    text: $nameText,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: StudioColors.registrationForeground,
+                    onSubmit: addIfValid
+                )
+                .focused($focusedField, equals: .name)
+            }
+        }
+    }
+
+    private func addIfValid() {
+        guard canAdd else { return }
+        let ok: Bool
+        switch kind {
+        case .slope:
+            ok = editor.addRegistrationTemplate(.slope)
+        case .width:
+            ok = editor.addRegistrationTemplate(.width)
+        case .optical:
+            ok = editor.addRegistrationTemplate(.optical)
+        case .custom:
+            ok = editor.addRegistrationAxis(tag: sanitizedTag, displayName: nameText)
+        }
+        guard ok else { return }
+        onComplete()
+        dismiss()
+    }
+}
+

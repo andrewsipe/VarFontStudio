@@ -68,9 +68,10 @@ final class CommitRequestBuilderTests: XCTestCase {
             axisTags: ["wght"]
         )
 
-        XCTAssertEqual(order, ["@pshyphen", "wght", "@width", "@slope", "@optical", "@custom"])
+        XCTAssertEqual(order, ["@pshyphen", "wght"])
         XCTAssertFalse(order.contains("slnt"))
         XCTAssertFalse(order.contains("ital"))
+        XCTAssertFalse(order.contains("@slope"))
     }
 
     func testMakeAppliesProjectNameIDStrategyPreserve() throws {

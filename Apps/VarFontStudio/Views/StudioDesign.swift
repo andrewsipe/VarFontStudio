@@ -143,15 +143,18 @@ enum StudioColors {
     static let computedHighlight = Color.accentColor
     /// STAT elided fallback — name when all elidable segments drop (naming footer, instance list).
     static let elidedFallbackForeground = Color.accentColor
-    /// Per-file clarifier labels — metadata, not axis coordinates.
-    static let clarifierForeground = Color(red: 0.55, green: 0.45, blue: 0.95)
-    static let clarifierBackground = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.14)
-    static let clarifierStroke = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.35)
-    /// Registration / design-record axes — file identity, not instance grid.
-    /// Teal: distinct from clarifier purple, axis-value orange, and selection accent.
-    static let registrationForeground = Color(red: 0.28, green: 0.62, blue: 0.68)
-    static let registrationBackground = Color(red: 0.28, green: 0.62, blue: 0.68).opacity(0.14)
-    static let registrationStroke = Color(red: 0.28, green: 0.62, blue: 0.68).opacity(0.35)
+    /// Registration / design-record axes — file identity (indigo; absorbed clarifier language).
+    static let registrationForeground = Color(red: 0.55, green: 0.45, blue: 0.95)
+    static let registrationBackground = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.14)
+    static let registrationStroke = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.35)
+    /// Legacy clarifier alias — same indigo as registration.
+    static let clarifierForeground = registrationForeground
+    static let clarifierBackground = registrationBackground
+    static let clarifierStroke = registrationStroke
+    /// Classification code chip — amber, distinct from registration indigo.
+    static let codeForeground = Color(red: 0.78, green: 0.52, blue: 0.18)
+    static let codeBackground = Color(red: 0.78, green: 0.52, blue: 0.18).opacity(0.14)
+    static let codeStroke = Color(red: 0.78, green: 0.52, blue: 0.18).opacity(0.40)
     /// STAT format badges in the axis tree format grid.
     static let statFormat1 = Color.green
     static let statFormat2 = Color.cyan
@@ -1681,6 +1684,10 @@ struct StudioInstanceComposedName: View {
             return included
                 ? StudioColors.clarifierForeground
                 : StudioColors.clarifierForeground.opacity(0.55)
+        case .code:
+            return included
+                ? StudioColors.codeForeground
+                : StudioColors.codeForeground.opacity(0.55)
         case .registration:
             if link.elided {
                 return StudioColors.registrationForeground.opacity(0.45)
@@ -1742,6 +1749,13 @@ struct InspectorInstanceNamingChain: View {
                 }
                 .padding(.horizontal, 4)
                 .padding(.vertical, 2)
+            } else if link.kind == .code {
+                Text(link.name)
+                    .font(StudioTypography.monoMeta.weight(.semibold))
+                    .foregroundStyle(StudioColors.codeForeground)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             } else {
                 Button {
                     onLinkTap?(link.tag)
@@ -1773,6 +1787,7 @@ struct InspectorInstanceNamingChain: View {
         case .registration: return StudioColors.registrationForeground
         case .axis: return Color.primary
         case .clarifier: return StudioColors.clarifierForeground
+        case .code: return StudioColors.codeForeground
         }
     }
 }

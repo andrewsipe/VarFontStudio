@@ -110,11 +110,39 @@ extension EditorViewModel {
         guard var project, let index = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
         pushUndoSnapshot()
         var role = project.fonts[index].fileRole ?? .variant(masterFontID: masterFontID(for: activeProjectID ?? "") ?? "")
+        let existingCode = role.code(for: category)
         role.clarifiers.removeAll { $0.category == category }
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            role.clarifiers.append(FileClarifier(category: category, label: trimmed))
+        if !trimmed.isEmpty || existingCode != nil {
+            role.clarifiers.append(FileClarifier(category: category, label: trimmed, code: existingCode))
         }
+        // Codes alone must not demote a multi-file master into a variant.
+        project.fonts[index].fileRole = role
+        project.fonts[index].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    func setFileClarifierCode(category: FileClarifierCategory, code: String, for fontID: String) {
+        guard var project, let index = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
+        pushUndoSnapshot()
+
+        let isMaster = project.fonts[index].fileRole?.kind == .master
+            || masterFontID(for: activeProjectID ?? "") == fontID
+        var role = project.fonts[index].fileRole
+            ?? (isMaster ? .master() : .variant(masterFontID: masterFontID(for: activeProjectID ?? "") ?? ""))
+
+        let existingLabel = role.label(for: category) ?? ""
+        let sanitized = InstanceCodeBuilder.sanitize(code)
+        role.clarifiers.removeAll { $0.category == category }
+        if !existingLabel.isEmpty || sanitized != nil {
+            role.clarifiers.append(
+                FileClarifier(category: category, label: existingLabel, code: sanitized)
+            )
+        }
+        // Keep master kind even when storing code-only clarifier entries.
         project.fonts[index].fileRole = role
         project.fonts[index].dirty = true
         project.modified = Date()
@@ -182,6 +210,74 @@ extension EditorViewModel {
         }
     }
 
+    /// Whether a registration template tag can be added (no duplicate axis on the selected font).
+    func canAddRegistrationTemplate(_ kind: RegistrationAxisFactory.TemplateKind) -> Bool {
+        guard let axes = selectedFont?.axes else { return false }
+        return RegistrationAxisFactory.templateTag(for: kind, axes: axes) != nil
+    }
+
+    @discardableResult
+    func addRegistrationTemplate(_ kind: RegistrationAxisFactory.TemplateKind) -> Bool {
+        guard var project, let axes = selectedFont?.axes,
+              RegistrationAxisFactory.templateTag(for: kind, axes: axes) != nil else {
+            return false
+        }
+        let axis = RegistrationAxisFactory.makeTemplateAxis(kind: kind)
+        return insertRegistrationAxis(axis, into: &project, registerOnSelectedFile: true)
+    }
+
+    /// Add a custom registration axis (tag + display name). Returns false on collision / invalid tag.
+    @discardableResult
+    func addRegistrationAxis(tag: String, displayName: String) -> Bool {
+        guard var project, let axes = selectedFont?.axes else { return false }
+        let normalized = RegistrationAxisFactory.sanitizeAxisTag(tag)
+        guard RegistrationAxisFactory.canAddRegistrationAxis(tag: normalized, axes: axes) else {
+            return false
+        }
+        let axis = RegistrationAxisFactory.makeCustomAxis(tag: normalized, displayName: displayName)
+        return insertRegistrationAxis(axis, into: &project, registerOnSelectedFile: true)
+    }
+
+    @discardableResult
+    private func insertRegistrationAxis(
+        _ axis: AxisDefinition,
+        into project: inout ProjectDocument,
+        registerOnSelectedFile: Bool
+    ) -> Bool {
+        pushUndoSnapshot()
+        for index in project.fonts.indices {
+            guard !project.fonts[index].axes.contains(where: { $0.tag == axis.tag }) else { continue }
+            let axisForFile: AxisDefinition
+            if axis.tag == "ital" {
+                let italic = RegistrationAxisSupport.isItalicFile(font: project.fonts[index])
+                axisForFile = RegistrationAxisFactory.makeItalAxis(isItalicFile: italic)
+            } else {
+                axisForFile = axis
+            }
+            project.fonts[index].axes.append(axisForFile)
+            let value = axisForFile.values.first?.value ?? 0
+            project.fonts[index].fileStatRegistration[axisForFile.tag] = value
+            project.fonts[index].dirty = true
+        }
+        if !project.template.axes.contains(where: { $0.tag == axis.tag }) {
+            let templateAxis = axis.tag == "ital"
+                ? RegistrationAxisFactory.makeItalAxis(isItalicFile: false)
+                : axis
+            project.template.axes.append(templateAxis)
+        }
+        if !project.naming.order.contains(axis.tag) {
+            project.naming.order.append(axis.tag)
+            project.naming.order = NamingPolicy.ensurePostscriptHyphen(in: project.naming.order)
+        }
+        // Drop superseded clarifier tokens from naming order.
+        project.naming.order = project.naming.order.filter { !NamingToken.isClarifier($0) }
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+        return true
+    }
+
     func slopeClarifierSupersededByRegistration(for fontID: String) -> Bool {
         clarifierCoveredByRegistration(category: .slope, for: fontID)
     }
@@ -198,13 +294,7 @@ extension EditorViewModel {
     }
 
     func inferFileClarifiersForSelectedFont() {
-        guard let font = selectedFont, let projectID = activeProjectID, var project else { return }
-        let fontCount = project.fonts.count
-        let role = font.fileRole ?? .variant(masterFontID: masterFontID(for: projectID) ?? "")
-        if ClarifierSlotCoverage.isMultiFileMaster(font: font, projectFontCount: fontCount) {
-            postStatusMessage("Clarifiers belong on variant files.")
-            return
-        }
+        guard let font = selectedFont, var project else { return }
 
         let analysis: FontAnalysis
         do {
@@ -220,51 +310,75 @@ extension EditorViewModel {
         let prefixWouldUpdate = prefixEmpty
             && !(inferredPrefix?.isEmpty ?? true)
 
-        let canInferClarifiers = ClarifierSlotCoverage.hasEditableInferSlots(
-            font: font,
-            projectFontCount: fontCount
+        let inferred = FileClarifierInference.infer(
+            sourceURL: URL(fileURLWithPath: font.sourcePath),
+            analysis: analysis,
+            font: font
         )
 
-        if !canInferClarifiers, !prefixWouldUpdate {
-            postStatusMessage("No file-level clarifiers needed — axis and registration naming cover this file.")
-            return
-        }
-
-        let inferred = canInferClarifiers
-            ? FileClarifierInference.infer(
-                sourceURL: URL(fileURLWithPath: font.sourcePath),
-                analysis: analysis,
-                font: font
-            )
-            : FileClarifierInferenceResult(clarifiers: [], elidedFallbackOverride: nil)
-
-        if inferred.clarifiers.isEmpty, !prefixWouldUpdate {
-            postStatusMessage("No clarifiers matched the filename.")
-            return
-        }
-
+        var didChange = false
         pushUndoSnapshot()
-        guard let index = project.fonts.firstIndex(where: { $0.id == font.id }) else { return }
-        var updatedRole = project.fonts[index].fileRole ?? role
-        if canInferClarifiers {
-            updatedRole.clarifiers = inferred.clarifiers
-            updatedRole.elidedFallbackOverride = inferred.elidedFallbackOverride
-        }
-        if prefixWouldUpdate, let prefix = inferredPrefix, !prefix.isEmpty {
+
+        if prefixWouldUpdate, let prefix = inferredPrefix, !prefix.isEmpty,
+           let index = project.fonts.firstIndex(where: { $0.id == font.id }) {
             project.fonts[index].options.familyPSPrefix = prefix
+            project.fonts[index].dirty = true
+            didChange = true
         }
-        project.fonts[index].fileRole = updatedRole
-        project.fonts[index].dirty = true
+
+        for clarifier in inferred.clarifiers {
+            switch clarifier.category {
+            case .slope:
+                if RegistrationAxisFactory.templateTag(for: .slope, axes: project.fonts.first?.axes ?? []) != nil {
+                    for index in project.fonts.indices where !project.fonts[index].axes.contains(where: { $0.tag == "ital" }) {
+                        let italic = RegistrationAxisSupport.isItalicFile(font: project.fonts[index])
+                        project.fonts[index].axes.append(
+                            RegistrationAxisFactory.makeItalAxis(isItalicFile: italic)
+                        )
+                        project.fonts[index].dirty = true
+                    }
+                    if !project.naming.order.contains("ital") {
+                        project.naming.order.append("ital")
+                    }
+                    didChange = true
+                }
+                if let index = project.fonts.firstIndex(where: { $0.id == font.id }),
+                   let axis = project.fonts[index].axes.first(where: { $0.tag == "ital" && $0.isDesignRecordOnly }),
+                   let stop = axis.values.first {
+                    project.fonts[index].fileStatRegistration["ital"] = stop.value
+                    project.fonts[index].dirty = true
+                    didChange = true
+                }
+            case .width, .optical, .custom:
+                break
+            }
+        }
+
+        if let override = inferred.elidedFallbackOverride,
+           let index = project.fonts.firstIndex(where: { $0.id == font.id }) {
+            var role = project.fonts[index].fileRole ?? .master()
+            role.elidedFallbackOverride = override
+            project.fonts[index].fileRole = role
+            project.fonts[index].dirty = true
+            didChange = true
+        }
+
+        project.naming.order = project.naming.order.filter { !NamingToken.isClarifier($0) }
+        project.naming.order = NamingPolicy.ensurePostscriptHyphen(in: project.naming.order)
+
+        if !didChange && !prefixWouldUpdate {
+            postStatusMessage("No registration naming inferred for this file.")
+            return
+        }
+
         project.modified = Date()
         self.project = project
         canSave = true
         regeneratePlan()
-
-        if inferred.clarifiers.isEmpty {
+        if prefixWouldUpdate && inferred.clarifiers.isEmpty {
             postStatusMessage("Updated PostScript prefix from font metadata.")
         } else {
-            let count = inferred.clarifiers.count
-            postStatusMessage("Inferred \(count) file naming label\(count == 1 ? "" : "s").")
+            postStatusMessage("Inferred registration naming from filename.")
         }
     }
 
@@ -300,7 +414,7 @@ extension EditorViewModel {
         postStatusMessage("Pushed axis tree from master to \(updated.fonts.count - 1) file(s)")
     }
 
-    private func mutateFont(id fontID: String, _ mutate: (inout FontDocument) -> Void) {
+    func mutateFont(id fontID: String, _ mutate: (inout FontDocument) -> Void) {
         guard var project, let index = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
         pushUndoSnapshot()
         mutate(&project.fonts[index])
@@ -361,6 +475,14 @@ extension EditorViewModel {
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             font.axes[axisIndex].values[stopIndex].name = name
+        }
+    }
+
+    func updateAxisStopCode(axisTag: String, stopID: String, code: String) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
+            font.axes[axisIndex].values[stopIndex].code = InstanceCodeBuilder.sanitize(code)
         }
     }
 

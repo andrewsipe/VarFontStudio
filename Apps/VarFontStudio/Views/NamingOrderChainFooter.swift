@@ -43,7 +43,7 @@ struct NamingOrderChainFooter: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
                     if editor.projectHasMultipleFiles {
-                        Text("Purple chips are per-file labels — edit in Inspector → Project → File naming.")
+                        Text("Indigo chips are naming axes — each file carries its own stop on that axis.")
                             .font(StudioTypography.meta)
                             .foregroundStyle(.tertiary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -104,6 +104,10 @@ struct NamingOrderChainFooter: View {
 
             if isExpanded {
                 HStack(spacing: StudioSpacing.controlGap) {
+                    codeNamingControl
+
+                    disclosureToolbarDivider
+
                     hideStatOnlyControl
 
                     disclosureToolbarDivider
@@ -124,6 +128,29 @@ struct NamingOrderChainFooter: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: StudioFieldMetrics.disclosureLabelRowHeight)
+    }
+
+    private var codeNamingControl: some View {
+        HStack(spacing: 5) {
+            Toggle(
+                "Code",
+                isOn: Binding(
+                    get: { editor.isCodeNamingEnabled },
+                    set: { editor.setCodeNamingEnabled($0) }
+                )
+            )
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .labelsHidden()
+
+            Text("Code")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.tertiary)
+        }
+        .help(
+            "Include a Code chip in the naming order. When on, Axis Tree shows a Code column "
+                + "and composed names include the concatenated stop codes."
+        )
     }
 
     private var hideStatOnlyControl: some View {
@@ -438,6 +465,9 @@ struct NamingOrderChainFooter: View {
         if editor.isPostscriptHyphenToken(tag) {
             return AnyView(postscriptHyphenChip(tag: tag))
         }
+        if editor.isCodeNamingToken(tag) {
+            return AnyView(codeChainChip(tag: tag))
+        }
         if editor.isClarifierNamingToken(tag) {
             return AnyView(clarifierChainChip(tag: tag))
         }
@@ -493,6 +523,27 @@ struct NamingOrderChainFooter: View {
             .gesture(dragGesture(for: tag))
     }
 
+    private func codeChainChip(tag: String) -> some View {
+        let isDragging = session.draggingTag == tag
+
+        return Text("Code")
+            .font(StudioTypography.caption.weight(.semibold))
+            .foregroundStyle(StudioColors.codeForeground)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .overlay {
+                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    .strokeBorder(StudioColors.codeStroke, lineWidth: 0.5)
+            }
+            .opacity(isDragging ? 0.3 : 1)
+            .contentShape(Rectangle())
+            .help("Classification code — concatenated from Axis Tree stop codes in axis order. Drag to reorder.")
+            .gesture(dragGesture(for: tag))
+    }
+
     private func clarifierChainChip(tag: String) -> some View {
         let isDragging = session.draggingTag == tag
         let label = editor.clarifierLabels(for: editor.selectedFontID ?? "").first {
@@ -513,7 +564,7 @@ struct NamingOrderChainFooter: View {
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
-            .help("Click to edit in Inspector → Project → File naming; drag to reorder")
+            .help("Legacy clarifier token — prefer registration axes in the Axis Tree")
             .gesture(dragGesture(for: tag))
     }
 
@@ -580,6 +631,13 @@ struct NamingOrderChainFooter: View {
                     Text("[-] PS hyphen")
                         .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(Color.accentColor.opacity(0.5))
+                        .lineLimit(1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                } else if editor.isCodeNamingToken(tag) {
+                    Text("Code")
+                        .font(StudioTypography.caption.weight(.semibold))
+                        .foregroundStyle(StudioColors.codeForeground.opacity(0.5))
                         .lineLimit(1)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
@@ -650,6 +708,14 @@ struct NamingOrderChainFooter: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+        } else if editor.isCodeNamingToken(tag) {
+            Text("Code")
+                .font(StudioTypography.caption.weight(.semibold))
+                .foregroundStyle(StudioColors.codeForeground)
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         } else if editor.isClarifierNamingToken(tag) {
             Text(chainChipLabel(for: tag))
                 .font(StudioTypography.caption)

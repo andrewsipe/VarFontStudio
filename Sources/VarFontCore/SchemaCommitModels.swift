@@ -18,6 +18,9 @@ public struct CommitRequest: Codable, Equatable, Sendable {
     public var statDesignAxisTags: [String]
     public var originalSourcePath: String?
     public var allowInPlace: Bool
+    /// Windows English (3,1,0x0409) patches for name IDs 0–24. Empty `string` deletes that record.
+    /// ID 25 is written via `options.familyPSPrefix`.
+    public var windowsNamePatches: [WindowsNameRecord]
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -34,6 +37,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         case statDesignAxisTags = "stat_design_axis_tags"
         case originalSourcePath = "original_source_path"
         case allowInPlace = "allow_in_place"
+        case windowsNamePatches = "windows_name_patches"
     }
 
     public init(
@@ -51,7 +55,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         compoundStatValues: [CompoundStatValue] = [],
         statDesignAxisTags: [String] = [],
         originalSourcePath: String? = nil,
-        allowInPlace: Bool = false
+        allowInPlace: Bool = false,
+        windowsNamePatches: [WindowsNameRecord] = []
     ) {
         self.schemaVersion = schemaVersion
         self.requestID = requestID
@@ -68,6 +73,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         self.statDesignAxisTags = statDesignAxisTags
         self.originalSourcePath = originalSourcePath
         self.allowInPlace = allowInPlace
+        self.windowsNamePatches = windowsNamePatches
     }
 
     public init(from decoder: Decoder) throws {
@@ -87,6 +93,7 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         statDesignAxisTags = try c.decodeIfPresent([String].self, forKey: .statDesignAxisTags) ?? []
         originalSourcePath = try c.decodeIfPresent(String.self, forKey: .originalSourcePath)
         allowInPlace = try c.decodeIfPresent(Bool.self, forKey: .allowInPlace) ?? false
+        windowsNamePatches = try c.decodeIfPresent([WindowsNameRecord].self, forKey: .windowsNamePatches) ?? []
     }
 }
 
@@ -155,6 +162,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
     public var statValuesPlanned: [CommitDiffStatValuePlanned]
     public var instancesPlanned: [CommitDiffInstancePlanned]
     public var otReflowMapping: [CommitDiffOTReflowEntry]?
+    /// Planned Windows English low-ID writes (0–25). Empty `string` means delete.
+    public var windowsNamePatches: [WindowsNameRecord]
 
     enum CodingKeys: String, CodingKey {
         case familyPSPrefix = "family_ps_prefix"
@@ -166,6 +175,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         case statValuesPlanned = "stat_values_planned"
         case instancesPlanned = "instances_planned"
         case otReflowMapping = "ot_reflow_mapping"
+        case windowsNamePatches = "windows_name_patches"
     }
 
     public init(
@@ -177,7 +187,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         nameRecordsSequenced: [CommitNameRecordPlanned] = [],
         statValuesPlanned: [CommitDiffStatValuePlanned] = [],
         instancesPlanned: [CommitDiffInstancePlanned] = [],
-        otReflowMapping: [CommitDiffOTReflowEntry]? = nil
+        otReflowMapping: [CommitDiffOTReflowEntry]? = nil,
+        windowsNamePatches: [WindowsNameRecord] = []
     ) {
         self.familyPSPrefix = familyPSPrefix
         self.elidedFallbackName = elidedFallbackName
@@ -188,6 +199,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         self.statValuesPlanned = statValuesPlanned
         self.instancesPlanned = instancesPlanned
         self.otReflowMapping = otReflowMapping
+        self.windowsNamePatches = windowsNamePatches
     }
 
     public init(from decoder: Decoder) throws {
@@ -202,6 +214,7 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         statValuesPlanned = try c.decodeIfPresent([CommitDiffStatValuePlanned].self, forKey: .statValuesPlanned) ?? []
         instancesPlanned = try c.decodeIfPresent([CommitDiffInstancePlanned].self, forKey: .instancesPlanned) ?? []
         otReflowMapping = try c.decodeIfPresent([CommitDiffOTReflowEntry].self, forKey: .otReflowMapping)
+        windowsNamePatches = try c.decodeIfPresent([WindowsNameRecord].self, forKey: .windowsNamePatches) ?? []
     }
 }
 

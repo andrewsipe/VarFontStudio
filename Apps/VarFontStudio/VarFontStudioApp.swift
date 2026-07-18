@@ -193,6 +193,17 @@ struct VarFontStudioApp: App {
                 }
                 .keyboardShortcut(InstanceInclusionCommands.excludeSelectionShortcut)
                 .disabled(editor.activeInstanceSelection.isEmpty)
+
+                Divider()
+
+                Toggle(
+                    "Code Naming",
+                    isOn: Binding(
+                        get: { editor.isCodeNamingEnabled },
+                        set: { editor.setCodeNamingEnabled($0) }
+                    )
+                )
+                .disabled(editor.project == nil)
             }
     }
 }

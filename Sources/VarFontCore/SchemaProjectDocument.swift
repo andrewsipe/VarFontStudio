@@ -70,6 +70,9 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
             ?? fonts.first?.options.nameidStrategy
             ?? .preserve
         migrateFileRolesIfNeeded()
+        var promoted = self
+        _ = RegistrationAxisFactory.promoteClarifiersToRegistration(&promoted)
+        self = promoted
         syncNameIDStrategyToFonts()
     }
 
@@ -145,6 +148,9 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public var compoundStatValues: [CompoundStatValue]
     /// STAT DesignAxisRecord tags captured at import (fvar parity checks).
     public var statDesignAxisTags: [String]
+    /// Windows (3,1,0x0409) edits for name IDs 0–24. Keys are decimal name IDs.
+    /// Empty string means delete that Windows record on save. ID 25 uses `options.familyPSPrefix`.
+    public var windowsNameOverrides: [String: String]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -162,6 +168,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         case dismissedPlanIssues = "dismissed_plan_issues"
         case compoundStatValues = "compound_stat_values"
         case statDesignAxisTags = "stat_design_axis_tags"
+        case windowsNameOverrides = "windows_name_overrides"
     }
 
     public init(
@@ -180,7 +187,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         inferredIsItalicFile: Bool? = nil,
         dismissedPlanIssues: [String] = [],
         compoundStatValues: [CompoundStatValue] = [],
-        statDesignAxisTags: [String] = []
+        statDesignAxisTags: [String] = [],
+        windowsNameOverrides: [String: String] = [:]
     ) {
         self.id = id
         self.sourcePath = sourcePath
@@ -198,6 +206,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         self.dismissedPlanIssues = dismissedPlanIssues
         self.compoundStatValues = compoundStatValues
         self.statDesignAxisTags = statDesignAxisTags
+        self.windowsNameOverrides = windowsNameOverrides
     }
 
     public init(from decoder: Decoder) throws {
@@ -218,6 +227,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         dismissedPlanIssues = try c.decodeIfPresent([String].self, forKey: .dismissedPlanIssues) ?? []
         compoundStatValues = try c.decodeIfPresent([CompoundStatValue].self, forKey: .compoundStatValues) ?? []
         statDesignAxisTags = try c.decodeIfPresent([String].self, forKey: .statDesignAxisTags) ?? []
+        windowsNameOverrides = try c.decodeIfPresent([String: String].self, forKey: .windowsNameOverrides) ?? [:]
     }
 }
 

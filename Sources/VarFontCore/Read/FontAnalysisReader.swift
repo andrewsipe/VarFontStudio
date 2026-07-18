@@ -247,6 +247,7 @@ public enum FontAnalysisReader {
             elidedFallbackID: elidedFallbackID,
             elidedFallbackName: elidedFallbackName
         )
+        let windowsNameTable = OpenTypeNameTable.windowsEnglishLowNames(from: font)
 
         return FontAnalysis(
             schemaVersion: 1,
@@ -275,6 +276,7 @@ public enum FontAnalysisReader {
                 sampleCount: sampleCount
             ),
             nameAudit: nameAudit,
+            windowsNameTable: windowsNameTable,
             inferred: FontAnalysis.InferredAnalysis(
                 isItalicFont: isItalicFont,
                 gridAxisTags: gridAxisTags,
@@ -329,7 +331,7 @@ public enum FontAnalysisReader {
                 id: id,
                 description: labels[id] ?? "name table record",
                 string: string,
-                protected: (0...6).contains(id) ? true : nil
+                protected: (0...25).contains(id) ? true : nil
             )
         }
 

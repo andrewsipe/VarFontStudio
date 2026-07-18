@@ -1,0 +1,96 @@
+import XCTest
+@testable import VarFontCore
+
+final class RegistrationAxisFactoryTests: XCTestCase {
+    func testCannotDuplicateExistingAxis() {
+        let axes = [AxisDefinition(tag: "wdth", role: .instance)]
+        XCTAssertFalse(RegistrationAxisFactory.canAddRegistrationAxis(tag: "wdth", axes: axes))
+        XCTAssertNil(RegistrationAxisFactory.templateTag(for: .width, axes: axes))
+        XCTAssertEqual(RegistrationAxisFactory.templateTag(for: .slope, axes: axes), "ital")
+    }
+
+    func testSlopeTemplateSeedsRomanAndItalic() {
+        let roman = RegistrationAxisFactory.makeItalAxis(isItalicFile: false)
+        XCTAssertEqual(roman.tag, "ital")
+        XCTAssertTrue(roman.isDesignRecordOnly)
+        XCTAssertEqual(roman.values.count, 1)
+        XCTAssertEqual(roman.values.first?.name, "Roman")
+        XCTAssertEqual(roman.values.first?.value, 0)
+        XCTAssertEqual(roman.values.first?.code, "0")
+        XCTAssertTrue(roman.values.first?.elidable == true)
+        XCTAssertEqual(roman.values.first?.statFormat, 3)
+        XCTAssertEqual(roman.values.first?.linkedValue, 1)
+
+        let italic = RegistrationAxisFactory.makeItalAxis(isItalicFile: true)
+        XCTAssertEqual(italic.values.count, 1)
+        XCTAssertEqual(italic.values.first?.name, "Italic")
+        XCTAssertEqual(italic.values.first?.value, 1)
+        XCTAssertEqual(italic.values.first?.code, "1")
+        XCTAssertEqual(italic.values.first?.statFormat, 3)
+        XCTAssertEqual(italic.values.first?.linkedValue, 0)
+
+        XCTAssertTrue(StatFormat3Pairing.format1UpgradeWarnings(for: roman).isEmpty)
+        XCTAssertTrue(StatFormat3Pairing.format1UpgradeWarnings(for: italic).isEmpty)
+    }
+
+    func testCustomAxisRejectsEmptyTag() {
+        XCTAssertEqual(RegistrationAxisFactory.sanitizeAxisTag("grad!"), "GRAD")
+        XCTAssertEqual(RegistrationAxisFactory.sanitizeAxisTag("tilt"), "TILT")
+        let axis = RegistrationAxisFactory.makeCustomAxis(tag: "GRAD", displayName: "Grade")
+        XCTAssertEqual(axis.tag, "GRAD")
+        XCTAssertEqual(axis.displayName, "Grade")
+        XCTAssertTrue(axis.isDesignRecordOnly)
+    }
+
+    func testPromoteClarifiersCreatesItalAndClearsClarifiers() throws {
+        var romanRole = FileRole.master()
+        romanRole.clarifiers = [FileClarifier(category: .slope, label: "", code: "0")]
+        var roman = FontDocument(
+            id: "roman",
+            sourcePath: "/tmp/Roman.ttf",
+            fileRole: romanRole,
+            axes: [
+                AxisDefinition(tag: "wght", role: .instance, values: [
+                    AxisValue(id: "g", value: 400, name: "Regular", elidable: true),
+                ]),
+            ]
+        )
+
+        var italic = FontDocument(
+            id: "italic",
+            sourcePath: "/tmp/Italic.ttf",
+            fileRole: .variant(
+                masterFontID: "roman",
+                clarifiers: [FileClarifier(category: .slope, label: "Italic", code: "1")]
+            ),
+            axes: roman.axes,
+            inferredIsItalicFile: true
+        )
+
+        var project = ProjectDocument(
+            schemaVersion: 1,
+            familyLabel: "Test",
+            naming: NamingPolicy(order: ["@pshyphen", "@code", "wght", "@slope"]),
+            template: ProjectTemplate(),
+            fonts: [roman, italic]
+        )
+
+        XCTAssertTrue(RegistrationAxisFactory.promoteClarifiersToRegistration(&project))
+        let romanItal = try XCTUnwrap(project.fonts[0].axes.first { $0.tag == "ital" })
+        let italicItal = try XCTUnwrap(project.fonts[1].axes.first { $0.tag == "ital" })
+        XCTAssertEqual(romanItal.values.count, 1)
+        XCTAssertEqual(romanItal.values.first?.name, "Roman")
+        XCTAssertEqual(romanItal.values.first?.statFormat, 3)
+        XCTAssertEqual(romanItal.values.first?.linkedValue, 1)
+        XCTAssertEqual(italicItal.values.count, 1)
+        XCTAssertEqual(italicItal.values.first?.name, "Italic")
+        XCTAssertEqual(italicItal.values.first?.statFormat, 3)
+        XCTAssertEqual(italicItal.values.first?.linkedValue, 0)
+        XCTAssertEqual(project.fonts[0].fileStatRegistration["ital"], 0)
+        XCTAssertEqual(project.fonts[1].fileStatRegistration["ital"], 1)
+        XCTAssertTrue(project.fonts[0].fileRole?.clarifiers.isEmpty ?? false)
+        XCTAssertTrue(project.fonts[1].fileRole?.clarifiers.isEmpty ?? false)
+        XCTAssertTrue(project.naming.order.contains("ital"))
+        XCTAssertFalse(project.naming.order.contains("@slope"))
+    }
+}

@@ -7,6 +7,7 @@ struct AxisStopTableHeader: View {
     let showElidable: Bool
     var showDefaultMark: Bool = false
     var showRemoveSlot: Bool = true
+    var showCode: Bool = false
     /// `true` ascending, `false` descending, `nil` mixed / single stop.
     var valueSortAscending: Bool? = nil
     var onToggleValueSort: (() -> Void)? = nil
@@ -28,6 +29,15 @@ struct AxisStopTableHeader: View {
 
             valueHeader
                 .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
+
+            if showCode {
+                Text("Code")
+                    .font(StudioTypography.columnLabel)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: AxisBlockLayout.codeColumnWidth, alignment: .center)
+                    .padding(.leading, AxisBlockLayout.codeGap)
+                    .help("Optional 1–2 character classification code (letters or digits)")
+            }
 
             Text("Name")
                 .font(StudioTypography.columnLabel)
@@ -110,6 +120,7 @@ struct AxisTreeStopRow: View {
     let editingField: StopEditField?
     let showElidable: Bool
     var showDefaultMark: Bool = false
+    var showCode: Bool = false
     var isFvarDefault: Bool = false
     var allowsRemove: Bool = true
     var valueEditable: Bool = true
@@ -125,6 +136,7 @@ struct AxisTreeStopRow: View {
     let onCommitPin: (Double) -> Void
     let onCommitMin: (Double) -> Void
     let onCommitMax: (Double) -> Void
+    let onCommitCode: (String) -> Void
     let onCommitName: (String) -> Void
     let onToggleElidable: () -> Void
     var onSelectLinkTarget: ((String) -> Void)?
@@ -133,6 +145,7 @@ struct AxisTreeStopRow: View {
     @State private var editingMin = ""
     @State private var editingPin = ""
     @State private var editingMax = ""
+    @State private var editingCode = ""
     @State private var editingName = ""
     @State private var confirmRemove = false
     @State private var selectTask: Task<Void, Never>?
@@ -166,6 +179,7 @@ struct AxisTreeStopRow: View {
         .onChange(of: stop.rangeMin) { _, _ in syncDrafts() }
         .onChange(of: stop.rangeMax) { _, _ in syncDrafts() }
         .onChange(of: stop.name) { _, _ in syncDrafts() }
+        .onChange(of: stop.code) { _, _ in syncDrafts() }
         .onChange(of: editingField) { _, field in
             syncDrafts()
             if let field {
@@ -206,6 +220,12 @@ struct AxisTreeStopRow: View {
 
             valueCell
                 .frame(width: AxisBlockLayout.valueColumnWidth, alignment: .trailing)
+
+            if showCode {
+                codeColumn
+                    .frame(width: AxisBlockLayout.codeColumnWidth, alignment: .center)
+                    .padding(.leading, AxisBlockLayout.codeGap)
+            }
 
             nameColumn
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -314,7 +334,7 @@ struct AxisTreeStopRow: View {
             sublineLabel("max")
             sublineField(.max, value: stop.rangeMax, placeholder: "Max")
         }
-        .padding(.leading, AxisBlockLayout.rangeSublineLeading(showDefaultMark: showDefaultMark))
+        .padding(.leading, AxisBlockLayout.rangeSublineLeading(showDefaultMark: showDefaultMark, showCode: showCode))
         .padding(.bottom, 3)
     }
 
@@ -371,8 +391,42 @@ struct AxisTreeStopRow: View {
         case .min: $editingMin
         case .pin: $editingPin
         case .max: $editingMax
+        case .code: $editingCode
         case .name: $editingName
         }
+    }
+
+    @ViewBuilder
+    private var codeColumn: some View {
+        Group {
+            if editingField == .code {
+                StudioInlineTextField(
+                    placeholder: "·",
+                    text: $editingCode,
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.listRowMinHeight,
+                    alignment: .center,
+                    onSubmit: commitAndEndEdit,
+                    onCancel: cancelInlineEdit
+                )
+                .focused($focusedField, equals: .code)
+            } else if let code = stop.code, !code.isEmpty {
+                Text(code)
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(StudioColors.codeForeground)
+                    .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .center)
+                    .contentShape(Rectangle())
+                    .gesture(clickGesture(for: .code))
+            } else {
+                Text("—")
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(.tertiary.opacity(0.45))
+                    .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .center)
+                    .contentShape(Rectangle())
+                    .gesture(clickGesture(for: .code))
+            }
+        }
+        .transaction { $0.animation = nil }
     }
 
     @ViewBuilder
@@ -469,17 +523,22 @@ struct AxisTreeStopRow: View {
         editingMin = stop.rangeMin.map(StudioFormatting.axisValue) ?? ""
         editingPin = StudioFormatting.axisValue(stop.value)
         editingMax = stop.rangeMax.map(StudioFormatting.axisValue) ?? ""
+        editingCode = stop.code ?? ""
         editingName = stop.name
     }
 
     private func editableFields() -> [StopEditField] {
+        var fields: [StopEditField] = []
         if valueEditable, stop.statFormat == 2 {
-            return [.pin, .min, .max, .name]
+            fields.append(contentsOf: [.pin, .min, .max])
+        } else if valueEditable {
+            fields.append(.pin)
         }
-        if valueEditable {
-            return [.pin, .name]
+        if showCode {
+            fields.append(.code)
         }
-        return [.name]
+        fields.append(.name)
+        return fields
     }
 
     private func commitCurrentEdit() {
@@ -488,6 +547,7 @@ struct AxisTreeStopRow: View {
         case .min: commitMin()
         case .pin: commitPin()
         case .max: commitMax()
+        case .code: commitCode()
         case .name: commitName()
         }
     }
@@ -530,6 +590,17 @@ struct AxisTreeStopRow: View {
         }
         guard trimmed != stop.name else { return }
         Task { @MainActor in onCommitName(trimmed) }
+    }
+
+    private func commitCode() {
+        let sanitized = InstanceCodeBuilder.sanitize(editingCode) ?? ""
+        let current = stop.code ?? ""
+        guard sanitized != current else {
+            syncDrafts()
+            return
+        }
+        editingCode = sanitized
+        Task { @MainActor in onCommitCode(sanitized) }
     }
 
     private func navigateTab(forward: Bool) {

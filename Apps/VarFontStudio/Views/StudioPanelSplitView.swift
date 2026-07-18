@@ -5,6 +5,7 @@ struct StudioPanelSplitView: View {
     @EnvironmentObject private var layout: EditorLayoutPreferences
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
+    @State private var namesHeaderMeta: NameTableHeaderMeta?
 
     var body: some View {
         HSplitView {
@@ -20,7 +21,7 @@ struct StudioPanelSplitView: View {
             }
 
             if layout.showInstances {
-                InstanceListPanel()
+                middleColumn
                     .frame(
                         minWidth: StudioPanelMetrics.instancesMin,
                         maxWidth: .infinity,
@@ -64,6 +65,114 @@ struct StudioPanelSplitView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .id(layout.panelVisibilityToken)
+    }
+
+    // MARK: - Middle column (Instances | Names)
+
+    private var middleColumn: some View {
+        VStack(spacing: 0) {
+            StudioPanelHeader(
+                title: middlePanelTitle,
+                horizontalPadding: StudioSpacing.panelHorizontal
+            ) {
+                middleHeaderMeta
+            }
+
+            middleScopeSwitcher
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.vertical, 8)
+
+            Divider()
+
+            Group {
+                switch editor.inspectorFocus.middlePanelScope {
+                case .instances:
+                    InstanceListPanel(showsPanelHeader: false)
+                case .names:
+                    NameTablePanel(showsPanelHeader: false)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onPreferenceChange(NameTableHeaderMetaKey.self) { meta in
+                namesHeaderMeta = meta
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var middlePanelTitle: String {
+        switch editor.inspectorFocus.middlePanelScope {
+        case .instances: "Instances"
+        case .names: "Names"
+        }
+    }
+
+    @ViewBuilder
+    private var middleHeaderMeta: some View {
+        switch editor.inspectorFocus.middlePanelScope {
+        case .instances:
+            InstanceListPanel.headerCounts(editor: editor)
+        case .names:
+            if let meta = namesHeaderMeta {
+                HStack(spacing: 3) {
+                    Text("\(meta.populated)")
+                        .foregroundStyle(StudioColors.computedHighlight)
+                    Text("populated")
+                        .foregroundStyle(.secondary)
+                    if meta.missing > 0 {
+                        Text("·")
+                            .foregroundStyle(.quaternary)
+                        Text("\(meta.missing)")
+                            .foregroundStyle(.secondary)
+                        Text("missing")
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("·")
+                        .foregroundStyle(.quaternary)
+                    Text("Win 3/1/409")
+                        .foregroundStyle(.tertiary)
+                }
+                .font(StudioTypography.meta)
+            }
+        }
+    }
+
+    private var middleScopeSwitcher: some View {
+        HStack(spacing: 2) {
+            middleScopeButton(title: "Instances", scope: .instances)
+            middleScopeButton(title: "Names", scope: .names)
+        }
+    }
+
+    private func middleScopeButton(title: String, scope: MiddlePanelScope) -> some View {
+        let isOn = editor.inspectorFocus.middlePanelScope == scope
+        return Button {
+            if scope == .names {
+                editor.inspectorFocus.showNamesPanel()
+            } else {
+                editor.inspectorFocus.middlePanelScope = .instances
+            }
+        } label: {
+            Text(title)
+                .font(StudioTypography.meta)
+                .fontWeight(isOn ? .semibold : .regular)
+                .foregroundStyle(isOn ? Color.accentColor : .secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background {
+                    RoundedRectangle(cornerRadius: StudioRadius.row)
+                        .fill(isOn ? Color.accentColor.opacity(0.12) : Color.clear)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: StudioRadius.row)
+                                .strokeBorder(
+                                    isOn ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.22),
+                                    lineWidth: 1
+                                )
+                        }
+                }
+                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Axis tree column

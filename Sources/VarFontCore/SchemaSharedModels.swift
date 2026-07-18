@@ -20,6 +20,8 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
     public var rangeMin: Double?
     public var rangeMax: Double?
     public var linkedValue: Double?
+    /// Optional short classification code (Univers-style digit/letter), used when `@code` is in naming order.
+    public var code: String?
 
     enum CodingKeys: String, CodingKey {
         case id, value, name, elidable
@@ -28,6 +30,7 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
         case rangeMin = "range_min"
         case rangeMax = "range_max"
         case linkedValue = "linked_value"
+        case code
     }
 
     public init(
@@ -39,7 +42,8 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
         statFormat: Int = 1,
         rangeMin: Double? = nil,
         rangeMax: Double? = nil,
-        linkedValue: Double? = nil
+        linkedValue: Double? = nil,
+        code: String? = nil
     ) {
         self.id = id
         self.value = value
@@ -50,6 +54,7 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
         self.rangeMin = rangeMin
         self.rangeMax = rangeMax
         self.linkedValue = linkedValue
+        self.code = code
     }
 
     public init(from decoder: Decoder) throws {
@@ -63,6 +68,7 @@ public struct AxisValue: Codable, Equatable, Sendable, Identifiable {
         rangeMin = try c.decodeIfPresent(Double.self, forKey: .rangeMin)
         rangeMax = try c.decodeIfPresent(Double.self, forKey: .rangeMax)
         linkedValue = try c.decodeIfPresent(Double.self, forKey: .linkedValue)
+        code = try c.decodeIfPresent(String.self, forKey: .code)
     }
 }
 
@@ -211,6 +217,8 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
     public static let clarifierTokenOptical = "@optical"
     public static let clarifierTokenCustom = "@custom"
     public static let postscriptHyphenToken = "@pshyphen"
+    /// Opt-in classification-code chip (Univers-style). Presence enables Code naming.
+    public static let codeToken = "@code"
 
     public static let defaultClarifierTokens: [String] = [
         clarifierTokenWidth,
@@ -232,12 +240,10 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         elidedFallback = try c.decodeIfPresent(String.self, forKey: .elidedFallback) ?? "Regular"
     }
 
-    /// Appends default clarifier tokens to axis order when missing.
+    /// Historical name: now only ensures `@pshyphen` — clarifier tokens are no longer auto-appended
+    /// (file identity lives on registration axes).
     public static func orderWithDefaultClarifiers(axisOrder: [String]) -> [String] {
-        var result = axisOrder.filter { !NamingToken.isSpecialToken($0) }
-        for token in defaultClarifierTokens where !result.contains(token) {
-            result.append(token)
-        }
+        let result = axisOrder.filter { !NamingToken.isClarifier($0) }
         return ensurePostscriptHyphen(in: result)
     }
 
@@ -260,12 +266,13 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         ensurePostscriptHyphen(in: order.filter { $0 != postscriptHyphenToken })
     }
 
-    /// Project naming order filtered to axes present in this file plus clarifier tokens.
+    /// Project naming order filtered to axes present in this file.
+    /// Preserves `@code` when present; does not auto-append it. Clarifier tokens are dropped.
     public static func mergedOrder(projectOrder: [String], axisTags: [String]) -> [String] {
         var result: [String] = []
         var seenAxes = Set<String>()
-        var seenClarifiers = Set<String>()
         var hasHyphen = false
+        var hasCode = false
 
         for token in projectOrder {
             if NamingToken.isPostscriptHyphen(token) {
@@ -275,11 +282,17 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
                 }
                 continue
             }
+            if NamingToken.isCode(token) {
+                if !hasCode {
+                    result.append(codeToken)
+                    hasCode = true
+                }
+                continue
+            }
             if NamingToken.isClarifier(token) {
-                guard !seenClarifiers.contains(token) else { continue }
-                result.append(token)
-                seenClarifiers.insert(token)
-            } else if axisTags.contains(token), !seenAxes.contains(token) {
+                continue
+            }
+            if axisTags.contains(token), !seenAxes.contains(token) {
                 result.append(token)
                 seenAxes.insert(token)
             }
@@ -287,9 +300,6 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
 
         for tag in axisTags where !seenAxes.contains(tag) {
             result.append(tag)
-        }
-        for token in defaultClarifierTokens where !seenClarifiers.contains(token) {
-            result.append(token)
         }
         if !hasHyphen {
             result.insert(postscriptHyphenToken, at: 0)
@@ -303,12 +313,16 @@ public enum NamingToken {
         token == NamingPolicy.postscriptHyphenToken
     }
 
+    public static func isCode(_ token: String) -> Bool {
+        token == NamingPolicy.codeToken
+    }
+
     public static func isSpecialToken(_ token: String) -> Bool {
-        isPostscriptHyphen(token) || isClarifier(token)
+        isPostscriptHyphen(token) || isCode(token) || isClarifier(token)
     }
 
     public static func isClarifier(_ token: String) -> Bool {
-        guard !isPostscriptHyphen(token) else { return false }
+        guard !isPostscriptHyphen(token), !isCode(token) else { return false }
         return token.hasPrefix("@")
     }
 

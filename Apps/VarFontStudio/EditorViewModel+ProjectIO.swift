@@ -196,6 +196,9 @@ extension EditorViewModel {
 
     @MainActor
     func finishOpeningProject(document: ProjectDocument, projectFileURL: URL) async {
+        var document = document
+        _ = RegistrationAxisFactory.promoteClarifiersToRegistration(&document)
+
         for font in document.fonts {
             let url = URL(fileURLWithPath: font.sourcePath)
             registerSourceBookmark(url: url, fontID: font.id)

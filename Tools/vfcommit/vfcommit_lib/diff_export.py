@@ -100,6 +100,7 @@ def build_commit_diff(
         "name_records_sequenced": list(name_records),
         "stat_values_planned": stat_values_planned,
         "instances_planned": instances_planned,
+        "windows_name_patches": list(plan.windows_name_patches or []),
     }
     if ot_reflow_mapping:
         result["ot_reflow_mapping"] = ot_reflow_mapping

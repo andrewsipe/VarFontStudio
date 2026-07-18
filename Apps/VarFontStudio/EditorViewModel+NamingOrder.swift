@@ -37,6 +37,7 @@ extension EditorViewModel {
     var namingChainInstanceTags: [String] {
         namingChainTags.filter { tag in
             if NamingToken.isPostscriptHyphen(tag) { return true }
+            if NamingToken.isCode(tag) { return true }
             if NamingToken.isClarifier(tag) { return true }
             guard let axis = selectedFont?.axes.first(where: { $0.tag == tag }) else { return false }
             return axis.role == .instance || axis.isDesignRecordOnly
@@ -148,6 +149,9 @@ extension EditorViewModel {
     }
 
     func axisDisplayName(for tag: String) -> String {
+        if NamingToken.isCode(tag) {
+            return "Code"
+        }
         if let clarifier = NamingToken.clarifierDisplayName[tag] {
             return clarifier
         }
@@ -163,6 +167,34 @@ extension EditorViewModel {
 
     func isPostscriptHyphenToken(_ tag: String) -> Bool {
         NamingToken.isPostscriptHyphen(tag)
+    }
+
+    func isCodeNamingToken(_ tag: String) -> Bool {
+        NamingToken.isCode(tag)
+    }
+
+    /// Opt-in Code naming — presence of `@code` in project naming order.
+    var isCodeNamingEnabled: Bool {
+        project?.naming.order.contains(NamingPolicy.codeToken) ?? false
+    }
+
+    func setCodeNamingEnabled(_ enabled: Bool) {
+        guard let project, selectedFont != nil else { return }
+        var order = project.naming.order
+        let currentlyEnabled = order.contains(NamingPolicy.codeToken)
+        guard enabled != currentlyEnabled else { return }
+
+        if enabled {
+            order.removeAll { $0 == NamingPolicy.codeToken }
+            if let hyphenIndex = order.firstIndex(of: NamingPolicy.postscriptHyphenToken) {
+                order.insert(NamingPolicy.codeToken, at: hyphenIndex + 1)
+            } else {
+                order.insert(NamingPolicy.codeToken, at: 0)
+            }
+        } else {
+            order.removeAll { $0 == NamingPolicy.codeToken }
+        }
+        setNamingOrder(order)
     }
 
     func setNamingOrder(_ tags: [String]) {

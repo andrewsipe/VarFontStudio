@@ -35,6 +35,19 @@ public enum NamingComposer {
             if NamingToken.isPostscriptHyphen(token) {
                 continue
             }
+            if NamingToken.isCode(token) {
+                if let code = InstanceCodeBuilder.compose(
+                    axes: axes,
+                    coords: coords,
+                    fileStatRegistration: fileStatRegistration,
+                    fileRole: fileRole,
+                    namingOrder: naming.order
+                ) {
+                    chain.append(Link(kind: .code, tag: NamingPolicy.codeToken, name: code, elided: false))
+                    parts.append(code)
+                }
+                continue
+            }
             if NamingToken.isClarifier(token) {
                 guard let category = NamingToken.clarifierCategory(for: token),
                       let label = fileRole?.label(for: category),

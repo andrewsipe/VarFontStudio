@@ -8,6 +8,7 @@ struct AxisTreePanel: View {
     @State private var expandedAxes: Set<String> = []
     @State private var editingStop: (id: String, field: StopEditField)?
     @State private var addStopRequest: AddAxisStopRequest?
+    @State private var addRegistrationRequest: AddRegistrationAxisRequest?
     @State private var fillStopsRequest: FillStopsRequest?
     @State private var formatChangeRequest: StopFormatChangeRequest?
     @State private var tabKeyMonitor: TabKeyMonitor?
@@ -122,6 +123,12 @@ struct AxisTreePanel: View {
                 }
                 .environmentObject(editor)
             }
+        }
+        .sheet(item: $addRegistrationRequest) { _ in
+            AddFileAxisSheet {
+                addRegistrationRequest = nil
+            }
+            .environmentObject(editor)
         }
         .sheet(item: $fillStopsRequest) { request in
             if let axis = editor.selectedFont?.axes.first(where: { $0.tag == request.axisTag }) {
@@ -308,15 +315,37 @@ struct AxisTreePanel: View {
                     )
                     .padding(.top, StudioSpacing.rowGap)
                 }
+
+                Button {
+                    addRegistrationRequest = AddRegistrationAxisRequest()
+                } label: {
+                    Label("Add Naming Axis", systemImage: "plus")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(StudioColors.registrationForeground)
+                        .labelStyle(.titleAndIcon)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 5)
+                                .strokeBorder(
+                                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                                )
+                                .foregroundStyle(StudioColors.registrationStroke)
+                        }
+                }
+                .buttonStyle(.plain)
+                .padding(.top, StudioSpacing.sectionGap)
+                .help("Add a naming axis for family identity across files (no fvar scale)")
+
+                if !font.compoundStatValues.isEmpty {
+                    CombinationStylesSection(compounds: font.compoundStatValues, axes: font.axes)
+                        .padding(.top, StudioSpacing.sectionGap)
+                }
             }
             .coordinateSpace(name: axisReorderCoordinateSpace)
             .overlay(alignment: .topLeading) {
                 axisReorderGhostOverlay
-            }
-
-            if !font.compoundStatValues.isEmpty {
-                CombinationStylesSection(compounds: font.compoundStatValues, axes: font.axes)
-                    .padding(.top, StudioSpacing.sectionGap)
             }
         }
     }
@@ -560,6 +589,7 @@ struct AxisTreePanel: View {
                     showElidable: showElidable,
                     showDefaultMark: true,
                     showRemoveSlot: true,
+                    showCode: editor.isCodeNamingEnabled,
                     valueSortAscending: EditorViewModel.axisStopsValueSortAscending(axis.values),
                     onToggleValueSort: {
                         editor.toggleAxisStopsValueSort(axisTag: axis.tag)
@@ -573,8 +603,8 @@ struct AxisTreePanel: View {
                 }
             }
 
-            if axis.role == .instance {
-                let showFill = AxisStopFillPlanner.supportsFill(axis)
+            if axis.role == .instance || axis.isDesignRecordOnly {
+                let showFill = axis.role == .instance && AxisStopFillPlanner.supportsFill(axis)
                 HStack(spacing: StudioSpacing.controlGap) {
                     Button {
                         addStopRequest = AddAxisStopRequest(axisTag: axis.tag)
@@ -681,6 +711,7 @@ struct AxisTreePanel: View {
             editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
             showElidable: showElidable,
             showDefaultMark: true,
+            showCode: editor.isCodeNamingEnabled,
             isFvarDefault: isFvarDefault,
             allowsRemove: !axis.isDesignRecordOnly,
             valueEditable: axis.hasFvarScale || axis.isDesignRecordOnly,
@@ -712,6 +743,7 @@ struct AxisTreePanel: View {
             onCommitPin: { editor.updateAxisStopValue(axisTag: axis.tag, stopID: stop.id, value: $0) },
             onCommitMin: { editor.updateAxisStopRangeMin(axisTag: axis.tag, stopID: stop.id, rangeMin: $0) },
             onCommitMax: { editor.updateAxisStopRangeMax(axisTag: axis.tag, stopID: stop.id, rangeMax: $0) },
+            onCommitCode: { editor.updateAxisStopCode(axisTag: axis.tag, stopID: stop.id, code: $0) },
             onCommitName: { editor.updateAxisStopName(axisTag: axis.tag, stopID: stop.id, name: $0) },
             onToggleElidable: { editor.toggleAxisStopElidable(axisTag: axis.tag, stopID: stop.id) },
             onSelectLinkTarget: { targetID in
@@ -797,7 +829,8 @@ struct AxisTreePanel: View {
     }
 
     private func firstEditableField(for stop: AxisValue, axis: AxisDefinition) -> StopEditField {
-        if axis.hasFvarScale { return .pin }
+        if axis.hasFvarScale || axis.isDesignRecordOnly { return .pin }
+        if editor.isCodeNamingEnabled { return .code }
         return .name
     }
 

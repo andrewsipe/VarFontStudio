@@ -68,10 +68,12 @@ public enum PostScriptNaming {
             guard let part = namingPart(
                 token: token,
                 coords: coords,
+                axes: axes,
                 axisByTag: axisByTag,
                 fileRole: fileRole,
                 fileStatRegistration: fileStatRegistration,
-                coveredClarifiers: coveredClarifiers
+                coveredClarifiers: coveredClarifiers,
+                namingOrder: order
             ) else { continue }
 
             if pastHyphen {
@@ -146,11 +148,23 @@ public enum PostScriptNaming {
     private static func namingPart(
         token: String,
         coords: [String: Double],
+        axes: [AxisDefinition],
         axisByTag: [String: AxisDefinition],
         fileRole: FileRole?,
         fileStatRegistration: [String: Double],
-        coveredClarifiers: Set<FileClarifierCategory>
+        coveredClarifiers: Set<FileClarifierCategory>,
+        namingOrder: [String]
     ) -> String? {
+        if NamingToken.isCode(token) {
+            return InstanceCodeBuilder.compose(
+                axes: axes,
+                coords: coords,
+                fileStatRegistration: fileStatRegistration,
+                fileRole: fileRole,
+                namingOrder: namingOrder
+            )
+        }
+
         if NamingToken.isClarifier(token) {
             guard let category = NamingToken.clarifierCategory(for: token),
                   !coveredClarifiers.contains(category),
@@ -162,7 +176,7 @@ public enum PostScriptNaming {
         if let axis = axisByTag[token], axis.isDesignRecordOnly {
             guard let resolved = RegistrationAxisSupport.registrationStopName(
                 tag: token,
-                axes: Array(axisByTag.values),
+                axes: axes,
                 fileStatRegistration: fileStatRegistration
             ), !resolved.elided else { return nil }
             return resolved.stop.name

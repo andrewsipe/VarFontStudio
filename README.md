@@ -1,113 +1,58 @@
 # VarFont Studio (alpha)
 
-**Requires macOS 14 (Sonoma) or later** · Apple Silicon or Intel
+A macOS app for building out variable font instances — the different weights, widths, and styles that show up in your design apps as separate entries in the font menu (Light, Bold, Condensed, and so on).
 
-**VarFont Studio** is a macOS app for planning and writing **variable font instances** — the combinations of weight, width, optical size, and other axes that show up in design apps and in your font’s `STAT`, `fvar`, and `name` tables.
+If you've ever opened a variable font in a font editor's raw table view and felt your eyes glaze over, this is meant to be the friendlier way in. You set up your axis stops (say, Weight from 100 to 900), VarFont Studio generates the full grid of instances, you tweak the naming until it looks right, preview exactly what's about to change, and then export a patched copy of your font. It's not a glyph editor and it won't crack open raw TTX for you — it's focused specifically on getting your instances and naming right.
 
-You define axis stops, generate the instance grid, tune naming, preview what will change in **Review**, then **Export** a patched copy of your font. **Save** keeps your `.varf` project. No glyph editing; no raw TTX browser.
-
----
-
-## Install (no Xcode required)
-
-Pre-built apps are on **[GitHub Releases](https://github.com/andrewsipe/VarFontStudio/releases)**.
-
-### Requirements
-
-| | |
-|--|--|
-| **macOS** | **14 (Sonoma) or later** |
-| **Chip** | Apple Silicon **or** Intel (download the matching zip) |
-
-### 1. Pick the right download
-
-Each release attaches **two** zip files. Names look like:
-
-| Filename | Mac |
-|----------|-----|
-| **`…-macOS14+-Apple-Silicon.zip`** | Apple Silicon (M1, M2, M3, …) |
-| **`…-macOS14+-Intel.zip`** | Intel |
-
-**Apple menu → About This Mac** shows both your macOS version and Chip / Processor.
-
-The app UI is a Universal binary, but **Export** uses a bundled Python runtime that is **native to the zip you downloaded**. An Apple Silicon zip on an Intel Mac will open fine until you try to Export — download the matching zip instead.
-
-### 2. Unzip, install, allow first launch
-
-1. Download the zip for your Mac and double-click to unzip.
-2. Open the unzipped folder. Drag **VarFontStudio.app** into **Applications**.
-3. Double-click **Allow First Launch** (in that same folder).
-
-That clears the download quarantine so Gatekeeper lets this **ad-hoc alpha** open. Alpha builds are **not** Apple-notarized — that block is expected, not malware. The helper only runs `xattr` on the app and opens it; it prints those steps in Terminal when you run it that way.
-
-If macOS also blocks the helper: **Control-click** **Allow First Launch** → **Open**, or drag the `.command` file into Terminal and press Return.
-
-`INSTALL.txt` in the zip repeats these steps.
-
-### 3. If you skipped the helper
-
-On recent macOS, double-click often shows **“Not Opened”** with only **Done** / **Move to Trash** (no **Open Anyway** in that dialog). Click **Done**, then:
-
-1. **System Settings → Privacy & Security**
-2. Scroll to the message that **VarFont Studio** was blocked
-3. Click **Open Anyway**, then confirm **Open**
-
-Or in Terminal:
-
-```bash
-xattr -cr /Applications/VarFontStudio.app
-open /Applications/VarFontStudio.app
-```
-
-### 4. Open a font or project and work
-
-- **Drop** fonts or `.varf` projects onto the empty window (or **File → Open Font…** / **Open Project…**).
-- **⌘S** — **Save Project** (writes `.varf`).
-- **⌘E** — **Export…** (writes patched font binaries; default name uses `-patched` beside the source).
-- **Export All…** (multi-file projects) — folder of fonts keeping original filenames.
-- **⌘⇧R** — **Review** before exporting.
-- **Help → VarFont Studio Shortcuts…** lists keyboard shortcuts.
-
-Quit only prompts when a **project file** has unsaved changes — unexported font edits do not block exit.
-
-Python and fontTools are **bundled inside the app** — nothing extra to install.
+**Requires:** macOS 14 (Sonoma) or later, on Apple Silicon or Intel.
 
 ---
 
-## For developers
+## Installing it
 
-Swift package + Xcode app live in this repo.
+Grab the latest zip from **[GitHub Releases](https://github.com/andrewsipe/VarFontStudio/releases)** — there are two to choose from, one for Apple Silicon Macs (M1/M2/M3/etc.) and one for Intel. If you're not sure which you have, check **Apple menu → About This Mac**. Downloading the wrong one won't break anything obvious — the app opens fine either way — but exporting fonts won't work, so it's worth grabbing the right one.
 
-| Doc | Contents |
-|-----|----------|
-| [SCHEMA.md](SCHEMA.md) | JSON schema v1 |
-| [archive/](archive/) | Prototypes, handoff notes, design history (not needed to build) |
+Once you've got the zip:
 
-**Run from source:** open `VarFontStudio.xcworkspace` → scheme **VarFontStudio** → My Mac (⌘R).
+1. Unzip it and drag **VarFontStudio.app** into your **Applications** folder.
+2. Double-click **Allow First Launch**, also in that unzipped folder.
 
-**Tests:** `swift test` · `cd Tools/vfcommit && python3 -m pytest tests -q`
+That second step matters because this is an alpha build and isn't notarized by Apple yet — macOS's Gatekeeper doesn't know who made it, so it needs a nudge before it'll open. The helper just clears the download's quarantine flag; it's not doing anything sneaky, and you can read exactly what it runs if you're curious.
 
-**Build a release zip locally** (uses your Mac’s native Python arch):
+If macOS still won't let it open, the easiest fallback is **System Settings → Privacy & Security**, scroll down to where it mentions VarFont Studio was blocked, and click **Open Anyway**. That almost always does it.
 
-```bash
-chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
-./scripts/build-release.sh
-# output: dist/VarFontStudio-<version>-macOS14+-Apple-Silicon.zip  (or -Intel.zip)
-```
-
-**Publish via GitHub:** push a tag — CI builds **both** Apple Silicon and Intel zips and attaches them to the Release.
-
-```bash
-git tag v0.1.3-alpha
-git push origin v0.1.3-alpha
-```
+Python and the font tools it needs are bundled inside the app, so there's nothing else to install.
 
 ---
 
-## Alpha scope
+## Using it
 
-- Instance modeling, naming, STAT/fvar commit via bundled **vfcommit**
-- **Save** = project (`.varf`); **Export** = patched fonts; **Review** = preflight diff
-- Optional **OpenType feature label reflow** (Settings + per-file Review override)
-- Drag/drop fonts and **`.varf`** projects (legacy `.varfont` still opens)
-- Notarized / Developer ID distribution: not yet — use **Allow First Launch** in the release zip
+Open a font (or a saved `.varf` project) by dragging it onto the window, or through **File → Open**. From there:
+
+- Set up your axis stops and let the app build out the instance grid
+- Adjust naming until it reads the way you want
+- Hit **Review** (⌘⇧R) to see a clear before/after of what's about to change
+- **Export** (⌘E) to write out patched font files
+- **Save** (⌘S) to keep your project as a `.varf` file so you can pick it back up later
+
+Working across multiple font files in one project? **Export All** writes everything out at once, keeping the original filenames.
+
+One nice detail: quitting only prompts you if you have *unsaved project changes* — if you've tweaked a font but haven't exported yet, that won't hold up your exit.
+
+Check **Help → VarFont Studio Shortcuts** in the app for the full list of keyboard shortcuts.
+
+---
+
+## Building it from source
+
+The Swift package and Xcode project both live in this repo. Open `VarFontStudio.xcworkspace`, pick the **VarFontStudio** scheme, and run (⌘R).
+
+Tests: `swift test` for the Swift side, `cd Tools/vfcommit && python3 -m pytest tests -q` for the Python side.
+
+If you want to know more about the JSON project format, [SCHEMA.md](SCHEMA.md) has the details. `archive/` has old prototypes and design notes if you're curious about how this came together, but you won't need it to build the app.
+
+---
+
+## Where things stand
+
+This is an alpha. The core workflow — modeling instances, naming, and writing STAT/fvar/name changes back into the font — works and is what I've been focused on getting right. Signed/notarized distribution isn't set up yet, which is why you're using the "Allow First Launch" workaround above for now.

@@ -271,6 +271,13 @@ public enum SaveReviewPresentationBuilder {
     var consumedIDs = Set<Int>()
     var sections: [SaveReviewSectionPresentation] = []
 
+    let windowsRows = windowsNamePatchRows(analysis: analysis, font: font, diff: diff)
+    if !windowsRows.isEmpty {
+      sections.append(
+        SaveReviewSectionPresentation(title: "Windows name IDs (0–25)", rows: windowsRows)
+      )
+    }
+
     var reflowedOTRows: [SaveReviewRowPresentation] = []
     let sequenced = diff?.nameRecordsSequenced ?? []
     for record in sequenced where record.role == "ot_feature_label" {
@@ -456,6 +463,69 @@ public enum SaveReviewPresentationBuilder {
     }
 
     return rows
+  }
+
+  private static func windowsNamePatchRows(
+    analysis: FontAnalysis,
+    font: FontDocument,
+    diff: CommitDiff?
+  ) -> [SaveReviewRowPresentation] {
+    var patches = diff?.windowsNamePatches ?? []
+    let analysisByID = Dictionary(uniqueKeysWithValues: analysis.windowsNameTable.map { ($0.nameID, $0.string) })
+    if let prefix = font.options.familyPSPrefix?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !prefix.isEmpty
+    {
+      let before = analysisByID[25]
+      if before != prefix {
+        patches.append(WindowsNameRecord(nameID: 25, string: prefix))
+      }
+    }
+    patches.sort { $0.nameID < $1.nameID }
+
+    return patches.map { patch in
+      let before = analysisByID[patch.nameID]
+      let label = OpenTypeNameTable.standardNameLabel(for: patch.nameID) ?? "nameID \(patch.nameID)"
+      let category: SaveReviewDisplayCategory
+      if patch.string.isEmpty {
+        category = .removed
+      } else if before == nil {
+        category = .added
+      } else if before != patch.string {
+        category = .renamed
+      } else {
+        category = .same
+      }
+      let afterValue: String? = patch.string.isEmpty ? nil : SaveReviewRowFormatter.quoted(patch.string)
+      let wasLine: String? = {
+        if category == .removed, let before {
+          return "was \(SaveReviewRowFormatter.quoted(before))"
+        }
+        if category == .renamed, let before {
+          return "was \(SaveReviewRowFormatter.quoted(before))"
+        }
+        return nil
+      }()
+      let fieldTitle = "ID \(patch.nameID) · \(label)"
+      let fieldSubtitle = "Windows 3/1/0x409"
+      return SaveReviewRowPresentation(
+        id: "name:windows:\(patch.nameID)",
+        fieldTitle: fieldTitle,
+        fieldSubtitle: fieldSubtitle,
+        afterValue: afterValue,
+        wasLine: wasLine,
+        noteLine: patch.nameID == 25 ? "≡ File naming PS prefix" : nil,
+        roleLabel: "windows_name",
+        category: category,
+        searchText: SaveReviewRowFormatter.searchText(
+          fieldTitle: fieldTitle,
+          fieldSubtitle: fieldSubtitle,
+          afterValue: afterValue,
+          wasLine: wasLine,
+          noteLine: patch.nameID == 25 ? "PS prefix" : nil,
+          roleLabel: "windows_name"
+        )
+      )
+    }
   }
 
   private static func makeNameRow(

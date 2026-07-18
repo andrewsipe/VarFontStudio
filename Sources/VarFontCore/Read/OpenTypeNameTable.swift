@@ -1,15 +1,21 @@
 import CoreText
 import Foundation
 
-enum OpenTypeNameTable {
+public enum OpenTypeNameTable {
     private static let nameTableTag = OpenTypeBinary.tag("name")
 
-    static func name(id: Int, from font: CTFont) -> String? {
+    /// Windows Unicode BMP English (en-US): platform 3, encoding 1, language 0x0409.
+    public static let windowsEnglishPlatformID: UInt16 = 3
+    public static let windowsUnicodeEncodingID: UInt16 = 1
+    public static let windowsEnglishLanguageID: UInt16 = 0x0409
+    public static let lowNameIDRange: ClosedRange<Int> = 0...25
+
+    public static func name(id: Int, from font: CTFont) -> String? {
         guard let data = CTFontCopyTable(font, nameTableTag, []) as Data? else { return nil }
         return bestName(id: id, in: data)
     }
 
-    static func bestName(id: Int, in data: Data) -> String? {
+    public static func bestName(id: Int, in data: Data) -> String? {
         let records = parseRecords(data).filter { $0.nameID == id }
         guard !records.isEmpty, data.count >= 6 else { return nil }
 
@@ -23,11 +29,33 @@ enum OpenTypeNameTable {
         return nil
     }
 
-    static func uniqueNameIDs(in data: Data) -> Set<Int> {
+    /// Windows English records for name IDs in `0...25` (populated only).
+    public static func windowsEnglishLowNames(from font: CTFont) -> [WindowsNameRecord] {
+        guard let data = CTFontCopyTable(font, nameTableTag, []) as Data? else { return [] }
+        return windowsEnglishLowNames(in: data)
+    }
+
+    public static func windowsEnglishLowNames(in data: Data) -> [WindowsNameRecord] {
+        guard data.count >= 6 else { return [] }
+        let stringOffset = Int(OpenTypeBinary.readUInt16(data, 4))
+        var byID: [Int: String] = [:]
+        for record in parseRecords(data) {
+            let id = Int(record.nameID)
+            guard lowNameIDRange.contains(id) else { continue }
+            guard record.platformID == windowsEnglishPlatformID,
+                  record.encodingID == windowsUnicodeEncodingID,
+                  record.languageID == windowsEnglishLanguageID else { continue }
+            guard let value = decode(record: record, in: data, stringOffset: stringOffset) else { continue }
+            byID[id] = value
+        }
+        return byID.keys.sorted().map { WindowsNameRecord(nameID: $0, string: byID[$0] ?? "") }
+    }
+
+    public static func uniqueNameIDs(in data: Data) -> Set<Int> {
         Set(parseRecords(data).map { Int($0.nameID) })
     }
 
-    static func firstFreeNameID(used: Set<Int>, startingAt: Int = 256) -> Int {
+    public static func firstFreeNameID(used: Set<Int>, startingAt: Int = 256) -> Int {
         var candidate = startingAt
         while used.contains(candidate) {
             candidate += 1
@@ -35,18 +63,41 @@ enum OpenTypeNameTable {
         return candidate
     }
 
-    static func standardNameLabel(for id: Int) -> String? {
+    public static func standardNameLabel(for id: Int) -> String? {
         switch id {
-        case 0: "Unicode copyright"
-        case 1: "Font Family name"
-        case 2: "Font Subfamily name"
-        case 3: "Unique font identifier"
-        case 4: "Full font name"
-        case 5: "Version string"
-        case 6: "PostScript name"
-        case 25: "Variations PostScript prefix"
+        case 0: "Copyright"
+        case 1: "Font Family"
+        case 2: "Font Subfamily"
+        case 3: "Unique ID"
+        case 4: "Full Name"
+        case 5: "Version"
+        case 6: "PostScript Name"
+        case 7: "Trademark"
+        case 8: "Manufacturer"
+        case 9: "Designer"
+        case 10: "Description"
+        case 11: "Vendor URL"
+        case 12: "Designer URL"
+        case 13: "License"
+        case 14: "License URL"
+        case 15: "Reserved"
+        case 16: "Typographic Family"
+        case 17: "Typographic Subfamily"
+        case 18: "Compatible Full"
+        case 19: "Sample Text"
+        case 20: "PostScript CID"
+        case 21: "WWS Family"
+        case 22: "WWS Subfamily"
+        case 23: "Light Palette"
+        case 24: "Dark Palette"
+        case 25: "Variations PS Prefix"
         default: nil
         }
+    }
+
+    /// Catalog IDs editable in the Names panel (skips reserved 15).
+    public static var editableLowNameIDs: [Int] {
+        Array(0...25).filter { $0 != 15 }
     }
 
     private struct NameRecord {
@@ -114,5 +165,23 @@ enum OpenTypeNameTable {
             return 4
         }
         return 10
+    }
+}
+
+/// Windows platform name record (plat 3 · enc 1 · lang 0x0409).
+public struct WindowsNameRecord: Codable, Equatable, Sendable, Identifiable {
+    public var nameID: Int
+    public var string: String
+
+    public var id: Int { nameID }
+
+    public init(nameID: Int, string: String) {
+        self.nameID = nameID
+        self.string = string
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case nameID = "name_id"
+        case string
     }
 }

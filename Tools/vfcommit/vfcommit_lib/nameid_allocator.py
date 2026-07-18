@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from fontTools.ttLib import TTFont
 
@@ -33,6 +33,7 @@ REGISTRATION_AXIS_TO_CLARIFIER_CATEGORY: Dict[str, str] = {
 
 DEFAULT_CLARIFIER_TOKENS: List[str] = list(CLARIFIER_TOKEN_TO_CATEGORY.keys())
 PSHYPHEN_TOKEN = "@pshyphen"
+CODE_TOKEN = "@code"
 
 
 def ensure_postscript_hyphen(order: List[str]) -> List[str]:
@@ -42,6 +43,46 @@ def ensure_postscript_hyphen(order: List[str]) -> List[str]:
         insert_at = min(order.index(PSHYPHEN_TOKEN), len(without))
         return without[:insert_at] + [PSHYPHEN_TOKEN] + without[insert_at:]
     return [PSHYPHEN_TOKEN] + without
+
+
+def sanitize_instance_code(raw: Any) -> Optional[str]:
+    """Keep up to two alphanumeric characters; empty → None."""
+    if raw is None:
+        return None
+    filtered = "".join(ch for ch in str(raw) if ch.isalnum())[:2]
+    return filtered or None
+
+
+def compose_instance_code(
+    axes_json: Optional[List[dict]],
+    axis_values_by_tag: Dict[str, "AxisValueDef"],
+    registration: Optional[Dict[str, float]] = None,
+    *,
+    file_role: Optional[dict] = None,
+    naming_order: Optional[List[str]] = None,
+) -> Optional[str]:
+    """Concatenate per-stop codes in Axis Tree order (instance + registration)."""
+    del file_role, naming_order  # retained for call-site compatibility
+    parts: List[str] = []
+    reg = registration or {}
+    for axis in axes_json or []:
+        role = str(axis.get("role", "instance"))
+        tag = str(axis["tag"])
+        code: Optional[str] = None
+        if role == "instance":
+            av = axis_values_by_tag.get(tag)
+            if av is not None:
+                code = sanitize_instance_code(getattr(av, "code", None))
+        elif role == "design_record_only":
+            reg_value = reg.get(tag)
+            if reg_value is not None:
+                stop = _stop_for_axis_json(axis, reg_value)
+                if stop is not None:
+                    code = sanitize_instance_code(stop.get("code"))
+        if code:
+            parts.append(code)
+
+    return "".join(parts) if parts else None
 
 
 def clarifier_categories_covered_by_registration(
@@ -60,6 +101,26 @@ def clarifier_categories_covered_by_registration(
     return covered
 
 
+def clarifier_categories_covered_by_axes(
+    axes_json: Optional[List[dict]],
+    file_stat_registration: Optional[Dict[str, float]],
+) -> set[str]:
+    """Categories already represented by instance-axis or registration stop codes."""
+    covered = clarifier_categories_covered_by_registration(axes_json, file_stat_registration)
+    for axis in axes_json or []:
+        tag = str(axis.get("tag") or "")
+        role = str(axis.get("role", "instance"))
+        if tag == "ital":
+            covered.add("slope")
+        elif tag == "slnt" and role == "instance":
+            covered.add("slope")
+        elif tag == "wdth" and role == "instance":
+            covered.add("width")
+        elif tag == "opsz" and role == "instance":
+            covered.add("optical")
+    return covered
+
+
 def parse_clarifiers(file_role: Optional[dict]) -> Dict[str, str]:
     """Map clarifier category to label from CommitRequest file_role."""
     result: Dict[str, str] = {}
@@ -70,6 +131,19 @@ def parse_clarifiers(file_role: Optional[dict]) -> Dict[str, str]:
         label = str(item.get("label") or "").strip()
         if category and label:
             result[category] = label
+    return result
+
+
+def parse_clarifier_codes(file_role: Optional[dict]) -> Dict[str, str]:
+    """Map clarifier category to optional code fragment."""
+    result: Dict[str, str] = {}
+    if not file_role:
+        return result
+    for item in file_role.get("clarifiers") or []:
+        category = str(item.get("category") or "").strip()
+        code = sanitize_instance_code(item.get("code"))
+        if category and code:
+            result[category] = code
     return result
 
 
@@ -96,6 +170,7 @@ def compose_name_from_order(
     *,
     axes_json: Optional[List[dict]] = None,
     file_stat_registration: Optional[Dict[str, float]] = None,
+    file_role: Optional[dict] = None,
 ) -> str:
     """Interleave axis stop names and per-file clarifier labels."""
     axis_by_tag = {str(axis["tag"]): axis for axis in (axes_json or [])}
@@ -105,6 +180,17 @@ def compose_name_from_order(
 
     for token in naming_order:
         if token == PSHYPHEN_TOKEN:
+            continue
+        if token == CODE_TOKEN:
+            code = compose_instance_code(
+                axes_json,
+                axis_values_by_tag,
+                registration,
+                file_role=file_role,
+                naming_order=naming_order,
+            )
+            if code:
+                parts.append(code)
             continue
         if token in CLARIFIER_TOKEN_TO_CATEGORY:
             category = CLARIFIER_TOKEN_TO_CATEGORY[token]
@@ -140,6 +226,7 @@ def compose_postscript_style_from_order(
     *,
     axes_json: Optional[List[dict]] = None,
     file_stat_registration: Optional[Dict[str, float]] = None,
+    file_role: Optional[dict] = None,
 ) -> str:
     """Build the style segment of an fvar PostScript name using `@pshyphen` splits."""
     axis_by_tag = {str(axis["tag"]): axis for axis in (axes_json or [])}
@@ -155,7 +242,15 @@ def compose_postscript_style_from_order(
             continue
 
         part: Optional[str] = None
-        if token in CLARIFIER_TOKEN_TO_CATEGORY:
+        if token == CODE_TOKEN:
+            part = compose_instance_code(
+                axes_json,
+                axis_values_by_tag,
+                registration,
+                file_role=file_role,
+                naming_order=naming_order,
+            )
+        elif token in CLARIFIER_TOKEN_TO_CATEGORY:
             category = CLARIFIER_TOKEN_TO_CATEGORY[token]
             if category not in covered_clarifiers:
                 label = clarifiers.get(category)
@@ -209,6 +304,7 @@ class AxisValueDef:
     range_max: Optional[float] = None
     linked_value: Optional[float] = None
     older_sibling: bool = False
+    code: Optional[str] = None
 
 
 @dataclass
@@ -261,6 +357,9 @@ class NameIDPlan:
     free_end: int = 255
     nameid_strategy: str = "preserve"
     ot_reflow_end: int = 255
+    # Windows English (3,1,0x0409) low-ID patches. Empty string deletes that record.
+    # ID 25 is written via family_ps_prefix.
+    windows_name_patches: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def audit_nameids(font: TTFont, ot_labels: List[OTLabelRecord]) -> Dict[int, str]:
@@ -482,6 +581,7 @@ def compose_instance_name(
     axis_tags: Optional[List[str]] = None,
     axes_json: Optional[List[dict]] = None,
     file_stat_registration: Optional[Dict[str, float]] = None,
+    file_role: Optional[dict] = None,
 ) -> str:
     """Build subfamily string from one axis-value combination (product tuple)."""
     if naming_order is not None and axis_tags is not None:
@@ -493,6 +593,7 @@ def compose_instance_name(
             elided_fallback_name,
             axes_json=axes_json,
             file_stat_registration=file_stat_registration,
+            file_role=file_role,
         )
     parts = [av.name for av in axis_values if not av.elidable]
     return " ".join(parts) if parts else elided_fallback_name
@@ -508,6 +609,7 @@ def enumerate_instance_names(
     file_stat_registration: Optional[Dict[str, float]] = None,
     included_instance_keys: Optional[List[str]] = None,
     pinned_coords: Optional[Dict[str, float]] = None,
+    file_role: Optional[dict] = None,
 ) -> List[str]:
     """Cartesian product of axis values into composed instance subfamily names."""
     return [
@@ -521,6 +623,7 @@ def enumerate_instance_names(
             file_stat_registration=file_stat_registration,
             included_instance_keys=included_instance_keys,
             pinned_coords=pinned_coords,
+            file_role=file_role,
         )
     ]
 
@@ -535,6 +638,7 @@ def iterate_instance_name_entries(
     file_stat_registration: Optional[Dict[str, float]] = None,
     included_instance_keys: Optional[List[str]] = None,
     pinned_coords: Optional[Dict[str, float]] = None,
+    file_role: Optional[dict] = None,
 ):
     """Yield `(composed_name, combo_by_tag)` for each included instance row."""
     if not axis_defs:
@@ -556,6 +660,7 @@ def iterate_instance_name_entries(
             axis_tags=tag_list,
             axes_json=axes_json,
             file_stat_registration=file_stat_registration,
+            file_role=file_role,
         )
         if composed in seen:
             return
@@ -618,6 +723,8 @@ def build_allocation_plan(
     pinned_coords: Dict[str, float] | None = None,
     nameid_strategy: str = "preserve",
     ot_reflow_end: int | None = None,
+    windows_name_patches: List[Dict[str, Any]] | None = None,
+    file_role: dict | None = None,
 ) -> NameIDPlan:
     """Produce nameID allocation plan without modifying the font."""
     grid_axes = instance_axis_defs if instance_axis_defs is not None else axis_defs
@@ -626,6 +733,7 @@ def build_allocation_plan(
     axes_payload = axes_json or []
     registration = file_stat_registration or {}
     preserved_compounds = compound_defs or []
+    role_payload = file_role
     reflow_mode = nameid_strategy == "reflow"
     ot_block_end = ot_reflow_end if ot_reflow_end is not None else 255
     used = audit_nameids(font, ot_labels)
@@ -760,6 +868,7 @@ def build_allocation_plan(
         file_stat_registration=registration,
         included_instance_keys=included_instance_keys,
         pinned_coords=pinned_coords,
+        file_role=role_payload,
     ):
         if composed_name not in instance_ids:
             reuse_sf, _ = snapshot_fvar_instances.get(composed_name, (None, None))
@@ -775,6 +884,7 @@ def build_allocation_plan(
             elided_fallback_name,
             axes_json=axes_payload,
             file_stat_registration=registration,
+            file_role=role_payload,
         )
         ps_name = compose_postscript_instance_name(family_prefix, ps_style)
         instance_postscript_names[composed_name] = ps_name
@@ -809,6 +919,7 @@ def build_allocation_plan(
         free_end=free_end,
         nameid_strategy=nameid_strategy,
         ot_reflow_end=ot_block_end,
+        windows_name_patches=list(windows_name_patches or []),
     )
 
 
@@ -878,12 +989,18 @@ __all__ = [
     "AxisDef",
     "CompoundStatValueDef",
     "NameIDPlan",
+    "CODE_TOKEN",
+    "PSHYPHEN_TOKEN",
     "audit_nameids",
     "build_allocation_plan",
     "check_for_collisions",
+    "compose_instance_code",
     "compose_instance_name",
+    "compose_name_from_order",
     "compose_postscript_instance_name",
+    "compose_postscript_style_from_order",
     "derive_family_ps_prefix",
     "enumerate_instance_names",
     "preserved_design_axis_name_ids",
+    "sanitize_instance_code",
 ]

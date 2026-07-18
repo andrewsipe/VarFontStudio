@@ -36,6 +36,8 @@
 		B2000063 /* AxisTreeSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000063 /* AxisTreeSheets.swift */; };
 		B2000064 /* AxisTreeTabKeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000064 /* AxisTreeTabKeyMonitor.swift */; };
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
+		B2000071 /* NameTablePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000071 /* NameTablePanel.swift */; };
+		B2000072 /* EditorViewModel+WindowsNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000072 /* EditorViewModel+WindowsNames.swift */; };
 		B2000007 /* InspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* InspectorPanel.swift */; };
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
 		B2000009 /* VarFontCore in Frameworks */ = {isa = PBXBuildFile; productRef = P2000001 /* VarFontCore */; };
@@ -107,6 +109,8 @@
 		F2000063 /* AxisTreeSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeSheets.swift; sourceTree = "<group>"; };
 		F2000064 /* AxisTreeTabKeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisTreeTabKeyMonitor.swift; sourceTree = "<group>"; };
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
+		F2000071 /* NameTablePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameTablePanel.swift; sourceTree = "<group>"; };
+		F2000072 /* EditorViewModel+WindowsNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+WindowsNames.swift"; sourceTree = "<group>"; };
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2000009 /* StudioDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDesign.swift; sourceTree = "<group>"; };
@@ -195,6 +199,7 @@
 				F2000049 /* EditorViewModel+IssueResolvers.swift */,
 				F2000054 /* EditorViewModel+NamingOrder.swift */,
 				F2000055 /* EditorViewModel+FileClarifiers.swift */,
+				F2000072 /* EditorViewModel+WindowsNames.swift */,
 				F2000056 /* EditorViewModel+Inspector.swift */,
 				F2000057 /* EditorViewModel+ProjectIO.swift */,
 				F2000058 /* EditorViewModel+WorkspaceOps.swift */,
@@ -257,6 +262,7 @@
 				F2000038 /* StudioShortcutsHelpView.swift */,
 				F2000039 /* MissingFontsSheet.swift */,
 				F2000006 /* InstanceListPanel.swift */,
+				F2000071 /* NameTablePanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
 				F2000009 /* StudioDesign.swift */,
 				F2000010 /* InstanceInclusionCommands.swift */,
@@ -453,6 +459,8 @@
 				B2000029 /* FileClarifiersBar.swift in Sources */,
 				B2000030 /* ProjectFileCommands.swift in Sources */,
 				B2000006 /* InstanceListPanel.swift in Sources */,
+				B2000071 /* NameTablePanel.swift in Sources */,
+				B2000072 /* EditorViewModel+WindowsNames.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,
 				B2000011 /* InstanceInclusionCommands.swift in Sources */,

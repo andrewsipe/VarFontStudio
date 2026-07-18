@@ -8,7 +8,8 @@ public enum CommitRequestBuilder {
         plan: InstancePlan,
         outputPath: String,
         dryRun: Bool,
-        nameidStrategy: NameIDStrategy? = nil
+        nameidStrategy: NameIDStrategy? = nil,
+        windowsNameTable: [WindowsNameRecord] = []
     ) -> CommitRequest {
         CommitRequest(
             schemaVersion: 1,
@@ -23,7 +24,11 @@ public enum CommitRequestBuilder {
             includedInstanceKeys: includedInstanceKeys(font: font, plan: plan),
             fileStatRegistration: font.fileStatRegistration,
             compoundStatValues: font.compoundStatValues,
-            statDesignAxisTags: resolvedDesignAxisTags(for: font)
+            statDesignAxisTags: resolvedDesignAxisTags(for: font),
+            windowsNamePatches: WindowsNameTableEditing.commitPatches(
+                windowsNameTable: windowsNameTable,
+                overrides: font.windowsNameOverrides
+            )
         )
     }
 

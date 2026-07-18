@@ -45,6 +45,7 @@ def axis_defs_from_request(axes: List[Dict[str, Any]]) -> List[AxisDef]:
                 range_max=stop.get("range_max"),
                 linked_value=stop.get("linked_value"),
                 older_sibling=bool(stop.get("older_sibling", False)),
+                code=stop.get("code"),
             )
             for stop in axis.get("values", [])
         ]

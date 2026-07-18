@@ -55,6 +55,7 @@ public struct NamingChainLink: Codable, Equatable, Sendable {
         case axis
         case registration
         case clarifier
+        case code
     }
 
     public var kind: Kind

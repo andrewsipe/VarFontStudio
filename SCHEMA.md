@@ -80,6 +80,7 @@ Persisted auxiliary fields on `FontDocument`:
 - `compound_stat_values` — STAT format 4 multi-axis presets (read/write in editor)
 - `dismissed_plan_issues` — acknowledged plan warnings
 - `inferred_is_italic_file` — import hint for registration inference
+- `windows_name_overrides` — map of decimal name ID → string for Windows English (platform 3, encoding 1, lang `0x0409`) IDs **0–24** (skips reserved 15). Empty string means delete that Windows record on save. **ID 25 is not stored here** — it uses `options.family_ps_prefix` (File naming PS prefix / Names panel ID 25).
 
 ### `stat_format`
 
@@ -116,7 +117,8 @@ Maps to FontCore `AxisValueDef`.
   "stat_format": 1,
   "range_min": null,
   "range_max": null,
-  "linked_value": null
+  "linked_value": null,
+  "code": "3"
 }
 ```
 
@@ -129,6 +131,7 @@ Maps to FontCore `AxisValueDef`.
 | `stat_format` | no | Default `1` |
 | `range_min`, `range_max` | if format `2` | Optical size ranges |
 | `linked_value` | if format `3` | Style-link target (e.g. Regular → Bold) |
+| `code` | no | Optional 1–2 alphanumeric classification fragment. Used only when `naming.order` contains `@code`; concatenated in Axis Tree order (instance + design-record axes). Elided stops still contribute. |
 
 ---
 
@@ -163,6 +166,10 @@ Read-only snapshot from a font file. See `fixtures/examples/playfair-roman-analy
     "elided_fallback_id": 2,
     "elided_fallback_name": "Regular"
   },
+  "windows_name_table": [
+    { "name_id": 1, "string": "Playfair Display" },
+    { "name_id": 6, "string": "PlayfairDisplay-Variable" }
+  ],
   "inferred": {
     "is_italic_font": false,
     "grid_axis_tags": ["opsz", "wdth", "wght"],
@@ -170,6 +177,8 @@ Read-only snapshot from a font file. See `fixtures/examples/playfair-roman-analy
   }
 }
 ```
+
+`windows_name_table` lists populated Windows English records (`platformID=3`, `platEncID=1`, `langID=0x0409`) for name IDs **0–25**. The Studio middle-column **Names** panel edits these (plus project overrides); it is not a full multi-platform TTX browser.
 
 ### `axes[]`
 
@@ -259,16 +268,19 @@ Workspace state; multi-file tabs. Saved as **`.varf`** JSON (legacy **`.varfont`
 
 ### `fonts[].file_role`
 
-Per-file family identity — **not** fvar axes. Master file has `kind: "master"` and empty `clarifiers`. Variants list what makes this file different from the master.
+Per-file family identity metadata. Master file has `kind: "master"`. Variants point at `master_font_id`.
 
-| `clarifiers[].category` | Typical labels |
-|-------------------------|----------------|
-| `slope` | Italic, Oblique |
-| `width` | Condensed, Wide |
-| `optical` | Text, Display, Micro |
-| `custom` | Color, Rounded Stencil Rough, … |
+**Deprecated:** `clarifiers[]` (`@width` / `@slope` / `@optical` / `@custom` naming tokens). On load, leftover clarifiers are **promoted** into naming axes (`design_record_only`) with per-file `file_stat_registration`. Prefer Axis Tree → **Add Naming Axis** (templates: `ital` / `wdth` / `opsz`, or custom tag + display name).
 
-At most one clarifier per category per file. Labels append to composed instance names per project `naming.order` clarifier tokens (`@width`, `@slope`, `@optical`, `@custom`).
+File identity for slope/width/optical/custom now lives on **naming axes** (STAT DesignAxisRecord axes with no fvar scale):
+- Stops carry `name`, `elidable`, and optional `code`
+- Each file carries the stop that describes that file (`file_stat_registration`)
+- Naming order uses the axis tag (`ital`, `GRAD`, …), not clarifier tokens
+- Slope template `ital` follows Playfair: Roman file = one F3 stop `0→1`; Italic file = one F3 stop `1→0` (linked value is convention, not a second stop on the same file)
+
+Optional `@code` token (not auto-appended): when present, emits one concatenated classification string from per-stop `code` values in Axis Tree order (instance + naming axes). See `AxisValue.code`.
+
+`elided_fallback_override` remains on `file_role` when a file needs a different Regular/Italic fallback.
 
 ### `fonts[].axes[]`
 
@@ -386,12 +398,17 @@ Input to `vfcommit`. Subset of project + output paths.
     "clarifiers": [{ "category": "slope", "label": "Italic" }]
   },
   "axes": [],
-  "included_instance_keys": []
+  "included_instance_keys": [],
+  "windows_name_patches": [
+    { "name_id": 6, "string": "PlayfairDisplay-Variable" }
+  ]
 }
 ```
 
 `axes` uses the same shape as `ProjectDocument.fonts[].axes`.  
 `dry_run: true` → `CommitResult` without writing a file.
+
+`windows_name_patches` are Windows English (3/1/0x409) writes for IDs **0–24** (empty `string` deletes that record only). ID **25** is written from `options.family_ps_prefix`. Other platforms/langs are left alone.
 
 Alignment with TableEditor YAML: `axes[].values` = `AxisValue`; `options.fix_fvar_default` = `--no-fix-default` inverse.
 
@@ -434,6 +451,9 @@ Alignment with TableEditor YAML: `axes[].values` = `AxisValue`; `options.fix_fva
   ],
   "instances_planned": [
     { "composed_name": "Micro Normal", "subfamily_name_id": 282, "postscript_name": "MyFamilyVF-MicroNormal", "postscript_name_id": 283 }
+  ],
+  "windows_name_patches": [
+    { "name_id": 6, "string": "PlayfairDisplay-Variable" }
   ],
   "name_records_sequenced": [
     { "id": 256, "string": "Alternate g", "role": "ot_feature_label" },

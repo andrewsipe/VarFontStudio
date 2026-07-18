@@ -12,6 +12,8 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
     public var instancesExisting: [ExistingInstance]
     public var instancesExistingMeta: InstancesMeta?
     public var nameAudit: NameAudit
+    /// Windows English (3,1,0x0409) name IDs 0–25 present in the font.
+    public var windowsNameTable: [WindowsNameRecord]
     public var inferred: InferredAnalysis
     /// STAT DesignAxisRecord tags in table order (fvar parity checks).
     public var designAxisTags: [String]
@@ -24,6 +26,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         case instancesExisting = "instances_existing"
         case instancesExistingMeta = "instances_existing_meta"
         case nameAudit = "name_audit"
+        case windowsNameTable = "windows_name_table"
         case inferred
         case designAxisTags = "design_axis_tags"
     }
@@ -294,6 +297,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         instancesExisting: [ExistingInstance],
         instancesExistingMeta: InstancesMeta? = nil,
         nameAudit: NameAudit,
+        windowsNameTable: [WindowsNameRecord] = [],
         inferred: InferredAnalysis,
         designAxisTags: [String] = []
     ) {
@@ -306,6 +310,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         self.instancesExisting = instancesExisting
         self.instancesExistingMeta = instancesExistingMeta
         self.nameAudit = nameAudit
+        self.windowsNameTable = windowsNameTable
         self.inferred = inferred
         self.designAxisTags = designAxisTags
     }
@@ -321,6 +326,7 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         instancesExisting = try c.decode([ExistingInstance].self, forKey: .instancesExisting)
         instancesExistingMeta = try c.decodeIfPresent(InstancesMeta.self, forKey: .instancesExistingMeta)
         nameAudit = try c.decode(NameAudit.self, forKey: .nameAudit)
+        windowsNameTable = try c.decodeIfPresent([WindowsNameRecord].self, forKey: .windowsNameTable) ?? []
         inferred = try c.decode(InferredAnalysis.self, forKey: .inferred)
         designAxisTags = try c.decodeIfPresent([String].self, forKey: .designAxisTags) ?? []
     }
