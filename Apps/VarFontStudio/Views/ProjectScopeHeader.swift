@@ -10,10 +10,6 @@ struct ProjectScopeHeader: View {
     @State private var editedName = ""
     @FocusState private var nameFieldFocused: Bool
 
-    /// Matches the instance name in `StudioComposedNameCallout` — the project's own
-    /// name deserves the same visual weight as the thing you're currently inspecting.
-    private static let titleFont = Font.system(size: 15, weight: .semibold)
-
     private var liveProject: OpenProject? {
         editor.openProjects.first(where: { $0.id == openProject.id })
     }
@@ -78,7 +74,7 @@ struct ProjectScopeHeader: View {
                     StudioTextField(
                         placeholder: "Project name",
                         text: $editedName,
-                        font: Self.titleFont,
+                        font: StudioTypography.projectTitle,
                         rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
                         onSubmit: commitRename,
                         onCancel: cancelRename
@@ -86,7 +82,7 @@ struct ProjectScopeHeader: View {
                     .focused($nameFieldFocused)
                 } else {
                     Text(currentDisplayName)
-                        .font(Self.titleFont)
+                        .font(StudioTypography.projectTitle)
                         .lineLimit(2)
                 }
             }
@@ -112,7 +108,7 @@ struct ProjectScopeHeader: View {
                 isEditingName = true
             }
 
-            StudioToolbarIconMenu {
+            StudioOverflowMenu(scale: .toolbar) {
                 projectScopeMenuContent
             }
         }

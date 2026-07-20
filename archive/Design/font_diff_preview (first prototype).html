@@ -1,0 +1,336 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1a1a1c;
+  --surface:#222225;
+  --surface2:#2a2a2e;
+  --surface3:#323236;
+  --border:#3a3a3f;
+  --border2:#48484e;
+  --text:#e8e8ea;
+  --text2:#9a9a9f;
+  --text3:#6a6a70;
+  --added:#4ade80;
+  --added-bg:rgba(74,222,128,0.10);
+  --added-border:rgba(74,222,128,0.22);
+  --removed:#f87171;
+  --removed-bg:rgba(248,113,113,0.10);
+  --removed-border:rgba(248,113,113,0.22);
+  --reflow:#7b7bf5;
+  --reflow-bg:rgba(123,123,245,0.10);
+  --reflow-border:rgba(123,123,245,0.22);
+  --warn:#f59e0b;
+  --warn-bg:rgba(245,158,11,0.12);
+  --warn-border:rgba(245,158,11,0.25);
+  --unchanged:#9a9a9f;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:13px;padding:16px;line-height:1.5}
+.window{background:var(--surface);border:0.5px solid var(--border);border-radius:10px;overflow:hidden}
+.titlebar{background:var(--surface2);border-bottom:0.5px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.dots{display:flex;gap:6px}
+.dot{width:12px;height:12px;border-radius:50%}
+.dot-r{background:#f87171}
+.dot-y{background:#f59e0b}
+.dot-g{background:#4ade80}
+.title{font-size:13px;color:var(--text2);margin-left:4px;font-weight:500}
+.header{padding:20px 20px 0}
+.h1{font-size:16px;font-weight:600;color:var(--text);margin-bottom:2px}
+.h2{font-size:11px;color:var(--text3);font-weight:400}
+.stats{display:flex;gap:8px;padding:14px 20px;border-bottom:0.5px solid var(--border)}
+.stat{background:var(--surface2);border:0.5px solid var(--border);border-radius:6px;padding:8px 14px;text-align:center}
+.stat-val{font-size:18px;font-weight:600;color:var(--text);line-height:1}
+.stat-lbl{font-size:10px;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.warn-bar{margin:12px 20px 0;background:var(--warn-bg);border:0.5px solid var(--warn-border);border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--warn)}
+.warn-bar i{font-size:14px}
+.section{border-top:0.5px solid var(--border);margin-top:0}
+.sec-head{padding:0 20px;display:flex;align-items:center;gap:0;cursor:pointer;user-select:none}
+.sec-head:hover .sec-title{color:var(--text)}
+.sec-toggle{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:12px;flex-shrink:0}
+.sec-info{flex:1;display:flex;align-items:center;gap:10px}
+.sec-title{font-size:12px;font-weight:500;color:var(--text2)}
+.sec-summary{font-size:11px;color:var(--text3)}
+.sec-pills{display:flex;gap:5px;margin-left:auto}
+.pill{font-size:10px;font-weight:500;padding:2px 7px;border-radius:10px;border:0.5px solid}
+.pill-added{color:var(--added);background:var(--added-bg);border-color:var(--added-border)}
+.pill-removed{color:var(--removed);background:var(--removed-bg);border-color:var(--removed-border)}
+.pill-reflow{color:var(--reflow);background:var(--reflow-bg);border-color:var(--reflow-border)}
+.pill-same{color:var(--text3);background:rgba(154,154,159,0.08);border-color:rgba(154,154,159,0.18)}
+.sec-body{padding:0 20px 16px;display:none}
+.sec-body.open{display:block}
+.table{width:100%;border-collapse:collapse;font-size:12px}
+.table th{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;text-align:left;border-bottom:0.5px solid var(--border)}
+.table td{padding:7px 10px;border-bottom:0.5px solid var(--border2);vertical-align:middle}
+.table tr:last-child td{border-bottom:none}
+.table tr:hover td{background:rgba(255,255,255,0.025)}
+.tag-chip{background:var(--surface3);border:0.5px solid var(--border);border-radius:4px;padding:2px 6px;font-size:10px;font-family:monospace;color:var(--text2)}
+.val-chip{font-size:11px;font-weight:500;color:var(--text);font-family:monospace}
+.delta{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.delta-added{color:var(--added);background:var(--added-bg)}
+.delta-removed{color:var(--removed);background:var(--removed-bg)}
+.delta-reflow{color:var(--reflow);background:var(--reflow-bg)}
+.delta-same{color:var(--text3);background:rgba(154,154,159,0.08)}
+.id-reflow{font-size:11px;font-family:monospace;color:var(--text3)}
+.id-arrow{color:var(--border2);margin:0 3px}
+.id-after{color:var(--reflow)}
+.before-text{color:var(--text3)}
+.after-text{color:var(--text)}
+.em-dash{color:var(--text3)}
+.sub-group{margin-bottom:12px}
+.sub-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:8px 0 6px;border-bottom:0.5px solid var(--border);margin-bottom:2px}
+.sub-label-removed{color:var(--removed)}
+.sub-label-added{color:var(--added)}
+.sub-label-reflow{color:var(--reflow)}
+.legend{display:flex;gap:12px;padding:10px 20px 14px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+.chevron{transition:transform .18s;display:inline-block}
+.chevron.open{transform:rotate(90deg)}
+</style>
+
+<div class="window">
+  <div class="titlebar">
+    <div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+    <span class="title">Save review — Milgram-Variable</span>
+  </div>
+
+  <div class="header">
+    <div class="h1">Save review</div>
+    <div class="h2">Compare the font on disk with the planned write before saving a patched copy.</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-val">6</div><div class="stat-lbl">Instances</div></div>
+    <div class="stat"><div class="stat-val">6</div><div class="stat-lbl">STAT values</div></div>
+    <div class="stat"><div class="stat-val">6</div><div class="stat-lbl">Replaced fvar</div></div>
+    <div class="stat"><div class="stat-val">19</div><div class="stat-lbl">New name IDs</div></div>
+  </div>
+
+  <div style="padding:12px 20px 0">
+    <div class="warn-bar">
+      <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+      <span><strong>wght</strong> default changes from 300 → 400. The fvar default instance will shift.</span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:var(--reflow-bg);border:0.5px solid var(--reflow-border)"></div>Reflow — ID reassigned, value unchanged</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--added-bg);border:0.5px solid var(--added-border)"></div>Added</div>
+    <div class="leg-item"><div class="leg-dot" style="background:var(--removed-bg);border:0.5px solid var(--removed-border)"></div>Removed</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(154,154,159,0.08);border:0.5px solid rgba(154,154,159,0.18)"></div>Unchanged</div>
+  </div>
+
+  <!-- STAT axis values -->
+  <div class="section">
+    <div class="sec-head" onclick="toggle('stat')">
+      <div class="sec-toggle"><span class="chevron" id="chev-stat">›</span></div>
+      <div class="sec-info">
+        <span class="sec-title">STAT axis values</span>
+        <span class="sec-summary">6 changed · 6 total</span>
+        <div class="sec-pills">
+          <span class="pill pill-reflow">6 reflow</span>
+        </div>
+      </div>
+    </div>
+    <div class="sec-body open" id="body-stat">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:60px">Tag</th>
+            <th style="width:50px">Value</th>
+            <th>Name</th>
+            <th>Name ID</th>
+            <th style="width:70px;text-align:right">Δ</th>
+          </tr>
+        </thead>
+        <tbody id="stat-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- fvar instances -->
+  <div class="section">
+    <div class="sec-head" onclick="toggle('fvar')">
+      <div class="sec-toggle"><span class="chevron" id="chev-fvar">›</span></div>
+      <div class="sec-info">
+        <span class="sec-title">fvar instances</span>
+        <span class="sec-summary">0 semantic changes · 6 total</span>
+        <div class="sec-pills">
+          <span class="pill pill-same">6 same</span>
+        </div>
+      </div>
+    </div>
+    <div class="sec-body" id="body-fvar">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:90px">Key</th>
+            <th>Before</th>
+            <th>After</th>
+            <th style="width:70px;text-align:right">Δ</th>
+          </tr>
+        </thead>
+        <tbody id="fvar-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Name table -->
+  <div class="section">
+    <div class="sec-head" onclick="toggle('name')">
+      <div class="sec-toggle"><span class="chevron open" id="chev-name">›</span></div>
+      <div class="sec-info">
+        <span class="sec-title">Name table <span style="color:var(--text3);font-weight:400">(≥256)</span></span>
+        <span class="sec-summary">22 changed · 22 total</span>
+        <div class="sec-pills">
+          <span class="pill pill-removed">3 removed</span>
+          <span class="pill pill-added">6 added</span>
+          <span class="pill pill-reflow">13 reflow</span>
+        </div>
+      </div>
+    </div>
+    <div class="sec-body open" id="body-name">
+
+      <div class="sub-group">
+        <div class="sub-label sub-label-removed">Removed · 3</div>
+        <table class="table">
+          <thead><tr><th style="width:50px">ID</th><th>Description</th><th>Before</th><th style="width:70px;text-align:right">Δ</th></tr></thead>
+          <tbody id="name-removed-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="sub-group">
+        <div class="sub-label sub-label-added">Added · 6</div>
+        <table class="table">
+          <thead><tr><th style="width:50px">ID</th><th>Value</th><th>Role</th><th style="width:70px;text-align:right">Δ</th></tr></thead>
+          <tbody id="name-added-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="sub-group">
+        <div class="sub-label sub-label-reflow">Reflowed · 13 <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">— ID reassigned, value unchanged</span></div>
+        <table class="table">
+          <thead><tr><th style="width:90px">ID</th><th>Value</th><th>Role</th><th style="width:70px;text-align:right">Δ</th></tr></thead>
+          <tbody id="name-reflow-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+const statData=[
+  {tag:'wght',val:300,name:'Light',before:271,after:273},
+  {tag:'wght',val:400,name:'Regular',before:269,after:274},
+  {tag:'wght',val:500,name:'Medium',before:258,after:275},
+  {tag:'wght',val:700,name:'Bold',before:260,after:276},
+  {tag:'wght',val:800,name:'X-Bold',before:262,after:277},
+  {tag:'wght',val:900,name:'Black',before:264,after:278},
+];
+const fvarData=[
+  {key:'wght:300',name:'Light'},
+  {key:'wght:400',name:'Regular'},
+  {key:'wght:500',name:'Medium'},
+  {key:'wght:700',name:'Bold'},
+  {key:'wght:800',name:'X-Bold'},
+  {key:'wght:900',name:'Black'},
+];
+const nameRemoved=[
+  {id:266,desc:'STAT ital',before:'Italic'},
+  {id:267,desc:'name table record',before:'Alt J'},
+  {id:268,desc:'name table record',before:'Alt Euro'},
+];
+const nameAdded=[
+  {id:279,value:'Light',role:'instance_subfamily'},
+  {id:281,value:'Regular',role:'elided_fallback'},
+  {id:283,value:'Medium',role:'instance_subfamily'},
+  {id:285,value:'Bold',role:'instance_subfamily'},
+  {id:287,value:'X-Bold',role:'instance_subfamily'},
+  {id:289,value:'Black',role:'instance_subfamily'},
+];
+const nameReflow=[
+  {before:256,after:272,value:'Weight',role:'axis_display_name'},
+  {before:271,after:273,value:'Light',role:'stat_axis_value'},
+  {before:269,after:274,value:'Regular',role:'stat_axis_value'},
+  {before:258,after:275,value:'Medium',role:'stat_axis_value'},
+  {before:260,after:276,value:'Bold',role:'stat_axis_value'},
+  {before:262,after:277,value:'X-Bold',role:'stat_axis_value'},
+  {before:264,after:278,value:'Black',role:'stat_axis_value'},
+  {before:270,after:280,value:'MilgramVF-Light',role:'instance_postscript'},
+  {before:257,after:282,value:'MilgramVF-Regular',role:'instance_postscript'},
+  {before:259,after:284,value:'MilgramVF-Medium',role:'instance_postscript'},
+  {before:261,after:286,value:'MilgramVF-Bold',role:'instance_postscript'},
+  {before:263,after:288,value:'MilgramVF-X-Bold',role:'instance_postscript'},
+  {before:265,after:290,value:'MilgramVF-Black',role:'instance_postscript'},
+];
+
+function roleChip(r){
+  return `<span style="font-size:10px;font-family:monospace;color:var(--text3);background:var(--surface3);border:0.5px solid var(--border);border-radius:3px;padding:1px 5px">${r}</span>`;
+}
+function idFlow(b,a){
+  return `<span class="id-reflow"><span style="color:var(--text3)">${b}</span><span class="id-arrow">→</span><span class="id-after">${a}</span></span>`;
+}
+function deltaChip(type,label){
+  return `<span class="delta delta-${type}">${label}</span>`;
+}
+
+const sb=document.getElementById('stat-tbody');
+statData.forEach(d=>{
+  sb.innerHTML+=`<tr>
+    <td><span class="tag-chip">${d.tag}</span></td>
+    <td><span class="val-chip">${d.val}</span></td>
+    <td>${d.name}</td>
+    <td>${idFlow(d.before,d.after)}</td>
+    <td style="text-align:right">${deltaChip('reflow','reflow')}</td>
+  </tr>`;
+});
+
+const fb=document.getElementById('fvar-tbody');
+fvarData.forEach(d=>{
+  fb.innerHTML+=`<tr>
+    <td><span class="tag-chip">${d.key}</span></td>
+    <td class="before-text">${d.name}</td>
+    <td class="after-text">${d.name}</td>
+    <td style="text-align:right">${deltaChip('same','same')}</td>
+  </tr>`;
+});
+
+const nr=document.getElementById('name-removed-tbody');
+nameRemoved.forEach(d=>{
+  nr.innerHTML+=`<tr>
+    <td><span class="val-chip">${d.id}</span></td>
+    <td style="color:var(--text3)">${d.desc}</td>
+    <td class="before-text">${d.before}</td>
+    <td style="text-align:right">${deltaChip('removed','removed')}</td>
+  </tr>`;
+});
+
+const na=document.getElementById('name-added-tbody');
+nameAdded.forEach(d=>{
+  na.innerHTML+=`<tr>
+    <td><span class="val-chip" style="color:var(--added)">${d.id}</span></td>
+    <td class="after-text">${d.value}</td>
+    <td>${roleChip(d.role)}</td>
+    <td style="text-align:right">${deltaChip('added','added')}</td>
+  </tr>`;
+});
+
+const nfl=document.getElementById('name-reflow-tbody');
+nameReflow.forEach(d=>{
+  nfl.innerHTML+=`<tr>
+    <td>${idFlow(d.before,d.after)}</td>
+    <td>${d.value}</td>
+    <td>${roleChip(d.role)}</td>
+    <td style="text-align:right">${deltaChip('reflow','reflow')}</td>
+  </tr>`;
+});
+
+function toggle(id){
+  const body=document.getElementById('body-'+id);
+  const chev=document.getElementById('chev-'+id);
+  const open=body.classList.toggle('open');
+  chev.classList.toggle('open',open);
+}
+</script>

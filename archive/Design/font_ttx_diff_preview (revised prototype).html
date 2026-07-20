@@ -1,0 +1,285 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#18181b;
+  --surf:#222226;
+  --surf2:#2a2a2f;
+  --surf3:#303036;
+  --b:#38383f;
+  --b2:#46464e;
+  --t:#e4e4e8;
+  --t2:#909098;
+  --t3:#5a5a62;
+  --mono:'SF Mono',ui-monospace,monospace;
+  --added:#4ade80;
+  --added-bg:rgba(74,222,128,0.08);
+  --added-b:rgba(74,222,128,0.20);
+  --removed:#f87171;
+  --removed-bg:rgba(248,113,113,0.08);
+  --removed-b:rgba(248,113,113,0.20);
+  --reflow:#a78bfa;
+  --reflow-bg:rgba(167,139,250,0.08);
+  --reflow-b:rgba(167,139,250,0.20);
+  --warn:#f59e0b;
+  --warn-bg:rgba(245,158,11,0.10);
+  --warn-b:rgba(245,158,11,0.22);
+  --phase:#60a5fa;
+  --phase-bg:rgba(96,165,250,0.08);
+  --phase-b:rgba(96,165,250,0.20);
+}
+body{background:var(--bg);color:var(--t);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:12px;line-height:1.5;padding:0}
+.win{background:var(--surf);border:0.5px solid var(--b);border-radius:10px;overflow:hidden}
+.tbar{background:var(--surf2);border-bottom:0.5px solid var(--b);padding:11px 16px;display:flex;align-items:center;gap:10px}
+.dots{display:flex;gap:6px}
+.dot{width:12px;height:12px;border-radius:50%}
+.wtop{padding:16px 18px 0}
+.wh1{font-size:14px;font-weight:500;color:var(--t);margin-bottom:2px}
+.wh2{font-size:11px;color:var(--t3)}
+.smry{display:flex;gap:6px;padding:12px 18px;flex-wrap:wrap}
+.sc{background:var(--surf2);border:0.5px solid var(--b);border-radius:5px;padding:6px 12px;text-align:center;min-width:64px}
+.sv{font-size:16px;font-weight:500;color:var(--t);line-height:1.2}
+.sl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.wbar{margin:0 18px 12px;background:var(--warn-bg);border:0.5px solid var(--warn-b);border-radius:5px;padding:7px 10px;display:flex;align-items:flex-start;gap:7px;font-size:11px;color:var(--warn)}
+.wbar i{font-size:13px;margin-top:1px;flex-shrink:0}
+.sec{border-top:0.5px solid var(--b)}
+.sh{padding:0 18px;display:flex;align-items:center;gap:0;cursor:pointer;user-select:none;min-height:40px}
+.sh:hover .st{color:var(--t)}
+.stog{width:36px;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:11px}
+.sinfo{flex:1;display:flex;align-items:center;gap:8px}
+.st{font-size:11px;font-weight:500;color:var(--t2)}
+.ss{font-size:10px;color:var(--t3)}
+.pills{display:flex;gap:4px;margin-left:auto}
+.p{font-size:9px;font-weight:600;padding:2px 6px;border-radius:8px;border:0.5px solid}
+.pa{color:var(--added);background:var(--added-bg);border-color:var(--added-b)}
+.pr{color:var(--removed);background:var(--removed-bg);border-color:var(--removed-b)}
+.pf{color:var(--reflow);background:var(--reflow-bg);border-color:var(--reflow-b)}
+.pn{color:var(--t3);background:rgba(90,90,98,0.12);border-color:rgba(90,90,98,0.22)}
+.pp{color:var(--phase);background:var(--phase-bg);border-color:var(--phase-b)}
+.sbody{display:none;padding:0 18px 14px}
+.sbody.open{display:block}
+.chev{transition:transform .15s;display:inline-block}
+.chev.open{transform:rotate(90deg)}
+
+.ttx{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.ttx-col{background:var(--surf2);border:0.5px solid var(--b);border-radius:6px;overflow:hidden}
+.ttx-hd{padding:7px 10px;border-bottom:0.5px solid var(--b);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:6px}
+.ttx-hd-before{color:var(--t3)}
+.ttx-hd-after{color:var(--t)}
+.ttx-row{display:flex;align-items:stretch;border-bottom:0.5px solid var(--b);font-size:11px}
+.ttx-row:last-child{border-bottom:none}
+.ttx-ann{width:4px;flex-shrink:0}
+.ttx-ann-added{background:var(--added)}
+.ttx-ann-removed{background:var(--removed)}
+.ttx-ann-reflow{background:var(--reflow)}
+.ttx-ann-none{background:transparent}
+.ttx-ann-phase{background:var(--phase)}
+.ttx-cell{padding:5px 8px;flex:1;min-width:0}
+.ttx-key{font-family:var(--mono);font-size:10px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttx-val{font-family:var(--mono);font-size:10px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttx-val-added{color:var(--added)}
+.ttx-val-removed{color:var(--removed);text-decoration:line-through;text-decoration-color:rgba(248,113,113,0.4)}
+.ttx-val-reflow{color:var(--reflow)}
+.ttx-val-dim{color:var(--t3)}
+.ttx-empty{color:var(--t3);font-style:italic;font-size:10px}
+.ttx-phase{padding:5px 8px;background:var(--phase-bg);border-bottom:0.5px solid var(--phase-b);font-size:9px;font-weight:600;color:var(--phase);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px;width:100%}
+.id-old{color:var(--t3)}
+.id-new{color:var(--reflow)}
+.arr{color:var(--b2);margin:0 3px}
+.note{font-size:10px;color:var(--t3);margin-top:6px;padding:0 2px}
+.mk{font-family:var(--mono);font-size:10px;background:var(--surf3);border:0.5px solid var(--b);border-radius:3px;padding:1px 4px;color:var(--t2)}
+</style>
+
+<div class="win">
+  <div class="tbar">
+    <div class="dots"><div class="dot" style="background:#f87171"></div><div class="dot" style="background:#f59e0b"></div><div class="dot" style="background:#4ade80"></div></div>
+    <span style="font-size:12px;color:var(--t2);font-weight:500">Save review — Milgram-Variable</span>
+  </div>
+
+  <div class="wtop">
+    <div class="wh1">Save review</div>
+    <div class="wh2">TTX state of each table before and after the planned write.</div>
+  </div>
+
+  <div class="smry">
+    <div class="sc"><div class="sv">6</div><div class="sl">Instances</div></div>
+    <div class="sc"><div class="sv">6</div><div class="sl">STAT values</div></div>
+    <div class="sc"><div class="sv">19</div><div class="sl">New name IDs</div></div>
+    <div class="sc"><div class="sv">3</div><div class="sl">Removed</div></div>
+    <div class="sc"><div class="sv">6</div><div class="sl">Added</div></div>
+  </div>
+
+  <div class="wbar" style="margin-top:0">
+    <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+    <span><strong>wght default</strong> shifts from 300 → 400. The fvar default instance will change.</span>
+  </div>
+
+  <div style="padding:4px 18px 10px;display:flex;gap:14px;flex-wrap:wrap">
+    <span style="font-size:10px;color:var(--t3);display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;background:var(--removed);border-radius:1px"></span>Removed</span>
+    <span style="font-size:10px;color:var(--t3);display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;background:var(--added);border-radius:1px"></span>Added</span>
+    <span style="font-size:10px;color:var(--t3);display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;background:var(--reflow);border-radius:1px"></span>ID reflowed (value unchanged)</span>
+    <span style="font-size:10px;color:var(--t3);display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;background:var(--phase);border-radius:1px"></span>Phase boundary</span>
+  </div>
+
+  <!-- STAT -->
+  <div class="sec">
+    <div class="sh" onclick="tog('stat')">
+      <div class="stog"><span class="chev open" id="c-stat">›</span></div>
+      <div class="sinfo">
+        <span class="st">STAT table</span>
+        <span class="ss">wght axis · 6 values</span>
+        <div class="pills"><span class="p pf">6 reflowed</span></div>
+      </div>
+    </div>
+    <div class="sbody open" id="b-stat">
+      <div class="ttx">
+        <div class="ttx-col">
+          <div class="ttx-hd ttx-hd-before"><i class="ti ti-file-code" aria-hidden="true" style="font-size:11px"></i>Before</div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=300</div><div class="ttx-val">nameID=<span class="id-old">271</span> "Light"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat3 wght=400</div><div class="ttx-val">nameID=<span class="id-old">269</span> "Regular" <span style="color:var(--t3);font-size:9px">elided</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=500</div><div class="ttx-val">nameID=<span class="id-old">258</span> "Medium"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=700</div><div class="ttx-val">nameID=<span class="id-old">260</span> "Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=800</div><div class="ttx-val">nameID=<span class="id-old">262</span> "X-Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=900</div><div class="ttx-val">nameID=<span class="id-old">264</span> "Black"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-removed"></div><div class="ttx-cell"><div class="ttx-key">AxisValue ital</div><div class="ttx-val ttx-val-removed">nameID=266 "Italic"</div></div></div>
+        </div>
+        <div class="ttx-col">
+          <div class="ttx-hd ttx-hd-after"><i class="ti ti-file-code" aria-hidden="true" style="font-size:11px"></i>After</div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=300</div><div class="ttx-val">nameID=<span class="id-new">273</span> "Light"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat3 wght=400</div><div class="ttx-val">nameID=<span class="id-new">274</span> "Regular" <span style="color:var(--t3);font-size:9px">elided</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=500</div><div class="ttx-val">nameID=<span class="id-new">275</span> "Medium"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=700</div><div class="ttx-val">nameID=<span class="id-new">276</span> "Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=800</div><div class="ttx-val">nameID=<span class="id-new">277</span> "X-Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">AxisValueFormat1 wght=900</div><div class="ttx-val">nameID=<span class="id-new">278</span> "Black"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-empty">— removed</div></div></div>
+        </div>
+      </div>
+      <div class="note">STAT values are semantically unchanged. Name IDs reflowed from 256 as part of the name table rebuild.</div>
+    </div>
+  </div>
+
+  <!-- fvar -->
+  <div class="sec">
+    <div class="sh" onclick="tog('fvar')">
+      <div class="stog"><span class="chev" id="c-fvar">›</span></div>
+      <div class="sinfo">
+        <span class="st">fvar table</span>
+        <span class="ss">wght axis · 6 instances</span>
+        <div class="pills"><span class="p pn">6 unchanged</span></div>
+      </div>
+    </div>
+    <div class="sbody" id="b-fvar">
+      <div class="ttx">
+        <div class="ttx-col">
+          <div class="ttx-hd ttx-hd-before"><i class="ti ti-file-code" aria-hidden="true" style="font-size:11px"></i>Before</div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=300</div><div class="ttx-val">subfamilyNameID=? "Light"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=400</div><div class="ttx-val">subfamilyNameID=? "Regular"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=500</div><div class="ttx-val">subfamilyNameID=? "Medium"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=700</div><div class="ttx-val">subfamilyNameID=? "Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=800</div><div class="ttx-val">subfamilyNameID=? "X-Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=900</div><div class="ttx-val">subfamilyNameID=? "Black"</div></div></div>
+        </div>
+        <div class="ttx-col">
+          <div class="ttx-hd ttx-hd-after"><i class="ti ti-file-code" aria-hidden="true" style="font-size:11px"></i>After</div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=300</div><div class="ttx-val">subfamilyNameID=<span class="id-new">279</span> "Light"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=400</div><div class="ttx-val">subfamilyNameID=<span class="id-new">281</span> "Regular"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=500</div><div class="ttx-val">subfamilyNameID=<span class="id-new">283</span> "Medium"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=700</div><div class="ttx-val">subfamilyNameID=<span class="id-new">285</span> "Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=800</div><div class="ttx-val">subfamilyNameID=<span class="id-new">287</span> "X-Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-key">Instance wght=900</div><div class="ttx-val">subfamilyNameID=<span class="id-new">289</span> "Black"</div></div></div>
+        </div>
+      </div>
+      <div class="note">Instance names unchanged. SubfamilyNameIDs now point into the rebuilt name table (≥256 range).</div>
+    </div>
+  </div>
+
+  <!-- name table -->
+  <div class="sec">
+    <div class="sh" onclick="tog('name')">
+      <div class="stog"><span class="chev open" id="c-name">›</span></div>
+      <div class="sinfo">
+        <span class="st">name table <span style="color:var(--t3);font-weight:400">(≥256)</span></span>
+        <span class="ss">full rebuild · 3 removed → wiped → 19 written</span>
+        <div class="pills">
+          <span class="p pr">3 removed</span>
+          <span class="p pa">6 added</span>
+          <span class="p pf">10 reflowed</span>
+        </div>
+      </div>
+    </div>
+    <div class="sbody open" id="b-name">
+      <div class="ttx">
+        <div class="ttx-col">
+          <div class="ttx-hd ttx-hd-before"><i class="ti ti-file-code" aria-hidden="true" style="font-size:11px"></i>Before</div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Axis display names</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 256</div><div class="ttx-val"><span class="id-old">256</span> "Weight" <span class="mk">fvar axis wght</span></div></div></div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">STAT axis values</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 271</div><div class="ttx-val"><span class="id-old">271</span> "Light" <span class="mk">STAT wght</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 269</div><div class="ttx-val"><span class="id-old">269</span> "Regular" <span class="mk">STAT elided</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 258</div><div class="ttx-val"><span class="id-old">258</span> "Medium" <span class="mk">STAT wght</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 260</div><div class="ttx-val"><span class="id-old">260</span> "Bold" <span class="mk">STAT wght</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 262</div><div class="ttx-val"><span class="id-old">262</span> "X-Bold" <span class="mk">STAT wght</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 264</div><div class="ttx-val"><span class="id-old">264</span> "Black" <span class="mk">STAT wght</span></div></div></div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">fvar instance PostScript names</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 270</div><div class="ttx-val"><span class="id-old">270</span> "MilgramVF-Light"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 257</div><div class="ttx-val"><span class="id-old">257</span> "MilgramVF-Regular"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 259</div><div class="ttx-val"><span class="id-old">259</span> "MilgramVF-Medium"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 261</div><div class="ttx-val"><span class="id-old">261</span> "MilgramVF-Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 263</div><div class="ttx-val"><span class="id-old">263</span> "MilgramVF-X-Bold"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 265</div><div class="ttx-val"><span class="id-old">265</span> "MilgramVF-Black"</div></div></div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Other records</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-removed"></div><div class="ttx-cell"><div class="ttx-key">nameID 266</div><div class="ttx-val ttx-val-removed">266 "Italic" <span class="mk" style="text-decoration:none">STAT ital</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-removed"></div><div class="ttx-cell"><div class="ttx-key">nameID 267</div><div class="ttx-val ttx-val-removed">267 "Alt J"</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-removed"></div><div class="ttx-cell"><div class="ttx-key">nameID 268</div><div class="ttx-val ttx-val-removed">268 "Alt Euro"</div></div></div>
+        </div>
+
+        <div class="ttx-col">
+          <div class="ttx-hd ttx-hd-after"><i class="ti ti-file-code" aria-hidden="true" style="font-size:11px"></i>After <span style="color:var(--t3);font-weight:400;font-size:9px;margin-left:4px">rebuilt from 256</span></div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Axis display names</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 272</div><div class="ttx-val"><span class="id-new">272</span> "Weight" <span class="mk">axis_display_name</span></div></div></div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">STAT axis values</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 273</div><div class="ttx-val"><span class="id-new">273</span> "Light" <span class="mk">stat_axis_value</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 274</div><div class="ttx-val"><span class="id-new">274</span> "Regular" <span class="mk">stat_axis_value</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 275</div><div class="ttx-val"><span class="id-new">275</span> "Medium" <span class="mk">stat_axis_value</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 276</div><div class="ttx-val"><span class="id-new">276</span> "Bold" <span class="mk">stat_axis_value</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 277</div><div class="ttx-val"><span class="id-new">277</span> "X-Bold" <span class="mk">stat_axis_value</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 278</div><div class="ttx-val"><span class="id-new">278</span> "Black" <span class="mk">stat_axis_value</span></div></div></div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">fvar instance names + PostScript</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-added"></div><div class="ttx-cell"><div class="ttx-key">nameID 279</div><div class="ttx-val ttx-val-added">279 "Light" <span class="mk">instance_subfamily</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 280</div><div class="ttx-val"><span class="id-new">280</span> "MilgramVF-Light" <span class="mk">instance_postscript</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-added"></div><div class="ttx-cell"><div class="ttx-key">nameID 281</div><div class="ttx-val ttx-val-added">281 "Regular" <span class="mk">elided_fallback</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 282</div><div class="ttx-val"><span class="id-new">282</span> "MilgramVF-Regular" <span class="mk">instance_postscript</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-added"></div><div class="ttx-cell"><div class="ttx-key">nameID 283</div><div class="ttx-val ttx-val-added">283 "Medium" <span class="mk">instance_subfamily</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 284</div><div class="ttx-val"><span class="id-new">284</span> "MilgramVF-Medium" <span class="mk">instance_postscript</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-added"></div><div class="ttx-cell"><div class="ttx-key">nameID 285</div><div class="ttx-val ttx-val-added">285 "Bold" <span class="mk">instance_subfamily</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 286</div><div class="ttx-val"><span class="id-new">286</span> "MilgramVF-Bold" <span class="mk">instance_postscript</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-added"></div><div class="ttx-cell"><div class="ttx-key">nameID 287</div><div class="ttx-val ttx-val-added">287 "X-Bold" <span class="mk">instance_subfamily</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 288</div><div class="ttx-val"><span class="id-new">288</span> "MilgramVF-X-Bold" <span class="mk">instance_postscript</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-added"></div><div class="ttx-cell"><div class="ttx-key">nameID 289</div><div class="ttx-val ttx-val-added">289 "Black" <span class="mk">instance_subfamily</span></div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-reflow"></div><div class="ttx-cell"><div class="ttx-key">nameID 290</div><div class="ttx-val"><span class="id-new">290</span> "MilgramVF-Black" <span class="mk">instance_postscript</span></div></div></div>
+
+          <div class="ttx-row" style="background:var(--phase-bg)"><div class="ttx-ann ttx-ann-phase"></div><div class="ttx-cell"><div style="font-size:9px;color:var(--phase);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Other records</div></div></div>
+          <div class="ttx-row"><div class="ttx-ann ttx-ann-none"></div><div class="ttx-cell"><div class="ttx-empty">— 266 / 267 / 268 removed, not rebuilt</div></div></div>
+        </div>
+      </div>
+      <div class="note">Name table fully wiped at ≥256 before write. IDs 256–271 did not survive the wipe even where values matched — they were re-allocated starting at 272. IDs 266 / 267 / 268 (Italic, Alt J, Alt Euro) were not carried forward.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function tog(id){
+  const b=document.getElementById('b-'+id);
+  const c=document.getElementById('c-'+id);
+  const o=b.classList.toggle('open');
+  c.classList.toggle('open',o);
+}
+</script>

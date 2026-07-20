@@ -563,7 +563,7 @@ struct AxisTreePanel: View {
             .foregroundStyle(foreground)
             .labelStyle(.titleAndIcon)
             .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, StudioSpacing.instanceRowVertical)
             .overlay {
                 RoundedRectangle(cornerRadius: 5)

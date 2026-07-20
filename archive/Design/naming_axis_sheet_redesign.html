@@ -1,0 +1,43 @@
+<div style="min-height:560px;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:24px 0;font-family:-apple-system,sans-serif;">
+<div style="width:520px;background:#1e1e1e;border-radius:12px;border:0.5px solid #3a3a3a;padding:20px 22px;color:#e8e8e6;">
+<div style="font-size:16px;font-weight:500;margin-bottom:4px;">Add naming axis</div>
+<div style="font-size:12px;color:#9a9a96;line-height:1.5;margin-bottom:14px;">Naming axes label styles across files without joining the instance grid — no fvar scale, one stop per file.</div>
+
+<div style="font-size:11px;color:#8a8a86;margin-bottom:6px;">Kind</div>
+<div style="display:flex;gap:6px;margin-bottom:8px;">
+<div style="flex:1;text-align:center;padding:8px 0;border-radius:6px;border:0.5px solid #333;background:#242422;color:#5a5a56;font-size:12px;">Slope (ital)</div>
+<div style="flex:1;text-align:center;padding:8px 0;border-radius:6px;border:0.5px solid #333;background:#242422;color:#5a5a56;font-size:12px;">Width (wdth)</div>
+<div style="flex:1;text-align:center;padding:8px 0;border-radius:6px;border:0.5px solid #333;background:#242422;color:#5a5a56;font-size:12px;">Optical (opsz)</div>
+<div style="flex:1;text-align:center;padding:8px 0;border-radius:6px;border:1px solid #a78bfa;background:#2d2740;color:#d8cffa;font-size:12px;font-weight:500;">Custom tag</div>
+</div>
+<div style="font-size:11px;color:#726f68;margin-bottom:16px;">
+<i class="ti ti-lock" style="font-size:12px;vertical-align:-1px;margin-right:4px;" aria-hidden="true"></i>Slope and Width already exist as instance axes in this tree — disabled to avoid a duplicate tag.
+</div>
+
+<div style="display:flex;gap:10px;margin-bottom:14px;">
+<input placeholder="Tag (e.g. GRAD)" value="GRAD" style="flex:1;background:#141413;border:0.5px solid #3a3a3a;border-radius:6px;padding:8px 10px;color:#e8e8e6;font-size:13px;">
+<input placeholder="Display name" value="Grade" style="flex:1;background:#141413;border:0.5px solid #3a3a3a;border-radius:6px;padding:8px 10px;color:#e8e8e6;font-size:13px;">
+</div>
+
+<div style="background:#241d2e;border:0.5px solid #4c3d66;border-radius:8px;padding:10px 12px;font-size:12px;color:#c9bce0;line-height:1.6;margin-bottom:16px;">
+<div style="color:#e2d6f5;font-weight:500;margin-bottom:2px;font-size:12px;">Custom tag policy</div>
+Must be exactly 4 characters. Uppercase reads as a registered-style tag; lowercase signals private-use. GRAD isn't a registered OpenType axis, so this is safe as a private naming axis — but double check it doesn't collide with a tag another file in this family already uses.
+</div>
+
+<div style="font-size:11px;color:#8a8a86;margin-bottom:6px;">Axis tree preview</div>
+<div style="border:0.5px solid #333;border-radius:8px;padding:10px 12px;background:#161615;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+<span style="background:#4c3d66;color:#d8cffa;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;">N</span>
+<span style="font-weight:500;font-size:13px;">Grade</span>
+<span style="font-size:11px;color:#726f68;">No fvar scale &middot; this file</span>
+</div>
+<div style="display:grid;grid-template-columns:36px 1fr 40px 1fr 50px;gap:6px;font-size:11px;color:#726f68;padding:4px 0 2px;">
+<span>Fmt</span><span>Value</span><span>Code</span><span>Name</span><span>Elid</span>
+</div>
+<div style="display:grid;grid-template-columns:36px 1fr 40px 1fr 50px;gap:6px;font-size:12px;align-items:center;">
+<span style="background:#2a3d24;color:#8fd16a;font-size:10px;font-weight:500;padding:1px 5px;border-radius:4px;width:fit-content;">F3</span>
+<span style="color:#e0a95a;">0</span><span style="color:#e0a95a;">1</span><span>Grade &middot; linked to 1</span><span style="color:#5a5a56;">&#9711;</span>
+</div>
+</div>
+</div>
+</div>

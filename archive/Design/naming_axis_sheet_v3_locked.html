@@ -1,0 +1,139 @@
+<div style="min-height:640px;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:24px 0;font-family:-apple-system,sans-serif;">
+<div style="width:560px;background:#1e1e1e;border-radius:12px;border:0.5px solid #3a3a3a;padding:20px 22px;color:#e8e8e6;">
+<div style="font-size:16px;font-weight:500;margin-bottom:4px;">Add naming axis</div>
+<div style="font-size:12px;color:#9a9a96;line-height:1.5;margin-bottom:14px;">Naming axes label styles across files without joining the instance grid — no fvar scale, one stop per file.</div>
+
+<div style="font-size:11px;color:#8a8a86;margin-bottom:6px;">Kind</div>
+<div id="tabs" style="display:flex;gap:6px;margin-bottom:6px;"></div>
+<div id="disabledNote" style="font-size:11px;margin-bottom:16px;min-height:14px;"></div>
+
+<div id="fields" style="display:flex;gap:10px;margin-bottom:14px;"></div>
+
+<div id="policyBox" style="border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;margin-bottom:16px;"></div>
+
+<div style="font-size:11px;color:#8a8a86;margin-bottom:6px;">Axis tree preview</div>
+<div id="preview" style="border:0.5px solid #333;border-radius:8px;padding:10px 12px;background:#161615;min-height:56px;"></div>
+</div>
+</div>
+<script>
+var kinds = {
+  ital: {
+    label: "Slope (ital)", enabled: false,
+    reason: "ital already exists as a naming axis in this tree \u2014 adding it again would duplicate the tag.",
+    policyTitle: "Slope policy",
+    policy: "One Format 3 stop per file: Roman 0\u21921 on upright files, Italic 1\u21920 on italic files. This tag is already spoken for by the Italic axis shown above.",
+    previewEmpty: "Already exists \u2014 see Italic in the Axis Tree."
+  },
+  wdth: {
+    label: "Width (wdth)", enabled: false,
+    reason: "wdth already exists as an instance axis (fvar wdth 80\u2013120) \u2014 a naming axis with the same tag would collide.",
+    policyTitle: "Width policy",
+    policy: "Adds wdth as a naming axis only when Width isn't already an instance axis. Here it already is, so this kind stays off.",
+    previewEmpty: "Already exists as an instance axis (fvar wdth 80\u2013120)."
+  },
+  opsz: {
+    label: "Optical (opsz)", enabled: true,
+    tag: "opsz", tagLocked: true, name: "Display", value: "18", code: "",
+    policyTitle: "Optical policy",
+    policy: "Adds opsz as a naming axis with an ordinary named stop for this file only \u2014 siblings don't inherit this value. Tag is locked to opsz.",
+    fmt: "F1", linked: false
+  },
+  custom: {
+    label: "Custom tag", enabled: true,
+    tag: "GRAD", tagLocked: false, name: "Grade", value: "0", code: "",
+    policyTitle: "Custom tag policy",
+    policy: "Must be exactly 4 characters. Checked against every file in this family. The stop is written only on this file \u2014 siblings stay untouched until you add a stop there.",
+    fmt: "F1", linked: false
+  }
+};
+var active = "custom";
+
+function render(){
+  var tabsEl = document.getElementById("tabs");
+  tabsEl.innerHTML = "";
+  Object.keys(kinds).forEach(function(k){
+    var d = kinds[k];
+    var el = document.createElement("div");
+    el.style.flex = "1";
+    el.style.textAlign = "center";
+    el.style.padding = "8px 0";
+    el.style.borderRadius = "6px";
+    el.style.fontSize = "12px";
+    el.style.display = "flex";
+    el.style.alignItems = "center";
+    el.style.justifyContent = "center";
+    el.style.gap = "5px";
+    if(!d.enabled){
+      el.innerHTML = '<i class="ti ti-lock" style="font-size:12px;color:#c99a4a;" aria-hidden="true"></i><span>' + d.label + '</span>';
+      el.style.border = "0.5px solid #4a3f2a";
+      el.style.background = "#242220";
+      el.style.color = "#8a8378";
+      el.style.cursor = "not-allowed";
+      el.title = d.reason;
+    } else if(k === active){
+      el.textContent = d.label;
+      el.style.border = "1px solid #a78bfa";
+      el.style.background = "#2d2740";
+      el.style.color = "#d8cffa";
+      el.style.fontWeight = "500";
+      el.style.cursor = "pointer";
+    } else {
+      el.textContent = d.label;
+      el.style.border = "0.5px solid #3a3a3a";
+      el.style.background = "#242422";
+      el.style.color = "#c9c9c5";
+      el.style.cursor = "pointer";
+      el.onclick = function(){ active = k; render(); };
+    }
+    tabsEl.appendChild(el);
+  });
+
+  var d = kinds[active];
+  var noteEl = document.getElementById("disabledNote");
+  noteEl.style.color = "#c99a4a";
+  noteEl.innerHTML = !d.enabled
+    ? '<i class="ti ti-lock" style="font-size:12px;vertical-align:-1px;margin-right:4px;" aria-hidden="true"></i>' + d.reason
+    : "";
+
+  var fieldsEl = document.getElementById("fields");
+  if(!d.enabled){
+    fieldsEl.innerHTML = '<div style="flex:1;font-size:12px;color:#5a5a56;padding:8px 0;">Select an available kind to configure a tag and name.</div>';
+  } else {
+    fieldsEl.innerHTML =
+      '<input value="' + d.tag + '" ' + (d.tagLocked ? 'disabled' : '') + ' placeholder="Tag" style="flex:1;background:#141413;border:0.5px solid #3a3a3a;border-radius:6px;padding:8px 10px;color:' + (d.tagLocked ? '#726f68' : '#e8e8e6') + ';font-size:13px;">' +
+      '<input value="' + d.name + '" placeholder="Display name" style="flex:1;background:#141413;border:0.5px solid #3a3a3a;border-radius:6px;padding:8px 10px;color:#e8e8e6;font-size:13px;">' +
+      '<input value="' + d.value + '" placeholder="Value" style="width:60px;background:#141413;border:0.5px solid #3a3a3a;border-radius:6px;padding:8px 10px;color:#e8e8e6;font-size:13px;">' +
+      '<input value="' + d.code + '" placeholder="Code" style="width:60px;background:#141413;border:0.5px solid #3a3a3a;border-radius:6px;padding:8px 10px;color:#e8e8e6;font-size:13px;">';
+  }
+
+  var policyEl = document.getElementById("policyBox");
+  policyEl.style.background = d.enabled ? "#241d2e" : "#221d17";
+  policyEl.style.border = "0.5px solid " + (d.enabled ? "#4c3d66" : "#5a4a2e");
+  policyEl.style.color = d.enabled ? "#c9bce0" : "#c9ab7a";
+  policyEl.innerHTML = '<div style="font-weight:500;margin-bottom:2px;color:' + (d.enabled ? "#e2d6f5" : "#dcb87e") + ';">' + d.policyTitle + '</div>' + d.policy;
+
+  var previewEl = document.getElementById("preview");
+  if(!d.enabled){
+    previewEl.innerHTML = '<div style="font-size:12px;color:#5a5a56;">' + d.previewEmpty + '</div>';
+  } else {
+    var codeCell = d.code ? d.code : "\u2014";
+    previewEl.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+        '<span style="background:#3d2f52;color:#d8cffa;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;">N</span>' +
+        '<span style="font-weight:500;font-size:13px;">' + d.name + '</span>' +
+        '<span style="font-size:11px;color:#726f68;">No fvar scale &middot; this file only</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:52px 44px 1fr 44px 36px;gap:6px;font-size:11px;color:#726f68;padding:4px 0 2px;">' +
+        '<span>Format</span><span>Value</span><span>Name</span><span>Elided</span><span>Code</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:52px 44px 1fr 44px 36px;gap:6px;font-size:12px;align-items:center;">' +
+        '<span style="background:#2a3d24;color:#8fd16a;font-size:10px;font-weight:500;padding:1px 5px;border-radius:4px;width:fit-content;">' + d.fmt + '</span>' +
+        '<span style="color:#e0a95a;">' + d.value + '</span>' +
+        '<span>' + d.name + '</span>' +
+        '<span style="width:14px;height:14px;border:1px solid #5a5a56;border-radius:50%;"></span>' +
+        '<span style="color:#726f68;">' + codeCell + '</span>' +
+      '</div>';
+  }
+}
+render();
+</script>

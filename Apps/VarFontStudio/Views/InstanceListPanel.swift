@@ -183,15 +183,9 @@ struct InstanceListPanel: View {
             HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
                 if let label = display.axisStopFilterLabel {
                     StudioFilterChip(icon: nil, label: label) {
-                        Button {
+                        StudioDismissButton(scale: .chip, style: .fill, help: "Clear axis stop filter") {
                             editor.clearAxisStopFilter()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(StudioTypography.meta)
-                                .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
-                        .help("Clear axis stop filter")
                     }
                     .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
@@ -276,7 +270,7 @@ struct InstanceListPanel: View {
             editor.instanceFilter = filter
         } label: {
             Text(filter.label)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 3)
                 .foregroundStyle(showFilterForeground(isSelected: isSelected, isDuplicates: isDuplicates))
                 .background(

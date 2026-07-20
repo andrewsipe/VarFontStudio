@@ -39,7 +39,7 @@ struct ProjectFileSubBar: View {
                     }
                     .scrollDisabled(workspaceDrag.isActive)
                 }
-                .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
+                .padding(.horizontal, StudioSpacing.editorChromeInset)
                 .padding(.vertical, 5)
                 .workspaceDropZoneHighlight(
                     isActive: workspaceDrag.shouldHighlightFileSubBarRow(
@@ -80,9 +80,7 @@ struct ProjectFileSubBar: View {
                 StudioTabChip(isSelected: isSelected) {
                     HStack(spacing: 4) {
                         if isMaster, projectFontCount > 1 {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(StudioColors.computedHighlight)
+                            StudioMasterStar()
                                 .help("Master — axis tree source for this project")
                         }
                         if editor.isFontDirty(fontID: font.id) {
@@ -90,7 +88,7 @@ struct ProjectFileSubBar: View {
                                 .help("Unsaved edits")
                         }
                         Text(name)
-                            .font(StudioTypography.caption)
+                            .font(StudioTypography.rowName)
                             .fontWeight(isSelected ? .semibold : .regular)
                             .lineLimit(1)
                     }
@@ -125,7 +123,7 @@ struct ProjectFileSubBar: View {
         HStack(spacing: 4) {
             if let savedName = editor.savedOutputLabel(for: font) {
                 Image(systemName: "square.and.arrow.up.badge.checkmark")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(StudioTypography.iconGlyph)
                     .foregroundStyle(.secondary)
                     .help("Exported to \(savedName)")
                 Text(savedName)
@@ -134,7 +132,7 @@ struct ProjectFileSubBar: View {
                     .lineLimit(1)
             }
 
-            StudioToolbarIconMenu {
+            StudioOverflowMenu(scale: .chip) {
                 ProjectFileContextMenu(
                     font: font,
                     projectID: projectID,
@@ -143,17 +141,9 @@ struct ProjectFileSubBar: View {
             }
 
             if projectFontCount > 1 {
-                Button {
+                StudioDismissButton(scale: .chip, style: .fill, help: "Remove from project", foreground: .tertiary) {
                     editor.requestRemoveFont(projectID: projectID, fontID: font.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 14, height: 14)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .help("Remove from project")
             }
         }
     }

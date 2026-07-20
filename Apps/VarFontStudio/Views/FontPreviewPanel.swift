@@ -56,14 +56,18 @@ struct FontPreviewPanel: View {
 
     private static let canvasColor = Color(red: 0.11, green: 0.11, blue: 0.118)
 
-    /// Comfortable natural height for this panel (toolbar + a reasonably sized
-    /// glyph canvas + status bar) when nothing else constrains it. Used as a
-    /// floor so the shared naming-order/preview footer height never squeezes
-    /// the canvas down to nothing (e.g. when the naming chain is empty).
+    /// Floor on the glyph canvas height so it never collapses to nothing if the
+    /// shared naming-order/preview footer height is ever smaller than expected.
+    private static let minCanvasHeight: CGFloat = 96
+
+    /// Comfortable natural height for this panel (toolbar + the fixed glyph
+    /// canvas + status bar) when nothing else constrains it. Used as a floor
+    /// so the shared naming-order/preview footer height never squeezes the
+    /// canvas down to nothing (e.g. when the naming chain is empty).
     static let preferredHeight: CGFloat =
         StudioFieldMetrics.bodyMediumRowHeight   // toolbar row
         + StudioSpacing.toolbarVertical * 2       // toolbar vertical padding
-        + 96                                      // comfortable glyph canvas
+        + minCanvasHeight                         // fixed glyph canvas
         + 28                                      // status bar row
 
     var body: some View {
@@ -71,22 +75,33 @@ struct FontPreviewPanel: View {
             toolbar
                 .fixedSize(horizontal: false, vertical: true)
 
+            // The canvas claims every bit of leftover height (via maxHeight:
+            // .infinity) while `statusBar` below only takes its natural height —
+            // standard VStack flex negotiation, so the two always sum to exactly
+            // the space this panel is given, with no measuring required and no
+            // residual gap above the status strip.
+            //
+            // Glyphs render at the requested size (no shrink-to-fit). When the
+            // sample is wider than the canvas — large size and/or expanded wdth —
+            // horizontal scroll preserves true width instead of compressing.
             ZStack {
                 Self.canvasColor
 
-                // Canvas and status bar are laid out as siblings (not overlaid)
-                // so the glyph centers within the space actually left over
-                // once the status bar's own height is subtracted, instead of
-                // centering against the full canvas+status-bar height.
-                VStack(spacing: 0) {
-                    canvasForeground
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment.frameAlignment)
-
-                    statusBar
+                GeometryReader { geo in
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        canvasForeground
+                            .frame(
+                                minWidth: geo.size.width,
+                                minHeight: geo.size.height,
+                                alignment: alignment.frameAlignment
+                            )
+                    }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minHeight: Self.minCanvasHeight, maxHeight: .infinity)
             .clipped()
+
+            statusBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -118,7 +133,7 @@ struct FontPreviewPanel: View {
 
             alignmentPicker
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
+        .padding(.horizontal, StudioSpacing.previewInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
     }
 
@@ -154,7 +169,7 @@ struct FontPreviewPanel: View {
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(alignment.textAlignment)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.4)
+                    .fixedSize(horizontal: true, vertical: true)
                     .opacity(editor.isPreviewHoverPeeking ? 0.92 : 1)
             } else {
                 Text(unavailableMessage)
@@ -162,7 +177,7 @@ struct FontPreviewPanel: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
+        .padding(.horizontal, StudioSpacing.previewInset)
         .padding(.vertical, 10)
     }
 
@@ -192,7 +207,7 @@ struct FontPreviewPanel: View {
             Text(editor.isPreviewHoverPeeking ? "Peek · hover" : "Source · live")
                 .font(StudioTypography.meta)
                 .foregroundStyle(statusPillForeground)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 2)
                 .background(
                     Capsule()
@@ -211,7 +226,7 @@ struct FontPreviewPanel: View {
                         )
                 )
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 6)
+        .padding(.horizontal, StudioSpacing.previewInset)
         .padding(.vertical, 6)
         .background(Self.canvasColor.opacity(0.92))
     }

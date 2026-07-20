@@ -35,7 +35,7 @@ struct ProjectToolbar: View {
                 newProjectAffordance
             }
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
+        .padding(.horizontal, StudioSpacing.editorChromeInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
         .workspaceDropZoneHighlight(
             isActive: highlightsToolbarRow,
@@ -117,9 +117,7 @@ private struct ProjectTabChip: View {
             ) {
                 HStack(spacing: 4) {
                     if openProject.projectFileDirty {
-                        Circle()
-                            .fill(Color.orange)
-                            .frame(width: 6, height: 6)
+                        StudioDirtyDot()
                     }
                     Text(tabLabel)
                         .font(StudioTypography.caption)
@@ -136,16 +134,9 @@ private struct ProjectTabChip: View {
             }
         } trailing: {
             HStack(spacing: 4) {
-                Text("\(openProject.document.fonts.count)")
-                    .font(StudioTypography.monoMeta)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(.quaternary.opacity(0.5), in: Capsule())
+                StudioCountBadge(text: "\(openProject.document.fonts.count)", highlighted: false)
 
-                StudioToolbarIconButton(
-                    systemName: "xmark.circle",
-                    help: "Close project"
-                ) {
+                StudioDismissButton(scale: .toolbar, help: "Close project") {
                     editor.requestCloseProject(id: openProject.id)
                 }
             }

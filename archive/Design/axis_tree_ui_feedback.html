@@ -1,0 +1,199 @@
+
+<style>
+  .wrap { font-size: 14px; color: var(--color-text-primary); padding: 0.5rem 0 2rem; }
+  .section { margin-bottom: 2rem; }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); margin-bottom: 8px; background: var(--color-background-primary); }
+  .tag { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; margin-top: 1px; }
+  .tag-high { background: #FAECE7; color: #993C1D; }
+  .tag-med  { background: #FAEEDA; color: #854F0B; }
+  .tag-low  { background: #EAF3DE; color: #3B6D11; }
+  .item-body { flex: 1; min-width: 0; }
+  .item-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 3px; }
+  .item-desc { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
+  .code { font-family: var(--font-mono); font-size: 12px; background: var(--color-background-secondary); padding: 1px 5px; border-radius: 4px; color: var(--color-text-primary); white-space: nowrap; }
+  .diff { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 5px; }
+  .arrow { color: var(--color-text-secondary); }
+  .before { color: #993C1D; background: #FAECE7; padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 11px; }
+  .after  { color: #085041; background: #E1F5EE; padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 11px; }
+  .legend { display: flex; gap: 16px; margin-bottom: 1.25rem; font-size: 12px; }
+  .leg-item { display: flex; align-items: center; gap: 6px; }
+</style>
+<div class="wrap">
+  <h2 class="sr-only">Visual feedback comparing the SwiftUI build to the HTML prototype</h2>
+
+  <div class="legend">
+    <div class="leg-item"><span class="tag tag-high">H</span><span style="color:var(--color-text-secondary)">High impact</span></div>
+    <div class="leg-item"><span class="tag tag-med">M</span><span style="color:var(--color-text-secondary)">Medium impact</span></div>
+    <div class="leg-item"><span class="tag tag-low">L</span><span style="color:var(--color-text-secondary)">Nice to have</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Left panel — axis tree</div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Axis tag pill is missing</div>
+        <div class="item-desc">Each axis header in the prototype shows a small monospace teal tag (e.g. <span class="code">opsz</span>, <span class="code">wdth</span>, <span class="code">wght</span>) before the axis name. The screenshot shows only the name. This tag is important — it's the technical identifier users actually type in tooling.</div>
+        <div class="diff"><span class="before">Optical size</span><span class="arrow">→</span><span class="after">opsz · Optical size</span></div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Stop count badge missing from axis header</div>
+        <div class="item-desc">The prototype shows a muted numeric badge on the right side of each collapsed axis row (e.g. <span class="code">13</span>, <span class="code">3</span>, <span class="code">7</span>). This is a quick signal for how many stops are configured without expanding. The screenshot omits this entirely.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Axis range missing from header row</div>
+        <div class="item-desc">The prototype shows the min–max range (<span class="code">5 – 1200</span>, <span class="code">88 – 113</span>) in the axis header. The screenshot shows nothing. This is useful context for understanding the axis before expanding it.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-med">M</span>
+      <div class="item-body">
+        <div class="item-title">Stop rows lack numeric value column</div>
+        <div class="item-desc">In the prototype each stop row shows a small amber monospace number on the left (e.g. <span class="code">5</span>, <span class="code">6</span>, <span class="code">7</span>…) before the name. The screenshot only shows names. The numeric coordinate is core to the tool's purpose.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-med">M</span>
+      <div class="item-body">
+        <div class="item-title">Axis range label between min and stops is absent</div>
+        <div class="item-desc">Under each axis header, the prototype shows the range in compact form right below the collapse triangle. The screenshot omits this, leaving the stop list without positional context.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-med">M</span>
+      <div class="item-body">
+        <div class="item-title">"STAT only" toggle not visible</div>
+        <div class="item-desc">The prototype has a checkbox labeled <span class="code">STAT only</span> below each axis header. This is a core feature flag. The screenshot shows no such toggle.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-low">L</span>
+      <div class="item-body">
+        <div class="item-title">Left indentation on stop rows is shallow</div>
+        <div class="item-desc">The prototype indents stop rows ~22px under the axis header to create clear visual hierarchy. The screenshot's stops feel more flush with the headers. A deeper indent visually groups the children to their parent axis.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Center panel — instances list</div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Instance key / coordinates column is missing</div>
+        <div class="item-desc">The prototype's table has a two-column layout: <span class="code">Style name</span> and <span class="code">Key</span>. The Key column shows the raw axis coordinates in monospace (e.g. <span class="code">opsz:5|wdth:88|wght:360</span>). The screenshot has no second column — only the name is shown.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Include/exclude checkboxes are absent</div>
+        <div class="item-desc">Every instance row in the prototype has a leading checkbox that controls whether it's included in the export. The screenshot has no checkboxes. This is a primary interaction — without it the tool can't do its main job.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Toolbar above the list is missing actions</div>
+        <div class="item-desc">The prototype has a toolbar above the instance list with a search field, an "Excluded only" toggle, and column headers (Style name / Key). The screenshot only shows the font filename and an "Edited" badge — no search, no filter toggle.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-med">M</span>
+      <div class="item-body">
+        <div class="item-title">No visual grouping of instances by axis stop</div>
+        <div class="item-desc">The prototype groups instances with sticky section headers (e.g. "Micro", "Minuscule", "Miniature"…) corresponding to the primary axis stop. The screenshot shows a flat list with no grouping separators.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-low">L</span>
+      <div class="item-body">
+        <div class="item-title">Selected instance highlight not visible</div>
+        <div class="item-desc">The screenshot shows "Micro SemiCond SemiLight" selected in the inspector but the corresponding list row has no visible selection highlight. The prototype uses a tinted purple background on the selected row that ties the two panels together visually.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Right panel — inspector</div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Naming chain is shown as a table, not a visual chain</div>
+        <div class="item-desc">The prototype renders the naming chain as pill-shaped nodes connected by arrows (OPSZ → WDTH → WGHT) to convey the ordering relationship. The screenshot uses a plain key–value table. The chain metaphor is doing real communicative work — it shows ordering and could support drag-to-reorder.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-med">M</span>
+      <div class="item-body">
+        <div class="item-title">Plan warnings section lacks visual weight</div>
+        <div class="item-desc">In the screenshot the warnings are a plain list of small amber text lines. In the prototype they each get an amber tinted alert row with a warning icon and background. Given how many warnings can appear, the distinction between individual warnings is important for scannability.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-med">M</span>
+      <div class="item-body">
+        <div class="item-title">Composed name lacks visual emphasis</div>
+        <div class="item-desc">The prototype wraps the composed name in a tinted block with a colored left border — it's meant to feel like the "output" of the tool. The screenshot shows it as a plain text field. More visual weight here helps users understand this is the result, not just another input.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-low">L</span>
+      <div class="item-body">
+        <div class="item-title">Coordinates section could use two-column layout</div>
+        <div class="item-desc">The prototype shows coordinates in a table with axis tag, numeric value, and name side by side. The screenshot stacks them as individual labeled rows. The tag–value–name trio reads better in one horizontal band per axis.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Global / structural</div>
+
+    <div class="item">
+      <span class="tag tag-high">H</span>
+      <div class="item-body">
+        <div class="item-title">Naming chain footer bar is absent</div>
+        <div class="item-desc">The prototype has a full-width footer bar spanning all three panels showing the naming chain with drag-to-reorder nodes and a live preview of the composed name. This is completely absent from the screenshot. Even a read-only version of this would clarify how the name is assembled.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-med">M</span>
+      <div class="item-body">
+        <div class="item-title">Instance count formula is not shown</div>
+        <div class="item-desc">The prototype's context bar shows the generation formula (e.g. <span class="code">13 × 3 × 7 = 273</span>) and instance count. The screenshot shows <span class="code">13 × 3 × 7 = 273</span> in the left panel header but it's styled as small secondary text. It deserves more prominence — this number is the key output metric of the tool.</div>
+      </div>
+    </div>
+
+    <div class="item">
+      <span class="tag tag-low">L</span>
+      <div class="item-body">
+        <div class="item-title">Panel dividers are visually lighter than the prototype</div>
+        <div class="item-desc">The three panels in the prototype have clear 1px dividers. The screenshot's panels bleed into each other a bit — the left and right panel backgrounds seem indistinguishable from the center. Stronger contrast between sidebar and content backgrounds would make the three-column structure read more cleanly on macOS.</div>
+      </div>
+    </div>
+  </div>
+</div>

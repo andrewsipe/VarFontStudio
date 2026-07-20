@@ -73,7 +73,7 @@ struct AxisStopTableHeader: View {
             Text("Value")
                 .font(StudioTypography.columnLabel)
             Image(systemName: valueSortSymbol)
-                .font(.system(size: 8, weight: .semibold))
+                .font(StudioTypography.iconGlyph)
         }
         .foregroundStyle(valueSortAscending == nil ? Color.secondary.opacity(0.7) : Color.accentColor.opacity(0.85))
         .contentShape(Rectangle())
@@ -267,15 +267,9 @@ struct AxisTreeStopRow: View {
     private var removeSlot: some View {
         ZStack {
             if allowsRemove, isHovered {
-                Button {
+                StudioDismissButton(scale: .chip, style: .fill, help: "Remove stop") {
                     confirmRemove = true
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: AxisBlockLayout.removeButtonSize))
-                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .help("Remove stop")
             }
         }
         .frame(width: AxisBlockLayout.removeSlotWidth)
@@ -462,25 +456,12 @@ struct AxisTreeStopRow: View {
                                     }
                                 }
                             } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "link")
-                                        .font(StudioTypography.caption)
-                                        .foregroundStyle(.tertiary)
-                                    Text(linkedTargetName ?? "Link…")
-                                        .font(StudioTypography.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
+                                StudioFormat3LinkLabel(linkedTargetName: linkedTargetName)
                             }
                             .menuStyle(.borderlessButton)
+                            .controlSize(.small)
                         } else if let linkedTargetName {
-                            Image(systemName: "link")
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.tertiary)
-                            Text(linkedTargetName)
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                            StudioFormat3LinkLabel(linkedTargetName: linkedTargetName)
                         }
                     }
                 }

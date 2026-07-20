@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VarFont Studio — Instance Preview Footer Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,slnt,wdth,wght@8..144,-10..0,25..151,100..1000&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1c1c1e; --bar:#222224; --panel:#242426; --panel-2:#2a2a2c;
+    --border:#38383a; --border-soft:#2c2c2e;
+    --text:#eaeaec; --text-dim:#9a9a9e; --text-faint:#68686c;
+    --accent:#0a84ff; --sel:rgba(10,132,255,.14); --sel-b:rgba(10,132,255,.35);
+    --hover:rgba(255,255,255,.04);
+    --mono:"SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    --preview-font:"Roboto Flex", system-ui, sans-serif;
+    --preview-h:236px;
+    --reg:#8c73f2; --reg-bg:rgba(140,115,242,.14); --reg-b:rgba(140,115,242,.35);
+    --code:#c7852e; --code-bg:rgba(199,133,46,.14); --code-b:rgba(199,133,46,.4);
+    --ital:#5b8def; --ital-bg:rgba(91,141,239,.14); --ital-b:rgba(91,141,239,.35);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#0e0e10; color:var(--text);
+    font-family:var(--sans); padding:14px 14px 40px;
+  }
+  .page{ max-width:1180px; margin:0 auto; }
+
+  .intro{ margin-bottom:10px; }
+  .intro-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .intro h1{ font-size:15px; margin:0; font-weight:600; }
+  .intro-toggle{
+    font:inherit; font-size:11px; color:var(--text-dim);
+    background:transparent; border:none; cursor:pointer; padding:4px 0;
+  }
+  .intro-toggle:hover{ color:var(--text); }
+  .intro-body{
+    display:none; margin:8px 0 0; color:var(--text-dim);
+    font-size:11.5px; line-height:1.55;
+  }
+  .intro.open .intro-body{ display:block; }
+  .intro-body code{
+    font-family:var(--mono); font-size:10.5px;
+    background:var(--panel-2); padding:1px 5px; border-radius:4px;
+  }
+  .intro-body ul{ margin:6px 0 0; padding-left:18px; }
+  .intro-body li{ margin:3px 0; }
+
+  .mockwin{
+    background:var(--bg); border:1px solid #000; border-radius:11px;
+    overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.65);
+    display:flex; flex-direction:column; height:min(860px, calc(100vh - 80px));
+    min-height:640px;
+  }
+  .titlebar{
+    height:38px; background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000;
+    display:flex; align-items:center; padding:0 12px; position:relative; flex-shrink:0;
+  }
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .wtitle{
+    position:absolute; left:0; right:0; text-align:center;
+    font-size:12.5px; color:var(--text-dim); font-weight:500; pointer-events:none;
+  }
+
+  .projectbar{
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:var(--bar); border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .proj-tab{
+    font-size:11px; font-weight:600; padding:5px 10px; border-radius:5px;
+    background:rgba(10,132,255,.12); border:1px solid var(--sel-b); color:var(--text);
+  }
+  .filechip{
+    font-size:11px; padding:3px 9px; border-radius:20px;
+    background:var(--panel-2); color:var(--text-dim); border:1px solid transparent;
+  }
+  .filechip.on{ color:var(--text); border-color:var(--sel-b); background:var(--sel); font-weight:600; }
+  .sp{ flex:1; }
+
+  .workspace{
+    flex:1; min-height:0; display:grid;
+    grid-template-columns:260px minmax(0,1fr) 260px;
+  }
+  .col{
+    display:flex; flex-direction:column; min-height:0; min-width:0;
+    border-right:1px solid var(--border);
+  }
+  .col:last-child{ border-right:none; }
+  .col-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0;
+    background:var(--panel);
+  }
+  .col-head h2{ margin:0; font-size:12px; font-weight:600; }
+  .col-head .meta{ font-size:10px; color:var(--text-faint); }
+  .col-body{ flex:1; min-height:0; overflow:auto; padding:8px; }
+
+  /* Axis tree (static chrome) */
+  .axis-block{ margin-bottom:10px; }
+  .axis-block .ah{
+    font-size:11px; font-weight:600; color:var(--text-dim); margin-bottom:4px;
+  }
+  .axis-block .ah span{ font-family:var(--mono); font-weight:400; color:var(--text-faint); margin-left:6px; }
+  .stop{
+    font-size:11px; padding:4px 7px; border-radius:5px; color:var(--text-dim);
+    display:flex; justify-content:space-between; gap:8px;
+  }
+  .stop .n{ color:var(--text); }
+  .stop .v{ font-family:var(--mono); font-size:10px; color:var(--text-faint); }
+
+  /* Instance list */
+  .filter-row{
+    display:flex; align-items:center; gap:8px; padding:0 2px 8px;
+    border-bottom:1px solid var(--border-soft); margin-bottom:6px;
+  }
+  .filter-row input{
+    flex:1; min-width:0; padding:4px 8px; border-radius:5px;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text);
+    font:inherit; font-size:11px;
+  }
+  .filter-row input:focus{ outline:none; border-color:var(--sel-b); }
+  .group-label{
+    font-size:10px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--text-faint); padding:8px 6px 4px;
+  }
+  .inst-row{
+    display:flex; align-items:flex-start; gap:8px;
+    padding:6px 8px; border-radius:6px; cursor:pointer;
+    border:1px solid transparent;
+  }
+  .inst-row:hover{ background:var(--hover); }
+  .inst-row.peek{
+    background:rgba(10,132,255,.07);
+    border-color:rgba(10,132,255,.18);
+  }
+  .inst-row.sel{
+    background:var(--sel); border-color:var(--sel-b);
+  }
+  .inst-row .check{
+    width:13px; height:13px; margin-top:2px; border-radius:3px;
+    border:1px solid #555; background:#1a1a1c; flex-shrink:0;
+  }
+  .inst-row .check.on{ background:var(--accent); border-color:var(--accent); }
+  .inst-row .name{ font-size:12px; font-weight:500; color:var(--text); line-height:1.3; }
+  .inst-row .coords{
+    font-family:var(--mono); font-size:10px; color:var(--text-faint);
+    margin-top:2px; line-height:1.35;
+  }
+  .hint-banner{
+    margin:4px 2px 10px; padding:7px 9px; border-radius:6px;
+    background:rgba(10,132,255,.08); border:1px solid rgba(10,132,255,.22);
+    font-size:11px; color:var(--text-dim); line-height:1.4;
+  }
+  .hint-banner b{ color:var(--text); font-weight:600; }
+
+  /* Inspector (static) */
+  .insp-label{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em; margin:10px 0 4px; }
+  .insp-label:first-child{ margin-top:0; }
+  .insp-val{ font-size:12px; color:var(--text); }
+  .insp-val.mono{ font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .chip{
+    font-size:10px; padding:2px 7px; border-radius:4px;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
+  }
+
+  /* Footer slot — same place as Naming order */
+  .footer-slot{
+    flex-shrink:0; background:var(--bar); border-top:1px solid var(--border);
+  }
+  .footer-head{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 14px; min-height:34px;
+  }
+  .footer-head .chev{
+    width:16px; height:16px; border-radius:3px; border:1px solid var(--border);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:8px; color:var(--text-faint); flex-shrink:0;
+    transition:transform .15s ease;
+  }
+  .footer-slot.collapsed .chev{ transform:rotate(-90deg); }
+  .footer-head .title-btn{
+    font:inherit; font-size:11px; color:var(--text-dim);
+    background:transparent; border:none; cursor:pointer; padding:0;
+    display:flex; align-items:center; gap:8px;
+  }
+  .footer-head .title-btn:hover{ color:var(--text); }
+  .footer-head .title-btn .scope{
+    color:var(--text-faint); font-weight:400;
+  }
+  .footer-modes{
+    display:flex; gap:2px; padding:2px; border-radius:6px;
+    background:var(--panel-2); border:1px solid var(--border);
+  }
+  .footer-modes button{
+    font:inherit; font-size:10.5px; padding:3px 9px; border-radius:4px;
+    border:none; background:transparent; color:var(--text-faint); cursor:pointer;
+  }
+  .footer-modes button.on{
+    background:var(--bg); color:var(--text); font-weight:600;
+    box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .footer-tools{
+    margin-left:auto; display:flex; align-items:center; gap:10px;
+  }
+  .naming-mock[hidden],
+  .preview-panel[hidden],
+  .footer-tools[hidden]{ display:none !important; }
+  .tool-toggle{
+    display:flex; align-items:center; gap:5px;
+    font-size:10.5px; color:var(--text-faint);
+  }
+  .tool-toggle input{
+    appearance:none; width:26px; height:15px; border-radius:999px;
+    background:#3a3a3c; position:relative; cursor:pointer; border:none;
+  }
+  .tool-toggle input::after{
+    content:""; position:absolute; top:2px; left:2px; width:11px; height:11px;
+    border-radius:50%; background:#fff; transition:transform .15s ease;
+  }
+  .tool-toggle input:checked{ background:#bf5af2; }
+  .tool-toggle input:checked::after{ transform:translateX(11px); }
+  .tool-restore{
+    font:inherit; font-size:10.5px; color:var(--text-faint);
+    background:transparent; border:none; cursor:pointer; padding:0;
+  }
+  .tool-restore:hover{ color:var(--text-dim); }
+  .footer-head .collapsed-summary{
+    margin-left:auto; font-size:11px; color:var(--text-dim);
+    font-weight:500; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .footer-head .collapsed-summary.peeking{ color:var(--accent); }
+  .footer-body{ display:block; }
+  .footer-slot.collapsed .footer-body{ display:none; }
+
+  /* Naming order — matches app footer chrome */
+  .naming-mock{ padding:4px 14px 12px; }
+  .naming-hint{
+    font-size:10.5px; color:var(--text-faint); margin:0 0 8px; line-height:1.4;
+  }
+  .naming-track{
+    display:flex; align-items:center; gap:3px; flex-wrap:wrap; margin-bottom:12px;
+  }
+  .nchip{
+    font-size:11px; padding:4px 8px; border-radius:5px;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim);
+    display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+  }
+  .nchip.ps{
+    color:var(--reg); border-color:var(--reg-b); background:var(--reg-bg);
+    font-family:var(--mono); font-size:10.5px;
+  }
+  .nchip.ps .tag{ opacity:.7; font-size:9px; }
+  .nchip.code{ color:var(--code); border-color:var(--code-b); background:var(--code-bg); }
+  .nchip.axis{ color:var(--text); }
+  .nchip.axis input{ accent-color:var(--accent); margin:0; }
+  .nchip.ital{ color:var(--ital); border-color:var(--ital-b); background:var(--ital-bg); }
+  .nchip .mono{ font-family:var(--mono); font-size:10px; color:var(--text-faint); }
+  .nlink{ color:var(--text-faint); font-size:10px; padding:0 1px; }
+  .naming-ex{ display:grid; gap:6px; }
+  .naming-ex .row{
+    display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-faint);
+  }
+  .naming-ex .row .k{ width:92px; flex-shrink:0; }
+  .naming-ex .row .v{
+    color:var(--text); font-weight:600; font-size:12px;
+    background:rgba(255,255,255,.06); padding:3px 8px; border-radius:5px;
+  }
+  .naming-ex .row .v.ps{ font-weight:500; }
+  .naming-ex .row .v.elided{ color:var(--accent); background:transparent; padding:0; font-weight:500; }
+
+  /* Preview panel — exclusive alternate for the same footer body */
+  .preview-panel{
+    display:flex; flex-direction:column; height:var(--preview-h);
+  }
+  .preview-toolbar{
+    display:flex; align-items:center; gap:10px;
+    padding:7px 14px; border-bottom:1px solid var(--border-soft); flex-shrink:0;
+  }
+  .sample-input{
+    flex:1; min-width:0; padding:5px 9px; border-radius:6px;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    font:inherit; font-size:12px;
+  }
+  .sample-input:focus{ outline:none; border-color:var(--sel-b); }
+  .size-wrap{
+    display:flex; align-items:center; gap:8px; flex-shrink:0;
+    font-size:11px; color:var(--text-faint);
+  }
+  .size-wrap input[type=range]{ width:88px; accent-color:var(--accent); }
+  .size-wrap .sz{
+    font-family:var(--mono); color:var(--text-dim); min-width:2.4em; text-align:right;
+  }
+
+  .preview-canvas{
+    flex:1; min-height:0; overflow:auto;
+    display:flex; align-items:center; padding:18px 28px;
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 45%, rgba(10,132,255,.035), transparent 70%),
+      var(--bg);
+  }
+  .preview-text{
+    font-family:var(--preview-font);
+    font-size:64px; line-height:1.12; color:var(--text);
+    outline:none; word-break:break-word; width:100%;
+    font-variation-settings:"wght" 400,"wdth" 100,"opsz" 14,"slnt" 0;
+    transition:font-variation-settings .08s ease, opacity .12s ease;
+  }
+  .preview-text.peeking{ opacity:.92; }
+
+  .preview-status{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:6px 14px; border-top:1px solid var(--border-soft);
+    background:#1a1a1c; flex-shrink:0;
+    font-size:11px; color:var(--text-faint);
+  }
+  .preview-status .coords{ font-family:var(--mono); color:var(--text-dim); }
+  .preview-status .inst-label{ color:var(--text-dim); }
+  .preview-status .inst-label em{
+    font-style:normal; color:var(--accent); font-weight:500;
+  }
+  .pill{
+    font-size:10px; padding:2px 8px; border-radius:20px;
+    border:1px solid var(--border); color:var(--text-dim); white-space:nowrap;
+  }
+  .pill.peek{ color:var(--accent); border-color:var(--sel-b); background:var(--sel); }
+
+  .statusbar{
+    display:flex; align-items:center; gap:8px;
+    padding:5px 14px; border-top:1px solid var(--border);
+    background:#1a1a1c; font-size:10.5px; color:var(--text-faint); flex-shrink:0;
+  }
+  .statusbar .accent{ color:var(--accent); }
+
+  .settings-fab{
+    position:fixed; right:18px; bottom:18px; z-index:40;
+    font:inherit; font-size:12px; font-weight:500;
+    padding:8px 14px; border-radius:20px;
+    background:var(--panel); color:var(--text);
+    border:1px solid var(--border); box-shadow:0 8px 24px rgba(0,0,0,.45);
+    cursor:pointer;
+  }
+  .settings-fab:hover{ background:#333336; }
+  .settings-backdrop{
+    display:none; position:fixed; inset:0; z-index:41; background:rgba(0,0,0,.35);
+  }
+  .settings-backdrop.open{ display:block; }
+  .settings-drawer{
+    position:fixed; top:0; right:0; z-index:42; width:min(290px,92vw); height:100vh;
+    background:var(--panel); border-left:1px solid var(--border);
+    box-shadow:-12px 0 40px rgba(0,0,0,.4);
+    transform:translateX(100%); transition:transform .2s ease;
+    display:flex; flex-direction:column;
+  }
+  .settings-drawer.open{ transform:translateX(0); }
+  .settings-drawer-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 14px; border-bottom:1px solid var(--border);
+  }
+  .settings-drawer-head h3{ margin:0; font-size:13px; font-weight:600; }
+  .settings-close{
+    font:inherit; font-size:18px; line-height:1; background:transparent;
+    border:none; color:var(--text-dim); cursor:pointer; padding:2px 6px;
+  }
+  .settings-drawer-body{ padding:12px 14px 20px; overflow:auto; }
+  .settings-drawer-body h4{
+    margin:12px 0 6px; font-size:10px; font-weight:600;
+    color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em;
+  }
+  .settings-drawer-body h4:first-child{ margin-top:0; }
+  .ctrl{ margin-bottom:8px; }
+  .ctrl label{
+    display:flex; align-items:flex-start; gap:8px;
+    font-size:11.5px; color:var(--text-dim); cursor:pointer; line-height:1.35;
+  }
+  .ctrl input[type=checkbox]{ margin-top:2px; accent-color:var(--accent); }
+  .ctrl select{
+    width:100%; margin-top:3px; padding:5px 8px; border-radius:6px;
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    font:inherit; font-size:11.5px;
+  }
+  .ctrl-hint{ font-size:10px; color:var(--text-faint); margin-top:3px; line-height:1.35; }
+  .kbd{
+    font-family:var(--mono); font-size:9.5px; background:var(--panel-2);
+    padding:1px 4px; border-radius:3px; border:1px solid var(--border);
+  }
+
+  /* Keep three columns — this prototypes a desktop app footer, not a phone layout. */
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="intro" id="intro">
+    <div class="intro-head">
+      <h1>Instance preview footer prototype</h1>
+      <button type="button" class="intro-toggle" id="introToggle">About this prototype</button>
+    </div>
+    <div class="intro-body">
+      Preview and Naming order share one footer slot — never stacked, never both open.
+      <b>Naming order</b> is the default on load. Switch to <b>Preview</b> to glyph-test the
+      selected (or hovered) instance. No fvar sliders; location comes from the Instances panel.
+      <ul>
+        <li>Mode toggle in the footer header swaps the body content exclusively.</li>
+        <li>Naming tools (Code / Hide pinned / Restore) show only in Naming order mode.</li>
+        <li>Collapsed footer shows a one-line summary for whichever mode is active.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="mockwin">
+    <div class="titlebar">
+      <div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+      <div class="wtitle">VarFont Studio — FC Crimp</div>
+    </div>
+
+    <div class="projectbar">
+          <div class="proj-tab">FC Crimp</div>
+      <div class="filechip on">FCCrimp[wdth,wght,ital].ttf</div>
+      <div class="sp"></div>
+    </div>
+
+    <div class="workspace">
+      <aside class="col">
+        <div class="col-head"><h2>Axis tree</h2><span class="meta">4 axes</span></div>
+        <div class="col-body" id="axisTree"></div>
+      </aside>
+
+      <section class="col instances">
+        <div class="col-head"><h2>Instances</h2><span class="meta" id="instCount">6 shown</span></div>
+        <div class="col-body">
+          <div class="hint-banner" id="instHint">
+            Switch footer to <b>Preview</b>, then <b>hover</b> / <b>click</b> rows to drive the glyph
+          </div>
+          <div class="filter-row">
+            <input type="search" id="instSearch" placeholder="Search names…" autocomplete="off">
+          </div>
+          <div id="instList"></div>
+        </div>
+      </section>
+
+      <aside class="col">
+        <div class="col-head"><h2>Inspector</h2><span class="meta">Instance</span></div>
+        <div class="col-body" id="inspector"></div>
+      </aside>
+    </div>
+
+    <div class="footer-slot" id="footerSlot">
+      <div class="footer-head">
+        <button type="button" class="title-btn" id="footerToggle" aria-expanded="true">
+          <span class="chev">▾</span>
+          <span id="footerTitle">Naming order <span class="scope">· project</span></span>
+        </button>
+
+        <div class="footer-modes" role="group" aria-label="Footer mode">
+          <button type="button" class="on" data-footer="naming">Naming order</button>
+          <button type="button" data-footer="preview">Preview</button>
+        </div>
+
+        <div class="footer-tools" id="namingTools">
+          <label class="tool-toggle"><input type="checkbox" checked disabled> Code</label>
+          <label class="tool-toggle"><input type="checkbox" checked disabled> Hide pinned axes</label>
+          <button type="button" class="tool-restore">Restore</button>
+        </div>
+
+        <div class="collapsed-summary" id="collapsedSummary" hidden></div>
+      </div>
+
+      <div class="footer-body" id="footerBody">
+        <!-- Naming order (default) -->
+        <div class="naming-mock" id="namingMock">
+          <p class="naming-hint">Indigo chips are naming axes — each file carries its own stop on that axis.</p>
+          <div class="naming-track">
+            <span class="nchip ps"><span class="tag">[PS]</span> FCCrimp</span>
+            <span class="nlink">›</span>
+            <span class="nchip ps"><span class="tag">[-]</span> PS hyphen</span>
+            <span class="nlink">›</span>
+            <span class="nchip code">Code</span>
+            <span class="nlink">›</span>
+            <span class="nchip axis"><input type="checkbox" checked disabled> <span class="mono">wdth</span> Width</span>
+            <span class="nlink">›</span>
+            <span class="nchip axis"><input type="checkbox" checked disabled> <span class="mono">wght</span> Weight</span>
+            <span class="nlink">›</span>
+            <span class="nchip ital"><span class="mono">ital</span> italic</span>
+          </div>
+          <div class="naming-ex">
+            <div class="row"><span class="k">Name</span><span class="v" id="namingName">Regular</span></div>
+            <div class="row"><span class="k">PostScript</span><span class="v ps" id="namingPS">ABCGravitySuperfamilyVariable-Regular</span></div>
+            <div class="row"><span class="k">Elided fallback</span><span class="v elided">Regular</span></div>
+          </div>
+        </div>
+
+        <!-- Preview (exclusive alternate) -->
+        <div class="preview-panel" id="previewPanel" hidden>
+          <div class="preview-toolbar">
+            <input type="text" class="sample-input" id="sampleInput" value="Handgloves" spellcheck="false" autocomplete="off">
+            <div class="size-wrap">
+              <span>Size</span>
+              <input type="range" id="sizeSlider" min="28" max="120" value="64">
+              <span class="sz" id="sizeLabel">64</span>
+            </div>
+          </div>
+          <div class="preview-canvas">
+            <div class="preview-text" id="previewText" contenteditable="true" spellcheck="false">Handgloves</div>
+          </div>
+          <div class="preview-status">
+            <span>
+              <span class="inst-label" id="statusInst"></span>
+              <span class="coords" id="statusCoords"></span>
+            </span>
+            <span class="pill" id="statusPill">Source · live</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span>FC Crimp</span>
+      <span>|</span>
+      <span class="accent">FCCrimp[wdth,wght,ital].ttf</span>
+      <span class="sp"></span>
+      <span id="statusNote">Preview follows instance hover / selection</span>
+    </div>
+  </div>
+</div>
+
+<button type="button" class="settings-fab" id="settingsFab">Settings</button>
+<div class="settings-backdrop" id="settingsBackdrop"></div>
+<aside class="settings-drawer" id="settingsDrawer" aria-hidden="true">
+  <div class="settings-drawer-head">
+    <h3>Prototype settings</h3>
+    <button type="button" class="settings-close" id="settingsClose" aria-label="Close">×</button>
+  </div>
+  <div class="settings-drawer-body">
+    <h4>Behavior</h4>
+    <div class="ctrl">
+      <label><input type="checkbox" id="optHoverPeek" checked> Hover peeks preview</label>
+      <div class="ctrl-hint">Off = only click/selection updates the preview.</div>
+    </div>
+
+    <h4>Layout</h4>
+    <div class="ctrl">
+      <label>Preview height</label>
+      <select id="optPreviewH">
+        <option value="180">180px (compact)</option>
+        <option value="236" selected>236px (default)</option>
+        <option value="300">300px (tall)</option>
+      </select>
+    </div>
+
+    <h4>Sample</h4>
+    <div class="ctrl">
+      <select id="optPreset">
+        <option>Handgloves</option>
+        <option>Hamburgefonstiv</option>
+        <option>The quick brown fox</option>
+        <option>ABCDEFGHIJKLMNOPQRSTUVWXYZ</option>
+      </select>
+    </div>
+
+    <h4>Try it</h4>
+    <div class="ctrl-hint" style="line-height:1.55">
+      Loads on <span class="kbd">Naming order</span> · switch to <span class="kbd">Preview</span> ·
+      hover/click instances · collapse the disclosure for a one-line summary.
+    </div>
+  </div>
+</aside>
+
+<script>
+const AXES = [
+  { tag:'wght', name:'Weight', stops:[
+    { n:'Hairline', v:100 },{ n:'Thin', v:200 },{ n:'Light', v:300 },
+    { n:'Regular', v:400 },{ n:'Medium', v:500 },{ n:'Semibold', v:600 },
+    { n:'Bold', v:700 },{ n:'ExtraBold', v:800 },
+  ]},
+  { tag:'wdth', name:'Width', stops:[
+    { n:'Condensed', v:75 },{ n:'Normal', v:100 },{ n:'Extended', v:125 },
+  ]},
+  { tag:'slnt', name:'Slant', stops:[
+    { n:'Upright', v:0 },{ n:'Italic', v:-16 },
+  ]},
+  { tag:'opsz', name:'Optical Size', stops:[
+    { n:'Caption', v:8 },{ n:'Text', v:14 },{ n:'Display', v:72 },
+  ]},
+];
+
+const INSTANCES = [
+  { id:'i1', name:'Hairline', group:'Roman', coords:{wght:100,wdth:100,slnt:0,opsz:14}, ps:'FCCrimp-Hairline', styleName:'Hairline' },
+  { id:'i2', name:'Regular', group:'Roman', coords:{wght:400,wdth:100,slnt:0,opsz:14}, ps:'FCCrimp-Regular', styleName:'Regular' },
+  { id:'i3', name:'Bold', group:'Roman', coords:{wght:700,wdth:100,slnt:0,opsz:14}, ps:'FCCrimp-Bold', styleName:'Bold' },
+  { id:'i4', name:'Condensed Light', group:'Condensed', coords:{wght:300,wdth:75,slnt:0,opsz:14}, ps:'FCCrimp-110CondensedLight', styleName:'110 Condensed Light' },
+  { id:'i5', name:'Regular Italic', group:'Italic', coords:{wght:400,wdth:100,slnt:-16,opsz:14}, ps:'FCCrimp-RegularItalic', styleName:'Regular Italic' },
+  { id:'i6', name:'Display Bold', group:'Display', coords:{wght:700,wdth:100,slnt:0,opsz:72}, ps:'FCCrimp-DisplayBold', styleName:'Display Bold' },
+  { id:'i7', name:'Extended Medium', group:'Extended', coords:{wght:500,wdth:125,slnt:0,opsz:14}, ps:'FCCrimp-ExtendedMedium', styleName:'Extended Medium' },
+  { id:'i8', name:'Caption Light', group:'Caption', coords:{wght:300,wdth:100,slnt:0,opsz:8}, ps:'FCCrimp-CaptionLight', styleName:'Caption Light' },
+];
+
+const state = {
+  selectedId: 'i4',
+  hoverId: null,
+  footerMode: 'naming', // naming (default) | preview
+  footerExpanded: true,
+  sample: 'Handgloves',
+  size: 64,
+  hoverPeek: true,
+  search: '',
+};
+
+function fmt(n) {
+  return Number.isInteger(n) ? String(n) : Number(n).toFixed(1).replace(/\.0$/, '');
+}
+
+function coordsLabel(c) {
+  return ['wght','wdth','slnt','opsz'].map(t => `${t}:${fmt(c[t])}`).join(' · ');
+}
+
+function variationSettings(c) {
+  return `"wght" ${c.wght}, "wdth" ${c.wdth}, "opsz" ${c.opsz}, "slnt" ${c.slnt}`;
+}
+
+function activeInstance() {
+  // Hover peeks while pointer is over a row; otherwise show selection.
+  if (state.hoverPeek && state.hoverId) {
+    return INSTANCES.find(i => i.id === state.hoverId) || null;
+  }
+  return INSTANCES.find(i => i.id === state.selectedId) || INSTANCES[0];
+}
+
+function isPeeking() {
+  return !!(state.hoverPeek && state.hoverId && state.hoverId !== state.selectedId);
+}
+
+function renderAxisTree() {
+  document.getElementById('axisTree').innerHTML = AXES.map(a => `
+    <div class="axis-block">
+      <div class="ah">${a.name}<span>${a.tag}</span></div>
+      ${a.stops.map(s => `<div class="stop"><span class="n">${s.n}</span><span class="v">${fmt(s.v)}</span></div>`).join('')}
+    </div>
+  `).join('');
+}
+
+function filteredInstances() {
+  const q = state.search.trim().toLowerCase();
+  if (!q) return INSTANCES;
+  return INSTANCES.filter(i =>
+    i.name.toLowerCase().includes(q) || coordsLabel(i.coords).toLowerCase().includes(q)
+  );
+}
+
+function renderInstList() {
+  const list = filteredInstances();
+  document.getElementById('instCount').textContent = `${list.length} shown`;
+
+  const groups = [];
+  for (const inst of list) {
+    let g = groups.find(x => x.label === inst.group);
+    if (!g) { g = { label: inst.group, items: [] }; groups.push(g); }
+    g.items.push(inst);
+  }
+
+  document.getElementById('instList').innerHTML = groups.map(g => `
+    <div class="group-label">${g.label}</div>
+    ${g.items.map(i => {
+      const sel = i.id === state.selectedId;
+      const peek = i.id === state.hoverId && !sel;
+      return `<div class="inst-row ${sel ? 'sel' : ''} ${peek ? 'peek' : ''}"
+        data-id="${i.id}" role="option" aria-selected="${sel}">
+        <div class="check on"></div>
+        <div>
+          <div class="name">${escapeHtml(i.name)}</div>
+          <div class="coords">${coordsLabel(i.coords)}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  `).join('');
+
+  document.querySelectorAll('.inst-row').forEach(row => {
+    const id = row.dataset.id;
+    row.addEventListener('mouseenter', () => {
+      if (!state.hoverPeek) return;
+      state.hoverId = id;
+      syncPreview();
+      paintRowStates();
+    });
+    row.addEventListener('mouseleave', () => {
+      if (state.hoverId === id) {
+        state.hoverId = null;
+        syncPreview();
+        paintRowStates();
+      }
+    });
+    row.addEventListener('click', () => {
+      state.selectedId = id;
+      state.hoverId = null;
+      syncPreview();
+      paintRowStates();
+      renderInspector();
+    });
+  });
+}
+
+function paintRowStates() {
+  document.querySelectorAll('.inst-row').forEach(row => {
+    const id = row.dataset.id;
+    row.classList.toggle('sel', id === state.selectedId);
+    row.classList.toggle('peek', id === state.hoverId && id !== state.selectedId);
+  });
+}
+
+function renderInspector() {
+  const inst = INSTANCES.find(i => i.id === state.selectedId) || INSTANCES[0];
+  document.getElementById('inspector').innerHTML = `
+    <div class="insp-label">Style name</div>
+    <div class="insp-val">${escapeHtml(inst.name)}</div>
+    <div class="insp-label">PostScript</div>
+    <div class="insp-val mono">${escapeHtml(inst.ps)}</div>
+    <div class="insp-label">Coordinates</div>
+    <div class="insp-val mono">${coordsLabel(inst.coords)}</div>
+    <div class="insp-label">Naming chain</div>
+    <div class="chip-row">
+      ${['opsz','wdth','wght','slnt'].map(t =>
+        `<span class="chip">${t} ${fmt(inst.coords[t])}</span>`
+      ).join('')}
+    </div>
+  `;
+}
+
+function syncPreview() {
+  const inst = activeInstance();
+  const peeking = isPeeking();
+  const text = document.getElementById('previewText');
+  text.style.fontVariationSettings = variationSettings(inst.coords);
+  text.style.fontSize = state.size + 'px';
+  text.classList.toggle('peeking', peeking);
+  if (document.activeElement !== text && text.textContent !== state.sample) {
+    text.textContent = state.sample;
+  }
+
+  const statusInst = document.getElementById('statusInst');
+  statusInst.innerHTML = peeking
+    ? `<em>${escapeHtml(inst.name)}</em> · `
+    : `<span style="color:var(--text)">${escapeHtml(inst.name)}</span> · `;
+
+  document.getElementById('statusCoords').textContent = coordsLabel(inst.coords);
+
+  const pill = document.getElementById('statusPill');
+  pill.textContent = peeking ? 'Peek · hover' : 'Source · live';
+  pill.classList.toggle('peek', peeking);
+
+  const collapsed = document.getElementById('collapsedSummary');
+  if (state.footerMode === 'preview') {
+    collapsed.textContent = inst.name + (peeking ? ' (peek)' : '');
+    collapsed.classList.toggle('peeking', peeking);
+  } else {
+    collapsed.textContent = inst.name;
+    collapsed.classList.remove('peeking');
+  }
+
+  document.getElementById('namingName').textContent = inst.styleName || inst.name;
+  document.getElementById('namingPS').textContent = inst.ps;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setFooterMode(mode) {
+  state.footerMode = mode;
+  document.querySelectorAll('.footer-modes button').forEach(b => {
+    b.classList.toggle('on', b.dataset.footer === mode);
+  });
+  const isPreview = mode === 'preview';
+  document.getElementById('previewPanel').hidden = !isPreview;
+  document.getElementById('namingMock').hidden = isPreview;
+  document.getElementById('namingTools').hidden = isPreview;
+
+  document.getElementById('footerTitle').innerHTML = isPreview
+    ? 'Preview'
+    : 'Naming order <span class="scope">· project</span>';
+
+  const hint = document.getElementById('instHint');
+  if (isPreview) {
+    hint.innerHTML = '<b>Hover</b> a row to peek · <b>Click</b> to pin the preview';
+    document.getElementById('statusNote').textContent = 'Preview follows instance hover / selection';
+  } else {
+    hint.innerHTML = 'Switch footer to <b>Preview</b>, then <b>hover</b> / <b>click</b> rows to drive the glyph';
+    document.getElementById('statusNote').textContent = 'Naming order · default footer mode';
+  }
+
+  setFooterExpanded(state.footerExpanded);
+  syncPreview();
+}
+
+function setFooterExpanded(expanded) {
+  state.footerExpanded = expanded;
+  document.getElementById('footerSlot').classList.toggle('collapsed', !expanded);
+  document.getElementById('footerToggle').setAttribute('aria-expanded', String(expanded));
+  const collapsed = document.getElementById('collapsedSummary');
+  const tools = document.getElementById('namingTools');
+  collapsed.hidden = expanded;
+  // Naming tools only when expanded + naming mode
+  tools.hidden = !expanded || state.footerMode !== 'naming';
+  // Mode switch stays visible when collapsed so you can flip without expanding first
+}
+
+// —— wiring ——
+document.getElementById('introToggle').addEventListener('click', () => {
+  document.getElementById('intro').classList.toggle('open');
+});
+
+document.getElementById('instSearch').addEventListener('input', e => {
+  state.search = e.target.value;
+  renderInstList();
+});
+
+document.getElementById('sampleInput').addEventListener('input', e => {
+  state.sample = e.target.value;
+  syncPreview();
+});
+document.getElementById('previewText').addEventListener('input', e => {
+  state.sample = e.target.textContent;
+  document.getElementById('sampleInput').value = state.sample;
+});
+document.getElementById('sizeSlider').addEventListener('input', e => {
+  state.size = Number(e.target.value);
+  document.getElementById('sizeLabel').textContent = String(state.size);
+  syncPreview();
+});
+
+document.getElementById('footerToggle').addEventListener('click', () => {
+  setFooterExpanded(!state.footerExpanded);
+});
+document.querySelectorAll('.footer-modes button').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    setFooterMode(btn.dataset.footer);
+    if (!state.footerExpanded) setFooterExpanded(true);
+  });
+});
+
+const fab = document.getElementById('settingsFab');
+const drawer = document.getElementById('settingsDrawer');
+const backdrop = document.getElementById('settingsBackdrop');
+function setSettingsOpen(open) {
+  drawer.classList.toggle('open', open);
+  backdrop.classList.toggle('open', open);
+  drawer.setAttribute('aria-hidden', String(!open));
+}
+fab.addEventListener('click', () => setSettingsOpen(!drawer.classList.contains('open')));
+backdrop.addEventListener('click', () => setSettingsOpen(false));
+document.getElementById('settingsClose').addEventListener('click', () => setSettingsOpen(false));
+
+document.getElementById('optHoverPeek').addEventListener('change', e => {
+  state.hoverPeek = e.target.checked;
+  if (!state.hoverPeek) state.hoverId = null;
+  syncPreview();
+  paintRowStates();
+});
+document.getElementById('optPreviewH').addEventListener('change', e => {
+  document.documentElement.style.setProperty('--preview-h', e.target.value + 'px');
+});
+document.getElementById('optPreset').addEventListener('change', e => {
+  state.sample = e.target.value;
+  document.getElementById('sampleInput').value = state.sample;
+  syncPreview();
+});
+
+renderAxisTree();
+renderInstList();
+renderInspector();
+setFooterMode('naming');
+setFooterExpanded(true);
+syncPreview();
+</script>
+</body>
+</html>

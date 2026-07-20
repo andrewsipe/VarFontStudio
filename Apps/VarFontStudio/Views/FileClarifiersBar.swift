@@ -37,7 +37,7 @@ struct FileClarifierFields: View {
     }
 
     private func postscriptPrefixRow(fontID: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
             Text("PostScript prefix")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.secondary)

@@ -32,9 +32,7 @@ struct ProjectInspectorFileRow: View {
             ) {
                 HStack(spacing: 5) {
                     if isMaster {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(StudioColors.computedHighlight)
+                        StudioMasterStar()
                             .help("Master — axis tree source for this project")
                     }
                     if editor.isFontDirty(fontID: font.id) {
@@ -42,7 +40,7 @@ struct ProjectInspectorFileRow: View {
                             .help("Unsaved edits")
                     }
                     Text(name)
-                        .font(StudioTypography.bodyMedium)
+                        .font(StudioTypography.rowName)
                         .fontWeight(isSelected ? .semibold : .regular)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -57,7 +55,7 @@ struct ProjectInspectorFileRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            StudioToolbarIconMenu {
+            StudioOverflowMenu(scale: .toolbar) {
                 ProjectFileContextMenu(
                     font: font,
                     projectID: openProject.id,

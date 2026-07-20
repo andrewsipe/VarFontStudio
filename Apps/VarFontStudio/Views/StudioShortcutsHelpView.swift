@@ -70,7 +70,7 @@ struct StudioShortcutsHelpView: View {
                     workflowNotes
 
                     ForEach(sections, id: \.title) { section in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
                             Text(section.title.uppercased())
                                 .font(StudioTypography.sectionLabel)
                                 .foregroundStyle(.secondary)
@@ -95,7 +95,7 @@ struct StudioShortcutsHelpView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 460, height: 540)
         .preferredColorScheme(.dark)
     }

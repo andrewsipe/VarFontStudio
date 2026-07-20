@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Save Review — Refined Layout</title>
+<style>
+  :root{
+    --bg:#1c1c1e; --panel:#242426; --panel-2:#2a2a2c; --border:#38383a;
+    --text:#eaeaec; --text-dim:#9a9a9e; --text-faint:#68686c;
+    --accent:#0a84ff;
+    --c-removed:#e5484d; --c-added:#30a46c; --c-reflow:#8e6ff7;
+    --c-renamed:#f0a020; --c-protected:#3b82f6; --c-same:#7c7c80;
+    --mono:"SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:#111113; color:var(--text); font-family:var(--sans); padding:28px 16px 60px; }
+  .intro{ max-width:980px; margin:0 auto 18px; }
+  .intro h1{ font-size:19px; margin:0 0 6px; font-weight:600; }
+  .intro p{ color:var(--text-dim); font-size:13px; line-height:1.55; margin:0; max-width:760px;}
+  .stage{ max-width:980px; margin:0 auto; }
+  .mockwin{ background:var(--bg); border:1px solid #000; border-radius:11px; overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.6); }
+  .titlebar{ height:38px; background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000; display:flex; align-items:center; padding:0 12px; gap:8px; position:relative;}
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .titlebar .wtitle{ position:absolute; left:0; right:0; text-align:center; font-size:12.5px; color:var(--text-dim); font-weight:500; pointer-events:none;}
+
+  /* ---- header: summary block, matches existing app screen ---- */
+  .summary{ padding:20px 22px 16px; border-bottom:1px solid var(--border); }
+  .summary h2{ margin:0 0 4px; font-size:17px; font-weight:600; }
+  .summary .sub{ margin:0 0 14px; font-size:12.5px; color:var(--text-dim); }
+  .ps{ font-size:12px; color:var(--text-dim); margin-bottom:14px; }
+  .ps b{ font-family:var(--mono); color:var(--text); font-weight:500; background:var(--panel-2); padding:2px 7px; border-radius:5px; margin-left:6px; }
+  .cards{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:16px; }
+  .card{ background:var(--panel-2); border:1px solid var(--border); border-radius:9px; padding:12px 8px; text-align:center; }
+  .card .n{ font-size:21px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .card .l{ font-size:9.5px; letter-spacing:.04em; color:var(--text-faint); text-transform:uppercase; margin-top:2px; }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-dim);
+         background:transparent; border:1px solid transparent; padding:4px 8px 4px 6px; border-radius:20px; cursor:pointer; user-select:none; }
+  .chip:hover{ background:var(--panel-2); }
+  .chip.on{ background:var(--panel-2); border-color:var(--border); color:var(--text); }
+  .chip .sw{ width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+  .legend-hint{ font-size:10.5px; color:var(--text-faint); margin-left:auto; align-self:center; }
+
+  /* ---- horizontal per-table tab bar ---- */
+  .tabbar{ display:flex; align-items:flex-end; gap:2px; padding:0 22px; border-bottom:1px solid var(--border); background:var(--panel);}
+  .tab{ display:flex; align-items:center; gap:7px; padding:11px 14px; font-size:12.5px; color:var(--text-dim); cursor:pointer;
+        border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab:hover{ color:var(--text); }
+  .tab.active{ color:var(--text); border-bottom-color:var(--accent); font-weight:600; }
+  .tab .dot-badge{ width:6px; height:6px; border-radius:50%; background:var(--text-faint); }
+  .tab .count{ font-size:10.5px; color:var(--text-faint); background:var(--panel-2); padding:1px 6px; border-radius:20px; font-variant-numeric:tabular-nums;}
+  .tab.active .count{ color:var(--text); }
+
+  /* ---- toolbar under tabs ---- */
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; padding:9px 22px; border-bottom:1px solid var(--border); background:var(--panel);}
+  .toggle-wrap{ display:flex; align-items:center; gap:9px; }
+  .toggle-wrap label{ font-size:12px; color:var(--text-dim); }
+  .switch{ width:34px; height:20px; background:var(--panel-2); border:1px solid var(--border); border-radius:20px; position:relative; cursor:pointer; }
+  .switch .knob{ position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:50%; background:#c8c8cc; transition:left .15s; }
+  .switch.on{ background:var(--accent); border-color:var(--accent); }
+  .switch.on .knob{ left:15px; background:#fff; }
+  .rowcount{ font-size:11.5px; color:var(--text-faint); }
+
+  /* ---- table headline (per-tab context) ---- */
+  .tableheadline{ padding:12px 22px 4px; font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:8px; }
+  .tableheadline b{ color:var(--text); font-weight:600; }
+
+  /* ---- row list ---- */
+  .rows{ max-height:480px; overflow:auto; padding-bottom:8px; }
+  .row{ display:flex; align-items:flex-start; gap:0; padding:10px 22px 10px 0; border-top:1px solid #26262a; }
+  .row .gutter{ width:3px; align-self:stretch; border-radius:2px; margin:0 14px 0 22px; flex-shrink:0; background:var(--panel-2); }
+  .row.cat-removed .gutter{ background:var(--c-removed); }
+  .row.cat-added .gutter{ background:var(--c-added); }
+  .row.cat-reflow .gutter{ background:var(--c-reflow); }
+  .row.cat-renamed .gutter{ background:var(--c-renamed); }
+  .row.cat-protected .gutter{ background:var(--c-protected); }
+  .row.cat-same .gutter{ background:#333336; }
+
+  .field{ width:210px; flex-shrink:0; }
+  .field b{ display:block; font-size:12.5px; font-weight:500; color:var(--text); }
+  .field small{ font-size:10.5px; color:var(--text-faint); font-family:var(--mono); }
+
+  .valuecol{ flex:1; min-width:0; }
+  .value-line{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; font-family:var(--mono); font-size:12px; }
+  .value-line .tag{ font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:1px 6px; border-radius:3px; flex-shrink:0; }
+  .tag.cat-removed{ background:rgba(229,72,77,.16); color:var(--c-removed); }
+  .tag.cat-added{ background:rgba(48,164,108,.16); color:var(--c-added); }
+  .tag.cat-reflow{ background:rgba(142,111,247,.18); color:var(--c-reflow); }
+  .tag.cat-renamed{ background:rgba(240,160,32,.16); color:var(--c-renamed); }
+  .tag.cat-protected{ background:rgba(59,130,246,.16); color:var(--c-protected); }
+  .tag.cat-same{ background:rgba(124,124,128,.14); color:var(--text-faint); }
+  .cur{ color:var(--text); }
+  .cur.cat-removed{ color:var(--c-removed); text-decoration:line-through; text-decoration-color:rgba(229,72,77,.5); }
+  .cur.cat-added{ color:var(--c-added); }
+  .cur.cat-reflow{ color:var(--c-reflow); }
+  .cur.cat-renamed{ color:var(--c-renamed); }
+  .cur.cat-protected{ color:var(--text); }
+  .cur.cat-same{ color:var(--text-dim); }
+  .was{ font-size:10.5px; color:var(--text-faint); margin-top:2px; font-family:var(--mono); }
+  .was s{ text-decoration-color:#5a5a5e; }
+  .note{ font-size:10.5px; color:var(--text-faint); font-style:italic; margin-top:2px; }
+
+  .row.hidden{ display:none; }
+
+  .notes{ max-width:980px; margin:20px auto 0; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  .notes h4{ margin:0 0 8px; font-size:12.5px; }
+  .notes ul{ margin:0; padding-left:18px; font-size:12px; color:var(--text-dim); line-height:1.7; }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Save Review — refined toward what the app actually does</h1>
+  <p>One column, not two: the "after" value carries the diff itself via color + a change-type tag, with the previous value dropped in small underneath only when it's useful context — not duplicated in a full second column. Table selection moved from a sidebar into a horizontal tab bar (STAT / fvar / name), so only one table's rows mount at a time. A Streamlined switch hides "Same" rows, and the legend chips are click-to-filter, so you can isolate e.g. just "Renamed" across all 228 name-table slots.</p>
+</div>
+
+<div class="stage">
+  <div class="mockwin">
+    <div class="titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><div class="wtitle">Save Review — ABCGravitySuperfamilyVariable.ttf</div></div>
+
+    <div class="summary">
+      <h2>Save review</h2>
+      <p class="sub">TTX state of each table after the planned write. Values below reflect the reflowed name table and any manual edits.</p>
+      <div class="ps">PS prefix <b>ABCGravitySuperfamilyVariable</b></div>
+      <div class="cards">
+        <div class="card"><div class="n">96</div><div class="l">Instances</div></div>
+        <div class="card"><div class="n">16</div><div class="l">STAT values</div></div>
+        <div class="card"><div class="n">212</div><div class="l">New name IDs</div></div>
+        <div class="card"><div class="n">0</div><div class="l">Removed</div></div>
+        <div class="card"><div class="n">0</div><div class="l">Added</div></div>
+      </div>
+      <div class="legend" id="legend">
+        <div class="chip" data-cat="removed"><span class="sw" style="background:var(--c-removed)"></span>Removed</div>
+        <div class="chip" data-cat="added"><span class="sw" style="background:var(--c-added)"></span>Added</div>
+        <div class="chip" data-cat="reflow"><span class="sw" style="background:var(--c-reflow)"></span>ID reflowed</div>
+        <div class="chip" data-cat="renamed"><span class="sw" style="background:var(--c-renamed)"></span>Renamed</div>
+        <div class="chip" data-cat="protected"><span class="sw" style="background:var(--c-protected)"></span>Protected OT</div>
+        <div class="chip" data-cat="same"><span class="sw" style="background:var(--c-same)"></span>Same</div>
+        <div class="legend-hint">click to isolate a change type</div>
+      </div>
+    </div>
+
+    <div class="tabbar" id="tabbar">
+      <div class="tab active" data-tab="stat"><span>STAT</span><span class="count">2 of 16</span></div>
+      <div class="tab" data-tab="fvar"><span>fvar</span><span class="count">1 of 100</span></div>
+      <div class="tab" data-tab="name"><span>name</span><span class="count">212 of 228</span></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toggle-wrap">
+        <div class="switch" id="streamSwitch"><div class="knob"></div></div>
+        <label>Streamlined — hide unchanged</label>
+      </div>
+      <div class="rowcount" id="rowcount"></div>
+    </div>
+
+    <!-- STAT PANEL -->
+    <div class="panel" data-panel="stat">
+      <div class="tableheadline">Style Attributes table — <b>4 axes</b>, 16 axis value records</div>
+      <div class="rows">
+        <div class="row cat-renamed" data-cat="renamed">
+          <div class="gutter"></div>
+          <div class="field"><b>Elidable fallback name</b><small>elidedFallbackNameID</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-renamed">renamed</span><span class="cur cat-renamed">257 "Upright"</span></div>
+            <div class="was">was 273 "Upright" · <s>format 3</s> → format 4</div>
+          </div>
+        </div>
+        <div class="row cat-renamed" data-cat="renamed">
+          <div class="gutter"></div>
+          <div class="field"><b>slnt = -16</b><small>AxisValue · nameID 274</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-renamed">renamed</span><span class="cur cat-renamed">"Italic"</span></div>
+            <div class="was">format 3 → format 4, string unchanged</div>
+          </div>
+        </div>
+        <div class="row cat-same" data-cat="same">
+          <div class="gutter"></div>
+          <div class="field"><b>wght = 400</b><small>AxisValue · nameID 269</small></div>
+          <div class="valuecol"><div class="value-line"><span class="tag cat-same">same</span><span class="cur cat-same">"Regular"</span></div></div>
+        </div>
+        <div class="row cat-same" data-cat="same">
+          <div class="gutter"></div>
+          <div class="field"><b>wdth = 100</b><small>AxisValue · nameID 264</small></div>
+          <div class="valuecol"><div class="value-line"><span class="tag cat-same">same</span><span class="cur cat-same">"Normal"</span></div></div>
+        </div>
+        <div class="row cat-same" data-cat="same">
+          <div class="gutter"></div>
+          <div class="field"><b>Design axes count</b><small>DesignAxisRecord</small></div>
+          <div class="valuecol"><div class="value-line"><span class="tag cat-same">same</span><span class="cur cat-same">4</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FVAR PANEL -->
+    <div class="panel" data-panel="fvar" style="display:none;">
+      <div class="tableheadline">fvar table — <b>4 axes</b>, 96 named instances</div>
+      <div class="rows">
+        <div class="row cat-protected" data-cat="protected">
+          <div class="gutter"></div>
+          <div class="field"><b>Weight (wght)</b><small>Axis[1] min/default/max</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-protected">protected</span><span class="cur cat-protected">100 / 400 / 1000</span></div>
+            <div class="note">locked — referenced by STAT format-4 records, editing disabled</div>
+          </div>
+        </div>
+        <div class="row cat-renamed" data-cat="renamed">
+          <div class="gutter"></div>
+          <div class="field"><b>Instance 42</b><small>slnt:-16 wdth:100 wght:400</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-renamed">renamed</span><span class="cur cat-renamed">"Regular Italic"</span></div>
+            <div class="was">was <s>"Italic Regular"</s></div>
+          </div>
+        </div>
+        <div class="row cat-same" data-cat="same">
+          <div class="gutter"></div>
+          <div class="field"><b>Instance 1</b><small>slnt:-16 wdth:100 wght:100</small></div>
+          <div class="valuecol"><div class="value-line"><span class="tag cat-same">same</span><span class="cur cat-same">"Hairline Italic"</span></div></div>
+        </div>
+        <div class="row cat-same" data-cat="same">
+          <div class="gutter"></div>
+          <div class="field"><b>Instance 2</b><small>slnt:-16 wdth:100 wght:1000</small></div>
+          <div class="valuecol"><div class="value-line"><span class="tag cat-same">same</span><span class="cur cat-same">"Ultra Italic"</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAME PANEL -->
+    <div class="panel" data-panel="name">
+      <div class="tableheadline">name table — <b>228 slots</b>, full reflow to consistent pattern</div>
+      <div class="rows">
+        <div class="row cat-reflow" data-cat="reflow">
+          <div class="gutter"></div>
+          <div class="field"><b>PostScript name</b><small>Regular · nameID 279 → 6</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-reflow">id reflowed</span><span class="cur cat-reflow">"ABCGravitySuperfamilyVariable-Regular"</span></div>
+            <div class="was">slot moved from nameID 279, string unchanged</div>
+          </div>
+        </div>
+        <div class="row cat-renamed" data-cat="renamed">
+          <div class="gutter"></div>
+          <div class="field"><b>Instance subfamily</b><small>nameID 277</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-renamed">renamed</span><span class="cur cat-renamed">"XXXXCompressed Hairline"</span></div>
+            <div class="was">was <s>"ABC_Gravity-XXXXCompressedHairline"</s></div>
+          </div>
+        </div>
+        <div class="row cat-reflow" data-cat="reflow">
+          <div class="gutter"></div>
+          <div class="field"><b>PostScript name</b><small>XXXXCompressed Hairline Italic · nameID 279 → 358</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-reflow">id reflowed</span><span class="cur cat-reflow">"ABCGravitySuperfamilyVariable-XXXXCompressedHairlineItalic"</span></div>
+            <div class="was">slot moved from nameID 279</div>
+          </div>
+        </div>
+        <div class="row cat-protected" data-cat="protected">
+          <div class="gutter"></div>
+          <div class="field"><b>Font Family (legacy)</b><small>nameID 1</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-protected">protected</span><span class="cur cat-protected">"ABC Gravity Superfamily"</span></div>
+            <div class="note">required by OT spec at this ID for non-variable fallback — kept as-is</div>
+          </div>
+        </div>
+        <div class="row cat-protected" data-cat="protected">
+          <div class="gutter"></div>
+          <div class="field"><b>Font Subfamily (legacy)</b><small>nameID 2</small></div>
+          <div class="valuecol">
+            <div class="value-line"><span class="tag cat-protected">protected</span><span class="cur cat-protected">"Regular"</span></div>
+            <div class="note">required by OT spec at this ID — kept as-is</div>
+          </div>
+        </div>
+        <div class="row cat-same" data-cat="same">
+          <div class="gutter"></div>
+          <div class="field"><b>Copyright</b><small>nameID 0</small></div>
+          <div class="valuecol"><div class="value-line"><span class="tag cat-same">same</span><span class="cur cat-same">"© 2026 ABC Foundry. All rights reserved."</span></div></div>
+        </div>
+        <div class="row cat-same" data-cat="same">
+          <div class="gutter"></div>
+          <div class="field"><b>Version string</b><small>nameID 5</small></div>
+          <div class="valuecol"><div class="value-line"><span class="tag cat-same">same</span><span class="cur cat-same">"Version 1.000"</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border); padding:9px 22px; text-align:right;">
+      <span class="rowcount" id="footNote">Scroll within the active table's tab — switching tabs unmounts the previous list.</span>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h4>What changed from the first pass, and why</h4>
+  <ul>
+    <li><b>Single column, not before/after.</b> The change-type tag (renamed / ID reflowed / protected / same …) plus the color gutter now carries "what kind of change," and a small "was …" line underneath carries "what it used to be" only when that's useful — for an ID reflow, that's often just the old nameID, not a whole duplicated string.</li>
+    <li><b>"ID reflowed" vs "Renamed" are kept distinct</b> since they mean different things for your two core features: reflow is the table restructuring (a string moved to a new, consistent nameID slot) with the text often untouched, while renamed means the text itself changed. Collapsing those into one "modified" bucket, like my first pass did, hid that distinction.</li>
+    <li><b>Protected OT rows get a caption, not a diff arrow</b> — since they can't change, showing them as "same" would bury the fact that they're structurally exempt (e.g. legacy nameID 1/2 kept for OT compliance) rather than just untouched by coincidence.</li>
+    <li><b>Horizontal tabs replace the sidebar</b> — STAT / fvar / name, each labeled with "changed of total" (e.g. "212 of 228"). Only the active tab's row list is in the DOM/List at a time, which is the main perf lever for large files: SwiftUI only builds and lays out one table's rows instead of three stacked Lists.</li>
+    <li><b>Streamlined switch</b> hides "Same" rows table-wide. <b>Legend chips are click-to-filter</b> and stack with Streamlined — e.g. turn on Streamlined, then click "ID reflowed" alone to review just the 212 reflow moves in the name table without the renamed/protected rows in between.</li>
+  </ul>
+</div>
+
+<script>
+  const state = { tab: 'stat', streamlined: false, filters: new Set() };
+
+  function applyVisibility(){
+    document.querySelectorAll('.panel').forEach(p=>{
+      p.style.display = (p.dataset.panel === state.tab) ? '' : 'none';
+    });
+    const panel = document.querySelector('.panel[data-panel="'+state.tab+'"]');
+    let visibleCount = 0, total = 0;
+    panel.querySelectorAll('.row').forEach(row=>{
+      total++;
+      const cat = row.dataset.cat;
+      let visible = true;
+      if(state.filters.size > 0) visible = state.filters.has(cat);
+      if(state.streamlined && cat === 'same' && !state.filters.has('same')) visible = false;
+      row.classList.toggle('hidden', !visible);
+      if(visible) visibleCount++;
+    });
+    document.getElementById('rowcount').textContent = visibleCount + ' of ' + total + ' rows shown';
+  }
+
+  document.getElementById('tabbar').addEventListener('click', e=>{
+    const t = e.target.closest('.tab'); if(!t) return;
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    state.tab = t.dataset.tab;
+    applyVisibility();
+  });
+
+  document.getElementById('streamSwitch').addEventListener('click', function(){
+    state.streamlined = !state.streamlined;
+    this.classList.toggle('on', state.streamlined);
+    applyVisibility();
+  });
+
+  document.getElementById('legend').addEventListener('click', e=>{
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    const cat = chip.dataset.cat;
+    if(state.filters.has(cat)){ state.filters.delete(cat); chip.classList.remove('on'); }
+    else { state.filters.add(cat); chip.classList.add('on'); }
+    applyVisibility();
+  });
+
+  applyVisibility();
+</script>
+
+</body>
+</html>

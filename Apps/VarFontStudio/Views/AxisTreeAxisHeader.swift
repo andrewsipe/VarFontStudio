@@ -64,7 +64,7 @@ struct AxisTreeAxisHeader: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: StudioSpacing.controlGap) {
             if hasAxisAttention {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(StudioTypography.meta)

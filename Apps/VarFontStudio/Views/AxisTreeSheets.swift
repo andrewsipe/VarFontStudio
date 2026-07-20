@@ -92,7 +92,7 @@ struct AddAxisStopSheet: View {
                 .disabled(!canAdd)
             }
         }
-        .padding(20)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 360)
         .onAppear {
             seedDefaults()
@@ -368,7 +368,7 @@ struct FillAxisStopsSheet: View {
                 .disabled(!canApply)
             }
         }
-        .padding(20)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(minWidth: 460)
         .onAppear {
             guard let options else { return }
@@ -455,7 +455,7 @@ struct ChangeAxisStopFormatSheet: View {
                 .disabled(statFormat == 3 && linkTargetID == nil && linkCandidates.isEmpty)
             }
         }
-        .padding(20)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 320)
     }
 
@@ -707,7 +707,7 @@ struct AddFileAxisSheet: View {
                 .disabled(!canAdd)
             }
         }
-        .padding(20)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 540)
         .onAppear {
             selectFirstAvailableKind()
@@ -937,7 +937,7 @@ struct AddFileAxisSheet: View {
                     .padding(.top, 2)
             }
         }
-        .padding(10)
+        .padding(StudioSpacing.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             (kindEnabled ? StudioColors.registrationBackground : Color.primary.opacity(0.04)),
@@ -987,13 +987,13 @@ struct AddFileAxisSheet: View {
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
                 if !kindEnabled {
                     Text(disabledReason ?? "Already exists in the Axis Tree.")
                         .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                 } else {
-                    HStack(spacing: 8) {
+                    HStack(spacing: StudioSpacing.controlGap) {
                         Text("N")
                             .font(StudioTypography.tag)
                             .padding(.horizontal, 5)
@@ -1009,7 +1009,7 @@ struct AddFileAxisSheet: View {
                         StudioTagPill(text: previewTag, compact: true, role: .registration)
                     }
 
-                    HStack(spacing: 8) {
+                    HStack(spacing: StudioSpacing.controlGap) {
                         previewColumnHeader("Format", width: 48, alignment: .center)
                         previewColumnHeader("Value", width: 44, alignment: .trailing)
                         previewColumnHeader("Name", width: nil, alignment: .leading)
@@ -1019,7 +1019,7 @@ struct AddFileAxisSheet: View {
                         }
                     }
 
-                    HStack(spacing: 8) {
+                    HStack(spacing: StudioSpacing.controlGap) {
                         Text(previewFmt)
                             .font(StudioTypography.tag.weight(.medium))
                             .foregroundStyle(previewFmt == "F3" ? StudioColors.statFormat3 : StudioColors.statFormat1)
@@ -1032,22 +1032,11 @@ struct AddFileAxisSheet: View {
                             Text(previewStopName)
                                 .font(StudioTypography.caption)
                             if let linked = previewLinkedLabel {
-                                Image(systemName: "link")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.tertiary)
-                                Text(linked)
-                                    .font(StudioTypography.meta)
-                                    .foregroundStyle(.secondary)
+                                StudioFormat3LinkLabel(linkedTargetName: linked)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        Image(systemName: previewElidable ? "largecircle.fill.circle" : "circle")
-                            .font(.system(size: 12))
-                            .foregroundStyle(
-                                previewElidable
-                                    ? StudioColors.registrationForeground
-                                    : Color.secondary.opacity(0.45)
-                            )
+                        StudioRadioMark(isOn: previewElidable)
                             .frame(width: 44, alignment: .center)
                         if editor.isCodeNamingEnabled {
                             Text(previewCode)
@@ -1058,7 +1047,7 @@ struct AddFileAxisSheet: View {
                     }
                 }
             }
-            .padding(10)
+            .padding(StudioSpacing.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.row))
             .overlay {

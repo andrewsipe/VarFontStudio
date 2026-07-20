@@ -22,7 +22,7 @@ struct MissingFontsSheet: View {
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
 
-            VStack(spacing: 8) {
+            VStack(spacing: StudioSpacing.controlGap) {
                 ForEach(request.entries) { entry in
                     missingFontRow(entry)
                 }
@@ -42,7 +42,7 @@ struct MissingFontsSheet: View {
                 .disabled(!request.allResolved)
             }
         }
-        .padding(20)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 480)
         .preferredColorScheme(.dark)
     }
@@ -68,7 +68,7 @@ struct MissingFontsSheet: View {
                 editor.locateMissingFont(fontID: entry.fontID)
             }
         }
-        .padding(10)
+        .padding(StudioSpacing.cardPadding)
         .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
     }
 
@@ -76,7 +76,7 @@ struct MissingFontsSheet: View {
     private func statusPill(for entry: MissingFontEntry) -> some View {
         Text(entry.isResolved ? "Found" : "Missing")
             .font(StudioTypography.monoMeta)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 3)
             .background(
                 (entry.isResolved ? Color.green.opacity(0.2) : Color.orange.opacity(0.25)),

@@ -17,6 +17,13 @@ enum StudioTypography {
     static let monoValue = Font.system(size: 11, design: .monospaced)
     static let monoMeta = Font.system(size: 10, design: .monospaced)
     static let emphasis = Font.system(size: 13, weight: .semibold)
+    /// Project scope title (project inspector header) — one step above `emphasis`.
+    static let projectTitle = Font.system(size: 15, weight: .semibold)
+    /// Canonical primary identity in list / tab rows (file basename, etc.).
+    /// Weight is applied at the call site (semibold when selected, regular otherwise).
+    static let rowName = Font.system(size: 12)
+    /// Monospaced sibling of `rowName` for identifier cells in rows (e.g. name-table nameID).
+    static let rowNameMono = Font.system(size: 12, design: .monospaced)
     /// Save Review summary metric value.
     static let statValue = Font.system(size: 16, weight: .medium)
     /// Diff section pill labels.
@@ -25,6 +32,8 @@ enum StudioTypography {
     static let disclosureChevron = Font.system(size: 10, weight: .semibold)
     /// Compact tab / menu chevrons (8pt).
     static let iconGlyph = Font.system(size: 8, weight: .semibold)
+    /// Format-3 link chain — lighter/smaller than adjacent caption text.
+    static let linkGlyph = Font.system(size: 10, weight: .regular)
 }
 
 enum StudioSpacing {
@@ -37,11 +46,18 @@ enum StudioSpacing {
     static let sectionGap: CGFloat = 10
     /// Standard sheet outer inset (pickers, conflict resolver, save review chrome).
     static let sheetOuterPadding: CGFloat = 20
+    /// All-around content inset for cards / inner boxes inside sheets and panels
+    /// (looser than `panelHorizontal`, tighter than `sheetOuterPadding`).
+    static let cardPadding: CGFloat = 10
     /// Root spacing in stacked editor sheets — slightly looser than `sectionGap` for dense multi-section layouts.
     static let sheetSectionSpacing: CGFloat = 14
     static let listInset: CGFloat = 6
     /// Horizontal inset for scrollable panel bodies — matches `StudioPanelHeader` text edges.
     static let scrollContentHorizontal: CGFloat = panelHorizontal + 2
+    /// Density tier: editor chrome (project toolbar, file sub-bar). Tightest horizontal inset.
+    static let editorChromeInset: CGFloat = panelHorizontal + 4
+    /// Density tier: preview / naming-footer chrome — slightly looser than editor chrome.
+    static let previewInset: CGFloat = panelHorizontal + 6
     /// Extra trailing inset so overlay scroll indicators don't cover row chrome (toggles, badges).
     static let scrollGutter: CGFloat = 8
     /// Trailing inset for scroll content inside a padded card (card inset + scrollbar gutter).
@@ -73,10 +89,38 @@ enum StudioRadius {
 /// - Chips: use `StudioTabChip` for project/file/save-review tabs (fixed padding, stable height).
 /// - Typography: `bodyMedium` (12pt) for compact UI rows; `body` (13pt) for axis stop names and inspector prose.
 /// - `StudioKeyValueRow` is for simple inspector key/value rows only — not axis coordinate tables.
+///
+/// ## Shared chrome contract (one semantic → one primitive)
+/// - Dismiss / remove: `StudioDismissButton` only. `.outline` (`xmark.circle`) for
+///   close/dismiss, `.fill` (`xmark.circle.fill`) for in-row / in-field remove.
+///   Never a naked `xmark`; never `minus.circle` to mean "remove".
+/// - Overflow: `StudioOverflowMenu` only (`.toolbar` or `.chip` scale). It never
+///   renders the system menu chevron.
+/// - Selection radio: `StudioElidableRadio` (or a sibling taking `isOn`) for every
+///   mutually-exclusive "picked" control. NOTE: an include/exclude control that
+///   carries its own meaning (check vs minus) is a *different* control — do not
+///   collapse it into a plain radio.
+/// - Count: `StudioCountBadge` only. Dirty: `StudioDirtyDot` only (accent color).
+    ///   Master: `StudioMasterStar` only — shares the dirty-dot alignment slot so
+    ///   the pair centers together (never a naked `star.fill` next to the dot).
+    /// - Link glyph: `StudioLinkGlyph` inside `StudioFormat3LinkLabel` for Format-3
+    ///   row suffixes (never hand-size `link` next to stop names). Add affordance label: `StudioAddLabel`.
+/// - Icon scale: `StudioChromeScale` — one glyph weight, two hit targets
+///   (`.toolbar` 12/24, `.chip` 12/16). Do not hand-size chrome icons.
+///
+/// ## Density tiers (named on purpose — never "normalize" them into one)
+/// - editor: `StudioSpacing.editorChromeInset` — tight toolbar / file-bar chrome.
+/// - preview: `StudioSpacing.previewInset` — font preview + naming footer chrome.
+/// - sheet: `StudioSpacing.sheetOuterPadding` (20) — modal editors / pickers.
+/// - review: `SaveReviewLayout` (22) — deliberately roomier Save Review window.
 enum StudioFieldMetrics {
     static let horizontalPadding: CGFloat = 6
     static let toolbarIconPointSize: CGFloat = 12
     static let toolbarIconHitSize: CGFloat = 24
+    /// Compact chrome icons inside chips / dense trailing clusters — same glyph
+    /// point size as toolbar (single visual weight) with a tighter hit target.
+    static let chipIconPointSize: CGFloat = 12
+    static let chipIconHitSize: CGFloat = 16
 
     /// Single-line row heights matched to `StudioTypography` tiers.
     static let captionRowHeight: CGFloat = 20
@@ -88,6 +132,11 @@ enum StudioFieldMetrics {
     static let tabChipHorizontalPadding: CGFloat = 10
     static let tabChipVerticalPadding: CGFloat = 4
     static let tabChipRowHeight: CGFloat = 22
+
+    /// Shared layout slot for adjacent chip status badges (master star, dirty dot).
+    static let statusBadgeSlot: CGFloat = 8
+    static let dirtyDotSize: CGFloat = 6
+    static let masterStarPointSize: CGFloat = 8
 
     /// DisclosureGroup label rows (file naming, naming order footer).
     static let disclosureLabelRowHeight: CGFloat = 22
@@ -376,8 +425,11 @@ struct StudioCountBadge: View {
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.75)
-            .foregroundStyle(highlighted ? AnyShapeStyle(StudioColors.computedHighlight) : AnyShapeStyle(.tertiary))
+            .foregroundStyle(highlighted ? AnyShapeStyle(StudioColors.computedHighlight) : AnyShapeStyle(.secondary))
             .frame(width: fixedWidth)
+            // Free (non-aligned) badges need breathing room; fixed-width column
+            // badges (axis headers) keep their exact alignment slot.
+            .padding(.horizontal, fixedWidth == nil ? 6 : 0)
             .padding(.vertical, 2)
             .background(.quaternary.opacity(highlighted ? 1 : 0.6), in: Capsule())
             .help(help)
@@ -1223,14 +1275,9 @@ struct StudioSearchField: View {
             )
 
             if !text.isEmpty {
-                Button {
+                StudioDismissButton(scale: .chip, style: .fill, foreground: .tertiary) {
                     text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.tertiary)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 7)
@@ -1398,6 +1445,151 @@ struct StudioFieldLabel: View {
     }
 }
 
+/// Chrome icon scale — one glyph weight, two hit targets. Chrome icons should be
+/// sized through this, never hand-tuned per call site.
+enum StudioChromeScale {
+    case toolbar
+    case chip
+
+    var pointSize: CGFloat {
+        switch self {
+        case .toolbar: StudioFieldMetrics.toolbarIconPointSize
+        case .chip: StudioFieldMetrics.chipIconPointSize
+        }
+    }
+
+    var hitSize: CGFloat {
+        switch self {
+        case .toolbar: StudioFieldMetrics.toolbarIconHitSize
+        case .chip: StudioFieldMetrics.chipIconHitSize
+        }
+    }
+}
+
+/// Unified dismiss / remove control. Replaces the ad-hoc `xmark`, `xmark.circle`,
+/// and `xmark.circle.fill` buttons previously scattered across tabs, chips, rows,
+/// and fields. Use `.outline` for close/dismiss, `.fill` for in-row/field remove.
+struct StudioDismissButton: View {
+    enum Style {
+        case outline
+        case fill
+
+        var symbol: String {
+            switch self {
+            case .outline: "xmark.circle"
+            case .fill: "xmark.circle.fill"
+            }
+        }
+    }
+
+    var scale: StudioChromeScale = .toolbar
+    var style: Style = .outline
+    var help: String = ""
+    /// Hierarchical rendering level (`.secondary` for chrome, `.tertiary` for quiet in-row remove).
+    var foreground: HierarchicalShapeStyle = .secondary
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: style.symbol)
+                .font(.system(size: scale.pointSize, weight: .regular))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(foreground)
+                .frame(width: scale.hitSize, height: scale.hitSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+/// Unified overflow (ellipsis) menu. Never renders the system menu chevron so it
+/// reads as a single icon next to its neighbors. Replaces `StudioToolbarIconMenu`.
+struct StudioOverflowMenu<Content: View>: View {
+    var scale: StudioChromeScale = .toolbar
+    var help: String = "Actions"
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        Menu {
+            content()
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: scale.pointSize, weight: .regular))
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(.secondary)
+                .frame(width: scale.hitSize, height: scale.hitSize)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(help)
+    }
+}
+
+/// Display-only selection mark (the visual half of a radio). Use inside an existing
+/// Button / row for mutually-exclusive "picked" state. `StudioElidableRadio` remains
+/// the self-contained interactive version for the axis-tree Elided column.
+struct StudioRadioMark: View {
+    let isOn: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1)
+                .frame(width: 14, height: 14)
+            if isOn {
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: 8, height: 8)
+            }
+        }
+        .frame(width: 16, height: 16)
+    }
+}
+
+/// Canonical linked-value glyph (Format-3 links, fill preview). One size everywhere.
+struct StudioLinkGlyph: View {
+    var body: some View {
+        Image(systemName: "link")
+            .font(StudioTypography.linkGlyph)
+            .foregroundStyle(.tertiary)
+    }
+}
+
+/// Format-3 linked-target suffix (`link` + target name). Shared by read-only rows and
+/// Menu labels so the chain never inherits the row's `bodyMedium` scale/weight.
+struct StudioFormat3LinkLabel: View {
+    let linkedTargetName: String?
+    var placeholder: String = "Link…"
+
+    var body: some View {
+        HStack(spacing: 4) {
+            StudioLinkGlyph()
+            Text(linkedTargetName ?? placeholder)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+}
+
+/// Canonical "add" affordance label — one glyph size and spacing across add actions.
+/// The symbol may vary (`plus`, `folder.badge.plus`, …) but its sizing does not.
+struct StudioAddLabel: View {
+    let title: String
+    var systemImage: String = "plus"
+    var foreground: Color = .secondary
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .font(StudioTypography.caption)
+            .foregroundStyle(foreground)
+            .labelStyle(.titleAndIcon)
+    }
+}
+
 /// Toolbar / header icon control — fixed hit target, consistent symbol size.
 struct StudioToolbarIconButton: View {
     let systemName: String
@@ -1421,6 +1613,8 @@ struct StudioToolbarIconButton: View {
     }
 }
 
+/// Legacy overflow menu — renders the system menu chevron. Superseded by
+/// `StudioOverflowMenu`; call sites migrate in Phase 2. Do not use in new code.
 struct StudioToolbarIconMenu<Content: View>: View {
     var help: String = "Actions"
     @ViewBuilder var content: () -> Content
@@ -1497,7 +1691,22 @@ struct StudioDirtyDot: View {
     var body: some View {
         Circle()
             .fill(Color.accentColor)
-            .frame(width: 6, height: 6)
+            .frame(width: StudioFieldMetrics.dirtyDotSize, height: StudioFieldMetrics.dirtyDotSize)
+            .frame(width: StudioFieldMetrics.statusBadgeSlot, height: StudioFieldMetrics.statusBadgeSlot)
+    }
+}
+
+/// Master-font star. Shares `statusBadgeSlot` with `StudioDirtyDot` so the pair
+/// centers on the same axis when adjacent in a chip/row.
+struct StudioMasterStar: View {
+    var body: some View {
+        Image(systemName: "star.fill")
+            .font(.system(size: StudioFieldMetrics.masterStarPointSize))
+            .foregroundStyle(StudioColors.computedHighlight)
+            // `star.fill` sits optically low in its glyph box relative to a true
+            // circle; nudge so it shares a visual center with StudioDirtyDot.
+            .offset(y: -1)
+            .frame(width: StudioFieldMetrics.statusBadgeSlot, height: StudioFieldMetrics.statusBadgeSlot)
     }
 }
 

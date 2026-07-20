@@ -52,7 +52,7 @@ struct ProjectFileContextMenu: View {
                 Button(role: .destructive) {
                     editor.requestRemoveFont(projectID: projectID, fontID: font.id)
                 } label: {
-                    Label("Remove from project", systemImage: "minus.circle")
+                    Label("Remove from project", systemImage: "xmark.circle")
                 }
             }
         }

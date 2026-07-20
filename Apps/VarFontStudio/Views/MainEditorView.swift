@@ -372,7 +372,7 @@ struct MainEditorView: View {
     private var editorChrome: some View {
         VStack(spacing: 0) {
             if let error = editor.saveReview.persistentSaveError {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Cannot export")
                             .font(StudioTypography.sectionLabel)
@@ -382,15 +382,11 @@ struct MainEditorView: View {
                             .foregroundStyle(StudioColors.errorForeground)
                     }
                     Spacer(minLength: 0)
-                    Button {
+                    StudioDismissButton(scale: .toolbar, help: "Dismiss") {
                         editor.dismissPersistentSaveError()
-                    } label: {
-                        Image(systemName: "xmark")
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
                 }
-                .padding(10)
+                .padding(StudioSpacing.cardPadding)
                 .background(
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
@@ -447,7 +443,6 @@ struct MainEditorView: View {
             Divider()
             NamingOrderChainFooter()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, StudioSpacing.sectionGap - 2)
             Divider()
             statusBar
         }
@@ -530,7 +525,7 @@ struct MainEditorView: View {
                     .multilineTextAlignment(.trailing)
             }
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal + 4)
+        .padding(.horizontal, StudioSpacing.editorChromeInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
     }
 

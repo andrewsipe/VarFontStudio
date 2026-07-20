@@ -61,7 +61,7 @@ struct NameTablePanel: View {
         } else if let loadError {
             ContentUnavailableView(
                 "Couldn’t Read Names",
-                systemImage: "exclamationmark.triangle",
+                systemImage: "exclamationmark.triangle.fill",
                 description: Text(loadError)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -92,7 +92,7 @@ struct NameTablePanel: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: StudioSpacing.controlGap) {
             StudioSearchField(text: $filterText, placeholder: "Filter IDs…")
             Button {
                 showAddPopover = true
@@ -174,15 +174,15 @@ struct NameTablePanel: View {
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text("\(row.nameID)")
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(StudioTypography.rowNameMono)
                     .foregroundStyle(StudioColors.computedHighlight)
                 Text(row.label)
-                    .font(.system(size: 12))
+                    .font(StudioTypography.rowName)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 if row.isLinkedToPSPrefix {
                     Text("≡ PS prefix")
-                        .font(.system(size: 12))
+                        .font(StudioTypography.rowName)
                         .foregroundStyle(Color.accentColor.opacity(0.85))
                         .lineLimit(1)
                 }

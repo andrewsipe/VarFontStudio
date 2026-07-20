@@ -128,7 +128,7 @@ struct PlanIssueResolverSheet: View {
                 )
             }
         }
-        .padding(10)
+        .padding(StudioSpacing.cardPadding)
         .background(
             fixSelection == .interactiveFill ? StudioColors.surfaceMuted : Color.clear,
             in: RoundedRectangle(cornerRadius: StudioRadius.row)
@@ -177,10 +177,8 @@ struct PlanIssueResolverSheet: View {
         onSelect: @escaping () -> Void
     ) -> some View {
         Button(action: onSelect) {
-            HStack(spacing: 8) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            HStack(spacing: StudioSpacing.controlGap) {
+                StudioRadioMark(isOn: isSelected)
                 Text(title)
                     .font(StudioTypography.bodyMedium)
                     .foregroundStyle(.primary)
@@ -201,9 +199,7 @@ struct PlanIssueResolverSheet: View {
             fixSelection = .proposal(proposal.id)
         } label: {
             HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                StudioRadioMark(isOn: isSelected)
                     .padding(.top, 2)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -227,7 +223,7 @@ struct PlanIssueResolverSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, StudioSpacing.panelHorizontal)
         .padding(.vertical, 6)
         .background(
             isSelected ? StudioColors.surfaceMuted : Color.clear,

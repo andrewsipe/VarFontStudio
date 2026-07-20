@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Font Table Diff — Layout Prototypes</title>
+<style>
+  :root{
+    --bg: #1e1e1e;
+    --panel: #252527;
+    --panel-2: #2c2c2e;
+    --border: #3a3a3c;
+    --text: #e8e8ea;
+    --text-dim: #9a9a9e;
+    --text-faint: #6c6c70;
+    --accent: #0a84ff;
+    --added: #30d158;
+    --removed: #ff453a;
+    --modified: #ff9f0a;
+    --mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#111113; color:var(--text);
+    font-family:var(--sans);
+    padding:28px 16px 60px;
+  }
+  .intro{ max-width:1160px; margin:0 auto 20px; }
+  .intro h1{ font-size:19px; margin:0 0 6px; font-weight:600; }
+  .intro p{ color:var(--text-dim); font-size:13px; line-height:1.5; margin:0 0 14px; max-width:760px;}
+  .switcher{ display:flex; gap:6px; background:var(--panel-2); padding:4px; border-radius:9px; width:max-content; border:1px solid var(--border); }
+  .switcher button{
+    appearance:none; border:none; background:transparent; color:var(--text-dim);
+    font-family:var(--sans); font-size:12.5px; font-weight:500; padding:7px 14px; border-radius:6px; cursor:pointer;
+  }
+  .switcher button.active{ background:#48484a; color:var(--text); }
+  .switcher button:hover:not(.active){ color:var(--text); }
+
+  .stage{ max-width:1160px; margin:0 auto; }
+  .mockwin{
+    background:var(--bg); border:1px solid #000; border-radius:11px; overflow:hidden;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.6);
+    display:none;
+  }
+  .mockwin.active{ display:block; }
+  .titlebar{
+    height:38px; background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000;
+    display:flex; align-items:center; padding:0 12px; gap:8px; position:relative;
+  }
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .titlebar .wtitle{ position:absolute; left:0; right:0; text-align:center; font-size:12.5px; color:var(--text-dim); font-weight:500; pointer-events:none;}
+
+  /* ---------- shared bits ---------- */
+  .legend{ display:flex; align-items:center; gap:14px; font-size:11px; color:var(--text-dim); }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .swatch{ width:8px; height:8px; border-radius:2px; }
+  .badge{
+    font-size:10.5px; font-weight:600; padding:1px 6px; border-radius:20px; line-height:1.5;
+  }
+  .badge.mod{ background:rgba(255,159,10,.16); color:var(--modified); }
+  .badge.add{ background:rgba(48,209,88,.16); color:var(--added); }
+  .badge.rem{ background:rgba(255,69,58,.16); color:var(--removed); }
+  code, .mono{ font-family:var(--mono); }
+
+  /* ================= LAYOUT 1: Grouped & collapsible, dual column ================= */
+  .l1-toolbar{
+    display:flex; align-items:center; justify-content:space-between; padding:10px 16px;
+    border-bottom:1px solid var(--border); background:var(--panel);
+  }
+  .l1-toolbar .seg{ display:flex; background:var(--panel-2); border:1px solid var(--border); border-radius:7px; overflow:hidden;}
+  .l1-toolbar .seg button{ appearance:none; border:none; background:transparent; color:var(--text-dim); font-family:var(--sans); font-size:11.5px; padding:5px 11px; cursor:pointer; border-right:1px solid var(--border);}
+  .l1-toolbar .seg button:last-child{border-right:none;}
+  .l1-toolbar .seg button.on{ background:var(--accent); color:#fff; }
+  .colheads{ display:grid; grid-template-columns: 190px 1fr 1fr; padding:8px 16px; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); border-bottom:1px solid var(--border); background:var(--panel);}
+  .l1-body{ max-height:560px; overflow:auto; }
+  .group{ border-bottom:1px solid var(--border); }
+  .group-head{
+    display:flex; align-items:center; gap:8px; padding:9px 16px; cursor:pointer;
+    background:var(--panel-2); position:sticky; top:0; z-index:2;
+  }
+  .group-head .chev{ color:var(--text-faint); font-size:10px; transition:transform .15s; width:10px;}
+  .group.collapsed .chev{ transform:rotate(-90deg); }
+  .group-head .gname{ font-size:12.5px; font-weight:600; }
+  .group-head .gcount{ color:var(--text-faint); font-size:11px; }
+  .group-rows{ }
+  .group.collapsed .group-rows{ display:none; }
+  .row{ display:grid; grid-template-columns: 190px 1fr 1fr; border-top:1px solid #2a2a2c; }
+  .row .cell{ padding:8px 16px; font-size:12px; }
+  .row .label{ color:var(--text-dim); display:flex; flex-direction:column; gap:1px; }
+  .row .label b{ color:var(--text); font-weight:500; font-size:12px; }
+  .row .label small{ font-size:10px; color:var(--text-faint); }
+  .row .val{ font-family:var(--mono); font-size:11.5px; color:var(--text); border-left:1px solid #2a2a2c; position:relative; padding-left:16px; }
+  .row.mod .val.new{ background:rgba(255,159,10,.08); }
+  .row.mod .val.new::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--modified); }
+  .row.mod .val.old{ color:var(--text-faint); text-decoration: line-through; text-decoration-color:#5a5a5e; }
+  .row.add .val.new::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--added); }
+  .row.add .val.new{ background:rgba(48,209,88,.08);}
+  .row.add .val.old{ color:var(--text-faint); }
+  .row.rem .val.old::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--removed); }
+  .row.rem .val.old{ background:rgba(255,69,58,.08); }
+  .row.same .val{ color:var(--text-dim); }
+
+  /* ================= LAYOUT 2: Sidebar master-detail ================= */
+  .l2{ display:flex; height:600px; }
+  .l2-side{ width:230px; background:var(--panel); border-right:1px solid var(--border); overflow:auto; flex-shrink:0; }
+  .l2-side .shead{ padding:12px 14px 6px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); }
+  .l2item{ display:flex; align-items:center; justify-content:space-between; padding:8px 14px; margin:1px 6px; border-radius:6px; cursor:pointer; font-size:12.5px; }
+  .l2item:hover{ background:var(--panel-2); }
+  .l2item.active{ background:var(--accent); color:#fff; }
+  .l2item.active .l2-count{ color:rgba(255,255,255,.85); }
+  .l2-count{ font-size:11px; color:var(--text-faint); font-variant-numeric:tabular-nums; }
+  .l2-sub{ padding:8px 14px 4px 26px; font-size:11px; color:var(--text-faint); }
+  .l2-main{ flex:1; overflow:auto; }
+  .l2-main-head{ padding:14px 20px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--bg); z-index:2;}
+  .l2-main-head h3{ margin:0; font-size:14px; font-weight:600; }
+  .l2-main-head p{ margin:2px 0 0; font-size:11.5px; color:var(--text-dim); }
+  .kv{ display:grid; grid-template-columns:170px 1fr; border-top:1px solid #2a2a2c; }
+  .kv .k{ padding:10px 20px; font-size:12px; color:var(--text-dim); }
+  .kv .k b{ color:var(--text); display:block; font-size:12px; font-weight:500;}
+  .kv .k small{ font-size:10px; color:var(--text-faint);}
+  .kv .v{ padding:10px 20px; font-family:var(--mono); font-size:11.5px; border-left:1px solid #2a2a2c; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .arrow{ color:var(--text-faint); font-size:11px;}
+  .old-v{ color:var(--text-faint); text-decoration:line-through; text-decoration-color:#5a5a5e;}
+  .new-v.mod{ color:var(--modified); }
+  .new-v.add{ color:var(--added); }
+  .old-v.rem{ color:var(--removed); text-decoration:none; }
+  .same-v{ color:var(--text-dim); }
+
+  /* ================= LAYOUT 3: Unified diff list ================= */
+  .l3-toolbar{ display:flex; align-items:center; justify-content:space-between; padding:12px 18px; border-bottom:1px solid var(--border); background:var(--panel);}
+  .l3-toolbar .stats{ display:flex; gap:14px; font-size:11.5px; }
+  .l3-toolbar .stats b{ font-variant-numeric:tabular-nums; }
+  .l3-body{ max-height:560px; overflow:auto; padding:6px 0; }
+  .l3-group-label{ padding:14px 20px 6px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); position:sticky; top:0; background:var(--bg); }
+  .l3-row{ display:flex; align-items:flex-start; gap:12px; padding:9px 20px; border-top:1px solid #26262a; }
+  .l3-row .gutter{ width:3px; align-self:stretch; border-radius:2px; flex-shrink:0; margin-top:1px;}
+  .l3-row.mod .gutter{ background:var(--modified); }
+  .l3-row.add .gutter{ background:var(--added); }
+  .l3-row.rem .gutter{ background:var(--removed); }
+  .l3-row .field{ width:180px; flex-shrink:0; font-size:12px; color:var(--text-dim); }
+  .l3-row .field b{ color:var(--text); display:block; font-size:12.5px; font-weight:500;}
+  .l3-row .field small{ color:var(--text-faint); font-size:10px; }
+  .l3-row .diff{ font-family:var(--mono); font-size:11.5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .l3-row .tag{ font-size:9.5px; font-weight:700; text-transform:uppercase; padding:1px 5px; border-radius:3px; letter-spacing:.03em;}
+  .tag.mod{ background:rgba(255,159,10,.18); color:var(--modified); }
+  .tag.add{ background:rgba(48,209,88,.18); color:var(--added); }
+  .tag.rem{ background:rgba(255,69,58,.18); color:var(--removed); }
+
+  .notes{ max-width:1160px; margin:20px auto 0; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  .notes h4{ margin:0 0 8px; font-size:12.5px; }
+  .notes ul{ margin:0; padding-left:18px; font-size:12px; color:var(--text-dim); line-height:1.7; }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>Font Table Diff — three layout directions</h1>
+  <p>Same underlying data (STAT / fvar / name tables, two font revisions), three different information architectures. Switch between them above. All three keep values in monospace, color-code changes consistently (amber = modified, green = added, red = removed), and default to hiding untouched rows so the eye lands on what actually changed.</p>
+  <div class="switcher" id="switcher">
+    <button class="active" data-target="l1">1 · Grouped columns</button>
+    <button data-target="l2">2 · Sidebar master-detail</button>
+    <button data-target="l3">3 · Unified diff list</button>
+  </div>
+</div>
+
+<div class="stage">
+
+  <!-- ============ LAYOUT 1 ============ -->
+  <div class="mockwin active" id="l1">
+    <div class="titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><div class="wtitle">Compare — Inter-Variable-v2.ttf → Inter-Variable-v3-draft.ttf</div></div>
+    <div class="l1-toolbar">
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--modified)"></span>Modified</span>
+        <span><span class="swatch" style="background:var(--added)"></span>Added</span>
+        <span><span class="swatch" style="background:var(--removed)"></span>Removed</span>
+      </div>
+      <div class="seg">
+        <button class="on">Diffs only</button>
+        <button>Show all</button>
+      </div>
+    </div>
+    <div class="colheads"><div>Field</div><div>v2 (before)</div><div>v3-draft (after)</div></div>
+    <div class="l1-body">
+
+      <div class="group">
+        <div class="group-head"><span class="chev">▾</span><span class="gname">STAT table</span><span class="gcount">2 changed · 4 unchanged</span></div>
+        <div class="group-rows">
+          <div class="row mod">
+            <div class="cell label"><b>Elidable axis</b><small>elidedFallbackNameID</small></div>
+            <div class="cell val old">256 — "Regular"</div>
+            <div class="cell val new">257 — "Roman"</div>
+          </div>
+          <div class="row mod">
+            <div class="cell label"><b>wght axis value</b><small>AxisValue[0].value</small></div>
+            <div class="cell val old">400</div>
+            <div class="cell val new">450</div>
+          </div>
+          <div class="row same">
+            <div class="cell label"><b>Design axes count</b><small>DesignAxisRecord</small></div>
+            <div class="cell val old">4</div>
+            <div class="cell val new">4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-head"><span class="chev">▾</span><span class="gname">fvar — axes</span><span class="gcount">1 changed · 3 unchanged</span></div>
+        <div class="group-rows">
+          <div class="row mod">
+            <div class="cell label"><b>Weight (wght)</b><small>min / default / max</small></div>
+            <div class="cell val old">100 / 400 / 900</div>
+            <div class="cell val new">100 / 450 / 900</div>
+          </div>
+          <div class="row same">
+            <div class="cell label"><b>Width (wdth)</b><small>min / default / max</small></div>
+            <div class="cell val old">75 / 100 / 125</div>
+            <div class="cell val new">75 / 100 / 125</div>
+          </div>
+          <div class="row same">
+            <div class="cell label"><b>Optical Size (opsz)</b><small>min / default / max</small></div>
+            <div class="cell val old">8 / 14 / 32</div>
+            <div class="cell val new">8 / 14 / 32</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-head"><span class="chev">▾</span><span class="gname">fvar — named instances</span><span class="gcount">1 added · 1 removed · 9 unchanged</span></div>
+        <div class="group-rows">
+          <div class="row add">
+            <div class="cell label"><b>Medium Italic</b><small>instance[5]</small></div>
+            <div class="cell val old">—</div>
+            <div class="cell val new">wght 500, ital 1</div>
+          </div>
+          <div class="row rem">
+            <div class="cell label"><b>Book</b><small>instance[2]</small></div>
+            <div class="cell val old">wght 380</div>
+            <div class="cell val new">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-head"><span class="chev">▾</span><span class="gname">name table</span><span class="gcount">3 changed · 12 unchanged</span></div>
+        <div class="group-rows">
+          <div class="row mod">
+            <div class="cell label"><b>Version</b><small>nameID 5</small></div>
+            <div class="cell val old">Version 2.100</div>
+            <div class="cell val new">Version 3.000</div>
+          </div>
+          <div class="row mod">
+            <div class="cell label"><b>Unique identifier</b><small>nameID 3</small></div>
+            <div class="cell val old">2.100;INTR;Inter-Regular</div>
+            <div class="cell val new">3.000;INTR;Inter-Regular</div>
+          </div>
+          <div class="row mod">
+            <div class="cell label"><b>Typographic Subfamily</b><small>nameID 17</small></div>
+            <div class="cell val old">Regular</div>
+            <div class="cell val new">Roman</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ LAYOUT 2 ============ -->
+  <div class="mockwin" id="l2">
+    <div class="titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><div class="wtitle">Compare — Inter-Variable-v2.ttf → Inter-Variable-v3-draft.ttf</div></div>
+    <div class="l2">
+      <div class="l2-side">
+        <div class="shead">Tables</div>
+        <div class="l2item"><span>All changes</span><span class="l2-count">6</span></div>
+        <div class="l2item active"><span>STAT</span><span class="l2-count">2</span></div>
+        <div class="l2item"><span>fvar · axes</span><span class="l2-count">1</span></div>
+        <div class="l2item"><span>fvar · instances</span><span class="l2-count">2</span></div>
+        <div class="l2item"><span>name</span><span class="l2-count">3</span></div>
+        <div class="l2-sub">19 fields unchanged, hidden</div>
+      </div>
+      <div class="l2-main">
+        <div class="l2-main-head">
+          <div>
+            <h3>STAT table</h3>
+            <p>Style Attributes — axis records &amp; axis value tables</p>
+          </div>
+          <span class="badge mod">2 modified</span>
+        </div>
+
+        <div class="kv">
+          <div class="k"><b>Elidable axis name</b><small>elidedFallbackNameID</small></div>
+          <div class="v"><span class="old-v">256 "Regular"</span><span class="arrow">→</span><span class="new-v mod">257 "Roman"</span></div>
+        </div>
+        <div class="kv">
+          <div class="k"><b>wght axis value</b><small>AxisValueArray[0].value</small></div>
+          <div class="v"><span class="old-v">400</span><span class="arrow">→</span><span class="new-v mod">450</span></div>
+        </div>
+        <div class="kv">
+          <div class="k"><b>Design axes count</b><small>DesignAxisRecord</small></div>
+          <div class="v"><span class="same-v">4 — unchanged</span></div>
+        </div>
+        <div class="kv">
+          <div class="k"><b>Axis value table count</b><small>AxisValueCount</small></div>
+          <div class="v"><span class="same-v">14 — unchanged</span></div>
+        </div>
+        <div class="kv">
+          <div class="k"><b>Format</b><small>STAT.Version</small></div>
+          <div class="v"><span class="same-v">1.2 — unchanged</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LAYOUT 3 ============ -->
+  <div class="mockwin" id="l3">
+    <div class="titlebar"><div class="dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div><div class="wtitle">Compare — Inter-Variable-v2.ttf → Inter-Variable-v3-draft.ttf</div></div>
+    <div class="l3-toolbar">
+      <div class="stats">
+        <span style="color:var(--modified)"><b>4</b> modified</span>
+        <span style="color:var(--added)"><b>1</b> added</span>
+        <span style="color:var(--removed)"><b>1</b> removed</span>
+        <span style="color:var(--text-faint)"><b>19</b> unchanged</span>
+      </div>
+      <div class="legend"><span>Sorted by table order ▾</span></div>
+    </div>
+    <div class="l3-body">
+      <div class="l3-group-label">STAT</div>
+      <div class="l3-row mod">
+        <div class="gutter"></div>
+        <div class="field"><b>Elidable axis name</b><small>elidedFallbackNameID</small></div>
+        <div class="diff"><span class="tag mod">mod</span><span class="old-v">256 "Regular"</span><span class="arrow">→</span><span style="color:var(--modified)">257 "Roman"</span></div>
+      </div>
+      <div class="l3-row mod">
+        <div class="gutter"></div>
+        <div class="field"><b>wght axis value</b><small>AxisValueArray[0].value</small></div>
+        <div class="diff"><span class="tag mod">mod</span><span class="old-v">400</span><span class="arrow">→</span><span style="color:var(--modified)">450</span></div>
+      </div>
+
+      <div class="l3-group-label">fvar</div>
+      <div class="l3-row mod">
+        <div class="gutter"></div>
+        <div class="field"><b>Weight (wght) default</b><small>fvar.Axis[0].defaultValue</small></div>
+        <div class="diff"><span class="tag mod">mod</span><span class="old-v">400</span><span class="arrow">→</span><span style="color:var(--modified)">450</span></div>
+      </div>
+      <div class="l3-row add">
+        <div class="gutter"></div>
+        <div class="field"><b>Medium Italic</b><small>instance[5]</small></div>
+        <div class="diff"><span class="tag add">add</span><span style="color:var(--added)">wght 500, ital 1</span></div>
+      </div>
+      <div class="l3-row rem">
+        <div class="gutter"></div>
+        <div class="field"><b>Book</b><small>instance[2]</small></div>
+        <div class="diff"><span class="tag rem">rem</span><span style="color:var(--removed)">wght 380</span></div>
+      </div>
+
+      <div class="l3-group-label">name</div>
+      <div class="l3-row mod">
+        <div class="gutter"></div>
+        <div class="field"><b>Version</b><small>nameID 5</small></div>
+        <div class="diff"><span class="tag mod">mod</span><span class="old-v">Version 2.100</span><span class="arrow">→</span><span style="color:var(--modified)">Version 3.000</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="notes">
+  <h4>Why these three, and what each trades off</h4>
+  <ul>
+    <li><b>1 · Grouped columns</b> keeps your original before/after column metaphor but adds collapsible groups, a sticky "diffs only" filter, and a left-edge color gutter instead of full-row tinting. Closest to what you have, least risk, still keeps the file structure (STAT/fvar/name) visible at all times.</li>
+    <li><b>2 · Sidebar master-detail</b> moves table/section navigation into a sidebar with change counts, so you're never scrolling past thousands of unchanged rows to reach the next diff — you jump straight to "name" or "fvar instances." Best if files get large (many instances, many locales in name table).</li>
+    <li><b>3 · Unified diff list</b> drops the two-column framing entirely and shows one line per changed field as old → new, git-diff style, grouped by table. Fastest to scan for "what actually changed" across an entire comparison, but loses the side-by-side full-table view — you'd want a "show all fields" toggle to fall back to columns when needed.</li>
+    <li>All three assume unchanged rows are collapsed/hidden by default — that was the biggest legibility problem in the screenshot (walls of identical text competing visually with the handful of real diffs).</li>
+  </ul>
+</div>
+
+<script>
+  document.getElementById('switcher').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    document.querySelectorAll('.switcher button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.target;
+    document.querySelectorAll('.mockwin').forEach(w=>w.classList.toggle('active', w.id===target));
+  });
+  document.querySelectorAll('.group-head').forEach(h=>{
+    h.addEventListener('click', ()=> h.parentElement.classList.toggle('collapsed'));
+  });
+  document.querySelectorAll('.l2item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      document.querySelectorAll('.l2item').forEach(i=>i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>

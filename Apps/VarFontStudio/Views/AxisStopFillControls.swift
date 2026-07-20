@@ -57,7 +57,7 @@ struct AxisStopFillControls: View {
     }
 
     private var evenCountControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             HStack {
                 Text("Stop count")
                     .font(StudioTypography.caption)
@@ -93,7 +93,7 @@ struct AxisStopFillControls: View {
                 .font(StudioTypography.meta)
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(enabled ? .primary : .tertiary)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 3)
                 .background(
                     isSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05),
@@ -105,7 +105,7 @@ struct AxisStopFillControls: View {
     }
 
     private var intervalControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             HStack {
                 Text("Step size")
                     .font(StudioTypography.caption)

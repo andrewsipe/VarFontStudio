@@ -21,7 +21,7 @@ struct CommitDiffSheet: View {
             }
             .frame(maxHeight: .infinity)
         }
-        .padding(20)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 900, height: 680)
         .preferredColorScheme(.dark)
     }
@@ -46,13 +46,13 @@ private struct SaveReviewActionBar: View {
     }
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 8) {
+        VStack(alignment: .trailing, spacing: StudioSpacing.controlGap) {
             Button("Save Project") {
                 editor.saveProject()
             }
             .disabled(!editor.canSaveProject)
 
-            HStack(spacing: 8) {
+            HStack(spacing: StudioSpacing.controlGap) {
                 if includeCancel {
                     Button("Cancel") {
                         editor.dismissCommitDiffSheet()
@@ -180,7 +180,7 @@ struct SaveReviewWindow: View {
                         CommitDiffReviewView(session: session, fillsAvailableHeight: true) {
                             SaveReviewActionBar(session: session, projectID: projectID)
                         }
-                        .padding(20)
+                        .padding(StudioSpacing.sheetOuterPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     } else {
                         VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
@@ -197,7 +197,7 @@ struct SaveReviewWindow: View {
                                 }
                             }
                         }
-                        .padding(20)
+                        .padding(StudioSpacing.sheetOuterPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                 }
@@ -248,7 +248,7 @@ struct SaveReviewWindow: View {
                                 .progressViewStyle(.linear)
                         }
                     }
-                    .padding(20)
+                    .padding(StudioSpacing.sheetOuterPadding)
                     .frame(width: 360)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
                 }
@@ -320,7 +320,7 @@ struct SaveReviewWindow: View {
                     .foregroundStyle(StudioColors.errorForeground)
             }
         }
-        .padding(10)
+        .padding(StudioSpacing.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -337,7 +337,7 @@ struct SaveReviewWindow: View {
                 StudioWarningMessage(message: warning.message)
             }
         }
-        .padding(10)
+        .padding(StudioSpacing.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)

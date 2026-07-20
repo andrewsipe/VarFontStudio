@@ -212,7 +212,7 @@ struct CommitDiffReviewView: View {
                 }
                 Spacer(minLength: 8)
                 Text("click to show/hide · ⌘-click to isolate")
-                    .font(.system(size: 10))
+                    .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -255,7 +255,7 @@ struct CommitDiffReviewView: View {
 
                 if let activeTab {
                     Text(rowCountLabel(for: activeTab))
-                        .font(.system(size: 11))
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                         .monospacedDigit()
                 }
@@ -279,9 +279,9 @@ struct CommitDiffReviewView: View {
             get: { editor.nameidStrategy(forProjectID: projectID, fontID: session.fontID) },
             set: { editor.setNameIDStrategy(forProjectID: projectID, fontID: session.fontID, strategy: $0) }
         )
-        return HStack(spacing: 8) {
+        return HStack(spacing: StudioSpacing.controlGap) {
             Text("OpenType labels")
-                .font(.system(size: 11))
+                .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize()
             Picker("OpenType labels", selection: strategy) {
@@ -315,10 +315,10 @@ struct CommitDiffReviewView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .font(.system(size: 11.5))
+            .font(StudioTypography.rowName)
         } else {
             Text(headline)
-                .font(.system(size: 11.5))
+                .font(StudioTypography.rowName)
                 .foregroundStyle(.secondary)
         }
     }
@@ -436,7 +436,7 @@ struct CommitDiffReviewView: View {
                 StudioWarningMessage(message: warning.message)
             }
         }
-        .padding(10)
+        .padding(StudioSpacing.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
                 .strokeBorder(StudioColors.warningStroke, lineWidth: 1)
@@ -455,7 +455,7 @@ struct CommitDiffReviewView: View {
                     .foregroundStyle(StudioColors.errorForeground)
             }
         }
-        .padding(10)
+        .padding(StudioSpacing.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
                 .strokeBorder(StudioColors.errorStroke, lineWidth: 1)

@@ -278,7 +278,7 @@ struct AxisConflictResolverSheet: View {
     // MARK: - Sections
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             Text("Resolve axis conflict")
                 .font(StudioTypography.emphasis)
             if let reviewPosition, let reviewTotal {
@@ -286,7 +286,7 @@ struct AxisConflictResolverSheet: View {
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: 8) {
+            HStack(spacing: StudioSpacing.controlGap) {
                 StudioTagPill(text: bundle.axisTag)
                 Text(bundle.axisLabel)
                     .font(StudioTypography.caption)
@@ -294,7 +294,7 @@ struct AxisConflictResolverSheet: View {
                 Text(kindLabel)
                     .font(StudioTypography.meta.weight(.medium))
                     .foregroundStyle(StudioColors.warningForeground)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.vertical, 3)
                     .background(StudioColors.warningFill, in: Capsule())
             }
@@ -461,9 +461,7 @@ struct AxisConflictResolverSheet: View {
             }
         } label: {
             HStack(spacing: 0) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                StudioRadioMark(isOn: isSelected)
                     .frame(width: 20)
 
                 Text(AxisStopSuggestions.formatValue(stop.value))

@@ -35,6 +35,11 @@ struct NamingOrderChainFooter: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Deliberate breathing room below the whole footer, matching the divider
+        // above the app-wide status bar. In Preview mode this same amount is
+        // folded into the glyph canvas instead (see `resolvedGroupHeight`) so it
+        // becomes more visible canvas rather than dead air beneath it.
+        .padding(.bottom, (isExpanded && isPreviewMode) ? 0 : Self.footerBottomGap)
         .onChange(of: editor.selectedFontID) {
             session.reset()
         }
@@ -63,16 +68,17 @@ struct NamingOrderChainFooter: View {
                         namingOrderBody
                     case .preview:
                         FontPreviewPanel()
-                            .frame(height: resolvedFooterBodyHeight)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: resolvedGroupHeight, alignment: .top)
                 .padding(.top, StudioSpacing.controlGap)
-                .padding(.bottom, StudioSpacing.toolbarVertical + 2)
+                .padding(.bottom, isPreviewMode ? 0 : StudioSpacing.toolbarVertical + 2)
                 .background {
                     // Always measure natural Naming-order height (even while Preview is showing)
-                    // so both modes share one footer slot. Preview additionally floors this at
-                    // its own preferred height — see resolvedFooterBodyHeight.
+                    // so both modes share one footer slot. Both modes are then locked to the same
+                    // resolvedFooterBodyHeight (which floors at Preview's own preferred height) so
+                    // they're always pixel-identical — see resolvedFooterBodyHeight.
                     namingOrderBody
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,9 +101,9 @@ struct NamingOrderChainFooter: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, isPreviewMode && isExpanded ? 0 : StudioSpacing.panelHorizontal + 6)
+        .padding(.horizontal, isPreviewMode && isExpanded ? 0 : StudioSpacing.previewInset)
         .padding(.top, StudioSpacing.toolbarVertical + 2)
-        .padding(.bottom, StudioSpacing.toolbarVertical)
+        .padding(.bottom, isPreviewMode ? 0 : StudioSpacing.toolbarVertical)
     }
 
     /// Shared footer height — the taller of the naming-order body's natural height
@@ -107,6 +113,24 @@ struct NamingOrderChainFooter: View {
     /// naming-order body has reported its measured height at least once.
     private var resolvedFooterBodyHeight: CGFloat {
         max(footerBodyHeight, FontPreviewPanel.preferredHeight)
+    }
+
+    /// Breathing room below the whole footer (shared by both modes so switching
+    /// tabs never changes the overall footer height).
+    private static let footerBottomGap: CGFloat = StudioSpacing.sectionGap - 2
+
+    /// Height actually given to the mode's content `Group`. Naming order gets
+    /// `resolvedFooterBodyHeight` plus its usual trailing padding. Preview mode
+    /// has a solid, visibly-colored canvas, so instead of leaving that same
+    /// padding as dead air below it, it's folded straight into the canvas —
+    /// same total footprint, but it now reads as more canvas rather than a gap
+    /// before the app-wide status bar.
+    private var resolvedGroupHeight: CGFloat {
+        guard isPreviewMode else { return resolvedFooterBodyHeight }
+        let reclaimed = (StudioSpacing.toolbarVertical + 2)   // Group's own bottom padding
+            + StudioSpacing.toolbarVertical                    // disclosureContent's outer bottom padding
+            + Self.footerBottomGap                             // footer's own trailing padding
+        return resolvedFooterBodyHeight + reclaimed
     }
 
     private var namingOrderBody: some View {
@@ -175,7 +199,7 @@ struct NamingOrderChainFooter: View {
                     .frame(maxWidth: 220, alignment: .trailing)
             }
         }
-        .padding(.horizontal, isPreviewMode && isExpanded ? StudioSpacing.panelHorizontal + 6 : 0)
+        .padding(.horizontal, isPreviewMode && isExpanded ? StudioSpacing.previewInset : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: StudioFieldMetrics.disclosureLabelRowHeight)
     }
@@ -193,7 +217,7 @@ struct NamingOrderChainFooter: View {
                         .font(StudioTypography.meta)
                         .fontWeight(editor.footerPanelMode == mode ? .semibold : .regular)
                         .foregroundStyle(editor.footerPanelMode == mode ? Color.accentColor : .secondary)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, 4)
                         .background {
                             RoundedRectangle(cornerRadius: StudioRadius.small)
@@ -350,7 +374,7 @@ struct NamingOrderChainFooter: View {
                 .foregroundStyle(accentValue ? StudioColors.elidedFallbackForeground : .primary)
                 .lineLimit(1)
                 .textSelection(.enabled)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 3)
                 .background(.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         }
@@ -459,7 +483,7 @@ struct NamingOrderChainFooter: View {
                     .lineLimit(1)
             }
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 5)
             .background(
                 hasPrefix ? Color.accentColor.opacity(0.14) : Color.clear,
@@ -614,7 +638,7 @@ struct NamingOrderChainFooter: View {
                 chainChipBody(tag: tag, inGrid: inGrid)
             }
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 5)
             .background(
                 inGrid ? StudioColors.surfaceMuted : Color.clear,
@@ -638,7 +662,7 @@ struct NamingOrderChainFooter: View {
             .foregroundStyle(Color.accentColor)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 5)
             .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
@@ -659,7 +683,7 @@ struct NamingOrderChainFooter: View {
             .foregroundStyle(StudioColors.codeForeground)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 5)
             .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
@@ -683,7 +707,7 @@ struct NamingOrderChainFooter: View {
             .foregroundStyle(StudioColors.clarifierForeground)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 5)
             .background(StudioColors.clarifierBackground.opacity(0.5), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
@@ -708,7 +732,7 @@ struct NamingOrderChainFooter: View {
                 .lineLimit(1)
         }
         .fixedSize(horizontal: true, vertical: false)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, StudioSpacing.panelHorizontal)
         .padding(.vertical, 5)
         .background(
             StudioColors.registrationBackground.opacity(0.5),
@@ -760,21 +784,21 @@ struct NamingOrderChainFooter: View {
                         .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(Color.accentColor.opacity(0.5))
                         .lineLimit(1)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, 5)
                 } else if editor.isCodeNamingToken(tag) {
                     Text("Code")
                         .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(StudioColors.codeForeground.opacity(0.5))
                         .lineLimit(1)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, 5)
                 } else if editor.isClarifierNamingToken(tag) {
                     Text(chainChipLabel(for: tag))
                         .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.clarifierForeground.opacity(0.5))
                         .lineLimit(1)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, 5)
                 } else if editor.isRegistrationNamingAxis(tag: tag) {
                     HStack(spacing: 5) {
@@ -786,7 +810,7 @@ struct NamingOrderChainFooter: View {
                             .foregroundStyle(StudioColors.registrationForeground.opacity(0.5))
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.vertical, 5)
                 } else {
                     HStack(spacing: 5) {
@@ -798,7 +822,7 @@ struct NamingOrderChainFooter: View {
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.vertical, 5)
                 }
             }
@@ -833,7 +857,7 @@ struct NamingOrderChainFooter: View {
                 .font(StudioTypography.caption.weight(.semibold))
                 .foregroundStyle(Color.accentColor)
                 .lineLimit(1)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 5)
                 .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         } else if editor.isCodeNamingToken(tag) {
@@ -841,7 +865,7 @@ struct NamingOrderChainFooter: View {
                 .font(StudioTypography.caption.weight(.semibold))
                 .foregroundStyle(StudioColors.codeForeground)
                 .lineLimit(1)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 5)
                 .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         } else if editor.isClarifierNamingToken(tag) {
@@ -849,7 +873,7 @@ struct NamingOrderChainFooter: View {
                 .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.clarifierForeground)
                 .lineLimit(1)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 5)
                 .background(
                     StudioColors.clarifierBackground.opacity(0.5),
@@ -864,7 +888,7 @@ struct NamingOrderChainFooter: View {
                     .foregroundStyle(StudioColors.registrationForeground)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 5)
             .background(
                 StudioColors.registrationBackground.opacity(0.5),
@@ -879,7 +903,7 @@ struct NamingOrderChainFooter: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, 5)
             .background(
                 StudioColors.surfaceInset,
