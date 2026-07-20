@@ -14,6 +14,7 @@ struct ProjectInspectorPanel: View {
            let openProject = editor.openProjects.first(where: { $0.id == projectID }) {
             VStack(alignment: .leading, spacing: 0) {
                 ProjectScopeHeader(openProject: openProject)
+                    .overlay(alignment: .bottom) { Divider() }
 
                 fileNamingSection(for: openProject)
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -61,7 +62,7 @@ struct ProjectInspectorPanel: View {
                     isFileNamingExpanded.toggle()
                 }
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: StudioSpacing.tightGap) {
                     StudioDisclosureChevron(isExpanded: isFileNamingExpanded)
                     StudioSectionLabel(title: "File naming")
                 }

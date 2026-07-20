@@ -16,7 +16,7 @@ struct ProjectFileSubBar: View {
                     StudioSectionLabel(title: "File")
 
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: StudioSpacing.tightGap) {
                             ForEach(project.fonts) { font in
                                 fileChip(font, projectID: projectID, projectFontCount: project.fonts.count)
                             }
@@ -40,7 +40,7 @@ struct ProjectFileSubBar: View {
                     .scrollDisabled(workspaceDrag.isActive)
                 }
                 .padding(.horizontal, StudioSpacing.editorChromeInset)
-                .padding(.vertical, 5)
+                .padding(.vertical, StudioSpacing.toolbarVertical)
                 .workspaceDropZoneHighlight(
                     isActive: workspaceDrag.shouldHighlightFileSubBarRow(
                         activeProjectID: editor.activeProjectID
@@ -67,7 +67,7 @@ struct ProjectFileSubBar: View {
         let name = editor.fontBasename(for: font)
         let isMaster = editor.isMasterFont(fontID: font.id, projectID: projectID)
 
-        return HStack(spacing: 4) {
+        return HStack(spacing: StudioSpacing.tightGap) {
             WorkspaceDraggableContainer(
                 item: .font(fontID: font.id, fromProjectID: projectID, label: name),
                 isDragEnabled: editor.canDragFont(forProjectID: projectID),
@@ -78,7 +78,7 @@ struct ProjectFileSubBar: View {
                 }
             ) {
                 StudioTabChip(isSelected: isSelected) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: StudioSpacing.tightGap) {
                         if isMaster, projectFontCount > 1 {
                             StudioMasterStar()
                                 .help("Master — axis tree source for this project")
@@ -120,7 +120,7 @@ struct ProjectFileSubBar: View {
         projectID: String,
         projectFontCount: Int
     ) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: StudioSpacing.tightGap) {
             if let savedName = editor.savedOutputLabel(for: font) {
                 Image(systemName: "square.and.arrow.up.badge.checkmark")
                     .font(StudioTypography.iconGlyph)

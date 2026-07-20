@@ -49,7 +49,7 @@ struct MissingFontsSheet: View {
 
     @ViewBuilder
     private func missingFontRow(_ entry: MissingFontEntry) -> some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: StudioSpacing.sectionGap) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.basename)
                     .font(StudioTypography.body)

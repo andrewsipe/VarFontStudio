@@ -25,7 +25,7 @@ struct ProjectTargetPickerSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             } else {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                     Text("Project")
                         .font(StudioTypography.sectionLabel)
                         .foregroundStyle(.secondary)

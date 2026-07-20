@@ -95,7 +95,7 @@ struct CombinationStylesSection: View {
     @ViewBuilder
     private func compoundSubline(_ compound: CompoundStatValue) -> some View {
         let tags = compound.coords.keys.sorted()
-        HStack(spacing: 6) {
+        HStack(spacing: StudioSpacing.rowGap) {
             ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
                 if index > 0 {
                     Text("+")

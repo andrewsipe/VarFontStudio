@@ -32,15 +32,6 @@ struct AxisTreePanel: View {
                         .font(StudioTypography.meta)
                     }
 
-                    if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
-                        Button("Push Axis Tree") {
-                            editor.requestPushMasterAxisTree()
-                        }
-                        .font(StudioTypography.meta)
-                        .buttonStyle(.plain)
-                        .help("Copy master axis stops to all other files in this project")
-                    }
-
                     StudioToolbarIconButton(
                         systemName: "sidebar.left",
                         help: "Collapse axis tree"
@@ -52,11 +43,22 @@ struct AxisTreePanel: View {
                 }
             }
 
+            axisTreeScopeBand
+                .frame(height: StudioChromeBand.scope)
+                .padding(.horizontal, StudioSpacing.scrollContentHorizontal)
+
+            Divider()
+
+            axisTreeContextBand
+                .frame(height: StudioChromeBand.context)
+                .padding(.horizontal, StudioSpacing.scrollContentHorizontal)
+                .background(StudioColors.surfaceMuted)
+                .overlay(alignment: .bottom) { Divider() }
+
             if editor.selectedFont != nil {
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        gridSummaryContent
                         axesContent(scrollProxy: scrollProxy)
                     }
                     .padding(.leading, StudioSpacing.scrollContentHorizontal)
@@ -152,25 +154,73 @@ struct AxisTreePanel: View {
 
     // MARK: - Sections
 
-    @ViewBuilder
-    private var gridSummaryContent: some View {
-        if let plan = editor.instancePlan, !plan.formula.parts.isEmpty {
-            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                studioSummaryRow("Instance grid", value: gridFormulaText(plan))
-                studioSummaryRow("Generated", value: "\(plan.formula.totalGenerated)")
+    /// Band 2 — project · file glance (peer to Instances/Names and Project/Instance tabs).
+    private var axisTreeScopeBand: some View {
+        HStack(spacing: StudioSpacing.rowGap) {
+            if let project = editor.activeOpenProject {
+                Text(editor.projectTabLabel(for: project))
+                    .font(StudioTypography.rowName)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            } else {
+                Text("No project")
+                    .font(StudioTypography.rowName)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
-            .padding(.bottom, StudioSpacing.sectionGap)
+
+            if let font = editor.selectedFont {
+                Text("·")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.quaternary)
+                Text(editor.fontBasename(for: font))
+                    .font(StudioTypography.rowName)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: StudioSpacing.controlGap)
+
+            if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
+                Button("Push Axis Tree") {
+                    editor.requestPushMasterAxisTree()
+                }
+                .font(StudioTypography.meta)
+                .buttonStyle(.plain)
+                .help("Copy master axis stops to all other files in this project")
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    /// Band 3 — instance-grid summary (peer to Instances filter / Inspector project title).
+    private var axisTreeContextBand: some View {
+        Group {
+            if let plan = editor.instancePlan, !plan.formula.parts.isEmpty {
+                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                    studioSummaryRow("Instance grid", value: gridFormulaText(plan))
+                    studioSummaryRow("Generated", value: "\(plan.formula.totalGenerated)")
+                }
+            } else {
+                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                    studioSummaryRow("Instance grid", value: "—")
+                    studioSummaryRow("Generated", value: "—")
+                }
+                .opacity(0.55)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     private func studioSummaryRow(_ label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(StudioTypography.caption)
+                .font(StudioTypography.bodyMedium)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(StudioTypography.bodyMedium)
+                .font(StudioTypography.emphasis)
                 .foregroundStyle(StudioColors.computedHighlight)
                 .monospacedDigit()
         }
@@ -238,8 +288,8 @@ struct AxisTreePanel: View {
                     }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, StudioSpace.x2_5)
+            .padding(.vertical, StudioSpace.x2)
             .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
             .padding(.bottom, StudioSpacing.controlGap)
         }
@@ -399,7 +449,7 @@ struct AxisTreePanel: View {
 
             if isExpanded, axisDragSession.draggingTag != axis.tag {
                 axisDetail(axis)
-                    .padding(.top, 4)
+                    .padding(.top, StudioSpacing.tightGap)
                     .padding(.leading, AxisBlockLayout.stopIndentWidth)
             }
         }
@@ -422,8 +472,8 @@ struct AxisTreePanel: View {
                 isInstanceAxis: .constant(axis.role == .instance),
                 onToggleExpansion: {}
             )
-            .padding(.horizontal, 6)
-            .padding(.vertical, 5)
+            .padding(.horizontal, StudioSpacing.rowHorizontal)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .frame(width: width, alignment: .leading)
             .background(
                 Color.accentColor.opacity(0.16),

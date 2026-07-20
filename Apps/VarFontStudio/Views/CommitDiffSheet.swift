@@ -112,15 +112,15 @@ private struct SaveReviewFileTabBar: View {
                 StudioSectionLabel(title: "File")
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: StudioSpacing.tightGap) {
                         ForEach(fonts) { font in
                             fileChip(font)
                         }
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .padding(.horizontal, StudioSpacing.sheetOuterPadding)
+            .padding(.vertical, StudioSpace.x2)
             .background(.bar)
         }
     }
@@ -231,7 +231,7 @@ struct SaveReviewWindow: View {
             if editor.isBusy {
                 ZStack {
                     Color.black.opacity(0.35)
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: StudioSpace.x3) {
                         Text(editor.busyStatus ?? "Working…")
                             .font(StudioTypography.bodyMedium)
                             .foregroundStyle(.primary)
@@ -295,7 +295,7 @@ struct SaveReviewWindow: View {
     }
 
     private func preflightFailureHeader(session: CommitPreflightSession) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
             Text("Export preview failed. Check the Review window for details.")
                 .font(StudioTypography.emphasis)
             Text("Fix the issues below, then use Refresh to rebuild the diff.")
@@ -310,7 +310,7 @@ struct SaveReviewWindow: View {
     }
 
     private func preflightErrorsCard(_ errors: [CommitError]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Cannot export")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
@@ -329,7 +329,7 @@ struct SaveReviewWindow: View {
     }
 
     private func preflightWarningsCard(_ warnings: [PlanWarning]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Warnings")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)

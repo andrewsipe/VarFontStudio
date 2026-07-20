@@ -56,7 +56,7 @@ struct CommitDiffReviewView: View {
                     .font(StudioTypography.body)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, SaveReviewLayout.horizontalPadding)
-                    .padding(.vertical, 24)
+                    .padding(.vertical, StudioSpace.x6)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -69,7 +69,7 @@ struct CommitDiffReviewView: View {
     private var pinnedChrome: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: SaveReviewLayout.chromeSectionGap) {
-                HStack(alignment: .top, spacing: 16) {
+                HStack(alignment: .top, spacing: StudioSpace.x4) {
                     VStack(alignment: .leading, spacing: SaveReviewLayout.chromeSectionGap) {
                         header
                         fileNamingBanner
@@ -102,7 +102,7 @@ struct CommitDiffReviewView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Review")
                 .font(StudioTypography.emphasis)
             Text("Planned write preview — after values with change context")
@@ -132,7 +132,7 @@ struct CommitDiffReviewView: View {
                 }
         }()
         if !psPrefix.isEmpty || !registrationStops.isEmpty || !clarifiers.isEmpty {
-            HStack(spacing: 6) {
+            HStack(spacing: StudioSpacing.rowGap) {
                 if !psPrefix.isEmpty {
                     Text("PS prefix")
                         .font(StudioTypography.meta)
@@ -145,7 +145,7 @@ struct CommitDiffReviewView: View {
                         .font(StudioTypography.meta)
                         .foregroundStyle(.secondary)
                     ForEach(registrationStops, id: \.tag) { stop in
-                        HStack(spacing: 4) {
+                        HStack(spacing: StudioSpacing.tightGap) {
                             Text(stop.tag)
                                 .font(StudioTypography.tag)
                                 .foregroundStyle(StudioColors.registrationForeground)
@@ -158,7 +158,7 @@ struct CommitDiffReviewView: View {
                                     .foregroundStyle(StudioColors.codeForeground)
                             }
                         }
-                        .padding(.horizontal, 6)
+                        .padding(.horizontal, StudioSpacing.rowHorizontal)
                         .padding(.vertical, 2)
                         .background(
                             StudioColors.registrationBackground,
@@ -233,13 +233,13 @@ struct CommitDiffReviewView: View {
                 )
             )
             .padding(.horizontal, SaveReviewLayout.horizontalPadding)
-            .padding(.top, 10)
-            .padding(.bottom, 12)
+            .padding(.top, StudioSpace.x2_5)
+            .padding(.bottom, StudioSpace.x3)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(StudioColors.surfaceStroke).frame(height: 0.5)
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: StudioSpace.x3) {
                 StudioSearchField(
                     text: Binding(
                         get: { uiState.searchQuery },
@@ -306,7 +306,7 @@ struct CommitDiffReviewView: View {
         if headline.hasPrefix(tab.label) {
             let suffix = String(headline.dropFirst(tab.label.count))
                 .trimmingCharacters(in: .whitespaces)
-            HStack(spacing: 4) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 Text(tab.label)
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
@@ -338,7 +338,7 @@ struct CommitDiffReviewView: View {
             Text("No rows match the current filters.")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
-                .padding(.vertical, 24)
+                .padding(.vertical, StudioSpace.x6)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: fillsAvailableHeight ? 200 : 420, maxHeight: fillsAvailableHeight ? .infinity : 420)
         } else {
@@ -354,7 +354,7 @@ struct CommitDiffReviewView: View {
                         }
                     }
                 }
-                .padding(.bottom, 6)
+                .padding(.bottom, StudioSpacing.panelVertical)
             }
             .background(SaveReviewLayout.canvasBackground)
             .scrollContentBackground(.hidden)
@@ -428,7 +428,7 @@ struct CommitDiffReviewView: View {
 
     @ViewBuilder
     private func warningsCard(_ warnings: [PlanWarning]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Warnings")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
@@ -445,7 +445,7 @@ struct CommitDiffReviewView: View {
 
     @ViewBuilder
     private func errorsCard(_ errors: [CommitError]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Cannot export")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)

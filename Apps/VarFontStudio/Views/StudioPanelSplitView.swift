@@ -80,7 +80,7 @@ struct StudioPanelSplitView: View {
 
             middleScopeSwitcher
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 8)
+                .frame(height: StudioChromeBand.scope)
 
             Divider()
 
@@ -158,7 +158,7 @@ struct StudioPanelSplitView: View {
                 .fontWeight(isOn ? .semibold : .regular)
                 .foregroundStyle(isOn ? Color.accentColor : .secondary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, StudioSpacing.panelVertical)
                 .background {
                     RoundedRectangle(cornerRadius: StudioRadius.row)
                         .fill(isOn ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -286,7 +286,7 @@ private struct AxisTreeRail: View {
                     height: StudioPanelMetrics.axisTreeRailLabelHeight,
                     alignment: .center
                 )
-                .padding(.top, 8)
+                .padding(.top, StudioSpace.x2)
 
             Spacer(minLength: 0)
         }

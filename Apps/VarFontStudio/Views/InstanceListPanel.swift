@@ -232,9 +232,10 @@ struct InstanceListPanel: View {
             .padding(.trailing, StudioSpacing.panelHorizontal)
             .padding(.bottom, StudioSpacing.toolbarVertical)
             .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
-
-            Divider()
         }
+        .frame(height: StudioChromeBand.context, alignment: .top)
+        .background(StudioColors.surfaceMuted)
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     private var searchField: some View {
@@ -246,7 +247,7 @@ struct InstanceListPanel: View {
     }
 
     private var showFilterPicker: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: StudioSpacing.tightGap) {
             Text("Show")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)

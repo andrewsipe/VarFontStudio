@@ -173,7 +173,7 @@ struct EmptyWorkspaceView: View {
     var isDropTargeted: Bool = false
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: StudioSpace.x3) {
             Image(systemName: isDropTargeted ? "plus.circle.fill" : "arrow.down.doc")
                 .font(.system(size: 36))
                 .foregroundStyle(isDropTargeted ? Color.accentColor : .secondary)
@@ -190,7 +190,7 @@ struct EmptyWorkspaceView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding(32)
+        .padding(StudioSpace.x8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .workspaceDropZoneHighlight(
             isActive: isDropTargeted,

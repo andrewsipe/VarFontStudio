@@ -48,7 +48,8 @@ struct ProjectScopeHeader: View {
             }
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal)
-        .padding(.vertical, 12)
+        .padding(.vertical, StudioSpacing.panelVertical)
+        .frame(height: StudioChromeBand.context, alignment: .center)
         .background(StudioColors.surfaceMuted)
         .onAppear {
             editedName = currentDisplayName
@@ -68,7 +69,7 @@ struct ProjectScopeHeader: View {
     }
 
     private var titleContent: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Group {
                 if isEditingName {
                     StudioTextField(

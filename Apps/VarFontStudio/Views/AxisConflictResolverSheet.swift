@@ -311,7 +311,7 @@ struct AxisConflictResolverSheet: View {
 
     @ViewBuilder
     private var stopsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
             HStack {
                 Text(stopsSectionTitle)
                     .font(StudioTypography.sectionLabel)
@@ -351,7 +351,7 @@ struct AxisConflictResolverSheet: View {
                     }
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, StudioSpace.x2)
             .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         }
     }
@@ -478,7 +478,7 @@ struct AxisConflictResolverSheet: View {
                 ConflictElidableIndicator(isOn: stop.elidable)
                     .frame(width: ConflictStopTableLayout.elidableWidth)
             }
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioSpacing.instanceRowVertical)
             .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
             .background {
                 StudioRowBackground(
@@ -516,7 +516,7 @@ struct AxisConflictResolverSheet: View {
                 ConflictElidableIndicator(isOn: stop.elidable)
                     .frame(width: ConflictStopTableLayout.elidableWidth)
             }
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioSpacing.instanceRowVertical)
             .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
             .background {
                 StudioRowBackground(
@@ -534,7 +534,7 @@ struct AxisConflictResolverSheet: View {
 
     @ViewBuilder
     private var symptomSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
             if involvedStops.count > 2 {
                 if resolvesInOnePass {
                     Text("Resolve every involved stop in one step using the options below.")
@@ -560,7 +560,7 @@ struct AxisConflictResolverSheet: View {
     @ViewBuilder
     private var fixSection: some View {
         if !availableStrategies.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: StudioSpace.x3) {
                 Text(fixSectionTitle)
                     .font(StudioTypography.sectionLabel)
                     .foregroundStyle(.secondary)
@@ -667,7 +667,7 @@ struct AxisConflictResolverSheet: View {
     }
 
     private func renameFields(stop: AxisValue, axis: AxisDefinition) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("New name")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
@@ -690,7 +690,7 @@ struct AxisConflictResolverSheet: View {
     }
 
     private func revalueFields(stop: AxisValue, axis: AxisDefinition) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("New value")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
@@ -719,7 +719,7 @@ struct AxisConflictResolverSheet: View {
     @ViewBuilder
     private var previewSection: some View {
         if !stopOutcomes.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
                 Text("Result")
                     .font(StudioTypography.sectionLabel)
                     .foregroundStyle(.secondary)
@@ -731,7 +731,7 @@ struct AxisConflictResolverSheet: View {
                         outcomeRow(outcome)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, StudioSpace.x2)
                 .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
                 .overlay {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -776,7 +776,7 @@ struct AxisConflictResolverSheet: View {
             )
             .frame(width: ConflictStopTableLayout.elidableWidth)
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, StudioSpacing.instanceRowVertical)
         .padding(.horizontal, ConflictStopTableLayout.rowHorizontalPadding)
         .opacity(outcome.isRemoved ? 0.55 : 1)
         .overlay(alignment: .leading) {
@@ -784,7 +784,7 @@ struct AxisConflictResolverSheet: View {
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(Color.accentColor)
                     .frame(width: 3)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, StudioSpacing.tightGap)
             }
         }
     }
@@ -797,7 +797,7 @@ struct AxisConflictResolverSheet: View {
                 .foregroundStyle(.secondary)
                 .strikethrough()
         } else if valueChanged(outcome), let after = outcome.valueAfter {
-            HStack(spacing: 4) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 Text(AxisStopSuggestions.formatValue(outcome.valueBefore))
                     .foregroundStyle(.secondary)
                 Text("→")
@@ -816,7 +816,7 @@ struct AxisConflictResolverSheet: View {
     @ViewBuilder
     private func outcomeNameCell(_ outcome: ConflictStopOutcome) -> some View {
         if outcome.isRemoved {
-            HStack(spacing: 6) {
+            HStack(spacing: StudioSpacing.rowGap) {
                 Text(outcome.nameBefore)
                     .strikethrough()
                 Text("Removed")
@@ -826,7 +826,7 @@ struct AxisConflictResolverSheet: View {
             .font(StudioTypography.body)
             .foregroundStyle(.secondary)
         } else if nameChanged(outcome), let after = outcome.nameAfter {
-            HStack(spacing: 4) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 Text(outcome.nameBefore)
                     .foregroundStyle(.secondary)
                 Text("→")
@@ -876,7 +876,7 @@ struct AxisConflictResolverSheet: View {
             .keyboardShortcut(.defaultAction)
             .disabled(!canApply)
         }
-        .padding(.top, 4)
+        .padding(.top, StudioSpacing.tightGap)
     }
 
     private func applyFix(andContinue: Bool) {

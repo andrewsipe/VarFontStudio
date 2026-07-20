@@ -44,7 +44,7 @@ struct StudioShortcutsHelpView: View {
     ]
 
     private var workflowNotes: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("WORKFLOW")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
@@ -56,8 +56,8 @@ struct StudioShortcutsHelpView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: StudioSpace.x4) {
+            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                 Text("VarFont Studio Shortcuts")
                     .font(StudioTypography.emphasis)
                 Text("Alpha build — Save is the project file; Export writes patched fonts beside the source or into a folder you choose.")

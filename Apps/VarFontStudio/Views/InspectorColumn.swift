@@ -13,7 +13,7 @@ struct InspectorColumn: View {
 
             scopeSwitcher
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 8)
+                .frame(height: StudioChromeBand.scope)
 
             Divider()
 
@@ -92,7 +92,7 @@ struct InspectorColumn: View {
                 .fontWeight(isOn ? .semibold : .regular)
                 .foregroundStyle(isOn ? Color.accentColor : .secondary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, StudioSpacing.panelVertical)
                 .background {
                     RoundedRectangle(cornerRadius: StudioRadius.row)
                         .fill(isOn ? Color.accentColor.opacity(0.12) : Color.clear)

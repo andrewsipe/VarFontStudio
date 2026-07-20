@@ -85,7 +85,7 @@ struct PlanIssueResolverSheet: View {
     // MARK: - Sections
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
             Text("Plan issue")
                 .font(StudioTypography.emphasis)
             if let reviewPosition, let reviewTotal {
@@ -203,7 +203,7 @@ struct PlanIssueResolverSheet: View {
                     .padding(.top, 2)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: StudioSpacing.rowGap) {
                         Text(proposal.title)
                             .font(StudioTypography.bodyMedium)
                             .foregroundStyle(.primary)
@@ -224,7 +224,7 @@ struct PlanIssueResolverSheet: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, StudioSpacing.panelHorizontal)
-        .padding(.vertical, 6)
+        .padding(.vertical, StudioSpacing.panelVertical)
         .background(
             isSelected ? StudioColors.surfaceMuted : Color.clear,
             in: RoundedRectangle(cornerRadius: StudioRadius.row)

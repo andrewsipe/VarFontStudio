@@ -20,7 +20,7 @@ struct ProjectToolbar: View {
     var body: some View {
         HStack(spacing: StudioSpacing.controlGap) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
+                HStack(spacing: StudioSpacing.tightGap) {
                     ForEach(editor.openProjects) { openProject in
                         ProjectTabChip(openProject: openProject)
                     }
@@ -61,7 +61,7 @@ struct ProjectToolbar: View {
     }
 
     private var newProjectAffordance: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: StudioSpacing.tightGap) {
             Image(systemName: "folder.badge.plus")
                 .font(.system(size: 10, weight: .semibold))
             Text("New project")
@@ -69,7 +69,7 @@ struct ProjectToolbar: View {
                 .fontWeight(isNewProjectTarget ? .semibold : .regular)
         }
         .foregroundStyle(StudioColors.dropNewProject.opacity(isNewProjectTarget ? 0.95 : 0.45))
-        .padding(.trailing, 4)
+        .padding(.trailing, StudioSpacing.tightGap)
         .allowsHitTesting(false)
         .animation(.easeOut(duration: 0.12), value: isNewProjectTarget)
     }
@@ -115,7 +115,7 @@ private struct ProjectTabChip: View {
                 isDragEnabled: editor.canDragProjectForCombine,
                 helpText: "Drag to another project tab to combine projects"
             ) {
-                HStack(spacing: 4) {
+                HStack(spacing: StudioSpacing.tightGap) {
                     if openProject.projectFileDirty {
                         StudioDirtyDot()
                     }
@@ -133,7 +133,7 @@ private struct ProjectTabChip: View {
                 }
             }
         } trailing: {
-            HStack(spacing: 4) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 StudioCountBadge(text: "\(openProject.document.fonts.count)", highlighted: false)
 
                 StudioDismissButton(scale: .toolbar, help: "Close project") {

@@ -373,7 +373,7 @@ struct MainEditorView: View {
         VStack(spacing: 0) {
             if let error = editor.saveReview.persistentSaveError {
                 HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                         Text("Cannot export")
                             .font(StudioTypography.sectionLabel)
                             .foregroundStyle(.secondary)
@@ -392,7 +392,7 @@ struct MainEditorView: View {
                         .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
                 )
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.top, 8)
+                .padding(.top, StudioSpace.x2)
             }
 
             if editor.hasOpenProjects {
@@ -540,8 +540,8 @@ struct MainEditorView: View {
                 ProgressView()
                     .controlSize(.small)
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 20)
+            .padding(.horizontal, StudioSpace.x7)
+            .padding(.vertical, StudioSpacing.sheetOuterPadding)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
         }
         .transition(.opacity)
@@ -575,7 +575,7 @@ struct MainEditorView: View {
                 }
             }
         }
-        .padding(24)
+        .padding(StudioSpace.x6)
         .frame(width: 420)
         .preferredColorScheme(.dark)
     }

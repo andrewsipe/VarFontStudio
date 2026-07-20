@@ -26,7 +26,9 @@ struct NameTablePanel: View {
 
             toolbar
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 8)
+                .frame(height: StudioChromeBand.context)
+                .background(StudioColors.surfaceMuted)
+                .overlay(alignment: .bottom) { Divider() }
 
             content
         }
@@ -78,7 +80,7 @@ struct NameTablePanel: View {
                 }
                 .padding(.leading, StudioSpacing.panelHorizontal)
                 .padding(.trailing, StudioSpacing.panelHorizontal + StudioSpacing.scrollGutter)
-                .padding(.vertical, 4)
+                .padding(.vertical, StudioSpacing.tightGap)
 
                 Text("Windows English only (3 · 1 · 0x409). ID 25 ≡ File naming PS prefix.")
                     .font(StudioTypography.meta)
@@ -86,7 +88,7 @@ struct NameTablePanel: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, StudioSpacing.panelHorizontal)
                     .padding(.trailing, StudioSpacing.panelHorizontal + StudioSpacing.scrollGutter)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, StudioSpace.x2_5)
             }
         }
     }
@@ -112,9 +114,9 @@ struct NameTablePanel: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Add Windows name ID")
                 .font(StudioTypography.meta.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
+                .padding(.horizontal, StudioSpace.x3)
+                .padding(.top, StudioSpace.x2_5)
+                .padding(.bottom, StudioSpacing.panelVertical)
             ForEach(missingIDs, id: \.self) { nameID in
                 Button {
                     editor.addWindowsNameID(nameID)
@@ -131,15 +133,15 @@ struct NameTablePanel: View {
                             .foregroundStyle(.primary)
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, StudioSpace.x3)
+                    .padding(.vertical, StudioSpacing.panelVertical)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
         .frame(width: 260)
-        .padding(.bottom, 8)
+        .padding(.bottom, StudioSpace.x2)
     }
 
     private func namesHeaderMeta(_ analysis: FontAnalysis) -> some View {
@@ -171,8 +173,8 @@ struct NameTablePanel: View {
     private func nameRow(_ row: WindowsNameTableEditing.Row) -> some View {
         let suggestion = policySuggestion(for: row.nameID)
         let showFill = suggestion.map { $0.value != row.value } ?? false
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+        return VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+            HStack(spacing: StudioSpacing.rowGap) {
                 Text("\(row.nameID)")
                     .font(StudioTypography.rowNameMono)
                     .foregroundStyle(StudioColors.computedHighlight)
@@ -205,7 +207,7 @@ struct NameTablePanel: View {
 
             valueEditor(for: row)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, StudioSpace.x2)
     }
 
     @ViewBuilder
@@ -222,7 +224,7 @@ struct NameTablePanel: View {
                 .font(StudioTypography.monoValue)
                 .scrollContentBackground(.hidden)
                 .frame(height: height, alignment: .topLeading)
-                .padding(6)
+                .padding(StudioSpacing.listInset)
                 .background {
                     RoundedRectangle(cornerRadius: StudioRadius.control)
                         .fill(Color.primary.opacity(0.05))

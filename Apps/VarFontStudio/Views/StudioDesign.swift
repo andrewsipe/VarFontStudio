@@ -36,44 +36,80 @@ enum StudioTypography {
     static let linkGlyph = Font.system(size: 10, weight: .regular)
 }
 
+/// 4pt spacing scale. Prefer `StudioSpacing` semantic aliases at call sites;
+/// reach for `StudioSpace` steps only when no semantic token fits.
+///
+/// Half-steps (`x0_5`, `x1_5`, …) are first-class — they keep existing densities
+/// value-preserving while staying on the 4pt lattice. Micro nudges (1pt / 3pt)
+/// are intentional exceptions and stay as named literals on `StudioSpacing`.
+enum StudioSpace {
+    static let unit: CGFloat = 4
+
+    static let x0_5: CGFloat = unit * 0.5  // 2
+    static let x1: CGFloat = unit          // 4
+    static let x1_5: CGFloat = unit * 1.5  // 6
+    static let x2: CGFloat = unit * 2      // 8
+    static let x2_5: CGFloat = unit * 2.5  // 10
+    static let x3: CGFloat = unit * 3      // 12
+    static let x3_5: CGFloat = unit * 3.5  // 14
+    static let x4: CGFloat = unit * 4      // 16
+    static let x5: CGFloat = unit * 5      // 20
+    static let x6: CGFloat = unit * 6      // 24
+    static let x7: CGFloat = unit * 7      // 28
+    static let x8: CGFloat = unit * 8      // 32
+    static let x9: CGFloat = unit * 9      // 36
+    /// Large chrome context band (filter / project title / grid summary).
+    static let x17: CGFloat = unit * 17    // 68
+}
+
+/// Semantic spacing aliases — always preferred over raw numbers or bare `StudioSpace`
+/// steps at call sites. Values are expressed in `StudioSpace` so the 4pt lattice
+/// stays the single source of truth.
 enum StudioSpacing {
-    static let panelHorizontal: CGFloat = 8
-    static let panelVertical: CGFloat = 6
-    static let rowHorizontal: CGFloat = 6
-    static let rowVertical: CGFloat = 2
-    static let rowGap: CGFloat = 6
-    static let controlGap: CGFloat = 8
-    static let sectionGap: CGFloat = 10
+    static let panelHorizontal: CGFloat = StudioSpace.x2
+    static let panelVertical: CGFloat = StudioSpace.x1_5
+    static let rowHorizontal: CGFloat = StudioSpace.x1_5
+    static let rowVertical: CGFloat = StudioSpace.x0_5
+    static let rowGap: CGFloat = StudioSpace.x1_5
+    /// Tight inter-element gap inside chips / compact tool clusters.
+    static let tightGap: CGFloat = StudioSpace.x1
+    static let controlGap: CGFloat = StudioSpace.x2
+    static let sectionGap: CGFloat = StudioSpace.x2_5
     /// Standard sheet outer inset (pickers, conflict resolver, save review chrome).
-    static let sheetOuterPadding: CGFloat = 20
+    static let sheetOuterPadding: CGFloat = StudioSpace.x5
     /// All-around content inset for cards / inner boxes inside sheets and panels
     /// (looser than `panelHorizontal`, tighter than `sheetOuterPadding`).
-    static let cardPadding: CGFloat = 10
+    static let cardPadding: CGFloat = StudioSpace.x2_5
     /// Root spacing in stacked editor sheets — slightly looser than `sectionGap` for dense multi-section layouts.
-    static let sheetSectionSpacing: CGFloat = 14
-    static let listInset: CGFloat = 6
+    static let sheetSectionSpacing: CGFloat = StudioSpace.x3_5
+    static let listInset: CGFloat = StudioSpace.x1_5
     /// Horizontal inset for scrollable panel bodies — matches `StudioPanelHeader` text edges.
-    static let scrollContentHorizontal: CGFloat = panelHorizontal + 2
+    static let scrollContentHorizontal: CGFloat = StudioSpace.x2_5
     /// Density tier: editor chrome (project toolbar, file sub-bar). Tightest horizontal inset.
-    static let editorChromeInset: CGFloat = panelHorizontal + 4
+    static let editorChromeInset: CGFloat = StudioSpace.x3
     /// Density tier: preview / naming-footer chrome — slightly looser than editor chrome.
-    static let previewInset: CGFloat = panelHorizontal + 6
+    static let previewInset: CGFloat = StudioSpace.x3_5
     /// Extra trailing inset so overlay scroll indicators don't cover row chrome (toggles, badges).
-    static let scrollGutter: CGFloat = 8
+    static let scrollGutter: CGFloat = StudioSpace.x2
     /// Trailing inset for scroll content inside a padded card (card inset + scrollbar gutter).
-    static let cardScrollTrailing: CGFloat = controlGap + scrollGutter
+    static let cardScrollTrailing: CGFloat = StudioSpace.x4
     /// Top inset when scroll content sits directly under `StudioPanelHeader` (no filter/toolbar row).
     static let panelContentTop: CGFloat = toolbarVertical
+    /// Off-lattice micro (3pt) — optical gap under group headers; do not "snap" to 4.
     static let groupHeaderBelow: CGFloat = 3
+    /// Off-lattice micro (3pt) — dense instance-row vertical padding.
     static let instanceRowVertical: CGFloat = 3
+    /// Off-lattice micro (1pt) — hairline gap between instance rows.
     static let instanceRowGap: CGFloat = 1
-    static let toolbarVertical: CGFloat = 6
+    static let toolbarVertical: CGFloat = StudioSpace.x1_5
 }
 
 enum StudioRadius {
-    static let row: CGFloat = 6
-    static let chip: CGFloat = 4
+    static let row: CGFloat = StudioSpace.x1_5
+    static let chip: CGFloat = StudioSpace.x1
+    /// Off-lattice (5pt) — control corner; leave alone.
     static let control: CGFloat = 5
+    /// Off-lattice (3pt) — compact corner; leave alone.
     static let small: CGFloat = 3
 }
 
@@ -101,18 +137,36 @@ enum StudioRadius {
 ///   carries its own meaning (check vs minus) is a *different* control — do not
 ///   collapse it into a plain radio.
 /// - Count: `StudioCountBadge` only. Dirty: `StudioDirtyDot` only (accent color).
-    ///   Master: `StudioMasterStar` only — shares the dirty-dot alignment slot so
-    ///   the pair centers together (never a naked `star.fill` next to the dot).
-    /// - Link glyph: `StudioLinkGlyph` inside `StudioFormat3LinkLabel` for Format-3
-    ///   row suffixes (never hand-size `link` next to stop names). Add affordance label: `StudioAddLabel`.
+///   Master: `StudioMasterStar` only — shares the dirty-dot alignment slot so
+///   the pair centers together (never a naked `star.fill` next to the dot).
+/// - Link glyph: `StudioLinkGlyph` — keep outside `Menu` labels. Use
+///   `StudioFormat3LinkLabel` only for non-Menu Format-3 suffixes. Add affordance label: `StudioAddLabel`.
 /// - Icon scale: `StudioChromeScale` — one glyph weight, two hit targets
 ///   (`.toolbar` 12/24, `.chip` 12/16). Do not hand-size chrome icons.
+///
+/// ## Spacing scale (4pt lattice)
+/// - Base unit: `StudioSpace.unit` (4pt). Steps: `x0_5`…`x8` (incl. half-steps).
+/// - Call sites: use a `StudioSpacing.*` semantic alias. Do not write raw
+///   `.padding(8)` / `spacing: 10` for structural spacing.
+/// - If no semantic alias fits: use a `StudioSpace.xN` step (not a magic number).
+/// - Allowed micro exceptions (do not invent new ones): 1pt / 3pt optical nudges
+///   already named on `StudioSpacing` (`instanceRowGap`, `groupHeaderBelow`, …).
+/// - Column / panel layout enums (`AxisBlockLayout`, `SaveReviewLayout`, …) are
+///   local track contracts — not part of the spacing lattice.
 ///
 /// ## Density tiers (named on purpose — never "normalize" them into one)
 /// - editor: `StudioSpacing.editorChromeInset` — tight toolbar / file-bar chrome.
 /// - preview: `StudioSpacing.previewInset` — font preview + naming footer chrome.
 /// - sheet: `StudioSpacing.sheetOuterPadding` (20) — modal editors / pickers.
 /// - review: `SaveReviewLayout` (22) — deliberately roomier Save Review window.
+///
+/// ## Cross-panel chrome bands (vertical alignment)
+/// Three shared horizontal bands across Axis Tree / Instances / Inspector so
+/// body content starts on one baseline. Band heights are 4pt-lattice multiples.
+/// Body density below the bands stays local (airy axis tables vs tight instance rows).
+/// - `StudioChromeBand.header` — panel title bar
+/// - `StudioChromeBand.scope` — tabs / Axis Tree project·file glance
+/// - `StudioChromeBand.context` — filter / project title / instance-grid summary
 enum StudioFieldMetrics {
     static let horizontalPadding: CGFloat = 6
     static let toolbarIconPointSize: CGFloat = 12
@@ -943,13 +997,24 @@ struct StudioSectionLabel: View {
     }
 }
 
-/// Shared 32pt panel header band with bottom divider — use for section headers and collapsed panel rails.
+/// Cross-panel vertical chrome bands — fixed heights so Axis Tree / Instances /
+/// Inspector body content shares a start baseline. Values are `StudioSpace` multiples.
+enum StudioChromeBand {
+    /// Panel title bar (AXIS TREE / INSTANCES / INSPECTOR).
+    static let header: CGFloat = StudioSpace.x9
+    /// Scope / tab row (Instances|Names, Project|Instance, Axis Tree glance).
+    static let scope: CGFloat = StudioSpace.x9
+    /// Context / tools row (filter, project title, instance-grid summary).
+    static let context: CGFloat = StudioSpace.x17
+}
+
+/// Shared panel header band with bottom divider — use for section headers and collapsed panel rails.
 struct StudioPanelHeaderChrome<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
-            .frame(height: 32)
+            .frame(height: StudioChromeBand.header)
             .frame(maxWidth: .infinity)
             .background(.bar)
             .overlay(alignment: .bottom) {
@@ -958,7 +1023,7 @@ struct StudioPanelHeaderChrome<Content: View>: View {
     }
 }
 
-/// Panel section header — fixed 32pt height contract.
+/// Panel section header — fixed height via `StudioChromeBand.header`.
 struct StudioPanelHeader<Trailing: View>: View {
     let title: String
     var horizontalPadding: CGFloat = StudioSpacing.panelHorizontal + 2
@@ -1550,16 +1615,24 @@ struct StudioRadioMark: View {
 }
 
 /// Canonical linked-value glyph (Format-3 links, fill preview). One size everywhere.
+/// Keep this *outside* any `Menu` label — AppKit menu-button chrome can rescale
+/// SF Symbols inside the label even when an explicit `.font` is applied.
+///
+/// - `isEditable: false` (default) — muted / locked (Naming axis, read-only).
+/// - `isEditable: true` — primary (changeable link-to target).
 struct StudioLinkGlyph: View {
+    var isEditable: Bool = false
+
     var body: some View {
         Image(systemName: "link")
             .font(StudioTypography.linkGlyph)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(isEditable ? .primary : .tertiary)
     }
 }
 
-/// Format-3 linked-target suffix (`link` + target name). Shared by read-only rows and
-/// Menu labels so the chain never inherits the row's `bodyMedium` scale/weight.
+/// Format-3 linked-target suffix for non-Menu contexts (read-only preview rows).
+/// For interactive stop rows, compose `StudioLinkGlyph` + target `Text` as siblings
+/// beside a `Menu` so the chain is not hosted inside menu chrome.
 struct StudioFormat3LinkLabel: View {
     let linkedTargetName: String?
     var placeholder: String = "Link…"

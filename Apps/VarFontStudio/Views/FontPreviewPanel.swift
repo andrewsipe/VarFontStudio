@@ -116,7 +116,7 @@ struct FontPreviewPanel: View {
                 .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
                 .frame(maxWidth: .infinity)
 
-            HStack(spacing: 6) {
+            HStack(spacing: StudioSpacing.rowGap) {
                 Text("Size")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
@@ -178,7 +178,7 @@ struct FontPreviewPanel: View {
             }
         }
         .padding(.horizontal, StudioSpacing.previewInset)
-        .padding(.vertical, 10)
+        .padding(.vertical, StudioSpace.x2_5)
     }
 
     private var statusBar: some View {
@@ -227,7 +227,7 @@ struct FontPreviewPanel: View {
                 )
         }
         .padding(.horizontal, StudioSpacing.previewInset)
-        .padding(.vertical, 6)
+        .padding(.vertical, StudioSpacing.panelVertical)
         .background(Self.canvasColor.opacity(0.92))
     }
 

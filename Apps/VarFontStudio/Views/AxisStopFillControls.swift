@@ -73,7 +73,7 @@ struct AxisStopFillControls: View {
                 step: 1
             )
 
-            HStack(spacing: 6) {
+            HStack(spacing: StudioSpacing.rowGap) {
                 Text("Suggested")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.secondary)

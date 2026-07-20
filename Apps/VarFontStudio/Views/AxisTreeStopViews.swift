@@ -316,7 +316,7 @@ struct AxisTreeStopRow: View {
 
     @ViewBuilder
     private var format2RangeSubline: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: StudioSpacing.tightGap) {
             sublineLabel("min")
             sublineField(.min, value: stop.rangeMin, placeholder: "Min")
             sublineSeparator
@@ -437,12 +437,18 @@ struct AxisTreeStopRow: View {
                 )
                 .focused($focusedField, equals: .name)
             } else {
-                HStack(spacing: 4) {
+                HStack(spacing: StudioSpacing.tightGap) {
                     Text(stop.name)
                         .font(StudioTypography.bodyMedium)
                         .lineLimit(1)
                     if stop.statFormat == 3 {
-                        if !linkTargetCandidates.isEmpty, let onSelectLinkTarget {
+                        // Keep the chain outside Menu — Menu label chrome can rescale
+                        // SF Symbols even when `.font` is set on the label contents.
+                        let linkEditable = !linkTargetCandidates.isEmpty && onSelectLinkTarget != nil
+                        if linkEditable || linkedTargetName != nil {
+                            StudioLinkGlyph(isEditable: linkEditable)
+                        }
+                        if linkEditable, let onSelectLinkTarget {
                             Menu {
                                 ForEach(linkTargetCandidates) { target in
                                     Button {
@@ -456,12 +462,18 @@ struct AxisTreeStopRow: View {
                                     }
                                 }
                             } label: {
-                                StudioFormat3LinkLabel(linkedTargetName: linkedTargetName)
+                                Text(linkedTargetName ?? "Link…")
+                                    .font(StudioTypography.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
                             }
                             .menuStyle(.borderlessButton)
                             .controlSize(.small)
                         } else if let linkedTargetName {
-                            StudioFormat3LinkLabel(linkedTargetName: linkedTargetName)
+                            Text(linkedTargetName)
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
                     }
                 }

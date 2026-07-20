@@ -30,7 +30,7 @@ struct StudioSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 440, height: 180)
-        .padding(.bottom, 8)
+        .padding(.bottom, StudioSpace.x2)
     }
 
     private var defaultStrategyBinding: Binding<NameIDStrategy> {

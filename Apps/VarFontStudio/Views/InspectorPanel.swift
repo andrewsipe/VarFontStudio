@@ -42,7 +42,7 @@ struct InstanceInspectorContent: View {
             }
         }
         .padding(.horizontal, StudioSpacing.panelHorizontal)
-        .padding(.vertical, 6)
+        .padding(.vertical, StudioSpacing.panelVertical)
     }
 
     private var emptyInspector: some View {
@@ -173,7 +173,7 @@ struct InstanceInspectorContent: View {
                         showPlannedWrites.toggle()
                     }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: StudioSpacing.tightGap) {
                         StudioNestedDisclosureChevron(isExpanded: showPlannedWrites)
                         Text("Planned table writes")
                             .font(StudioTypography.caption)
@@ -188,10 +188,10 @@ struct InstanceInspectorContent: View {
                         Text("No planned writes for this instance.")
                             .font(StudioTypography.caption)
                             .foregroundStyle(.tertiary)
-                            .padding(.top, 4)
+                            .padding(.top, StudioSpacing.tightGap)
                     } else {
                         InspectorOpenTypeTable(rows: rows)
-                            .padding(.top, 6)
+                            .padding(.top, StudioSpacing.panelVertical)
                     }
                 }
             }

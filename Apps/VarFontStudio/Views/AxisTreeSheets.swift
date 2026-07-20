@@ -333,7 +333,7 @@ struct FillAxisStopsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.sheetSectionSpacing) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                 Text("Fill Stops")
                     .font(StudioTypography.emphasis)
                 Text("\(axis.displayName ?? axis.tag) · replaces every stop currently on this axis")
@@ -659,7 +659,7 @@ struct AddFileAxisSheet: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
                 Text("Kind")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
@@ -717,7 +717,7 @@ struct AddFileAxisSheet: View {
     }
 
     private var kindTabs: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: StudioSpacing.rowGap) {
             ForEach(Kind.allCases) { option in
                 let enabled = optionEnabled(option)
                 let selected = kind == option
@@ -725,7 +725,7 @@ struct AddFileAxisSheet: View {
                     kind = option
                     seedFields(for: option)
                 } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: StudioSpacing.tightGap) {
                         if !enabled {
                             Image(systemName: "lock.fill")
                                 .font(.system(size: 10))
@@ -736,7 +736,7 @@ struct AddFileAxisSheet: View {
                         .fontWeight(selected ? .medium : .regular)
                         .foregroundStyle(tabForeground(enabled: enabled, selected: selected))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, StudioSpace.x2)
                         .background(tabBackground(enabled: enabled, selected: selected), in: RoundedRectangle(cornerRadius: 6))
                         .overlay {
                             RoundedRectangle(cornerRadius: 6)
@@ -792,7 +792,7 @@ struct AddFileAxisSheet: View {
         case .slope:
             slopeOverrideRow
         case .width, .optical:
-            HStack(spacing: 10) {
+            HStack(spacing: StudioSpacing.sectionGap) {
                 StudioTextField(
                     placeholder: "Tag",
                     text: .constant(previewTag),
@@ -831,7 +831,7 @@ struct AddFileAxisSheet: View {
                 }
             }
         case .custom:
-            HStack(spacing: 10) {
+            HStack(spacing: StudioSpacing.sectionGap) {
                 StudioTextField(
                     placeholder: "Tag",
                     text: $tagText,
@@ -873,7 +873,7 @@ struct AddFileAxisSheet: View {
     }
 
     private var slopeOverrideRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: StudioSpacing.sectionGap) {
             Text("Roman / Italic")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
@@ -910,8 +910,8 @@ struct AddFileAxisSheet: View {
                 .font(StudioTypography.caption)
                 .fontWeight(selected ? .medium : .regular)
                 .foregroundStyle(selected ? StudioColors.registrationForeground : .secondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.horizontal, StudioSpace.x2_5)
+                .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 .background(
                     selected ? StudioColors.registrationBackground : Color.clear,
                     in: RoundedRectangle(cornerRadius: 5)
@@ -921,7 +921,7 @@ struct AddFileAxisSheet: View {
     }
 
     private var policyBox: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
             Text(kind.policyTitle)
                 .font(StudioTypography.caption.weight(.medium))
                 .foregroundStyle(kindEnabled ? StudioColors.registrationForeground : .secondary)
@@ -982,7 +982,7 @@ struct AddFileAxisSheet: View {
     }
 
     private var previewSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Axis tree preview")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
@@ -996,7 +996,7 @@ struct AddFileAxisSheet: View {
                     HStack(spacing: StudioSpacing.controlGap) {
                         Text("N")
                             .font(StudioTypography.tag)
-                            .padding(.horizontal, 5)
+                            .padding(.horizontal, StudioSpacing.tightGap)
                             .padding(.vertical, 2)
                             .foregroundStyle(StudioColors.registrationForeground)
                             .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.small))
@@ -1028,7 +1028,7 @@ struct AddFileAxisSheet: View {
                             .font(StudioTypography.monoMeta)
                             .foregroundStyle(StudioColors.axisValue)
                             .frame(width: 44, alignment: .trailing)
-                        HStack(spacing: 4) {
+                        HStack(spacing: StudioSpacing.tightGap) {
                             Text(previewStopName)
                                 .font(StudioTypography.caption)
                             if let linked = previewLinkedLabel {

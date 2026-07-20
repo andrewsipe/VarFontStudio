@@ -560,7 +560,7 @@ struct WorkspaceDragGhostOverlay: View {
     }
 
     private func dragGhost(for item: WorkspaceDragItem) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: StudioSpacing.tightGap) {
             if let symbol = badgeSymbol(for: workspaceDrag.hoveredTarget) {
                 Image(systemName: symbol)
                     .font(.system(size: 10, weight: .semibold))
@@ -571,8 +571,8 @@ struct WorkspaceDragGhostOverlay: View {
                 .fontWeight(.semibold)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .padding(.horizontal, StudioSpace.x2_5)
+        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
         .background(
             Color.primary.opacity(0.06),
             in: RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -590,7 +590,7 @@ struct WorkspaceDragGhostOverlay: View {
     }
 
     private func externalDropBadge(for target: WorkspaceDropTarget) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: StudioSpacing.tightGap) {
             Image(systemName: badgeSymbol(for: target) ?? "plus.circle.fill")
                 .font(.system(size: 12, weight: .semibold))
             Text(externalBadgeLabel(for: target))
@@ -599,7 +599,7 @@ struct WorkspaceDragGhostOverlay: View {
         }
         .foregroundStyle(badgeColor(for: target))
         .padding(.horizontal, StudioSpacing.panelHorizontal)
-        .padding(.vertical, 4)
+        .padding(.vertical, StudioSpacing.tightGap)
         .background(.regularMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
         .position(

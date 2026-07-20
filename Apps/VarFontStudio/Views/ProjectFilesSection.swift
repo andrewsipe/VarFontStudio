@@ -30,7 +30,7 @@ struct ProjectInspectorFileRow: View {
                     editor.focusInspectorProjectScope()
                 }
             ) {
-                HStack(spacing: 5) {
+                HStack(spacing: StudioSpacing.tightGap) {
                     if isMaster {
                         StudioMasterStar()
                             .help("Master — axis tree source for this project")
@@ -64,7 +64,7 @@ struct ProjectInspectorFileRow: View {
             }
         }
         .padding(.horizontal, StudioSpacing.rowHorizontal)
-        .padding(.vertical, 6)
+        .padding(.vertical, StudioSpacing.panelVertical)
         .background {
             StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
         }

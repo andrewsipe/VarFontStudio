@@ -82,7 +82,7 @@ struct AxisTreeAxisHeader: View {
                 Text("hidden")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 5)
+                    .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, 1)
                     .background(Color.secondary.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -91,7 +91,7 @@ struct AxisTreeAxisHeader: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Button(action: onToggleExpansion) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: StudioSpacing.tightGap) {
                         Text(axis.displayName ?? axis.tag)
                             .font(StudioTypography.body)
                             .lineLimit(1)
@@ -131,7 +131,7 @@ struct AxisTreeAxisHeader: View {
                     .help(resolvablePlanWarnings.first?.hint ?? "Review plan issues on this axis")
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: StudioSpacing.rowGap) {
                 stopCountBadge
                     .fixedSize(horizontal: true, vertical: false)
 
@@ -154,7 +154,7 @@ struct AxisTreeAxisHeader: View {
 
     @ViewBuilder
     private var registrationSubtitle: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: StudioSpacing.tightGap) {
             Text("No fvar scale")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.secondary)

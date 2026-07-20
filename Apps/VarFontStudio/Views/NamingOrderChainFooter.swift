@@ -218,7 +218,7 @@ struct NamingOrderChainFooter: View {
                         .fontWeight(editor.footerPanelMode == mode ? .semibold : .regular)
                         .foregroundStyle(editor.footerPanelMode == mode ? Color.accentColor : .secondary)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, StudioSpacing.tightGap)
                         .background {
                             RoundedRectangle(cornerRadius: StudioRadius.small)
                                 .fill(editor.footerPanelMode == mode ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -283,7 +283,7 @@ struct NamingOrderChainFooter: View {
     }
 
     private var codeNamingControl: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: StudioSpacing.tightGap) {
             Toggle(
                 "Code",
                 isOn: Binding(
@@ -306,7 +306,7 @@ struct NamingOrderChainFooter: View {
     }
 
     private var hideStatOnlyControl: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: StudioSpacing.tightGap) {
             Toggle("Hide pinned axes", isOn: $hideStatOnly)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
@@ -469,11 +469,11 @@ struct NamingOrderChainFooter: View {
         return Button {
             presentPostScriptPrefixEditing()
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 Text("PS")
                     .font(StudioTypography.tag)
                     .foregroundStyle(Color.accentColor.opacity(0.85))
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, 1)
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 3))
 
@@ -484,7 +484,7 @@ struct NamingOrderChainFooter: View {
             }
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 hasPrefix ? Color.accentColor.opacity(0.14) : Color.clear,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -630,7 +630,7 @@ struct NamingOrderChainFooter: View {
         let isDragging = session.draggingTag == tag
 
         return AnyView(
-            HStack(spacing: 5) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 StudioIncludeCheckbox(isOn: inGrid) {
                     editor.setAxisInstanceGridEnabled(tag: tag, enabled: !inGrid)
                 }
@@ -639,7 +639,7 @@ struct NamingOrderChainFooter: View {
             }
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 inGrid ? StudioColors.surfaceMuted : Color.clear,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -663,7 +663,7 @@ struct NamingOrderChainFooter: View {
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -684,7 +684,7 @@ struct NamingOrderChainFooter: View {
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -708,7 +708,7 @@ struct NamingOrderChainFooter: View {
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(StudioColors.clarifierBackground.opacity(0.5), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -723,7 +723,7 @@ struct NamingOrderChainFooter: View {
     private func registrationChainChip(tag: String) -> some View {
         let isDragging = session.draggingTag == tag
 
-        return HStack(spacing: 5) {
+        return HStack(spacing: StudioSpacing.tightGap) {
             StudioTagPill(text: tag, compact: true, role: .registration)
 
             Text(editor.axisDisplayName(for: tag))
@@ -733,7 +733,7 @@ struct NamingOrderChainFooter: View {
         }
         .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, StudioSpacing.panelHorizontal)
-        .padding(.vertical, 5)
+        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
         .background(
             StudioColors.registrationBackground.opacity(0.5),
             in: RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -750,7 +750,7 @@ struct NamingOrderChainFooter: View {
     /// The draggable portion of a chip (tag pill + label). The checkbox is excluded
     /// from the drag hit area so toggling grid membership never starts a drag.
     private func chainChipBody(tag: String, inGrid: Bool) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: StudioSpacing.tightGap) {
             StudioTagPill(text: tag, compact: true)
                 .fixedSize()
 
@@ -785,23 +785,23 @@ struct NamingOrderChainFooter: View {
                         .foregroundStyle(Color.accentColor.opacity(0.5))
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
-                        .padding(.vertical, 5)
+                        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isCodeNamingToken(tag) {
                     Text("Code")
                         .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(StudioColors.codeForeground.opacity(0.5))
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
-                        .padding(.vertical, 5)
+                        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isClarifierNamingToken(tag) {
                     Text(chainChipLabel(for: tag))
                         .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.clarifierForeground.opacity(0.5))
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
-                        .padding(.vertical, 5)
+                        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isRegistrationNamingAxis(tag: tag) {
-                    HStack(spacing: 5) {
+                    HStack(spacing: StudioSpacing.tightGap) {
                         StudioTagPill(text: tag, compact: true, role: .registration)
                             .opacity(0.4)
 
@@ -811,9 +811,9 @@ struct NamingOrderChainFooter: View {
                             .lineLimit(1)
                     }
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else {
-                    HStack(spacing: 5) {
+                    HStack(spacing: StudioSpacing.tightGap) {
                         StudioTagPill(text: tag, compact: true)
                             .opacity(0.4)
 
@@ -823,7 +823,7 @@ struct NamingOrderChainFooter: View {
                             .lineLimit(1)
                     }
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 }
             }
         }
@@ -858,7 +858,7 @@ struct NamingOrderChainFooter: View {
                 .foregroundStyle(Color.accentColor)
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 5)
+                .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         } else if editor.isCodeNamingToken(tag) {
             Text("Code")
@@ -866,7 +866,7 @@ struct NamingOrderChainFooter: View {
                 .foregroundStyle(StudioColors.codeForeground)
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 5)
+                .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         } else if editor.isClarifierNamingToken(tag) {
             Text(chainChipLabel(for: tag))
@@ -874,13 +874,13 @@ struct NamingOrderChainFooter: View {
                 .foregroundStyle(StudioColors.clarifierForeground)
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 5)
+                .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 .background(
                     StudioColors.clarifierBackground.opacity(0.5),
                     in: RoundedRectangle(cornerRadius: StudioRadius.chip)
                 )
         } else if editor.isRegistrationNamingAxis(tag: tag) {
-            HStack(spacing: 5) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 StudioTagPill(text: tag, compact: true, role: .registration)
 
                 Text(chainChipLabel(for: tag))
@@ -889,13 +889,13 @@ struct NamingOrderChainFooter: View {
                     .lineLimit(1)
             }
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 StudioColors.registrationBackground.opacity(0.5),
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
         } else {
-            HStack(spacing: 5) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 StudioTagPill(text: tag, compact: true)
 
                 Text(chainChipLabel(for: tag))
@@ -904,7 +904,7 @@ struct NamingOrderChainFooter: View {
                     .lineLimit(1)
             }
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 5)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 StudioColors.surfaceInset,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
