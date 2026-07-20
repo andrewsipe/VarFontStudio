@@ -21,7 +21,7 @@ final class SchemaDecodeTests: XCTestCase {
         let project = try FixtureLoader.decode(ProjectDocument.self, from: "playfair-family-project.json")
         XCTAssertEqual(project.schemaVersion, 1)
         XCTAssertEqual(project.fonts.count, 2)
-        XCTAssertEqual(project.naming.order, ["opsz", "wdth", "wght", "ital"])
+        XCTAssertEqual(project.naming.order, ["@pshyphen", "opsz", "wdth", "wght", "ital"])
         XCTAssertEqual(project.template.axes.count, 3)
     }
 

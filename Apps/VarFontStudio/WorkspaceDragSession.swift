@@ -563,7 +563,7 @@ struct WorkspaceDragGhostOverlay: View {
         HStack(spacing: 5) {
             if let symbol = badgeSymbol(for: workspaceDrag.hoveredTarget) {
                 Image(systemName: symbol)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(badgeColor(for: workspaceDrag.hoveredTarget))
             }
             Text(label(for: item))

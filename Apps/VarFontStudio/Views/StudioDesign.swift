@@ -9,12 +9,12 @@ enum StudioTypography {
     static let columnLabel = Font.system(size: 10, weight: .medium)
     static let body = Font.system(size: 13)
     static let bodyMedium = Font.system(size: 12, weight: .medium)
-    static let caption = Font.system(size: 11)
+    static let caption = Font.system(size: 10)
     static let meta = Font.system(size: 10)
     static let gridSummaryValue = Font.system(size: 9, weight: .medium)
     static let gridSummaryValueMono = Font.system(size: 9, weight: .medium, design: .monospaced)
     static let tag = Font.system(size: 9, weight: .medium, design: .monospaced)
-    static let monoValue = Font.system(size: 11, design: .monospaced)
+    static let monoValue = Font.system(size: 10, design: .monospaced)
     static let monoMeta = Font.system(size: 10, design: .monospaced)
     static let emphasis = Font.system(size: 13, weight: .semibold)
     /// Project scope title (project inspector header) — one step above `emphasis`.
@@ -870,7 +870,7 @@ struct StudioStreamlinedDiffRow: View {
                     HStack(alignment: .top, spacing: 8) {
                         StudioSaveReviewCategoryTag(category: row.category)
                         Text(afterValue)
-                            .font(.system(size: 11.5, design: .monospaced))
+                            .font(.system(size: 10.5, design: .monospaced))
                             .foregroundStyle(valueColor)
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
@@ -882,7 +882,7 @@ struct StudioStreamlinedDiffRow: View {
                     HStack(alignment: .top, spacing: 8) {
                         StudioSaveReviewCategoryTag(category: row.category)
                         Text("—")
-                            .font(.system(size: 11.5, design: .monospaced))
+                            .font(.system(size: 10.5, design: .monospaced))
                             .foregroundStyle(.tertiary)
                     }
                 }

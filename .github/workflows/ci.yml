@@ -12,18 +12,33 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          # Prefer the default Xcode.app symlink; fall back to newest 16.x toolchain.
+          if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
+            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          else
+            candidate="$(ls -d /Applications/Xcode_16*.app/Contents/Developer 2>/dev/null | sort -V | tail -1 || true)"
+            if [[ -z "${candidate}" ]]; then
+              echo "error: no usable Xcode developer directory found" >&2
+              ls /Applications | head -50 >&2 || true
+              exit 1
+            fi
+            sudo xcode-select -s "$candidate"
+          fi
+          xcode-select -p
+          xcodebuild -version
+          swift --version
 
       - name: Swift tests
         run: |
-          swift --version
-          xcodebuild -version
+          set -euo pipefail
           swift test
 
       - name: App store tests
         working-directory: Apps/VarFontStudio
         run: |
-          set -o pipefail
+          set -euo pipefail
           xcodebuild test \
             -scheme VarFontStudio \
             -destination 'platform=macOS' \
@@ -38,6 +53,7 @@ jobs:
       - name: Python vfcommit tests
         working-directory: Tools/vfcommit
         run: |
+          set -euo pipefail
           python --version
           python -m pip install -r requirements.txt pytest
           # Live font files are not in the repo; integration tests skip when missing.

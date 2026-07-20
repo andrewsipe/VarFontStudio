@@ -192,7 +192,7 @@ struct NameTablePanel: View {
                         editor.applyWindowsNamePolicy(nameID: row.nameID, value: suggestion.value)
                     } label: {
                         Image(systemName: "doc.badge.plus")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 10, weight: .medium))
                             .frame(width: Self.nameLabelRowHeight, height: Self.nameLabelRowHeight)
                             .contentShape(Rectangle())
                     }

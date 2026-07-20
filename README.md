@@ -55,4 +55,4 @@ If you want to know more about the JSON project format, [SCHEMA.md](SCHEMA.md) h
 
 ## Where things stand
 
-This is an alpha. The core workflow — modeling instances, naming, and writing STAT/fvar/name changes back into the font — works and is what I've been focused on getting right. Signed/notarized distribution isn't set up yet, which is why you're using the "Allow First Launch" workaround above for now.
+This is an alpha. The core workflow — modeling instances, **naming axes** (file identity + optional classification codes), Review, and writing STAT/fvar/name changes back into the font — works and is what I've been focused on getting right. Signed/notarized distribution isn't set up yet, which is why you're using the "Allow First Launch" workaround above for now.

@@ -25,12 +25,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
+            sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          else
+            candidate="$(ls -d /Applications/Xcode_16*.app/Contents/Developer 2>/dev/null | sort -V | tail -1 || true)"
+            if [[ -z "${candidate}" ]]; then
+              echo "error: no usable Xcode developer directory found" >&2
+              ls /Applications | head -50 >&2 || true
+              exit 1
+            fi
+            sudo xcode-select -s "$candidate"
+          fi
+          xcode-select -p
+          xcodebuild -version
+          swift --version
 
       - name: Build release zip (${{ matrix.arch_label }})
         run: |
-          swift --version
-          xcodebuild -version
+          set -euo pipefail
           uname -m
           chmod +x scripts/build-release.sh scripts/bundle-python-runtime.sh
           ./scripts/build-release.sh --skip-tests
@@ -84,11 +98,11 @@ jobs:
 
             ## What’s new in this alpha
 
-            - **Axis order:** drag Axis Tree headers or Naming chips to keep order linked; Export rewrites **STAT DesignAxisRecords** to match. **fvar axis order stays locked** to the source font (avoids swapped Width/Weight sliders).
-            - **Value sort:** click the Value column header to sort stops ascending/descending (drives Instance list order — useful for negative `slnt`).
-            - **Settings:** OpenType label Preserve/Repack lives under **VarFontStudio → Settings…** (app-wide default). Review can override per file without changing Settings.
-            - **Project tabs:** close with an **X** (same confirmation as before).
-            - **Review fvar Axes:** listed in source-font order so protected rows match what Export leaves alone.
+            - **Naming axes:** Slope / Width / Optical / custom file identity lives on design-record axes (with optional stop **Code** when Code naming is on). Add Naming Axis no longer copies a stop onto every sibling file.
+            - **Export Review:** project naming order drives Review; naming-axis registration stops show in STAT; leftover clarifier auto-append removed from vfcommit.
+            - **Export All:** choosing the source folder creates a `{project} Patched` subfolder instead of silently failing; Review closes on success with a progress bar + status while writing.
+            - **Export UI:** clearer **Export All…** / **Export This File…** actions; exported file chips use a checkmark export badge and destination folder label.
+            - **STAT write path:** newly added naming-axis tags are ensured into DesignAxisRecord on export (not only reordered).
             - **Allow First Launch helper** in each release zip — clears Gatekeeper quarantine without a Developer ID / notarization.
             - **Save vs Export:** **Save** (⌘S) writes the `.varf` project; **Export…** (⌘E) writes patched fonts.
         env:
