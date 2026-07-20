@@ -280,8 +280,20 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/README.m
 
 # archive/Design/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/axis-tree-prototype.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/axis-tree-two-row-prototype.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/axis_row_layout_feedback.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/axis_tree_ui_feedback.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font-diff-layouts.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font-diff-review.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font-preview-prototype revised.html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font-preview-prototype.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font_diff_preview (first prototype).html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font_ttx_diff_preview (revised prototype).html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/name-table-inspector-prototype.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/naming_axis_sheet_all_kinds.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/naming_axis_sheet_redesign.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/naming_axis_sheet_v3_locked.html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/naming_axis_sheet_v3_unlocked.html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/save-review-prototype.html
 
 # archive/Design/prototype mockups/
@@ -322,3 +334,4 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/packaging/INSTAL
 # scripts/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/scripts/build-release.sh
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/scripts/bundle-python-runtime.sh
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/scripts/check-chrome-consistency.sh
