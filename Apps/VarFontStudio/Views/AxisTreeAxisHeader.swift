@@ -108,9 +108,9 @@ struct AxisTreeAxisHeader: View {
                             font: StudioTypography.body,
                             rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
                             onSubmit: commitDisplayName,
-                            onCancel: cancelDisplayName
+                            onCancel: cancelDisplayName,
+                            focusBinding: $displayNameFieldFocused
                         )
-                        .focused($displayNameFieldFocused)
                         .frame(maxWidth: 220, alignment: .leading)
                     } else {
                         Button(action: onToggleExpansion) {
