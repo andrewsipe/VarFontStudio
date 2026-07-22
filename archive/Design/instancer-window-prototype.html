@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VarFont Studio — Instancer Window Prototype</title>
+<style>
+  /*
+   * Token mirror of StudioDesign.swift — 4pt lattice + Save Review density.
+   * StudioSpace / StudioSpacing / SaveReviewLayout / StudioTypography /
+   * SaveReviewTypography / StudioColors / StudioMetricCard / StudioFilterBadge
+   */
+  :root{
+    /* StudioSpace */
+    --u:4px;
+    --x1:4px; --x1_5:6px; --x2:8px; --x2_5:10px; --x3:12px; --x3_5:14px;
+    --x4:16px; --x5:20px; --x6:24px; --x8:32px; --x9:36px;
+
+    /* SaveReviewLayout */
+    --review-pad-x:var(--x6);           /* horizontalPadding 24 */
+    --review-card-gap:var(--x2);        /* summaryCardGap 8 */
+    --review-chrome-gap:var(--x3);      /* chromeSectionGap 12 */
+    --review-filter-gap:var(--x1_5);    /* filterBadgeGap 6 */
+    --review-row-pad-y:var(--x2);       /* rowVerticalPadding 8 */
+    --review-tool-min-h:var(--x9);      /* toolRowMinHeight 36 */
+    --review-tool-pad-y:var(--x1_5);    /* toolRowVerticalPadding 6 */
+    --review-name-id-w:36px;            /* nameIDColumnWidth */
+
+    /* Surfaces — SaveReviewLayout.canvas / phase + StudioColors */
+    --canvas:#1c1c1e;                   /* canvasBackground */
+    --phase:#222224;                    /* phaseHeaderBackground */
+    --panel:#242426;
+    --surface-subtle:rgba(255,255,255,.03);  /* surfaceSubtle */
+    --surface-light:rgba(255,255,255,.05);   /* surfaceLight */
+    --surface-inset:rgba(255,255,255,.06);   /* surfaceInset */
+    --stroke:rgba(255,255,255,.08);          /* surfaceStroke */
+    --stroke-strong:rgba(255,255,255,.10);   /* surfaceStrokeStrong */
+    --row-rule:#26262a;
+
+    --text:#eaeaec;
+    --text-secondary:#9a9a9e;
+    --text-tertiary:#68686c;
+
+    /* StudioColors interaction */
+    --accent:#0a84ff;
+    --selection-fill:rgba(10,132,255,.10);
+    --selection-stroke:rgba(10,132,255,.20);
+    --hover-fill:rgba(255,255,255,.05);
+
+    /* StudioColors semantics */
+    --c-added:#4ade80;                  /* diffAdded-ish */
+    --c-warning:#f0a020;                /* warningForeground / renamed */
+    --c-warning-fill:rgba(240,160,32,.16);
+    --c-warning-stroke:rgba(240,160,32,.45);
+    --c-registration:#8c73f2;           /* registrationForeground */
+    --c-registration-fill:rgba(140,115,242,.14);
+    --c-registration-stroke:rgba(140,115,242,.35);
+    --c-success:#30a46c;
+
+    /* Instancer CLI markers (kept as named exceptions on Studio warning/registration) */
+    --c-diff-cell:#282a39;
+    --c-diff-cell-bg:#ffdf80;           /* CLI yellow highlight for STAT≠fvar */
+    --c-dup-mark:#c4b5fd;               /* registration tint for ◆ */
+    --c-dup-row:rgba(75,54,82,.55);     /* CLI purple row wash */
+
+    --mono:"SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+
+    --radius-card:6px;                  /* StudioMetricCard */
+    --radius-control:5px;               /* StudioRadius.control */
+    --radius-badge:3px;                 /* StudioFilterBadge / small */
+    --radius-row:6px;                   /* StudioRadius.row ≈ x1_5 */
+    --radius-chip:4px;
+
+    --win-w:1080px;
+
+    /* Instance table tracks — local layout enum (like nameIDColumnWidth) */
+    --col-check:28px;
+    --col-num:var(--review-name-id-w);
+    --col-stat:minmax(128px,1.1fr);
+    --col-fvar:minmax(128px,1.1fr);
+    --col-style:96px;
+    --col-coords:minmax(148px,1fr);
+    --col-file:minmax(168px,1.15fr);
+    --col-gap:var(--x2_5);              /* ~rowGap band between columns */
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#0e0e10; color:var(--text);
+    font-family:var(--sans); padding:var(--x4) var(--x4) var(--x8);
+  }
+  .page{ max-width:var(--win-w); margin:0 auto; }
+
+  .intro{ margin-bottom:var(--x3); }
+  .intro-head{
+    display:flex; align-items:center; justify-content:space-between; gap:var(--x3);
+  }
+  .intro h1{
+    font-size:15px; margin:0; font-weight:600; /* StudioTypography.projectTitle */
+  }
+  .intro-toggle{
+    font-family:var(--sans); font-size:10px; color:var(--text-secondary);
+    background:transparent; border:none; cursor:pointer; padding:var(--x1) 0;
+  }
+  .intro-toggle:hover{ color:var(--text); }
+  .intro-body{
+    display:none; margin-top:var(--x2); color:var(--text-secondary);
+    font-size:10px; line-height:1.55; max-width:820px; /* StudioTypography.caption */
+  }
+  .intro.open .intro-body{ display:block; }
+  .intro-body code{
+    font-family:var(--mono); font-size:10.5px; /* SaveReviewTypography.value */
+    background:var(--surface-light); padding:1px 5px; border-radius:var(--radius-badge);
+  }
+
+  .scenario-bar{
+    display:flex; gap:var(--x2); margin-bottom:var(--x3); flex-wrap:wrap;
+  }
+  .scenario{
+    font:inherit; font-size:12px; padding:var(--x1_5) var(--x3); border-radius:var(--radius-row);
+    border:0.5px solid var(--stroke-strong); background:var(--panel); color:var(--text-secondary);
+    cursor:pointer; text-align:left; flex:1; min-width:200px;
+  }
+  .scenario:hover{ color:var(--text); border-color:rgba(255,255,255,.16); }
+  .scenario.on{
+    background:var(--selection-fill); color:var(--text);
+    border-color:var(--selection-stroke);
+  }
+  .scenario .s-title{ font-weight:600; display:block; margin-bottom:2px; }
+  .scenario .s-sub{ font-size:10px; color:var(--text-tertiary); line-height:1.35; }
+  .scenario.on .s-sub{ color:var(--text-secondary); }
+
+  .mockwin{
+    background:var(--canvas); border:1px solid #000; border-radius:11px;
+    overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.65);
+    display:flex; flex-direction:column; min-height:720px; height:min(90vh, 880px);
+  }
+  .titlebar{
+    height:var(--x9); /* 36 — near toolRow */
+    background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000;
+    display:flex; align-items:center; padding:0 var(--x3); gap:var(--x2);
+    position:relative; flex-shrink:0;
+  }
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .titlebar .wtitle{
+    position:absolute; left:0; right:0; text-align:center;
+    font-size:12px; color:var(--text-secondary); font-weight:500; pointer-events:none;
+  }
+
+  /* —— Save Review pinned chrome —— */
+  .summary{
+    padding:var(--x4) var(--review-pad-x) var(--review-chrome-gap);
+    border-bottom:0.5px solid var(--stroke-strong); flex-shrink:0;
+  }
+  .summary-top{
+    display:flex; align-items:flex-start; gap:var(--x4); /* StudioSpace.x4 */
+    margin-bottom:var(--review-chrome-gap);
+  }
+  .summary-copy{ flex:1; min-width:0; }
+  .summary h2{
+    margin:0 0 var(--x1); font-size:13px; font-weight:600; /* StudioTypography.emphasis */
+  }
+  .summary .sub{
+    margin:0; font-size:10px; color:var(--text-secondary); line-height:1.45; /* caption */
+  }
+  .action-bar{
+    display:flex; gap:var(--x2); flex-shrink:0; padding-top:2px;
+  }
+  .btn{
+    font:inherit; font-size:12px; font-weight:600; border-radius:var(--radius-row);
+    padding:var(--x1_5) var(--x3_5); cursor:pointer; border:0.5px solid transparent;
+  }
+  .btn.primary{ background:var(--accent); color:#fff; }
+  .btn.primary:hover{ filter:brightness(1.08); }
+  .btn.primary:disabled{ opacity:.4; cursor:not-allowed; filter:none; }
+  .btn.secondary{
+    background:var(--surface-light); color:var(--text);
+    border-color:var(--stroke-strong);
+  }
+  .btn.secondary:hover{ border-color:rgba(255,255,255,.18); }
+
+  .meta-row{
+    display:flex; flex-wrap:wrap; align-items:center; gap:var(--x2);
+    margin-bottom:var(--review-chrome-gap);
+    font-size:10px; color:var(--text-secondary); /* StudioTypography.meta */
+  }
+  .meta-row .mono{
+    font-family:var(--mono); color:var(--text); font-weight:500;
+    background:var(--surface-light); padding:2px 7px;
+    border-radius:var(--radius-control); font-size:10px; /* monoMeta */
+  }
+  .pill{
+    font-size:9px; font-weight:600; padding:2px var(--x2); border-radius:20px; /* pillLabel */
+    border:0.5px solid var(--stroke-strong); background:var(--surface-light);
+    color:var(--text-secondary);
+  }
+  .pill.export{
+    color:#64d2ff; background:rgba(100,210,255,.12);
+    border-color:rgba(100,210,255,.30);
+  }
+  .pill.ok{
+    color:var(--c-success); background:rgba(48,164,108,.12);
+    border-color:rgba(48,164,108,.30);
+  }
+
+  /* StudioMetricCard prominent */
+  .cards{
+    display:grid; grid-template-columns:repeat(5,minmax(72px,1fr));
+    gap:var(--review-card-gap); margin-bottom:var(--review-chrome-gap);
+  }
+  .card{
+    background:var(--surface-light);
+    border:0.5px solid var(--stroke-strong);
+    border-radius:var(--radius-card);
+    padding:10px 6px; text-align:center;
+  }
+  .card .n{
+    font-size:20px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:var(--accent); line-height:1.1;
+  }
+  .card .n.warn{ color:var(--c-warning); }
+  .card .n.dup{ color:var(--c-registration); }
+  .card .l{
+    font-size:10px; font-weight:500; letter-spacing:.035em;
+    color:var(--text-tertiary); text-transform:uppercase; margin-top:3px;
+  }
+
+  /* StudioFilterBadge */
+  .filter-bar{
+    display:flex; flex-wrap:wrap; gap:var(--review-filter-gap); align-items:center;
+    padding-bottom:2px;
+  }
+  .filter-bar .filter-hint{
+    font-size:10px; color:var(--text-tertiary); margin-left:auto;
+  }
+  .filter-badge{
+    font-family:var(--sans); font-size:8.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.03em;
+    padding:3px 7px; border-radius:var(--radius-badge);
+    cursor:pointer; user-select:none;
+    border:0.5px solid transparent; background:transparent;
+  }
+  .filter-badge.cat-all{
+    background:rgba(124,124,128,.14); color:var(--text-tertiary);
+  }
+  .filter-badge.cat-diff{
+    background:var(--c-warning-fill); color:var(--c-warning);
+    border-color:transparent;
+  }
+  .filter-badge.cat-dup{
+    background:var(--c-registration-fill); color:var(--c-registration);
+  }
+  .filter-badge.cat-ok{
+    background:rgba(48,164,108,.14); color:var(--c-success);
+  }
+  .filter-badge:hover{ border-color:var(--stroke-strong); }
+  .filter-badge.off{ opacity:.32; }
+  .filter-badge.isolate{
+    outline:1px solid rgba(255,255,255,.22); outline-offset:1px;
+  }
+
+  /* Tool row — SaveReviewLayout.toolRow* */
+  .toolbar{
+    display:flex; align-items:center; gap:var(--x2_5);
+    padding:var(--review-tool-pad-y) var(--review-pad-x);
+    border-bottom:0.5px solid var(--stroke-strong);
+    background:var(--panel); flex-shrink:0;
+    min-height:var(--review-tool-min-h);
+  }
+  .btn-quiet{
+    font:inherit; font-size:10px; color:var(--text-secondary);
+    background:transparent; border:none; border-radius:var(--radius-row);
+    padding:var(--x1) var(--x1_5); cursor:pointer;
+  }
+  .btn-quiet:hover{ color:var(--text); background:var(--hover-fill); }
+  .seg{
+    display:flex; gap:2px; padding:3px; border-radius:8px;
+    background:var(--surface-subtle); border:0.5px solid var(--stroke-strong);
+  }
+  .seg button{
+    font:inherit; font-size:10px; font-weight:600; color:var(--text-secondary);
+    background:transparent; border:none; border-radius:var(--radius-row);
+    padding:var(--x1) 9px; cursor:pointer; white-space:nowrap;
+  }
+  .seg button:hover{ color:var(--text); }
+  .seg button.on{
+    color:var(--text); background:var(--surface-light);
+    box-shadow:0 1px 3px rgba(0,0,0,.28);
+  }
+  .toolbar .spacer{ flex:1; }
+  .rowcount{ font-size:10px; color:var(--text-tertiary); white-space:nowrap; }
+  .search{
+    display:flex; align-items:center; gap:var(--x1_5);
+    background:var(--surface-light);
+    border:0.5px solid var(--stroke-strong);
+    border-radius:var(--radius-row);
+    padding:var(--x1) var(--x2); min-width:160px;
+  }
+  .search input{
+    border:none; background:transparent; color:var(--text);
+    font-family:var(--sans); font-size:12px; outline:none; width:130px; /* bodyMedium */
+  }
+  .search svg{ opacity:.4; flex-shrink:0; width:12px; height:12px; }
+
+  .tableheadline{
+    padding:var(--review-tool-pad-y) var(--review-pad-x);
+    font-size:10px; color:var(--text-secondary); flex-shrink:0;
+    min-height:var(--review-tool-min-h);
+    display:flex; align-items:center;
+    box-sizing:border-box;
+  }
+  .tableheadline b{ color:var(--text); font-weight:600; }
+
+  /* —— Instance table —— */
+  .list{
+    flex:1; overflow:auto; min-height:0; background:var(--canvas);
+  }
+  .thead, .row{
+    display:grid;
+    grid-template-columns:
+      var(--col-check) var(--col-num) var(--col-stat) var(--col-fvar)
+      var(--col-style) var(--col-coords) var(--col-file);
+    gap:var(--col-gap); align-items:center;
+    padding:0 var(--review-pad-x);
+    min-width:920px;
+  }
+  .thead{
+    position:sticky; top:0; z-index:2;
+    min-height:28px;
+    font-size:10px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--text-tertiary); background:var(--phase);
+    border-bottom:0.5px solid var(--stroke);
+  }
+  .mockwin.no-fvar .thead,
+  .mockwin.no-fvar .row{
+    grid-template-columns:
+      var(--col-check) var(--col-num) var(--col-stat)
+      var(--col-style) var(--col-coords) var(--col-file);
+  }
+  .mockwin.no-fvar .col-fvar{ display:none; }
+
+  .row{
+    min-height:var(--x9);
+    padding-top:var(--review-row-pad-y);
+    padding-bottom:var(--review-row-pad-y);
+    border-top:0.5px solid var(--row-rule);
+    cursor:pointer;
+  }
+  .row:hover{ background:var(--hover-fill); }
+  .row.selected{ background:var(--selection-fill); }
+  .row.dup{ background:var(--c-dup-row); }
+  .row.dup.selected{
+    background:linear-gradient(0deg, var(--selection-fill), var(--selection-fill)), var(--c-dup-row);
+  }
+  .row input{ accent-color:var(--accent); cursor:pointer; margin:0; }
+
+  .row .num{
+    font-variant-numeric:tabular-nums; color:var(--text-tertiary);
+    font-size:11px; font-weight:500; font-family:var(--mono); /* nameID */
+  }
+  .row .num.mark-diff{ color:var(--c-warning); }
+  .row .num.mark-dup{ color:var(--c-dup-mark); font-weight:700; }
+
+  .row .stat{
+    font-size:12px; font-weight:500; line-height:1.25; min-width:0; /* fieldLabel */
+  }
+  .row .fvar{
+    font-size:12px; font-weight:400; color:var(--text-secondary);
+    line-height:1.25; min-width:0;
+  }
+  .row .cell-hl{
+    display:inline; color:var(--c-diff-cell);
+    background:var(--c-diff-cell-bg);
+    border-radius:var(--radius-badge); padding:0 var(--x1);
+  }
+  .row .fvar .hybrid-add{ font-weight:700; color:var(--text); }
+  .row .style{
+    font-size:10px; font-weight:500; color:var(--text-secondary);
+    white-space:nowrap;
+  }
+  .row .coords{
+    font-family:var(--mono); font-size:10.5px; color:var(--text-tertiary); /* value */
+    line-height:1.3; min-width:0;
+  }
+  .row .file{
+    font-family:var(--mono); font-size:11px; color:var(--text-secondary); /* nameID scale */
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+  }
+
+  .legend{
+    flex-shrink:0;
+    padding:var(--x2) var(--review-pad-x);
+    border-top:0.5px solid var(--stroke-strong);
+    background:var(--panel);
+    font-size:10px; color:var(--text-secondary); line-height:1.4;
+    display:flex; flex-wrap:wrap; gap:var(--x3); align-items:center;
+    min-height:var(--review-tool-min-h);
+  }
+  .legend:empty{ display:none; }
+  .legend .swatch{ display:inline-flex; align-items:center; gap:var(--x1_5); }
+  .legend .chip{
+    font-size:8.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+    padding:2px 6px; border-radius:var(--radius-badge);
+  }
+  .legend .chip.diff{
+    color:var(--c-diff-cell); background:var(--c-diff-cell-bg);
+  }
+  .legend .chip.dup{
+    color:var(--c-dup-mark); background:rgba(75,54,82,.75);
+  }
+
+  .empty{
+    padding:var(--x6) var(--review-pad-x); text-align:center;
+    color:var(--text-tertiary); font-size:12px;
+  }
+  .dropzone{
+    display:none; flex:1; align-items:center; justify-content:center;
+    margin:var(--x4) var(--review-pad-x);
+    border:1.5px dashed rgba(255,255,255,.16); border-radius:10px;
+    color:var(--text-secondary); font-size:12px; text-align:center;
+    padding:var(--x6); line-height:1.5;
+  }
+  .dropzone.show{ display:flex; }
+  .dropzone strong{ color:var(--text); }
+
+  .sheet-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+    z-index:30; align-items:center; justify-content:center;
+  }
+  .sheet-backdrop.show{ display:flex; }
+  .sheet{
+    width:420px; background:#2a2a2c; border:1px solid #111; border-radius:12px;
+    box-shadow:0 24px 60px rgba(0,0,0,.55); overflow:hidden;
+  }
+  .sheet-title{
+    padding:var(--x3_5) var(--x4) var(--x2);
+    font-size:13px; font-weight:600; text-align:center; /* emphasis */
+  }
+  .sheet-body{
+    padding:var(--x1) var(--x4) var(--x3_5);
+    font-size:12px; color:var(--text-secondary); text-align:center; line-height:1.45;
+  }
+  .sheet-body .path{
+    display:inline-block; margin-top:var(--x2); font-family:var(--mono); font-size:10px;
+    background:var(--surface-inset); padding:var(--x1_5) var(--x2_5);
+    border-radius:var(--radius-row); color:var(--text);
+  }
+  .sheet-actions{
+    display:flex; justify-content:flex-end; gap:var(--x2);
+    padding:var(--x3) var(--x3_5);
+    background:var(--panel); border-top:0.5px solid var(--stroke-strong);
+  }
+
+  .toast{
+    position:fixed; bottom:var(--x6); left:50%; transform:translateX(-50%);
+    background:#303033; border:0.5px solid var(--stroke-strong);
+    color:var(--text); font-size:12px; padding:var(--x2_5) var(--x4);
+    border-radius:var(--radius-row);
+    box-shadow:0 12px 40px rgba(0,0,0,.45); opacity:0; pointer-events:none;
+    transition:opacity .2s; z-index:40; display:flex; align-items:center; gap:var(--x3);
+  }
+  .toast.show{ opacity:1; pointer-events:auto; }
+  .toast button{
+    font:inherit; font-size:10px; font-weight:600; color:var(--accent);
+    background:transparent; border:none; cursor:pointer; padding:0;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="intro" id="intro">
+    <div class="intro-head">
+      <h1>Instancer — Review chrome × CLI instance table</h1>
+      <button class="intro-toggle" type="button" id="introToggle">Notes</button>
+    </div>
+    <div class="intro-body">
+      <p>
+        Layout matches Save Review; styling mirrors <code>StudioDesign</code> —
+        <code>StudioSpace</code> 4pt lattice, <code>SaveReviewLayout</code> insets
+        (24 pad / 12 chrome gap / 36 tool row), <code>StudioMetricCard</code> +
+        <code>StudioFilterBadge</code>, and <code>SaveReviewTypography</code> for
+        table cells. Instancer keeps CLI yellow cells (STAT≠fvar) and purple dup
+        rows as named exceptions on warning / registration colors.
+      </p>
+    </div>
+  </div>
+
+  <div class="scenario-bar" role="tablist">
+    <button type="button" class="scenario on" data-scenario="compare">
+      <span class="s-title">With fvar comparison</span>
+      <span class="s-sub">STAT ≠ fvar on some rows — full Instancer table</span>
+    </button>
+    <button type="button" class="scenario" data-scenario="stat-only">
+      <span class="s-title">STAT-only names</span>
+      <span class="s-sub">No fvar column — cleaner table when names match</span>
+    </button>
+    <button type="button" class="scenario" data-scenario="standalone">
+      <span class="s-title">Standalone empty</span>
+      <span class="s-sub">Drop / open a clean VF</span>
+    </button>
+  </div>
+
+  <div class="mockwin" id="win" role="application" aria-label="Instancer window">
+    <div class="titlebar">
+      <div class="dots" aria-hidden="true">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      </div>
+      <div class="wtitle" id="winTitle">Instance — MullerNext-Variable.ttf</div>
+    </div>
+
+    <div class="summary" id="summary">
+      <div class="summary-top">
+        <div class="summary-copy">
+          <h2>Instance</h2>
+          <p class="sub" id="subtitle">Generate static fonts from named instances — output names follow the selected naming mode.</p>
+        </div>
+        <div class="action-bar">
+          <button type="button" class="btn secondary" id="btnOpen" hidden>Open…</button>
+          <button type="button" class="btn secondary" id="btnCancel">Cancel</button>
+          <button type="button" class="btn primary" id="btnGenerate">Generate…</button>
+        </div>
+      </div>
+
+      <div class="meta-row" id="metaRow">
+        <span>Source</span>
+        <span class="mono" id="srcMono">MullerNext-Variable.ttf</span>
+        <span class="pill export" id="srcPill">Studio export</span>
+        <span>Naming</span>
+        <span class="mono" id="namingMono">STAT</span>
+      </div>
+
+      <div class="cards" id="cards">
+        <div class="card"><div class="n" id="cardSelected">0</div><div class="l">Selected</div></div>
+        <div class="card"><div class="n" id="cardTotal">0</div><div class="l">Instances</div></div>
+        <div class="card"><div class="n" id="cardAxes">0</div><div class="l">Axes</div></div>
+        <div class="card"><div class="n warn" id="cardDiffs">0</div><div class="l">Name diffs</div></div>
+        <div class="card"><div class="n dup" id="cardDups">0</div><div class="l">Dup coords</div></div>
+      </div>
+
+      <div class="filter-bar" id="filterBar">
+        <button type="button" class="filter-badge cat-all" data-filter="all">All</button>
+        <button type="button" class="filter-badge cat-diff" data-filter="diff">■ Name diffs</button>
+        <button type="button" class="filter-badge cat-dup" data-filter="dup">◆ Dup coords</button>
+        <button type="button" class="filter-badge cat-ok" data-filter="clean">Clean</button>
+        <span class="filter-hint">Click to isolate · click again for all</span>
+      </div>
+    </div>
+
+    <div class="toolbar" id="toolbar">
+      <button type="button" class="btn-quiet" id="btnAll">Select All</button>
+      <button type="button" class="btn-quiet" id="btnNone">Deselect All</button>
+      <div class="seg" id="namingSeg" role="group" aria-label="Naming mode">
+        <button type="button" data-mode="stat" class="on">STAT</button>
+        <button type="button" data-mode="fvar">fvar-hybrid</button>
+        <button type="button" data-mode="raw">raw</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="search">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+        <input type="search" id="search" placeholder="Filter instances…" autocomplete="off">
+      </div>
+      <div class="rowcount" id="rowcount"></div>
+    </div>
+
+    <div class="tableheadline" id="headline"></div>
+    <div class="list" id="list"></div>
+    <div class="legend" id="legend"></div>
+    <div class="dropzone" id="dropzone">
+      <div>
+        <strong>Drop a variable font here</strong><br>
+        or use Open…
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="folderSheet" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-title">Choose a folder for static fonts</div>
+    <div class="sheet-body">
+      Where should the selected instances be written?
+      <div class="path" id="sheetPath">~/Exports/MullerNext/static</div>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn secondary" id="sheetCancel">Cancel</button>
+      <button type="button" class="btn primary" id="sheetOK">Generate</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status">
+  <span id="toastMsg"></span>
+  <button type="button" id="toastReveal">Show in Finder</button>
+</div>
+
+<script>
+(() => {
+  /** Mirrors Variable_Instancer table signals: name diffs + coord dups. */
+  const INSTANCES = [
+    { id:1,  stat:"Thin",              fvar:"Thin",              style:"Thin",         coords:"wght 100", file:"MullerNext-Thin.ttf",              diff:false, dup:false },
+    { id:2,  stat:"ExtraLight",        fvar:"Extra Light",       style:"ExtraLight",   coords:"wght 200", file:"MullerNext-ExtraLight.ttf",        diff:true,  dup:false },
+    { id:3,  stat:"Light",             fvar:"Light",             style:"Light",        coords:"wght 300", file:"MullerNext-Light.ttf",             diff:false, dup:false },
+    { id:4,  stat:"Regular",           fvar:"Regular",           style:"Regular",      coords:"wght 400", file:"MullerNext-Regular.ttf",           diff:false, dup:false },
+    { id:5,  stat:"Medium",            fvar:"Medium",            style:"Medium",       coords:"wght 500", file:"MullerNext-Medium.ttf",            diff:false, dup:false },
+    { id:6,  stat:"SemiBold",          fvar:"Semi Bold",         style:"SemiBold",     coords:"wght 600", file:"MullerNext-SemiBold.ttf",          diff:true,  dup:false },
+    { id:7,  stat:"Bold",              fvar:"Bold",              style:"Bold",         coords:"wght 700", file:"MullerNext-Bold.ttf",              diff:false, dup:false },
+    { id:8,  stat:"ExtraBold",         fvar:"Extra Bold",        style:"ExtraBold",    coords:"wght 800", file:"MullerNext-ExtraBold.ttf",         diff:true,  dup:false },
+    { id:9,  stat:"Black",             fvar:"Black",             style:"Black",        coords:"wght 900", file:"MullerNext-Black.ttf",             diff:false, dup:false },
+    { id:10, stat:"Condensed Thin",    fvar:"Thin Condensed",    style:"Condensed",    coords:"wght 100 · wdth 75", file:"MullerNext-CondensedThin.ttf",    diff:true, dup:false },
+    { id:11, stat:"Condensed Regular", fvar:"Regular Condensed", style:"Condensed",    coords:"wght 400 · wdth 75", file:"MullerNext-CondensedRegular.ttf", diff:true, dup:false },
+    { id:12, stat:"Condensed Bold",    fvar:"Bold Condensed",    style:"Bold Condensed", coords:"wght 700 · wdth 75", file:"MullerNext-CondensedBold.ttf", diff:true, dup:false },
+    { id:13, stat:"Italic",            fvar:"Italic",            style:"Italic",       coords:"wght 400 · ital 1", file:"MullerNext-Italic.ttf",           diff:false, dup:false },
+    { id:14, stat:"Bold Italic",       fvar:"Bold Italic",       style:"Bold Italic",  coords:"wght 700 · ital 1", file:"MullerNext-BoldItalic.ttf",       diff:false, dup:false },
+    { id:15, stat:"Regular",           fvar:"Regular",           style:"Regular",      coords:"wght 400", file:"MullerNext-Regular.ttf",           diff:false, dup:true  },
+    { id:16, stat:"Medium Italic",     fvar:"Medium Italic",     style:"Medium Italic",coords:"wght 500 · ital 1", file:"MullerNext-MediumItalic.ttf",     diff:false, dup:false },
+    { id:17, stat:"Black Italic",      fvar:"Black Italic",      style:"Black Italic", coords:"wght 900 · ital 1", file:"MullerNext-BlackItalic.ttf",       diff:false, dup:false },
+  ];
+
+  const MODE_LABEL = { stat: "STAT", fvar: "fvar-hybrid", raw: "raw" };
+
+  const state = {
+    scenario: "compare",
+    hasFont: true,
+    showFvar: true,
+    naming: "stat",
+    selected: new Set(),
+    filterText: "",
+    filterKind: "all", // all | diff | dup | clean
+    defaultFolder: "~/Exports/MullerNext/static",
+    axes: 3,
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function hybridDisplay(inst) {
+    // Prototype stand-in for hybrid additions (bold words in CLI).
+    if (state.naming !== "fvar") return escapeHtml(inst.fvar);
+    if (!inst.diff) return escapeHtml(inst.fvar);
+    // Show STAT-order hybrid: prefer STAT token order with bold “adds”
+    const parts = inst.stat.split(" ");
+    return parts.map((p, i) => {
+      const inFvar = inst.fvar.toLowerCase().includes(p.toLowerCase());
+      const bit = escapeHtml(p);
+      return inFvar ? bit : `<span class="hybrid-add">${bit}</span>`;
+    }).join(" ");
+  }
+
+  function outputName(inst) {
+    if (state.naming === "raw") return inst.fvar.replace(/\s+/g, "");
+    if (state.naming === "fvar") return inst.fvar.replace(/\s+/g, "");
+    return inst.stat.replace(/\s+/g, "");
+  }
+
+  function outputFile(inst) {
+    return `MullerNext-${outputName(inst)}.ttf`;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function counts() {
+    const diffs = INSTANCES.filter(i => i.diff).length;
+    const dups = INSTANCES.filter(i => i.dup).length;
+    return { diffs, dups };
+  }
+
+  function visible() {
+    const q = state.filterText.trim().toLowerCase();
+    return INSTANCES.filter(inst => {
+      if (state.filterKind === "diff" && !inst.diff) return false;
+      if (state.filterKind === "dup" && !inst.dup) return false;
+      if (state.filterKind === "clean" && (inst.diff || inst.dup)) return false;
+      if (!q) return true;
+      const blob = [
+        inst.stat, inst.fvar, inst.style, inst.coords, inst.file, outputFile(inst),
+      ].join(" ").toLowerCase();
+      return blob.includes(q);
+    });
+  }
+
+  function setFilterBadges() {
+    document.querySelectorAll(".filter-badge").forEach(b => {
+      const on = b.dataset.filter === state.filterKind;
+      b.classList.toggle("off", state.filterKind !== "all" && !on);
+      b.classList.toggle("isolate", on && state.filterKind !== "all");
+      if (state.filterKind === "all") {
+        b.classList.remove("off", "isolate");
+      }
+    });
+  }
+
+  function renderLegend() {
+    const { diffs, dups } = counts();
+    const parts = [];
+    if (state.showFvar && diffs) {
+      parts.push(`<span class="swatch"><span class="chip diff">■ Yellow</span> STAT / fvar names differ</span>`);
+    }
+    if (dups) {
+      parts.push(`<span class="swatch"><span class="chip dup">◆ Purple</span> same output as an earlier row under ${MODE_LABEL[state.naming]} naming</span>`);
+    }
+    $("legend").innerHTML = parts.join("");
+  }
+
+  function render() {
+    const hasFont = state.hasFont;
+    $("win").classList.toggle("no-fvar", !state.showFvar);
+    $("toolbar").style.display = hasFont ? "" : "none";
+    $("headline").style.display = hasFont ? "" : "none";
+    $("list").style.display = hasFont ? "" : "none";
+    $("cards").style.display = hasFont ? "" : "none";
+    $("filterBar").style.display = hasFont ? "" : "none";
+    $("legend").style.display = hasFont ? "" : "none";
+    $("dropzone").classList.toggle("show", !hasFont);
+    $("btnGenerate").disabled = !hasFont || state.selected.size === 0;
+    $("namingMono").textContent = MODE_LABEL[state.naming];
+
+    document.querySelectorAll("#namingSeg button").forEach(b => {
+      b.classList.toggle("on", b.dataset.mode === state.naming);
+    });
+    setFilterBadges();
+
+    const n = state.selected.size;
+    const { diffs, dups } = counts();
+    $("cardSelected").textContent = hasFont ? String(n) : "0";
+    $("cardTotal").textContent = hasFont ? String(INSTANCES.length) : "0";
+    $("cardAxes").textContent = String(state.axes);
+    $("cardDiffs").textContent = hasFont && state.showFvar ? String(diffs) : "0";
+    $("cardDups").textContent = hasFont ? String(dups) : "0";
+    $("sheetOK").textContent = `Generate ${n} Font${n === 1 ? "" : "s"}`;
+    $("headline").innerHTML = hasFont
+      ? `Named instances — <b>${n} selected</b> · naming <b>${MODE_LABEL[state.naming]}</b>`
+      : "";
+
+    if (!hasFont) {
+      $("rowcount").textContent = "";
+      $("legend").innerHTML = "";
+      return;
+    }
+
+    const rows = visible();
+    const list = $("list");
+    const head = `
+      <div class="thead">
+        <div></div>
+        <div>#</div>
+        <div>STAT Name</div>
+        <div class="col-fvar">fvar Name</div>
+        <div>Style</div>
+        <div>Coordinates</div>
+        <div>Output</div>
+      </div>`;
+
+    if (!rows.length) {
+      list.innerHTML = head + `<div class="empty">No instances match</div>`;
+    } else {
+      list.innerHTML = head + rows.map(inst => {
+        const on = state.selected.has(inst.id);
+        const mark = inst.dup ? "◆" : (inst.diff && state.showFvar ? "■" : "");
+        const numClass = inst.dup ? "num mark-dup" : (inst.diff && state.showFvar ? "num mark-diff" : "num");
+        const statHtml = (inst.diff && state.showFvar)
+          ? `<span class="cell-hl">${escapeHtml(inst.stat)}</span>`
+          : escapeHtml(inst.stat);
+        const fvarHtml = (inst.diff && state.showFvar)
+          ? `<span class="cell-hl">${hybridDisplay(inst)}</span>`
+          : hybridDisplay(inst);
+        const classes = ["row"];
+        if (on) classes.push("selected");
+        if (inst.dup) classes.push("dup");
+        return `
+          <div class="${classes.join(" ")}" data-id="${inst.id}">
+            <input type="checkbox" ${on ? "checked" : ""} tabindex="-1">
+            <div class="${numClass}">${mark ? mark + " " : ""}${inst.id}</div>
+            <div class="stat">${statHtml}</div>
+            <div class="fvar col-fvar">${fvarHtml}</div>
+            <div class="style">${escapeHtml(inst.style)}</div>
+            <div class="coords">${escapeHtml(inst.coords)}</div>
+            <div class="file" title="${escapeHtml(outputFile(inst))}">${escapeHtml(outputFile(inst))}</div>
+          </div>`;
+      }).join("");
+    }
+
+    $("rowcount").textContent = `${rows.length} of ${INSTANCES.length} shown`;
+    renderLegend();
+  }
+
+  function selectDefault() {
+    // Dup rows deselected by default (matches CLI omit-dup behavior).
+    state.selected = new Set(INSTANCES.filter(i => !i.dup).map(i => i.id));
+  }
+
+  function applyScenario() {
+    document.querySelectorAll(".scenario").forEach(b => {
+      b.classList.toggle("on", b.dataset.scenario === state.scenario);
+    });
+
+    if (state.scenario === "standalone") {
+      state.hasFont = false;
+      state.showFvar = true;
+      state.axes = 0;
+      state.defaultFolder = "~/Fonts/static";
+      $("winTitle").textContent = "Instance Static Fonts";
+      $("subtitle").textContent = "Open a clean variable font, choose instances, generate static files.";
+      $("srcMono").textContent = "—";
+      $("srcPill").hidden = true;
+      $("btnOpen").hidden = false;
+    } else if (state.scenario === "stat-only") {
+      state.hasFont = true;
+      state.showFvar = false;
+      state.axes = 3;
+      state.defaultFolder = "~/Exports/MullerNext/static";
+      $("winTitle").textContent = "Instance — MullerNext-Variable.ttf";
+      $("subtitle").textContent = "Generate static fonts from named instances — names come from the font’s STAT table.";
+      $("srcMono").textContent = "MullerNext-Variable.ttf";
+      $("srcPill").textContent = "Studio export";
+      $("srcPill").className = "pill export";
+      $("srcPill").hidden = false;
+      $("btnOpen").hidden = true;
+      state.naming = "stat";
+    } else {
+      state.hasFont = true;
+      state.showFvar = true;
+      state.axes = 3;
+      state.defaultFolder = "~/Exports/MullerNext/static";
+      $("winTitle").textContent = "Instance — MullerNext-Variable.ttf";
+      $("subtitle").textContent = "Generate static fonts from named instances — compare STAT and fvar names before you commit.";
+      $("srcMono").textContent = "MullerNext-Variable.ttf";
+      $("srcPill").textContent = "Studio export";
+      $("srcPill").className = "pill export";
+      $("srcPill").hidden = false;
+      $("btnOpen").hidden = true;
+    }
+
+    state.filterText = "";
+    state.filterKind = "all";
+    $("search").value = "";
+    selectDefault();
+    render();
+  }
+
+  function toast(msg, showReveal = false) {
+    $("toastMsg").textContent = msg;
+    $("toastReveal").style.display = showReveal ? "" : "none";
+    $("toast").classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => $("toast").classList.remove("show"), 3200);
+  }
+
+  $("introToggle").addEventListener("click", () => {
+    $("intro").classList.toggle("open");
+    $("introToggle").textContent = $("intro").classList.contains("open") ? "Hide notes" : "Notes";
+  });
+
+  document.querySelectorAll(".scenario").forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.scenario = btn.dataset.scenario;
+      applyScenario();
+    });
+  });
+
+  document.querySelectorAll(".filter-badge").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const kind = btn.dataset.filter;
+      state.filterKind = (state.filterKind === kind && kind !== "all") ? "all" : kind;
+      render();
+    });
+  });
+
+  $("search").addEventListener("input", () => {
+    state.filterText = $("search").value;
+    render();
+  });
+
+  $("namingSeg").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-mode]");
+    if (!btn) return;
+    state.naming = btn.dataset.mode;
+    render();
+  });
+
+  $("list").addEventListener("click", (e) => {
+    const row = e.target.closest(".row");
+    if (!row) return;
+    const id = Number(row.dataset.id);
+    if (state.selected.has(id)) state.selected.delete(id);
+    else state.selected.add(id);
+    render();
+  });
+
+  $("btnAll").addEventListener("click", () => {
+    visible().forEach(i => state.selected.add(i.id));
+    render();
+  });
+  $("btnNone").addEventListener("click", () => {
+    visible().forEach(i => state.selected.delete(i.id));
+    render();
+  });
+
+  $("btnOpen").addEventListener("click", () => {
+    state.scenario = "compare";
+    applyScenario();
+  });
+  $("dropzone").addEventListener("click", () => $("btnOpen").click());
+
+  $("btnCancel").addEventListener("click", () => toast("Window closed"));
+  $("btnGenerate").addEventListener("click", () => {
+    $("sheetPath").textContent = state.defaultFolder;
+    $("folderSheet").classList.add("show");
+  });
+  $("sheetCancel").addEventListener("click", () => $("folderSheet").classList.remove("show"));
+  $("sheetOK").addEventListener("click", () => {
+    $("folderSheet").classList.remove("show");
+    toast(`Wrote ${state.selected.size} static fonts`, true);
+  });
+  $("folderSheet").addEventListener("click", (e) => {
+    if (e.target === $("folderSheet")) $("folderSheet").classList.remove("show");
+  });
+  $("toastReveal").addEventListener("click", () => toast(`Reveal ${state.defaultFolder}`));
+
+  applyScenario();
+})();
+</script>
+</body>
+</html>
