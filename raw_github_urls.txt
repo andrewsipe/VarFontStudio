@@ -289,6 +289,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/f
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font-preview-prototype.html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font_diff_preview (first prototype).html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/font_ttx_diff_preview (revised prototype).html
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/instancer-window-prototype.html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/name-table-inspector-prototype.html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/naming_axis_sheet_all_kinds.html
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/naming_axis_sheet_redesign.html
