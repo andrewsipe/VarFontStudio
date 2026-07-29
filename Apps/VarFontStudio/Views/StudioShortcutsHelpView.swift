@@ -30,6 +30,7 @@ struct StudioShortcutsHelpView: View {
             ShortcutRow(action: "Toggle instances", keys: "⌃⌘2"),
             ShortcutRow(action: "Toggle inspector", keys: "⌃⌘3"),
             ShortcutRow(action: "Toggle review window", keys: "⌃⌘4"),
+            ShortcutRow(action: "Toggle instancer window", keys: "⌃⌘5"),
         ]),
         ("Instances", [
             ShortcutRow(action: "Include all shown", keys: "⌥⌘I"),

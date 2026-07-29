@@ -1,0 +1,1062 @@
+import AppKit
+import SwiftUI
+import VarFontCore
+
+struct InstancerWindow: View {
+    let windowKey: String
+    @EnvironmentObject private var editor: EditorViewModel
+
+    private var session: InstancerSessionState {
+        editor.instancer.displaySession(forWindowKey: windowKey)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let workspace = editor.instancer.workspace(forKey: windowKey), workspace.hasTabs {
+                InstancerFileTabBar(windowKey: windowKey)
+                Divider()
+            }
+
+            InstancerWindowContent(windowKey: windowKey, session: session)
+                .environmentObject(session)
+                .id(session.sessionKey)
+        }
+        .frame(minWidth: 880, minHeight: 560)
+        .preferredColorScheme(.dark)
+        .navigationTitle(editor.instancer.windowTitle(forWindowKey: windowKey))
+        .background(InstancerWindowConfigurator())
+        .background(AuxiliaryWindowOpenBridge())
+    }
+}
+
+private struct InstancerFileTabBar: View {
+    let windowKey: String
+    @EnvironmentObject private var editor: EditorViewModel
+
+    var body: some View {
+        let workspace = editor.instancer.workspace(forKey: windowKey)
+        let tabKeys = workspace?.tabKeys ?? []
+        if !tabKeys.isEmpty {
+            HStack(spacing: StudioSpacing.controlGap) {
+                StudioSectionLabel(title: "File")
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: StudioSpacing.tightGap) {
+                        ForEach(tabKeys, id: \.self) { key in
+                            fileChip(sessionKey: key, workspace: workspace)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, InstancerLayout.horizontalPadding)
+            .padding(.vertical, StudioSpace.x2)
+            .background(.bar)
+        }
+    }
+
+    @ViewBuilder
+    private func fileChip(sessionKey: String, workspace: InstancerWorkspace?) -> some View {
+        let session = editor.instancer.session(forKey: sessionKey)
+        let isSelected = workspace?.selectedTabKey == sessionKey
+        let title = session?.sourceDisplayName.isEmpty == false
+            ? (session?.sourceDisplayName ?? "Font")
+            : "Font"
+        let isLoading = session?.isLoading == true
+        let isGenerating = session?.isGenerating == true
+
+        Button {
+            editor.instancer.selectTab(sessionKey: sessionKey, windowKey: windowKey)
+        } label: {
+            StudioTabChip(isSelected: isSelected) {
+                Text(title)
+                    .font(StudioTypography.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .lineLimit(1)
+            } trailing: {
+                HStack(spacing: StudioSpacing.tightGap) {
+                    if isLoading || isGenerating {
+                        ProgressView()
+                            .controlSize(.mini)
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct InstancerWindowContent: View {
+    let windowKey: String
+    @ObservedObject var session: InstancerSessionState
+    @EnvironmentObject private var editor: EditorViewModel
+
+    @State private var toastMessage: String?
+    @State private var toastRevealPath: String?
+    @State private var statusOverride: String?
+
+    private var tabCount: Int {
+        editor.instancer.workspace(forKey: windowKey)?.tabKeys.count ?? 0
+    }
+
+    private var canGenerateAll: Bool {
+        guard let workspace = editor.instancer.workspace(forKey: windowKey) else { return false }
+        return workspace.tabKeys.contains { key in
+            editor.instancer.session(forKey: key)?.canGenerate == true
+        } && !editor.instancer.isGenerateBusy
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            summaryChrome
+            toolRow
+            headline
+            rowList
+            statusBar
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .bottom) {
+            if let toastMessage {
+                HStack(spacing: StudioSpace.x3) {
+                    Text(toastMessage)
+                        .font(StudioTypography.bodyMedium)
+                    if let toastRevealPath {
+                        Button("Show in Finder") {
+                            NSWorkspace.shared.selectFile(
+                                toastRevealPath,
+                                inFileViewerRootedAtPath: ""
+                            )
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.horizontal, StudioSpace.x3)
+                .padding(.vertical, StudioSpace.x2)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+                .padding(.bottom, StudioSpace.x6)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+    }
+
+    // MARK: - Summary (Review-matched top chrome)
+
+    private var summaryChrome: some View {
+        VStack(alignment: .leading, spacing: InstancerLayout.chromeSectionGap) {
+            HStack(alignment: .top, spacing: StudioSpace.x4) {
+                VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+                    Text("Instance")
+                        .font(StudioTypography.emphasis)
+                    Text("Generate static fonts from named instances — names follow fvar, with STAT as a fallback.")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                    sourceBanner
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                actionBar
+            }
+
+            addInstanceBar
+
+            filterBadges
+        }
+        .padding(.horizontal, InstancerLayout.horizontalPadding)
+        .padding(.top, StudioSpace.x4)
+        .padding(.bottom, InstancerLayout.chromeSectionGap)
+    }
+
+    private var actionBar: some View {
+        HStack(spacing: StudioSpacing.controlGap) {
+            Button("Generate All…") {
+                Task { await presentGenerateAll() }
+            }
+            .disabled(!canGenerateAll)
+            .help(generateAllHelp)
+
+            Button("Generate This File…") {
+                Task { await presentGenerate() }
+            }
+            .keyboardShortcut(.defaultAction)
+            .disabled(!session.canGenerate || session.isGenerating || editor.instancer.isGenerateBusy)
+            .help(generateHelp)
+        }
+    }
+
+    private var sourceBanner: some View {
+        HStack(spacing: StudioSpacing.rowGap) {
+            Text("Source")
+                .font(StudioTypography.meta)
+                .foregroundStyle(.secondary)
+            Text(session.hasSource ? session.sourceDisplayName : "None")
+                .font(StudioTypography.monoMeta)
+                .foregroundStyle(session.hasSource ? .primary : .tertiary)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            if session.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                Text(session.loadStatus.isEmpty ? "Reading…" : session.loadStatus)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else if session.isStudioExport {
+                Text("Studio export")
+                    .font(StudioTypography.pillLabel)
+                    .foregroundStyle(StudioColors.editedForeground)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        StudioColors.editedForeground.opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 3)
+                    )
+            }
+            if session.fontID != nil, session.projectID != nil {
+                Button(fixStudioTitle) {
+                    editor.instancer.focusStudioForNaming(session: session)
+                }
+                .font(StudioTypography.caption)
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                .help(fixStudioHelp)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Collapsed: Add Instance toggle. Expanded: custom instance composer with Cancel.
+    private var addInstanceBar: some View {
+        VStack(alignment: .leading, spacing: StudioSpace.x1_5) {
+            if session.showComposer {
+                composerFields
+            } else {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    Button("Add Instance…") {
+                        session.showComposer = true
+                        session.resetComposer()
+                    }
+                    .help("Add a custom instance at any coordinate — not written back to the source font")
+                    .disabled(!session.hasSource || session.isLoading)
+                    Spacer(minLength: 0)
+                }
+            }
+            if let warning = session.composerWarning {
+                HStack(spacing: StudioSpace.x2) {
+                    Text(warning)
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(StudioColors.warningForeground)
+                    Spacer(minLength: 0)
+                    if session.composerForcePending {
+                        Button("Add anyway") {
+                            session.composerForcePending = false
+                            commitCustomInstance(force: true)
+                        }
+                    }
+                    StudioDismissButton(scale: .chip, style: .fill, help: "Dismiss warning") {
+                        session.composerWarning = nil
+                        session.composerForcePending = false
+                    }
+                }
+                .padding(StudioSpace.x2)
+                .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            }
+        }
+        .padding(StudioSpace.x2)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+    }
+
+    private var composerFields: some View {
+        let draftBits = session.styleBits(for: composerFilledCoords)
+        let draftStyle = InstancerNaming.ribbi(isBold: draftBits.bold, isItalic: draftBits.italic)
+        let draftName = session.composerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let draftOutput: String = {
+            guard !draftName.isEmpty else { return "—" }
+            let token = draftName.replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
+            let prefix = session.psPrefix.trimmingCharacters(in: .whitespacesAndNewlines)
+            return prefix.isEmpty ? "\(token).ttf" : "\(prefix)-\(token).ttf"
+        }()
+
+        return HStack(spacing: StudioSpacing.controlGap) {
+            Button("Cancel") {
+                dismissComposer()
+            }
+            .help("Close the custom instance row")
+
+            TextField("Name — e.g. SemiBold", text: $session.composerName)
+                .frame(minWidth: 160, idealWidth: 200, maxWidth: 240)
+                .textFieldStyle(.roundedBorder)
+
+            ForEach(session.axisTags, id: \.self) { tag in
+                HStack(spacing: StudioSpace.x1) {
+                    Text(tag)
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+                    TextField(
+                        tag == "wght" ? "required" : "0",
+                        value: Binding(
+                            get: { session.composerCoords[tag] },
+                            set: { session.composerCoords[tag] = $0 }
+                        ),
+                        format: .number
+                    )
+                    .font(StudioTypography.monoMeta)
+                    .frame(width: tag == "wght" ? 78 : 64)
+                    .textFieldStyle(.roundedBorder)
+                }
+            }
+
+            Text(draftStyle.rawValue)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: InstancerLayout.styleColumnWidth, alignment: .leading)
+                .help(composerStyleHelp(draftStyle))
+
+            Text(draftOutput)
+                .font(StudioTypography.monoMeta)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(minWidth: 120, maxWidth: 220, alignment: .leading)
+                .help(draftOutput == "—" ? "Output filename preview" : draftOutput)
+
+            Spacer(minLength: 0)
+            Button(session.composerForcePending ? "Confirm" : "Add") {
+                addCustomInstance()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+
+    /// Filled composer coords (defaults for missing axes) used for live Style preview.
+    private var composerFilledCoords: [String: Double] {
+        var coords = session.composerCoords
+        for tag in session.axisTags where coords[tag] == nil {
+            coords[tag] = InstancerAxisDefaults.value(for: tag)
+        }
+        return coords
+    }
+
+    private func composerStyleHelp(_ style: InstancerRIBBI) -> String {
+        switch style {
+        case .bold, .boldItalic:
+            if let wght = session.boldLinkedWght {
+                return "Style follows axes — Bold when wght is the Format 3 link target (\(InstancerNaming.formatCoord(wght)))."
+            }
+            return "Style follows axes — Bold when wght matches the Format 3 weight link."
+        case .italic:
+            return "Style follows axes — Italic when ital is 1 or slnt is non-zero."
+        case .regular:
+            return "Style follows axes — Regular unless wght is the Bold link target or the instance is italic."
+        }
+    }
+
+    private func dismissComposer() {
+        session.showComposer = false
+        session.resetComposer()
+    }
+
+    private var filterBadges: some View {
+        let counts = session.filterCounts()
+        return HStack(spacing: InstancerLayout.filterBadgeGap) {
+            filterBadge(.all, count: counts.all)
+            filterBadge(.clean, count: counts.clean)
+            if counts.custom > 0 {
+                filterBadge(.custom, count: counts.custom, tint: StudioColors.customForeground)
+            }
+            if counts.collision > 0 {
+                filterBadge(.collision, count: counts.collision, tint: StudioColors.collisionForeground)
+            }
+            if counts.attention > 0 {
+                filterBadge(.attention, count: counts.attention, tint: StudioColors.warningForeground)
+            }
+            Spacer(minLength: 0)
+        }
+        .onChange(of: counts.custom) { _, value in
+            if value == 0, session.filterKind == .custom { session.filterKind = .all }
+        }
+        .onChange(of: counts.collision) { _, value in
+            if value == 0, session.filterKind == .collision { session.filterKind = .all }
+        }
+        .onChange(of: counts.attention) { _, value in
+            if value == 0, session.filterKind == .attention { session.filterKind = .all }
+        }
+    }
+
+    private func filterBadge(_ kind: InstancerFilterKind, count: Int, tint: Color? = nil) -> some View {
+        let isolated = session.filterKind == kind && kind != .all
+        let dimmed = session.filterKind != .all && session.filterKind != kind
+        let accent = tint ?? Color.primary
+        return Button {
+            if session.filterKind == kind && kind != .all {
+                session.filterKind = .all
+            } else {
+                session.filterKind = kind
+            }
+        } label: {
+            HStack(spacing: 4) {
+                if kind == .custom || kind == .collision || kind == .attention {
+                    Text("◆")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .foregroundStyle(accent)
+                }
+                Text("\(kind.title.uppercased()) \(count)")
+                    .font(.system(size: 8.5, weight: .bold))
+                    .tracking(0.3)
+            }
+            .foregroundStyle(dimmed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(accent))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(
+                isolated ? accent.opacity(0.16) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 3)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(
+                        isolated ? accent.opacity(0.45) : (dimmed ? Color.clear : Color.primary.opacity(0.12)),
+                        lineWidth: isolated ? 1 : 0.5
+                    )
+            }
+            .opacity(dimmed ? 0.45 : 1)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            statusOverride = hovering ? kind.hint : nil
+        }
+    }
+
+    private var fixStudioTitle: String {
+        let n = session.sourceAttentionCount
+        return n > 0 ? "Fix in Studio (\(n))" : "Fix in Studio"
+    }
+
+    private var generateHelp: String {
+        if session.isGenerating {
+            return session.generateStatus.isEmpty ? "Generating static fonts…" : session.generateStatus
+        }
+        if editor.instancer.isGenerateBusy {
+            return "Another font is still generating statics"
+        }
+        return session.generateBlockedReason
+            ?? "Choose a folder. Picking the source folder creates a Static subfolder."
+    }
+
+    private var generateAllHelp: String {
+        if editor.instancer.isGenerateBusy {
+            return "Another font is still generating statics"
+        }
+        if !canGenerateAll {
+            return "No file tabs are ready to generate"
+        }
+        if tabCount > 1 {
+            return "Generate selected instances for all \(tabCount) files in this window"
+        }
+        return "Generate selected instances for every file tab"
+    }
+
+    private var fixStudioHelp: String {
+        if session.fontID == nil || session.projectID == nil {
+            return "Available when this font is open in a Studio project"
+        }
+        if session.customCount > 0 {
+            return "\(session.customCount) custom instance(s) would be suggested as new Axis Tree stops"
+        }
+        return "Open this file in Studio"
+    }
+
+    // MARK: - Tool row / headline / list
+
+    private var toolRow: some View {
+        HStack(spacing: StudioSpace.x3) {
+            StudioSearchField(
+                text: $session.filterText,
+                placeholder: "Search"
+            )
+            .frame(maxWidth: 220)
+            .disabled(!session.hasSource || session.isLoading)
+            .opacity(session.hasSource && !session.isLoading ? 1 : 0.45)
+
+            Text("\(session.visibleRows.count) of \(session.rows.count) rows shown")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.tertiary)
+                .monospacedDigit()
+
+            Spacer(minLength: StudioSpace.x3)
+
+            psPrefixControls
+        }
+        .padding(.horizontal, InstancerLayout.horizontalPadding)
+        .padding(.vertical, InstancerLayout.toolRowVerticalPadding)
+        .frame(minHeight: InstancerLayout.toolRowMinHeight)
+        .background(StudioColors.surfaceSubtle.opacity(0.5))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(StudioColors.surfaceStroke).frame(height: 0.5)
+        }
+        .overlay(alignment: .top) {
+            Rectangle().fill(StudioColors.surfaceStroke).frame(height: 0.5)
+        }
+    }
+
+    private var psPrefixControls: some View {
+        HStack(spacing: StudioSpace.x2) {
+            Text("PS prefix")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize()
+            TextField("Prefix", text: $session.psPrefix)
+                .font(StudioTypography.monoMeta)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(width: 140, alignment: .leading)
+                .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+                .overlay(
+                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                        .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
+                )
+                .disabled(!session.hasSource || session.isLoading)
+            if session.psPrefix != session.psInferred {
+                Button("Reset") {
+                    session.psPrefix = session.psInferred
+                }
+                .font(StudioTypography.caption)
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+            } else {
+                Text("from \(session.psSourceLabel)")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+        .layoutPriority(1)
+    }
+
+    private var headline: some View {
+        HStack(spacing: StudioSpace.x3) {
+            if session.hasSource, !session.isLoading, !session.isGenerating {
+                Button("Select All") {
+                    session.visibleRows.forEach { session.selectedIDs.insert($0.id) }
+                }
+                .buttonStyle(.plain)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+
+                Button("Deselect All") {
+                    session.visibleRows.forEach { session.selectedIDs.remove($0.id) }
+                }
+                .buttonStyle(.plain)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Text(headlineText)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, InstancerLayout.horizontalPadding)
+        .padding(.vertical, InstancerLayout.toolRowVerticalPadding)
+        .frame(minHeight: InstancerLayout.toolRowMinHeight, alignment: .leading)
+    }
+
+    private var headlineText: String {
+        if session.isGenerating {
+            let done = session.generateCompletedCount
+            let total = max(session.generateTotalCount, 1)
+            if session.generateStatus.isEmpty {
+                return "Generating static fonts… \(done) of \(total)"
+            }
+            return session.generateStatus
+        }
+        if session.isLoading {
+            return session.loadStatus.isEmpty ? "Reading font…" : session.loadStatus
+        }
+        if !session.hasSource {
+            return "No font open"
+        }
+        return "Named instances — \(session.selectedCount) selected"
+    }
+
+    private var rowList: some View {
+        Group {
+            if session.isLoading {
+                VStack(spacing: StudioSpace.x3) {
+                    ProgressView()
+                        .controlSize(.regular)
+                    Text(session.loadStatus.isEmpty ? "Reading font…" : session.loadStatus)
+                        .font(StudioTypography.bodyMedium)
+                    Text("Named instances appear here when the font finishes loading.")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = session.loadError {
+                ContentUnavailableView {
+                    Label("Couldn’t read font", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(error)
+                } actions: {
+                    if let projectID = session.projectID, let fontID = session.fontID {
+                        Button("Reload from Project") {
+                            editor.instancer.reloadSessionAfterExport(projectID: projectID, fontID: fontID)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !session.hasSource {
+                GeometryReader { geo in
+                    let columns = InstancerLayout.columnWidths(
+                        totalWidth: geo.size.width,
+                        axisCount: max(session.axisTags.count, 2)
+                    )
+                    VStack(spacing: 0) {
+                        headerRow(columns: columns)
+                        Text(StudioEmptyCopy.instancerListHint)
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(.horizontal, InstancerLayout.horizontalPadding)
+                            .padding(.vertical, StudioSpace.x6)
+                    }
+                }
+                .background(InstancerLayout.canvasBackground)
+            } else if session.rows.isEmpty {
+                ContentUnavailableView(
+                    "No instances",
+                    systemImage: "square.stack.3d.up.slash",
+                    description: Text("This font has no fvar named instances.")
+                )
+                .background(InstancerLayout.canvasBackground)
+            } else if session.visibleRows.isEmpty {
+                ContentUnavailableView(
+                    "No instances match",
+                    systemImage: "line.3.horizontal.decrease.circle",
+                    description: Text("Try another filter or clear the search.")
+                )
+                .background(InstancerLayout.canvasBackground)
+            } else {
+                GeometryReader { geo in
+                    let columns = InstancerLayout.columnWidths(
+                        totalWidth: geo.size.width,
+                        axisCount: session.axisTags.count
+                    )
+                    VStack(spacing: 0) {
+                        headerRow(columns: columns)
+                        ScrollView {
+                            LazyVStack(spacing: 0) {
+                                ForEach(session.visibleRows) { row in
+                                    InstancerRowView(row: row, session: session, columns: columns)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .background(InstancerLayout.canvasBackground)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(InstancerLayout.canvasBackground)
+    }
+
+    private func headerRow(columns: InstancerLayout.ColumnWidths) -> some View {
+        HStack(spacing: InstancerLayout.columnGap) {
+            Color.clear
+                .frame(width: InstancerLayout.selectColumnWidth, height: 1)
+            Text("Name")
+                .frame(width: columns.name, alignment: .leading)
+            ForEach(session.axisTags, id: \.self) { tag in
+                Text(tag)
+                    .frame(width: InstancerLayout.axisColumnWidth, alignment: .trailing)
+            }
+            Text("Style")
+                .frame(width: InstancerLayout.styleColumnWidth, alignment: .leading)
+            Text("Output")
+                .frame(width: columns.output, alignment: .leading)
+                .padding(.leading, InstancerLayout.outputLeadingGap)
+            Color.clear
+                .frame(width: InstancerLayout.flagColumnWidth, height: 1)
+        }
+        .font(StudioTypography.columnLabel)
+        .foregroundStyle(.tertiary)
+        .textCase(.uppercase)
+        .padding(.horizontal, InstancerLayout.horizontalPadding)
+        .padding(.vertical, StudioSpace.x1) // 4
+        .fixedSize(horizontal: false, vertical: true)
+        .background(SaveReviewLayout.phaseHeaderBackground)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private var statusBar: some View {
+        Text(statusBarText)
+            .font(StudioTypography.meta)
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, InstancerLayout.horizontalPadding)
+            .frame(height: InstancerLayout.statusBarHeight)
+            .background(StudioColors.surfaceSubtle)
+            .overlay(alignment: .top) { Divider() }
+    }
+
+    private var statusBarText: String {
+        if let statusOverride { return statusOverride }
+        if session.isGenerating {
+            return session.generateStatus.isEmpty ? "Generating…" : session.generateStatus
+        }
+        if session.isLoading {
+            return session.loadStatus.isEmpty ? "Reading font…" : session.loadStatus
+        }
+        return session.statusHint
+    }
+
+    // MARK: - Generate (Review-style folder panel)
+
+    private func presentGenerate() async {
+        guard let outcome = await editor.instancer.presentGenerate(session: session) else { return }
+        switch outcome {
+        case let .success(message, revealPath):
+            showToast(message, revealPath: revealPath)
+            NSWorkspace.shared.selectFile(revealPath, inFileViewerRootedAtPath: "")
+        case let .failure(userMessage):
+            showToast(userMessage, revealPath: nil)
+        }
+    }
+
+    private func presentGenerateAll() async {
+        guard let outcome = await editor.instancer.presentGenerateAll(windowKey: windowKey) else { return }
+        switch outcome {
+        case let .success(message, revealPath):
+            showToast(message, revealPath: revealPath)
+            NSWorkspace.shared.selectFile(revealPath, inFileViewerRootedAtPath: "")
+        case let .failure(userMessage):
+            showToast(userMessage, revealPath: nil)
+        }
+    }
+
+    private func showToast(_ message: String, revealPath: String? = nil) {
+        withAnimation {
+            toastMessage = message
+            toastRevealPath = revealPath
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 4_500_000_000)
+            withAnimation {
+                toastMessage = nil
+                toastRevealPath = nil
+            }
+        }
+    }
+
+    private func addCustomInstance() {
+        let name = session.composerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasWght = session.composerCoords["wght"] != nil
+        guard !name.isEmpty, hasWght || !session.axisTags.contains("wght") else {
+            session.composerWarning = "Name and wght are required."
+            return
+        }
+        commitCustomInstance(force: session.composerForcePending)
+    }
+
+    private func commitCustomInstance(force: Bool) {
+        let name = session.composerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var coords = session.composerCoords
+        for tag in session.axisTags where coords[tag] == nil {
+            coords[tag] = InstancerAxisDefaults.value(for: tag)
+        }
+        let key = InstancerNaming.coordsKey(coords, axisTags: session.axisTags)
+        if !force, let match = session.rows.first(where: {
+            InstancerNaming.coordsKey($0.coords, axisTags: session.axisTags) == key
+        }) {
+            let matchName = InstancerNaming.resolvedName(for: match) ?? match.id
+            session.composerWarning = "This coordinate matches “\(matchName)” already in the list — probably the instance you're after."
+            session.composerForcePending = true
+            return
+        }
+        let nextID = "custom-\(UUID().uuidString)"
+        let bits = session.styleBits(for: coords)
+        let row = InstancerRow(
+            id: nextID,
+            origin: .custom,
+            fvarName: name,
+            fvarUsable: true,
+            statName: nil,
+            coords: coords,
+            isBold: bits.bold,
+            isItalic: bits.italic
+        )
+        session.rows.append(row)
+        session.selectedIDs.insert(nextID)
+        session.showComposer = false
+        session.resetComposer()
+    }
+}
+
+// MARK: - Row
+
+private struct InstancerRowView: View {
+    let row: InstancerRow
+    @ObservedObject var session: InstancerSessionState
+    let columns: InstancerLayout.ColumnWidths
+    @EnvironmentObject private var editor: EditorViewModel
+
+    private var selected: Bool { session.selectedIDs.contains(row.id) }
+    private var isActivelyGenerating: Bool { session.generatingRowID == row.id }
+    private var collision: InstancerCollisionKind? { session.collisions[row.id] }
+    private var willFail: Bool { InstancerNaming.willFail(row) }
+    private var fallback: Bool { InstancerNaming.usesSTATFallback(row) }
+    private var overridden: Bool { row.nameOverride != nil }
+
+    var body: some View {
+        HStack(spacing: InstancerLayout.columnGap) {
+            Group {
+                if isActivelyGenerating {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: InstancerLayout.selectColumnWidth, height: InstancerLayout.selectColumnWidth)
+                } else {
+                    StudioIncludeCheckbox(isOn: selected) {
+                        toggleSelection()
+                    }
+                    .disabled(session.isGenerating)
+                }
+            }
+            .frame(width: InstancerLayout.selectColumnWidth)
+
+            nameCell
+                .frame(width: columns.name, alignment: .leading)
+
+            ForEach(session.axisTags, id: \.self) { tag in
+                coordCell(tag: tag)
+                    .frame(width: InstancerLayout.axisColumnWidth, alignment: .trailing)
+            }
+
+            Text(InstancerNaming.ribbi(for: row).rawValue)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: InstancerLayout.styleColumnWidth, alignment: .leading)
+
+            Text(InstancerNaming.outputFileName(psPrefix: session.psPrefix, row: row) ?? "—")
+                .font(StudioTypography.monoMeta)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: columns.output, alignment: .leading)
+                .padding(.leading, InstancerLayout.outputLeadingGap)
+                .help(InstancerNaming.outputFileName(psPrefix: session.psPrefix, row: row) ?? "")
+
+            flagCell
+                .frame(width: InstancerLayout.flagColumnWidth, alignment: .leading)
+        }
+        .padding(.horizontal, InstancerLayout.horizontalPadding)
+        .padding(.vertical, StudioSpace.x2)
+        .background(rowBackground)
+        .opacity(session.isGenerating && !selected && !isActivelyGenerating ? 0.55 : 1)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !session.isGenerating else { return }
+            toggleSelection()
+        }
+    }
+
+    private func toggleSelection() {
+        if selected { session.selectedIDs.remove(row.id) }
+        else { session.selectedIDs.insert(row.id) }
+    }
+
+    @ViewBuilder
+    private var nameCell: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 5) {
+                if session.editingRowID == row.id {
+                    TextField(
+                        "Name",
+                        text: Binding(
+                            get: { row.nameOverride ?? InstancerNaming.resolvedName(for: row) ?? "" },
+                            set: { newValue in
+                                session.updateRow(row.id) { $0.nameOverride = newValue }
+                            }
+                        ),
+                        onCommit: { session.editingRowID = nil }
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(StudioTypography.bodyMedium)
+                } else {
+                    Text(InstancerNaming.resolvedName(for: row) ?? "—")
+                        .font(StudioTypography.bodyMedium)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if overridden {
+                        Circle()
+                            .fill(StudioColors.editedForeground)
+                            .frame(width: 6, height: 6)
+                    }
+                    Button {
+                        session.editingRowID = row.id
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if let note = subtitle {
+                Text(note.text)
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(note.color)
+            }
+        }
+    }
+
+    private var subtitle: (text: String, color: Color)? {
+        if overridden {
+            return ("overridden for this static file", Color.secondary.opacity(0.7))
+        }
+        if willFail {
+            return ("no usable name — fvar incomplete and no STAT value either. This will fail to generate.", StudioColors.errorForeground)
+        }
+        if fallback {
+            return ("fvar incomplete — using STAT “\(row.statName ?? "")”", StudioColors.warningForeground)
+        }
+        switch collision {
+        case .exact:
+            return ("exact duplicate of another row — same name, same coordinates", StudioColors.errorForeground)
+        case .identical:
+            return ("same coordinates as another row — will be an identical design under a different name", StudioColors.errorForeground)
+        case .collision:
+            return ("same output as another row", StudioColors.collisionForeground)
+        case nil:
+            return nil
+        }
+    }
+
+    @ViewBuilder
+    private func coordCell(tag: String) -> some View {
+        let value = row.coords[tag] ?? InstancerAxisDefaults.value(for: tag)
+        if row.origin == .custom {
+            TextField(
+                "",
+                value: Binding(
+                    get: { session.rows.first(where: { $0.id == row.id })?.coords[tag] ?? value },
+                    set: { newValue in
+                        session.updateRowCoords(row.id, tag: tag, value: newValue)
+                    }
+                ),
+                format: .number
+            )
+            .font(StudioTypography.monoMeta)
+            .multilineTextAlignment(.trailing)
+            .textFieldStyle(.roundedBorder)
+        } else {
+            Text(InstancerNaming.formatCoord(value))
+                .font(StudioTypography.monoMeta)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var flagCell: some View {
+        HStack(spacing: 3) {
+            if row.origin == .custom {
+                if let collision {
+                    Text(collisionFlagLabel(collision))
+                        .foregroundStyle(collision == .collision ? StudioColors.collisionForeground : StudioColors.errorForeground)
+                } else {
+                    Text("＋ custom")
+                        .foregroundStyle(StudioColors.customForeground)
+                }
+                Text("·").foregroundStyle(.tertiary)
+                Button("Remove") {
+                    session.rows.removeAll { $0.id == row.id }
+                    session.selectedIDs.remove(row.id)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+            } else if overridden {
+                Button("Revert") {
+                    session.updateRow(row.id) { $0.nameOverride = nil }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+            } else if let collision {
+                Text(collisionFlagLabel(collision))
+                    .foregroundStyle(collision == .collision ? StudioColors.collisionForeground : StudioColors.errorForeground)
+            } else if willFail {
+                Text("✕ will fail")
+                    .foregroundStyle(StudioColors.errorForeground)
+                Text("·").foregroundStyle(.tertiary)
+                Button("Fix in Studio") {
+                    editor.instancer.focusStudioForNaming(session: session)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+            } else if fallback {
+                Text("⚠ fallback")
+                    .foregroundStyle(StudioColors.warningForeground)
+                Text("·").foregroundStyle(.tertiary)
+                Button("Fix in Studio") {
+                    editor.instancer.focusStudioForNaming(session: session)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+            }
+        }
+        .font(StudioTypography.meta)
+    }
+
+    private func collisionFlagLabel(_ kind: InstancerCollisionKind) -> String {
+        switch kind {
+        case .exact: return "◆ exact duplicate"
+        case .identical: return "◆ identical design"
+        case .collision: return "◆ collision"
+        }
+    }
+
+    private var rowBackground: some View {
+        let tint: Color? = {
+            if willFail || collision == .exact || collision == .identical { return StudioColors.errorForeground }
+            if collision == .collision { return StudioColors.collisionForeground }
+            if row.origin == .custom && !overridden { return StudioColors.customForeground }
+            if fallback && !overridden { return StudioColors.warningForeground }
+            return nil
+        }()
+        return ZStack(alignment: .leading) {
+            if let tint {
+                LinearGradient(
+                    colors: [tint.opacity(0.14), .clear],
+                    startPoint: .leading,
+                    endPoint: UnitPoint(x: 0.4, y: 0.5)
+                )
+            }
+            if isActivelyGenerating {
+                Color.accentColor.opacity(0.16)
+            } else if selected {
+                StudioColors.selectionFill
+            }
+        }
+    }
+}
+
+private struct InstancerWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let window = view.window {
+                window.identifier = NSUserInterfaceItemIdentifier(InstancerWindowLifecycle.identifier)
+                window.isRestorable = false
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            nsView.window?.identifier = NSUserInterfaceItemIdentifier(InstancerWindowLifecycle.identifier)
+            nsView.window?.isRestorable = false
+        }
+    }
+}

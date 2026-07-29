@@ -37,7 +37,7 @@ struct InstanceListPanel: View {
                 ContentUnavailableView(
                     "No Font Open",
                     systemImage: "textformat.size",
-                    description: Text("Open or drop a variable font to generate instances.")
+                    description: Text(StudioEmptyCopy.openOrDropFont)
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if display.isEmpty {
@@ -91,6 +91,15 @@ struct InstanceListPanel: View {
                         .foregroundStyle(StudioColors.computedHighlight)
                     Text("included")
                         .foregroundStyle(.secondary)
+
+                    if display.pendingExportCount > 0 {
+                        Text("·")
+                            .foregroundStyle(.quaternary)
+                        Text("\(display.pendingExportCount)")
+                            .foregroundStyle(.secondary)
+                        Text("pending export")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .font(StudioTypography.meta)
@@ -141,6 +150,7 @@ struct InstanceListPanel: View {
 
     private func instanceRow(_ instance: PlannedInstance) -> some View {
         let hasConflict = editor.instanceAffectedByUnresolvedConflict(instance)
+        let isPendingExport = display.pendingExportByKey[instance.key] ?? false
         return InstanceRowView(
             instance: instance,
             coordsCaption: display.coordCaptions[instance.key] ?? "",
@@ -149,6 +159,7 @@ struct InstanceListPanel: View {
             hideElidedNames: hideElidedNames,
             isDuplicate: instance.duplicate,
             hasConflict: hasConflict,
+            isPendingExport: isPendingExport,
             onSelect: { extend in
                 editor.selectInstance(key: instance.key, extend: extend)
             },
@@ -271,6 +282,7 @@ struct InstanceListPanel: View {
     private func showFilterButton(_ filter: InstanceFilter) -> some View {
         let isSelected = editor.instanceFilter == filter
         let isDuplicates = filter == .duplicates
+        let isPendingExport = filter == .pendingExport
 
         return Button {
             editor.instanceFilter = filter
@@ -278,29 +290,54 @@ struct InstanceListPanel: View {
             Text(filter.label)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, 3)
-                .foregroundStyle(showFilterForeground(isSelected: isSelected, isDuplicates: isDuplicates))
+                .foregroundStyle(showFilterForeground(
+                    isSelected: isSelected,
+                    isDuplicates: isDuplicates,
+                    isPendingExport: isPendingExport
+                ))
                 .background(
-                    showFilterBackground(isSelected: isSelected, isDuplicates: isDuplicates),
+                    showFilterBackground(
+                        isSelected: isSelected,
+                        isDuplicates: isDuplicates,
+                        isPendingExport: isPendingExport
+                    ),
                     in: RoundedRectangle(cornerRadius: StudioRadius.small)
                 )
         }
         .buttonStyle(.plain)
         .studioCompactControl()
-        .help(isDuplicates ? "Show instances that share a composed name" : filter.label)
+        .help(showFilterHelp(for: filter))
     }
 
-    private func showFilterForeground(isSelected: Bool, isDuplicates: Bool) -> Color {
+    private func showFilterHelp(for filter: InstanceFilter) -> String {
+        switch filter {
+        case .duplicates:
+            "Show instances that share a composed name"
+        case .pendingExport:
+            "Show included instances not yet written to the working font"
+        default:
+            filter.label
+        }
+    }
+
+    private func showFilterForeground(isSelected: Bool, isDuplicates: Bool, isPendingExport: Bool) -> Color {
         if isDuplicates {
             return StudioColors.warningForeground
+        }
+        if isPendingExport {
+            return isSelected ? Color.secondary : Color.secondary.opacity(0.65)
         }
         return isSelected ? Color.primary : Color.secondary
     }
 
-    private func showFilterBackground(isSelected: Bool, isDuplicates: Bool) -> Color {
+    private func showFilterBackground(isSelected: Bool, isDuplicates: Bool, isPendingExport: Bool) -> Color {
         if isDuplicates {
             return isSelected
                 ? StudioColors.warningFill
                 : StudioColors.warningFill.opacity(0.45)
+        }
+        if isPendingExport {
+            return isSelected ? Color.primary.opacity(0.08) : Color.clear
         }
         return isSelected ? Color.primary.opacity(0.12) : Color.clear
     }
@@ -308,6 +345,9 @@ struct InstanceListPanel: View {
     private var emptyListTitle: String {
         if editor.instanceFilter == .duplicates && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
             return "No Duplicate Instances"
+        }
+        if editor.instanceFilter == .pendingExport && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
+            return "No Pending Export Instances"
         }
         if editor.instanceFilter == .excluded && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
             return "No Excluded Instances"
@@ -321,6 +361,9 @@ struct InstanceListPanel: View {
         }
         if editor.instanceFilter == .duplicates && editor.searchText.isEmpty {
             return "No instances share a composed name in this plan."
+        }
+        if editor.instanceFilter == .pendingExport && editor.searchText.isEmpty {
+            return "Every included instance is already in the working font's fvar table."
         }
         if editor.instanceFilter == .excluded && editor.searchText.isEmpty {
             return "No excluded instances — all are included in this export."
@@ -340,6 +383,7 @@ private struct InstanceRowView: View {
     var hideElidedNames: Bool = false
     var isDuplicate: Bool = false
     var hasConflict: Bool = false
+    var isPendingExport: Bool = false
     let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
     let onSetSelectionIncluded: (Bool) -> Void
@@ -388,6 +432,16 @@ private struct InstanceRowView: View {
                 hideElided: hideElidedNames
             )
             .strikethrough(!isIncluded, color: .secondary)
+
+            if isPendingExport {
+                Text("After export")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3))
+                    .help("Included in the plan but not yet written to the working font")
+            }
 
             Color.clear
                 .frame(width: StudioWarningBadge.slotSize, height: StudioWarningBadge.slotSize)

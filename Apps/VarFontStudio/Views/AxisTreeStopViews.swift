@@ -116,7 +116,7 @@ struct AxisTreeStopRow: View {
     let stop: AxisValue
     var linkedTargetName: String?
     var isRegistrationStop: Bool = false
-    var linkTargetCandidates: [AxisValue] = []
+    var linkTargetCandidates: [StatFormat3Pairing.LinkTarget] = []
     let isSelected: Bool
     let editingField: StopEditField?
     let showElidable: Bool
@@ -140,7 +140,7 @@ struct AxisTreeStopRow: View {
     let onCommitCode: (String) -> Void
     let onCommitName: (String) -> Void
     let onToggleElidable: () -> Void
-    var onSelectLinkTarget: ((String) -> Void)?
+    var onSelectLinkTarget: ((Double) -> Void)?
 
     @State private var isHovered = false
     @State private var editingMin = ""
@@ -452,12 +452,13 @@ struct AxisTreeStopRow: View {
                             Menu {
                                 ForEach(linkTargetCandidates) { target in
                                     Button {
-                                        onSelectLinkTarget(target.id)
+                                        onSelectLinkTarget(target.value)
                                     } label: {
-                                        if let linkedTargetName, target.name == linkedTargetName {
-                                            Label(target.name, systemImage: "checkmark")
+                                        if let linkedTargetName, target.label == linkedTargetName
+                                            || (stop.linkedValue.map { AxisCoordinate.valuesEqual($0, target.value) } == true) {
+                                            Label(target.label, systemImage: "checkmark")
                                         } else {
-                                            Text(target.name)
+                                            Text(target.label)
                                         }
                                     }
                                 }

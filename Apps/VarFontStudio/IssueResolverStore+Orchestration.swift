@@ -116,12 +116,22 @@ extension IssueResolverStore {
         updateReviewSession { session in
             session.state.completedCount += 1
         }
-        let queue = scopedReviewQueue()
-        guard !queue.isEmpty else {
-            clearBothResolversAndReviewSession()
+        var queue = scopedReviewQueue()
+        // Drop plan issues that have no remaining fixes after the previous apply.
+        while let first = queue.first {
+            if case let .planIssue(warning) = first,
+               let font = requireHost.selectedFont,
+               PlanIssueResolver.proposals(for: warning, font: font).isEmpty {
+                queue = Array(queue.dropFirst())
+                updateReviewSession { session in
+                    session.state.completedCount += 1
+                }
+                continue
+            }
+            presentReviewItem(at: 0, in: queue)
             return
         }
-        presentReviewItem(at: 0, in: queue)
+        clearBothResolversAndReviewSession()
     }
     private func scopedReviewQueue() -> [AxisTreeReviewItem] {
         let full = reviewQueue()

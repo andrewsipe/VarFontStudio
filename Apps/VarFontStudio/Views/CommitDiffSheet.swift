@@ -45,12 +45,31 @@ private struct SaveReviewActionBar: View {
         editor.fontsForSaveReview(projectID: projectID).count > 1
     }
 
+    private var isLoading: Bool {
+        editor.isSaveReviewLoading(forProjectID: projectID, fontID: session.fontID)
+    }
+
+    private var canRefresh: Bool {
+        editor.canPreviewSaveReview(forProjectID: projectID, fontID: session.fontID)
+    }
+
     var body: some View {
         VStack(alignment: .trailing, spacing: StudioSpacing.controlGap) {
-            Button("Save Project") {
-                editor.saveProject()
+            HStack(spacing: StudioSpacing.controlGap) {
+                Button {
+                    editor.refreshCommitDiffPreview(forProjectID: projectID, fontID: session.fontID)
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .labelStyle(.iconOnly)
+                .disabled(!canRefresh || isLoading)
+                .help("Re-read the font on disk and rebuild the diff")
+
+                Button("Save Project") {
+                    editor.saveProject()
+                }
+                .disabled(!editor.canSaveProject)
             }
-            .disabled(!editor.canSaveProject)
 
             HStack(spacing: StudioSpacing.controlGap) {
                 if includeCancel {
@@ -119,7 +138,7 @@ private struct SaveReviewFileTabBar: View {
                     }
                 }
             }
-            .padding(.horizontal, StudioSpacing.sheetOuterPadding)
+            .padding(.horizontal, SaveReviewLayout.horizontalPadding)
             .padding(.vertical, StudioSpace.x2)
             .background(.bar)
         }
@@ -174,13 +193,37 @@ struct SaveReviewWindow: View {
                 Divider()
             }
 
+            if let error = editor.saveReview.persistentSaveError {
+                HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+                    VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                        Text("Cannot export")
+                            .font(StudioTypography.sectionLabel)
+                            .foregroundStyle(.secondary)
+                        Text(error)
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(StudioColors.errorForeground)
+                    }
+                    Spacer(minLength: 0)
+                    StudioDismissButton(scale: .toolbar, help: "Dismiss") {
+                        editor.dismissPersistentSaveError()
+                    }
+                }
+                .padding(StudioSpacing.cardPadding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
+                )
+                .padding(.horizontal, StudioSpacing.sheetOuterPadding)
+                .padding(.top, StudioSpace.x2)
+            }
+
             if let session {
                 VStack(spacing: 0) {
                     if session.preflight.ok {
                         CommitDiffReviewView(session: session, fillsAvailableHeight: true) {
                             SaveReviewActionBar(session: session, projectID: projectID)
                         }
-                        .padding(StudioSpacing.sheetOuterPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     } else {
                         VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
@@ -197,7 +240,8 @@ struct SaveReviewWindow: View {
                                 }
                             }
                         }
-                        .padding(StudioSpacing.sheetOuterPadding)
+                        .padding(.horizontal, SaveReviewLayout.horizontalPadding)
+                        .padding(.vertical, StudioSpacing.sheetOuterPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                 }
@@ -264,17 +308,6 @@ struct SaveReviewWindow: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             editor.clearSaveReviewState()
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    refreshCurrentFile()
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .disabled(!canRefreshCurrentFile || isLoadingCurrentFile)
-                .help("Re-read the font on disk and rebuild the diff")
-            }
         }
     }
 

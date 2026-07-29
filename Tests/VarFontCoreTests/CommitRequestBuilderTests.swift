@@ -86,6 +86,30 @@ final class CommitRequestBuilderTests: XCTestCase {
         XCTAssertEqual(resolved.directory.path, "/Users/test/ExportPackage")
     }
 
+    func testPackageStaticExportDirectoryNestsBesideSource() {
+        let sourceDir = URL(fileURLWithPath: "/Users/test/fonts", isDirectory: true)
+        let resolved = CommitRequestBuilder.packageExportDirectory(
+            chosenDirectory: sourceDir,
+            sourcePaths: ["/Users/test/fonts/FamilyVF.ttf"],
+            folderLabel: "FamilyVF",
+            nestedKind: .staticFonts
+        )
+        XCTAssertTrue(resolved.nestedBecauseOfCollision)
+        XCTAssertEqual(resolved.directory.path, "/Users/test/fonts/FamilyVF Static")
+    }
+
+    func testPackageStaticExportDirectoryKeepsChosenWhenSafe() {
+        let chosen = URL(fileURLWithPath: "/Users/test/ExportPackage", isDirectory: true)
+        let resolved = CommitRequestBuilder.packageExportDirectory(
+            chosenDirectory: chosen,
+            sourcePaths: ["/Users/test/fonts/FamilyVF.ttf"],
+            folderLabel: "FamilyVF",
+            nestedKind: .staticFonts
+        )
+        XCTAssertFalse(resolved.nestedBecauseOfCollision)
+        XCTAssertEqual(resolved.directory.path, "/Users/test/ExportPackage")
+    }
+
     func testCommitNamingPrunesPhantomTokens() {
         let order = NamingPolicy.mergedOrder(
             projectOrder: [

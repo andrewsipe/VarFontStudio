@@ -34,6 +34,13 @@ struct ProjectToolbar: View {
             if showsNewProjectHint {
                 newProjectAffordance
             }
+
+            Button("+ Add project…") {
+                editor.presentOpenPanel()
+            }
+            .font(StudioTypography.meta)
+            .buttonStyle(.plain)
+            .help("Open a variable font as a new project tab")
         }
         .padding(.horizontal, StudioSpacing.editorChromeInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)

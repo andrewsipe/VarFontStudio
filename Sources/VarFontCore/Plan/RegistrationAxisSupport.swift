@@ -109,6 +109,7 @@ public enum RegistrationAxisSupport {
 
     public static func italFormat1UpgradeWarnings(font: FontDocument) -> [PlanWarning] {
         guard let axis = font.axes.first(where: { $0.tag == "ital" && $0.isDesignRecordOnly }) else { return [] }
+        if isNonBinaryItalAxis(axis) { return [] }
         return StatFormat3Pairing.format1UpgradeWarnings(for: axis)
     }
 
@@ -167,6 +168,9 @@ public enum RegistrationAxisSupport {
     public static func italConventionWarnings(font: FontDocument) -> [PlanWarning] {
         var warnings: [PlanWarning] = []
         for axis in font.axes where axis.tag == "ital" && axis.isDesignRecordOnly {
+            // Pinned non-binary ital (e.g. angle −12) is a naming axis with a bad tag —
+            // do not push stops onto the binary 0/1 convention.
+            if isNonBinaryItalAxis(axis) { continue }
             for stop in axis.values {
                 guard correctedItalConventionValue(for: stop) != nil else { continue }
                 let expected = isUprightLikeStopName(stop.name) ? "0" : "1"
@@ -259,5 +263,29 @@ public enum RegistrationAxisSupport {
             return nil
         }
         return (stop, stop.elidable)
+    }
+
+    /// `ital` with an fvar scale that is not the registered binary 0/1 model
+    /// (e.g. a pinned italic angle at −12). These behave as naming axes with a bad tag choice.
+    public static func isNonBinaryItalAxis(_ axis: AxisDefinition) -> Bool {
+        guard axis.tag == "ital", axis.hasFvarScale else { return false }
+        if let min = axis.min, let max = axis.max, AxisCoordinate.valuesEqual(min, max) {
+            let pin = min
+            return !AxisCoordinate.valuesEqual(pin, 0) && !AxisCoordinate.valuesEqual(pin, 1)
+        }
+        if let min = axis.min, let max = axis.max {
+            if min < -0.001 || max > 1.001 { return true }
+            if abs(max - min) > 1.001 { return true }
+        }
+        return false
+    }
+
+    public static func preferredItalPinValue(for axis: AxisDefinition) -> Double? {
+        guard axis.tag == "ital" else { return nil }
+        return axis.default ?? axis.min ?? axis.values.first?.value
+    }
+
+    public static func italNamingStopName(for font: FontDocument) -> String {
+        isItalicFile(font: font) ? "Italic" : "Roman"
     }
 }

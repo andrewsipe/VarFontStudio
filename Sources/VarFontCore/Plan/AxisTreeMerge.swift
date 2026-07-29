@@ -16,6 +16,11 @@ public enum AxisTreeMerge {
                 existing.displayName = masterAxis.displayName
                 if !existing.isDesignRecordOnly {
                     existing.values = copyStops(from: masterAxis)
+                } else if existing.values.isEmpty {
+                    existing.values = italStopsForImport(
+                        masterAxis: masterAxis,
+                        targetIsItalicFile: targetIsItalicFile
+                    ) ?? copyStops(from: masterAxis)
                 }
                 if syncRoles, !existing.isDesignRecordOnly {
                     existing.role = masterAxis.role
@@ -24,6 +29,11 @@ public enum AxisTreeMerge {
                 existing.referenceMappingInferred = masterAxis.referenceMappingInferred
                 existing.referenceAnchors = masterAxis.referenceAnchors
                 merged.append(existing)
+            } else if let italImport = italAxisForImport(
+                masterAxis: masterAxis,
+                targetIsItalicFile: targetIsItalicFile
+            ) {
+                merged.append(italImport)
             } else {
                 var imported = masterAxis
                 imported.values = copyStops(from: masterAxis)
@@ -66,7 +76,14 @@ public enum AxisTreeMerge {
 
         guard let stopIndex = targetItal.values.firstIndex(where: {
             AxisCoordinate.valuesEqual($0.value, registrationValue)
-        }) else { return }
+        }) else {
+            // Italic file often receives the master's Roman 0→1 stop when `ital` was missing.
+            // Replace with the italic template instead of leaving an orphan Roman stop.
+            if targetIsItalicFile {
+                targetItal.values = copyStops(from: RegistrationAxisFactory.makeItalAxis(isItalicFile: true))
+            }
+            return
+        }
 
         guard let linked = RegistrationAxisSupport.italFormat3LinkedValue(for: registrationValue) else {
             return
@@ -76,6 +93,26 @@ public enum AxisTreeMerge {
         targetItal.values[stopIndex].linkedValue = linked
         targetItal.values[stopIndex].rangeMin = nil
         targetItal.values[stopIndex].rangeMax = nil
+    }
+
+    /// Italic variants should not inherit the master's Roman `ital` stop wholesale.
+    private static func italAxisForImport(
+        masterAxis: AxisDefinition,
+        targetIsItalicFile: Bool
+    ) -> AxisDefinition? {
+        guard masterAxis.tag == "ital", targetIsItalicFile else { return nil }
+        var imported = RegistrationAxisFactory.makeItalAxis(isItalicFile: true)
+        imported.displayName = masterAxis.displayName ?? imported.displayName
+        imported.values = copyStops(from: imported)
+        return imported
+    }
+
+    private static func italStopsForImport(
+        masterAxis: AxisDefinition,
+        targetIsItalicFile: Bool
+    ) -> [AxisValue]? {
+        guard masterAxis.tag == "ital", targetIsItalicFile else { return nil }
+        return copyStops(from: RegistrationAxisFactory.makeItalAxis(isItalicFile: true))
     }
 
     private static func masterUsesItalFormat3Convention(_ axis: AxisDefinition) -> Bool {

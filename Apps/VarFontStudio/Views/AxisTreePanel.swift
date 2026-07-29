@@ -94,7 +94,11 @@ struct AxisTreePanel: View {
                 ContentUnavailableView(
                     "No Axis Tree",
                     systemImage: "point.3.connected.trianglepath.dotted",
-                    description: Text("Select a file to view its axis tree.")
+                    description: Text(
+                        editor.hasOpenProjects
+                            ? "Select a file to view its axis tree."
+                            : StudioEmptyCopy.openOrDropFont
+                    )
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -189,6 +193,15 @@ struct AxisTreePanel: View {
                 .font(StudioTypography.meta)
                 .buttonStyle(.plain)
                 .help("Copy master axis stops to all other files in this project")
+            }
+
+            if !editor.hasOpenProjects {
+                Button("+ Add project…") {
+                    editor.presentOpenPanel()
+                }
+                .font(StudioTypography.meta)
+                .buttonStyle(.plain)
+                .help("Open a variable font as a new project tab")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -743,6 +756,10 @@ struct AxisTreePanel: View {
         }) {
             return target.name
         }
+        if let convention = StatFormat3Pairing.format3LinkedValue(for: stop.value, axis: axis),
+           AxisCoordinate.valuesEqual(convention, linkedValue) {
+            return StatFormat3Pairing.format3LinkedLabel(axis: axis, linkedValue: linkedValue)
+        }
         return StudioFormatting.axisValue(linkedValue)
     }
 
@@ -757,14 +774,18 @@ struct AxisTreePanel: View {
             stop: stop,
             linkedTargetName: linkedTargetName(for: stop, in: axis),
             isRegistrationStop: isRegistrationStop(stop, axis: axis),
-            linkTargetCandidates: axis.values.filter { $0.id != stop.id },
+            linkTargetCandidates: StatFormat3Pairing.linkTargets(
+                for: axis,
+                stopValue: stop.value,
+                excludingStopID: stop.id
+            ),
             isSelected: editor.selectedAxisStopID == stop.id,
             editingField: editingStop?.id == stop.id ? editingStop?.field : nil,
             showElidable: showElidable,
             showDefaultMark: true,
             showCode: editor.isCodeNamingEnabled,
             isFvarDefault: isFvarDefault,
-            allowsRemove: !axis.isDesignRecordOnly,
+            allowsRemove: true,
             valueEditable: axis.hasFvarScale || axis.isDesignRecordOnly,
             isElidable: stop.elidable,
             onSelect: {
@@ -797,8 +818,8 @@ struct AxisTreePanel: View {
             onCommitCode: { editor.updateAxisStopCode(axisTag: axis.tag, stopID: stop.id, code: $0) },
             onCommitName: { editor.updateAxisStopName(axisTag: axis.tag, stopID: stop.id, name: $0) },
             onToggleElidable: { editor.toggleAxisStopElidable(axisTag: axis.tag, stopID: stop.id) },
-            onSelectLinkTarget: { targetID in
-                editor.updateAxisStopLinkedTarget(axisTag: axis.tag, stopID: stop.id, linkTargetStopID: targetID)
+            onSelectLinkTarget: { linkedValue in
+                editor.updateAxisStopLinkedValue(axisTag: axis.tag, stopID: stop.id, linkedValue: linkedValue)
             }
         )
     }

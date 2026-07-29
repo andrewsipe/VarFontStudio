@@ -207,9 +207,17 @@ struct AxisTreeAxisHeader: View {
     @ViewBuilder
     private var registrationSubtitle: some View {
         HStack(spacing: StudioSpacing.tightGap) {
-            Text("No fvar scale")
-                .font(StudioTypography.meta)
-                .foregroundStyle(.secondary)
+            if let axisRangeText {
+                Text(axisRangeText)
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .help("This naming axis still has an fvar entry (often a pinned coordinate). Interpolation is unchanged; the stop is for naming/STAT.")
+            } else {
+                Text("No fvar scale")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.secondary)
+            }
 
             if !registrationStops.isEmpty {
                 Text("·")

@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VarFont Studio — Instancer Window Prototype v2</title>
+<style>
+  :root{
+    --u:4px;
+    --x1:4px; --x1_5:6px; --x2:8px; --x2_5:10px; --x3:12px; --x3_5:14px;
+    --x4:16px; --x5:20px; --x6:24px; --x8:32px; --x9:36px;
+
+    --review-pad-x:var(--x6);
+    --review-chrome-gap:var(--x3);
+    --review-row-pad-y:var(--x2);
+    --review-tool-min-h:var(--x9);
+    --review-name-id-w:36px;
+
+    --canvas:#1c1c1e;
+    --panel:#242426;
+    --surface-light:rgba(255,255,255,.05);
+    --surface-inset:rgba(255,255,255,.06);
+    --stroke:rgba(255,255,255,.08);
+    --stroke-strong:rgba(255,255,255,.10);
+    --row-rule:#26262a;
+
+    --text:#eaeaec;
+    --text-secondary:#9a9a9e;
+    --text-tertiary:#68686c;
+
+    --accent:#0a84ff;
+    --selection-fill:rgba(10,132,255,.10);
+    --selection-stroke:rgba(10,132,255,.20);
+    --hover-fill:rgba(255,255,255,.05);
+
+    --c-warning:#f0a020;
+    --c-warning-fill:rgba(240,160,32,.14);
+    --c-warning-stroke:rgba(240,160,32,.40);
+    --c-collision:#e64ec2;
+    --c-collision-fill:rgba(230,78,194,.16);
+    --c-collision-stroke:rgba(230,78,194,.45);
+    --c-severe:#ff453a;
+    --c-severe-fill:rgba(255,69,58,.14);
+    --c-severe-stroke:rgba(255,69,58,.40);
+    --c-success:#30a46c;
+    --c-edited:#64d2ff;
+    --c-custom:#2dd4bf;
+    --c-custom-fill:rgba(45,212,191,.16);
+    --c-custom-stroke:rgba(45,212,191,.42);
+
+    --mono:"SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+
+    --radius-control:5px;
+    --radius-badge:3px;
+    --radius-row:6px;
+
+    --win-w:1080px;
+
+    --col-check:28px;
+    --col-name:minmax(220px,1.6fr);
+    --col-ribbi:96px;
+    --col-coords:minmax(148px,1fr);
+    --coord-cols:56px 56px 56px; /* overwritten in JS to match the live axis count */
+    --col-file:minmax(180px,1.2fr);
+    --col-flag:150px;
+    --col-gap:var(--x2_5);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#0e0e10; color:var(--text);
+    font-family:var(--sans); padding:var(--x4) var(--x4) var(--x8);
+  }
+  .page{ max-width:var(--win-w); margin:0 auto; }
+
+  .intro{ margin-bottom:var(--x3); }
+  .intro-head{ display:flex; align-items:center; justify-content:space-between; gap:var(--x3); }
+  .intro h1{ font-size:15px; margin:0; font-weight:600; }
+  .intro-toggle{
+    font-family:var(--sans); font-size:10px; color:var(--text-secondary);
+    background:transparent; border:none; cursor:pointer; padding:var(--x1) 0;
+  }
+  .intro-toggle:hover{ color:var(--text); }
+  .intro-body{ display:none; margin-top:var(--x2); color:var(--text-secondary); font-size:10px; line-height:1.6; max-width:840px; }
+  .intro.open .intro-body{ display:block; }
+  .intro-body code{ font-family:var(--mono); font-size:10.5px; background:var(--surface-light); padding:1px 5px; border-radius:var(--radius-badge); }
+  .intro-body ul{ margin:6px 0 10px; padding-left:16px; }
+  .intro-body li{ margin-bottom:3px; }
+
+  .scenario-bar{ display:flex; gap:var(--x2); margin-bottom:var(--x3); flex-wrap:wrap; }
+  .scenario{
+    font:inherit; font-size:12px; padding:var(--x1_5) var(--x3); border-radius:var(--radius-row);
+    border:0.5px solid var(--stroke-strong); background:var(--panel); color:var(--text-secondary);
+    cursor:pointer; text-align:left; flex:1; min-width:200px;
+  }
+  .scenario:hover{ color:var(--text); border-color:rgba(255,255,255,.16); }
+  .scenario.on{ background:var(--selection-fill); color:var(--text); border-color:var(--selection-stroke); }
+  .scenario .s-title{ font-weight:600; display:block; margin-bottom:2px; }
+  .scenario .s-sub{ font-size:10px; color:var(--text-tertiary); line-height:1.35; }
+  .scenario.on .s-sub{ color:var(--text-secondary); }
+
+  .mockwin{
+    background:var(--canvas); border:1px solid #000; border-radius:11px;
+    overflow:hidden; box-shadow:0 30px 60px -20px rgba(0,0,0,.65);
+    display:flex; flex-direction:column; min-height:720px; height:min(90vh, 880px);
+  }
+  .titlebar{
+    height:var(--x9); background:linear-gradient(#2b2b2d,#242426); border-bottom:1px solid #000;
+    display:flex; align-items:center; padding:0 var(--x3); gap:var(--x2); position:relative; flex-shrink:0;
+  }
+  .dots{ display:flex; gap:7px; }
+  .dot{ width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#ff5f57;} .dot.y{background:#febc2e;} .dot.g{background:#28c840;}
+  .titlebar .wtitle{ position:absolute; left:0; right:0; text-align:center; font-size:12px; color:var(--text-secondary); font-weight:500; pointer-events:none; }
+
+  .summary{ padding:var(--x4) var(--review-pad-x) var(--review-chrome-gap); border-bottom:0.5px solid var(--stroke-strong); flex-shrink:0; }
+  .summary-top{ display:flex; align-items:flex-start; gap:var(--x4); margin-bottom:var(--review-chrome-gap); }
+  .summary-copy{ flex:1; min-width:0; }
+  .summary h2{ margin:0 0 var(--x1); font-size:13px; font-weight:600; }
+  .summary .sub{ margin:0; font-size:10px; color:var(--text-secondary); line-height:1.45; }
+  .action-bar{ display:flex; gap:var(--x2); flex-shrink:0; padding-top:2px; }
+  .btn{ font:inherit; font-size:12px; font-weight:600; border-radius:var(--radius-row); padding:var(--x1_5) var(--x3_5); cursor:pointer; border:0.5px solid transparent; }
+  .btn.primary{ background:var(--accent); color:#fff; }
+  .btn.primary:hover{ filter:brightness(1.08); }
+  .btn.primary:disabled{ opacity:.4; cursor:not-allowed; filter:none; }
+  .btn.secondary{ background:var(--surface-light); color:var(--text); border-color:var(--stroke-strong); }
+  .btn.secondary:hover{ border-color:rgba(255,255,255,.18); }
+  .btn.tiny{ font-size:11px; font-weight:500; padding:3px var(--x2); }
+
+  .meta-row{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--x2); margin-bottom:var(--x2); font-size:10px; color:var(--text-secondary); }
+  .meta-row .mono{ font-family:var(--mono); color:var(--text); font-weight:500; background:var(--surface-light); padding:2px 7px; border-radius:var(--radius-control); font-size:10px; }
+  .pill{ font-size:9px; font-weight:600; padding:2px var(--x2); border-radius:20px; border:0.5px solid var(--stroke-strong); background:var(--surface-light); color:var(--text-secondary); }
+  .pill.export{ color:#64d2ff; background:rgba(100,210,255,.12); border-color:rgba(100,210,255,.30); }
+
+  /* PostScript prefix row — the one small cleanup control we surface inline */
+  .ps-row{
+    display:flex; align-items:center; gap:var(--x2); margin-bottom:var(--review-chrome-gap);
+    padding:var(--x2) var(--x2_5); background:var(--surface-inset); border:0.5px solid var(--stroke);
+    border-radius:var(--radius-row); font-size:11px;
+  }
+  .ps-row .label{ color:var(--text-secondary); white-space:nowrap; }
+  .ps-row input{
+    flex:0 1 220px; font-family:var(--mono); font-size:11px; color:var(--text);
+    background:var(--panel); border:0.5px solid var(--stroke-strong); border-radius:var(--radius-control);
+    padding:4px 8px;
+  }
+  .ps-row input:focus{ outline:none; border-color:var(--accent); }
+  .ps-row .src{ color:var(--text-tertiary); font-size:10px; }
+  .ps-row .src b{ color:var(--text-secondary); font-weight:500; }
+  .ps-row .reset{ font-size:10px; color:var(--accent); background:none; border:none; cursor:pointer; padding:0; display:none; }
+  .ps-row.overridden .reset{ display:inline; }
+  .ps-row.overridden .src{ display:none; }
+
+  .filter-bar{ display:flex; align-items:center; gap:var(--x1_5); flex-wrap:wrap; }
+  .filter-badge{
+    font:inherit; font-size:10.5px; font-weight:500; padding:3px var(--x2_5); border-radius:20px;
+    border:0.5px solid var(--stroke-strong); background:var(--surface-light); color:var(--text-secondary); cursor:pointer;
+    display:inline-flex; align-items:center; gap:4px;
+  }
+  .filter-badge:hover{ color:var(--text); }
+  .filter-badge.isolate{ background:var(--selection-fill); border-color:var(--selection-stroke); color:var(--text); }
+  .filter-badge.off{ opacity:.55; }
+  .filter-badge .n{ font-family:var(--mono); opacity:.85; margin-left:1px; }
+  .filter-badge .ico{ font-size:9px; line-height:1; }
+  .cat-custom .ico-custom{ color:var(--c-custom); }
+  .cat-collision .ico-collision{ color:var(--c-collision); }
+  .cat-att .ico-att{ color:var(--c-warning); }
+  .cat-custom.isolate{ background:var(--c-custom-fill); border-color:var(--c-custom-stroke); }
+  .cat-collision.isolate{ background:var(--c-collision-fill); border-color:var(--c-collision-stroke); }
+  .cat-att.isolate{ background:var(--c-warning-fill); border-color:var(--c-warning-stroke); }
+  .statusbar{
+    flex-shrink:0; height:22px; display:flex; align-items:center; padding:0 var(--review-pad-x);
+    font-size:10px; color:var(--text-tertiary); border-top:0.5px solid var(--stroke); background:var(--panel);
+  }
+
+  .composer{
+    display:flex; flex-direction:column; gap:var(--x1_5);
+    padding:var(--x2) var(--review-pad-x); background:rgba(100,210,255,.06);
+    border-bottom:0.5px solid rgba(100,210,255,.25); font-size:11px; color:var(--text-secondary); flex-shrink:0;
+  }
+  .composer[hidden]{ display:none; }
+  .composer-row{ display:flex; align-items:center; gap:var(--x2_5); flex-wrap:wrap; }
+  .composer-label{ font-weight:600; color:var(--text); }
+  .composer label{ display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text-tertiary); }
+  .composer-check{ cursor:pointer; }
+  .composer-check input{ accent-color:var(--accent); }
+  .composer input[type=number]{ width:56px; }
+  .composer input{
+    font-family:var(--mono); font-size:11px; color:var(--text); background:var(--panel);
+    border:0.5px solid var(--stroke-strong); border-radius:var(--radius-control); padding:3px 7px;
+  }
+  .composer input:focus{ outline:none; border-color:var(--accent); }
+  #composerName{ font-family:var(--sans); width:170px; }
+  .composer-warn{
+    display:flex; align-items:center; gap:var(--x2); font-size:10.5px; color:var(--c-warning);
+    background:var(--c-warning-fill); border:0.5px solid var(--c-warning-stroke); border-radius:var(--radius-control);
+    padding:var(--x1) var(--x2);
+  }
+  .composer-warn[hidden]{ display:none; }
+  .composer-warn button{
+    font:inherit; font-size:10.5px; font-weight:600; color:var(--c-warning); background:none;
+    border:0.5px solid var(--c-warning-stroke); border-radius:var(--radius-control); padding:1px 8px; cursor:pointer; margin-left:auto;
+  }
+
+  .row.custom{ box-shadow:inset 2px 0 0 var(--c-custom); }
+  .tag-custom{ color:var(--c-custom); font-weight:500; }
+
+  .toolbar{
+    display:flex; align-items:center; gap:var(--x2); padding:var(--x1_5) var(--review-pad-x);
+    border-bottom:0.5px solid var(--stroke-strong); flex-shrink:0; min-height:var(--review-tool-min-h);
+  }
+  .btn-quiet{ font:inherit; font-size:11px; color:var(--text-secondary); background:none; border:none; cursor:pointer; padding:2px 4px; }
+  .btn-quiet:hover{ color:var(--text); }
+  .spacer{ flex:1; }
+  .search{ display:flex; align-items:center; gap:6px; background:var(--surface-inset); border:0.5px solid var(--stroke); border-radius:var(--radius-control); padding:3px 8px; color:var(--text-tertiary); }
+  .search input{ border:none; background:none; color:var(--text); font:inherit; font-size:11px; outline:none; width:150px; }
+  .rowcount{ font-size:10px; color:var(--text-tertiary); white-space:nowrap; }
+
+  .tableheadline{ padding:var(--x2) var(--review-pad-x) var(--x1); font-size:11px; color:var(--text-secondary); }
+  .tableheadline b{ color:var(--text); font-weight:600; }
+
+  .list{ flex:1; overflow-y:auto; padding-bottom:var(--x3); }
+  .thead, .row{
+    display:grid;
+    grid-template-columns:var(--col-check) var(--col-name) var(--col-ribbi) var(--coord-cols) var(--col-file) var(--col-flag);
+    column-gap:var(--col-gap); align-items:center; padding:0 var(--review-pad-x);
+  }
+  .thead{ font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-tertiary); padding-top:var(--x1); padding-bottom:6px; position:sticky; top:0; background:var(--canvas); z-index:1; }
+  .row{ padding-top:var(--review-row-pad-y); padding-bottom:var(--review-row-pad-y); border-bottom:1px solid var(--row-rule); font-size:11.5px; cursor:pointer; }
+  .row:hover{ background:var(--hover-fill); }
+  .row.selected{ /* background is computed inline in JS — see rowBackground() — so selection composes with any flag tint instead of one silently overriding the other */ }
+  .row.attention{ }
+  .row.collision{ }
+  .row.severe{ }
+  .row input[type=checkbox]{ pointer-events:none; }
+
+  .namecell{ min-width:0; }
+  .namecell .primary{ color:var(--text); font-weight:500; display:flex; align-items:center; gap:5px; }
+  .namecell .primary input{
+    font:inherit; font-size:11.5px; font-weight:500; color:var(--text); background:var(--panel);
+    border:0.5px solid var(--accent); border-radius:var(--radius-control); padding:1px 6px; width:100%;
+  }
+  .namecell .sub{ font-size:10px; color:var(--text-tertiary); margin-top:1px; }
+  .namecell .sub.warn{ color:var(--c-warning); }
+  .namecell .sub.collision{ color:var(--c-collision); }
+  .namecell .sub.severe{ color:var(--c-severe); }
+  .edited-dot{ width:6px; height:6px; border-radius:50%; background:var(--c-edited); flex-shrink:0; }
+  .pencil{ border:none; background:none; color:var(--text-tertiary); cursor:pointer; font-size:11px; padding:0 2px; flex-shrink:0; }
+  .pencil:hover{ color:var(--text); }
+
+  .ribbi{ font-size:10.5px; color:var(--text-secondary); }
+  .axisval{ font-family:var(--mono); font-size:10.5px; color:var(--text-secondary); text-align:right; }
+  .axisval input{
+    width:100%; text-align:right; font-family:var(--mono); font-size:10.5px; color:var(--text);
+    background:var(--panel); border:0.5px solid var(--stroke-strong); border-radius:var(--radius-control); padding:1px 4px;
+  }
+  .axisval input:focus{ outline:none; border-color:var(--accent); }
+  .thead .axishead{ text-align:right; }
+  .file{ font-family:var(--mono); font-size:10.5px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .flagcell{ font-size:10px; }
+  .flag-collision{ color:var(--c-collision); }
+  .flag-severe{ color:var(--c-severe); }
+  .flag-fallback{ color:var(--c-warning); }
+  .fixlink{ color:var(--accent); text-decoration:none; cursor:pointer; }
+  .fixlink:hover{ text-decoration:underline; }
+  .flagcell .sep{ color:var(--text-tertiary); margin:0 3px; }
+
+  .empty{ padding:var(--x6) var(--review-pad-x); color:var(--text-tertiary); font-size:12px; text-align:center; }
+
+  .dropzone{ flex:1; display:none; align-items:center; justify-content:center; text-align:center; color:var(--text-tertiary); font-size:13px; cursor:pointer; border:1.5px dashed var(--stroke-strong); margin:var(--x4) var(--review-pad-x); border-radius:var(--radius-row); }
+  .dropzone.show{ display:flex; }
+  .dropzone strong{ color:var(--text-secondary); font-size:14px; display:block; margin-bottom:4px; }
+
+  .sheet-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:10; }
+  .sheet-backdrop.show{ display:flex; }
+  .sheet{ width:360px; background:#2a2a2c; border:1px solid rgba(255,255,255,.1); border-radius:11px; padding:var(--x4); box-shadow:0 20px 50px rgba(0,0,0,.5); }
+  .sheet-title{ font-size:13px; font-weight:600; margin-bottom:var(--x2); }
+  .sheet-body{ font-size:11px; color:var(--text-secondary); line-height:1.5; margin-bottom:var(--x3); }
+  .sheet-body .path{ margin-top:6px; font-family:var(--mono); font-size:10.5px; color:var(--text); background:var(--surface-inset); padding:4px 8px; border-radius:var(--radius-control); word-break:break-all; }
+  .sheet-check{ display:flex; align-items:center; gap:7px; margin-top:var(--x2); font-size:11px; color:var(--text-secondary); cursor:pointer; }
+  .sheet-check input{ accent-color:var(--accent); }
+  .sheet-warn{ margin-top:6px; font-size:10.5px; color:var(--c-warning); background:var(--c-warning-fill); border:0.5px solid var(--c-warning-stroke); border-radius:var(--radius-control); padding:5px 8px; }
+  .sheet-actions{ display:flex; justify-content:flex-end; gap:var(--x2); }
+
+  .toast{
+    position:fixed; left:50%; bottom:28px; transform:translate(-50%,20px); opacity:0; pointer-events:none;
+    background:#2c2c2e; border:1px solid rgba(255,255,255,.12); border-radius:9px; padding:9px 14px;
+    font-size:12px; color:var(--text); display:flex; align-items:center; gap:12px; transition:.18s ease; z-index:20;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%,0); pointer-events:auto; }
+  .toast button{ background:none; border:none; color:var(--accent); font:inherit; font-size:12px; cursor:pointer; }
+
+  .studio-toast{
+    position:fixed; right:28px; bottom:28px; max-width:280px; opacity:0; transform:translateY(12px);
+    background:#2c2c2e; border:1px solid rgba(10,132,255,.35); border-radius:9px; padding:10px 14px;
+    font-size:11px; color:var(--text-secondary); line-height:1.5; transition:.18s ease; pointer-events:none; z-index:20;
+  }
+  .studio-toast.show{ opacity:1; transform:translateY(0); }
+  .studio-toast b{ color:var(--text); display:block; margin-bottom:3px; font-size:11.5px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="intro" id="intro">
+    <div class="intro-head">
+      <h1>Instancer v2 — fvar-first, static-only edits</h1>
+      <button class="intro-toggle" type="button" id="introToggle">Notes</button>
+    </div>
+    <div class="intro-body">
+      <p>Changes from v1, based on the naming-mode and scope discussion:</p>
+      <ul>
+        <li>Removed the STAT / fvar-hybrid / raw toggle. <b>fvar is the resolved name</b> whenever it's usable; STAT is a silent fallback, only surfaced when it's actually in use.</li>
+        <li>Removed the summary card row — counts now live only on the filter badges, no duplicated numbers.</li>
+        <li>"Style" is now a real RIBBI fold (Regular/Italic/Bold/Bold Italic from the bold+italic bits), not a copy of the STAT string.</li>
+        <li>Added a PostScript Prefix control (inferred via the same ID25 → ID6 stem → ID16/1 chain as the main app) with an inline override — this is a static-file-only cleanup, so it lives here instead of requiring a trip back to Studio.</li>
+        <li>Duplicate-output rows and fvar-incomplete rows can be resolved with an inline name override scoped only to that static file. Duplicate status recomputes live off the resolved name — including overrides — so fixing one row's name can clear the flag on both rows.</li>
+        <li>Fallback rows also get a "Fix in Studio" link, since a font arriving with incomplete fvar naming across many instances is a naming-order problem, not a one-file problem — Instancer doesn't try to out-guess Studio's naming policy.</li>
+        <li><b>Collision detection is now three-shaped, not one:</b> "collision" (different coordinates, same output name — a plain filename clash), "identical" (same coordinates, different name — two files that would be pixel-for-pixel the same design wearing different names; the more deceptive case, and one the old name-only check missed entirely), and "exact" (same coordinates and same name — plain duplication). All three now block <b>Generate</b> when present in the current selection, rather than only being visible if someone happens to notice the row highlight.</li>
+        <li><b>Add Instance now blocks on a matching coordinate</b> before the row is created, rather than adding it and hoping the resulting flag gets noticed — the common case is the instance already being in the list and going unnoticed, not an intentional second file at the same point in the design space.</li>
+        <li><b>Custom rows are fully live-editable</b> (name, every axis, bold/italic), not just name-with-a-revert like source rows. They have no original value in the source font to protect or revert to — the "override/revert" framing only makes sense for a row that came from somewhere; a custom row's current state simply *is* its state. Bold/Italic are now explicit checkboxes at creation instead of guessed from the typed name.</li>
+        <li><b>"Will fail" is now a distinct tier from the amber fallback.</b> If there's no STAT value to fall back to either, fontTools' instancer doesn't just produce an imperfect name — it raises (the `updateFontNames` ValueError case). That's a pre-flight-detectable write failure, not a naming preference, so it gets the same red treatment as a real collision and blocks Generate the same way, rather than only surfacing after a failed write.</li>
+        <li><b>Generate now defaults to a fresh per-batch subfolder</b> instead of writing straight into the chosen folder, so re-running Generate after a naming tweak can't silently overwrite a prior run's output — the folder-collision case a same-batch dedup check can't see, since it only knows about the current session. The checkbox lets someone opt back into a stable path on purpose (e.g. if something downstream expects one), with an explicit warning that doing so means filename collisions there will overwrite.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="scenario-bar" role="tablist">
+    <button type="button" class="scenario on" data-scenario="export">
+      <span class="s-title">Studio export</span>
+      <span class="s-sub">fvar names are already good — one unexpected duplicate to resolve</span>
+    </button>
+    <button type="button" class="scenario" data-scenario="raw">
+      <span class="s-title">Unprocessed file</span>
+      <span class="s-sub">Never run through Studio — several instances need a fallback</span>
+    </button>
+    <button type="button" class="scenario" data-scenario="standalone">
+      <span class="s-title">Empty</span>
+      <span class="s-sub">Drop / open a variable font</span>
+    </button>
+  </div>
+
+  <div class="mockwin" id="win" role="application" aria-label="Instancer window">
+    <div class="titlebar">
+      <div class="dots" aria-hidden="true"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+      <div class="wtitle" id="winTitle">Instance — MullerNext-Variable.ttf</div>
+    </div>
+
+    <div class="summary" id="summary">
+      <div class="summary-top">
+        <div class="summary-copy">
+          <h2>Instance</h2>
+          <p class="sub" id="subtitle">Generate static fonts from named instances — names follow fvar, with STAT as a fallback.</p>
+        </div>
+        <div class="action-bar">
+          <button type="button" class="btn secondary" id="btnOpen" hidden>Open…</button>
+          <button type="button" class="btn secondary" id="btnFixStudio" title="Open this file in Studio">Fix in Studio</button>
+          <button type="button" class="btn secondary" id="btnCancel">Cancel</button>
+          <button type="button" class="btn primary" id="btnGenerate">Generate…</button>
+        </div>
+      </div>
+
+      <div class="meta-row" id="metaRow">
+        <span>Source</span>
+        <span class="mono" id="srcMono">MullerNext-Variable.ttf</span>
+        <span class="pill export" id="srcPill">Studio export</span>
+      </div>
+
+      <div class="ps-row" id="psRow">
+        <span class="label">PS prefix</span>
+        <input type="text" id="psInput" value="MullerNext" spellcheck="false">
+        <span class="src" id="psSrc">from <b>nameID 25</b></span>
+        <button type="button" class="reset" id="psReset">Reset to inferred</button>
+      </div>
+
+      <div class="filter-bar" id="filterBar">
+        <button type="button" class="filter-badge cat-all" data-filter="all" data-hint="Show everything.">All <span class="n" id="cAll">0</span></button>
+        <button type="button" class="filter-badge cat-ok" data-filter="clean" data-hint="No naming or coordinate problems — ready to generate as-is.">Clean <span class="n" id="cClean">0</span></button>
+        <button type="button" class="filter-badge cat-custom" data-filter="custom" data-hint="Added here, not in the source font — only becomes a real stop if sent to Studio.">
+          <span class="ico ico-custom">＋</span>Custom <span class="n" id="cCustom">0</span>
+        </button>
+        <button type="button" class="filter-badge cat-collision" data-filter="collision" data-hint="Two rows share either an output name or a coordinate — same output name overwrites on disk; same coordinates means an identical design under different names.">
+          <span class="ico ico-collision">◆</span>Collision <span class="n" id="cCollision">0</span>
+        </button>
+        <button type="button" class="filter-badge cat-att" data-filter="attention" data-hint="fvar naming is incomplete — falling back to STAT. Best fixed in Studio, not patched per file.">
+          <span class="ico ico-att">◆</span>Needs attention <span class="n" id="cAtt">0</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="toolbar" id="toolbar">
+      <button type="button" class="btn-quiet" id="btnAll">Select All</button>
+      <button type="button" class="btn-quiet" id="btnNone">Deselect All</button>
+      <button type="button" class="btn-quiet" id="btnAddInstance">+ Add Instance</button>
+      <div class="spacer"></div>
+      <div class="search">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+        <input type="search" id="search" placeholder="Filter instances…" autocomplete="off">
+      </div>
+      <div class="rowcount" id="rowcount"></div>
+    </div>
+
+    <div class="composer" id="composer" hidden>
+      <div class="composer-row">
+        <span class="composer-label">New instance</span>
+        <label>wdth <input type="number" class="cx" data-axis="wdth" data-default="100" value="100"></label>
+        <label>wght <input type="number" class="cx" data-axis="wght" placeholder="required"></label>
+        <label>ital <input type="number" class="cx" data-axis="ital" data-default="0" value="0" min="0" max="1"></label>
+        <input type="text" id="composerName" placeholder="Name — e.g. SemiBold">
+        <label class="composer-check"><input type="checkbox" id="composerBold"> Bold</label>
+        <label class="composer-check"><input type="checkbox" id="composerItalic"> Italic</label>
+        <div class="spacer"></div>
+        <button type="button" class="btn tiny secondary" id="composerCancel">Cancel</button>
+        <button type="button" class="btn tiny primary" id="composerAdd">Add</button>
+      </div>
+      <div class="composer-warn" id="composerWarn" hidden></div>
+    </div>
+
+    <div class="tableheadline" id="headline"></div>
+    <div class="list" id="list"></div>
+    <div class="dropzone" id="dropzone"><div><strong>Drop a variable font here</strong><br>or use Open…</div></div>
+    <div class="statusbar" id="statusbar">Click a badge to isolate · click again for all</div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="folderSheet" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-title">Choose a folder for static fonts</div>
+    <div class="sheet-body">Where should the selected instances be written?
+      <label class="sheet-check"><input type="checkbox" id="sheetUniqueFolder" checked> Write to a new folder for this batch</label>
+      <div class="path" id="sheetPath">~/Exports/MullerNext/static</div>
+      <div class="sheet-warn" id="sheetOverwriteWarn" hidden>Matching filenames already in this folder will be overwritten.</div>
+    </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn secondary" id="sheetCancel">Cancel</button>
+      <button type="button" class="btn primary" id="sheetOK">Generate</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status">
+  <span id="toastMsg"></span>
+  <button type="button" id="toastReveal">Show in Finder</button>
+</div>
+
+<div class="studio-toast" id="studioToast">
+  <b>Would open Studio</b>
+  <span id="studioToastMsg"></span>
+</div>
+
+<script>
+(() => {
+  // coords: axis -> value. bold/ital: legacy RIBBI bits, independent of weight-name string.
+  // fvarOk:false simulates a file that never went through Studio (fvar name unusable/missing).
+  const BASE_INSTANCES = [
+    { id:1,  fvar:"Thin",           stat:"Thin",           coords:{wght:100},          bold:false, ital:false, fvarOk:true },
+    { id:2,  fvar:"Extra Light",    stat:"ExtraLight",     coords:{wght:200},          bold:false, ital:false, fvarOk:true },
+    { id:3,  fvar:"Light",          stat:"Light",          coords:{wght:300},          bold:false, ital:false, fvarOk:true },
+    { id:4,  fvar:"Regular",        stat:"Regular",        coords:{wght:400},          bold:false, ital:false, fvarOk:true },
+    { id:5,  fvar:"Medium",         stat:"Medium",         coords:{wght:500},          bold:false, ital:false, fvarOk:true },
+    { id:6,  fvar:"Semi Bold",      stat:"SemiBold",       coords:{wght:600},          bold:false, ital:false, fvarOk:true },
+    { id:7,  fvar:"Bold",           stat:"Bold",           coords:{wght:700},          bold:true,  ital:false, fvarOk:true },
+    { id:8,  fvar:"Extra Bold",     stat:"ExtraBold",      coords:{wght:800},          bold:false, ital:false, fvarOk:true },
+    { id:9,  fvar:"Black",          stat:"Black",          coords:{wght:900},          bold:false, ital:false, fvarOk:true },
+    { id:10, fvar:"Regular",        stat:"Regular",        coords:{wght:400,wdth:75},  bold:false, ital:false, fvarOk:true }, // duplicate of #4
+    { id:11, fvar:"Bold Condensed", stat:"Condensed Bold", coords:{wght:700,wdth:75},  bold:true,  ital:false, fvarOk:true },
+    { id:12, fvar:"Italic",         stat:"Italic",         coords:{wght:400,ital:1},   bold:false, ital:true,  fvarOk:true },
+    { id:13, fvar:"Bold Italic",    stat:"Bold Italic",    coords:{wght:700,ital:1},   bold:true,  ital:true,  fvarOk:true },
+    { id:14, fvar:"Medium Italic",  stat:"Medium Italic",  coords:{wght:500,ital:1},   bold:false, ital:true,  fvarOk:true },
+  ];
+
+  const state = {
+    scenario: "export",
+    hasFont: true,
+    selected: new Set(),
+    filterText: "",
+    filterKind: "all", // all | clean | custom | collision | attention
+    defaultFolder: "~/Exports/MullerNext/static",
+    psPrefix: "MullerNext",
+    psInferred: "MullerNext",
+    psSourceLabel: "nameID 25",
+    overrides: {}, // id -> override name
+    custom: [],    // user-added instances — static-only, not written back to the source font
+  };
+
+  let INSTANCES = [];
+
+  const $ = (id) => document.getElementById(id);
+
+  // Source-font instances plus anything the user added in this session.
+  function allInstances(){ return INSTANCES.concat(state.custom); }
+
+  // Mirrors DesignAxisRecord ordering: opsz, wdth, wght, slope/ital interleaved right after wght.
+  // Unknown/custom axes fall in after the known ones, in the position they'd occupy in the record.
+  const AXIS_ORDER = ["opsz", "wdth", "wght", "slope", "ital"];
+  function axisPriority(tag){ const i = AXIS_ORDER.indexOf(tag); return i === -1 ? AXIS_ORDER.length : i; }
+  const AXIS_DEFAULT = { opsz: 0, wdth: 100, wght: 400, slope: 0, ital: 0 };
+
+  // Axes this font's source instances actually use (i.e. what would really be in its
+  // DesignAxisRecord), in record order. Printed on every row — including ones that don't set
+  // a given axis explicitly — so "not listed" never has to be read as "doesn't apply" and an
+  // omitted axis can't silently disagree with the default value the sort is using for it.
+  function fontAxes(){
+    const set = new Set();
+    INSTANCES.forEach(inst => Object.keys(inst.coords).forEach(ax => set.add(ax)));
+    return Array.from(set).sort((a, b) => axisPriority(a) - axisPriority(b) || a.localeCompare(b));
+  }
+  function compareInstances(a, b){
+    const tags = Array.from(new Set([
+      ...AXIS_ORDER,
+      ...Object.keys(a.coords), ...Object.keys(b.coords),
+    ])).sort((x, y) => axisPriority(x) - axisPriority(y) || x.localeCompare(y));
+    for (const tag of tags){
+      const def = AXIS_DEFAULT[tag] ?? 0;
+      const av = a.coords[tag] ?? def, bv = b.coords[tag] ?? def;
+      if (av !== bv) return av - bv;
+    }
+    return a.id - b.id; // stable tiebreak for exact coordinate matches (e.g. true duplicates)
+  }
+
+  function coordsText(inst){
+    return fontAxes().map(ax => `${ax} ${inst.coords[ax] ?? AXIS_DEFAULT[ax] ?? 0}`).join(" · ");
+  }
+
+  // NOTE — naming axes: a naming axis (e.g. a per-file pinned "ital" that isn't a real fvar
+  // axis — used to link sibling upright/italic VFs) never appears in inst.coords, since
+  // there's nothing to instance along. Studio already bakes its naming contribution into the
+  // fvar Subfamily name before export, so resolvedName() doesn't need to know about it. But
+  // ribbi() and the coordinate columns below both currently assume italic/bold only exist as
+  // real fvar coordinates — a naming-axis-pinned file would need that pin surfaced as a
+  // file-level constant (not a per-row column) feeding into both, or every instance in an
+  // Italic-pinned file would incorrectly fold to "Regular" here.
+  function ribbi(inst){
+    if (inst.bold && inst.ital) return "Bold Italic";
+    if (inst.bold) return "Bold";
+    if (inst.ital) return "Italic";
+    return "Regular";
+  }
+
+  function resolvedName(inst){
+    if (state.overrides[inst.id]) return state.overrides[inst.id];
+    if (inst.fvarOk && inst.fvar) return inst.fvar;
+    if (inst.stat) return inst.stat;
+    return `Instance ${inst.id}`;
+  }
+
+  function outputName(inst){ return resolvedName(inst).replace(/\s+/g, ""); }
+  function outputFile(inst){ return `${state.psPrefix}-${outputName(inst)}.ttf`; }
+
+  // Coordinate identity — every axis, in font order, so "same coordinates" means
+  // the same point in design space regardless of which axes happen to be set explicitly.
+  function coordsKey(inst){
+    return fontAxes().map(ax => inst.coords[ax] ?? AXIS_DEFAULT[ax] ?? 0).join(",");
+  }
+
+  // Three distinct collision shapes, in ascending severity:
+  //  - "collision" : different coordinates, same resolved name  → same *output filename*,
+  //                  second write clobbers the first. (What the old dup check covered.)
+  //  - "identical" : same coordinates, different resolved name  → two files that are
+  //                  pixel-for-pixel the same design wearing different names. Nothing on
+  //                  disk collides, so a filename-only check misses this entirely — but
+  //                  it's the more deceptive case, since two "different" styles are secretly
+  //                  the same instance.
+  //  - "exact"     : same coordinates AND same resolved name    → plain human error
+  //                  (duplicate selection, or a custom row shadowing a source row).
+  // A row can only match one other row per pairing, but the worst classification wins if
+  // it happens to collide with more than one row for different reasons.
+  function classifyCollisions(){
+    const all = allInstances();
+    const rank = { collision: 1, identical: 2, exact: 3 };
+    const result = new Map();
+    for (let i = 0; i < all.length; i++){
+      for (let j = i + 1; j < all.length; j++){
+        const a = all[i], b = all[j];
+        const sameCoords = coordsKey(a) === coordsKey(b);
+        const sameName = resolvedName(a) === resolvedName(b);
+        let kind = null;
+        if (sameCoords && sameName) kind = "exact";
+        else if (sameCoords) kind = "identical";
+        else if (sameName) kind = "collision";
+        if (!kind) continue;
+        [a.id, b.id].forEach(id => {
+          if (!result.has(id) || rank[kind] > rank[result.get(id)]) result.set(id, kind);
+        });
+      }
+    }
+    return result;
+  }
+
+  function needsAttention(inst, collisions){
+    if (state.overrides[inst.id]) return collisions.has(inst.id); // an override can still collide
+    return collisions.has(inst.id) || !inst.fvarOk;
+  }
+
+  // Distinct from the recoverable amber fallback: if there's no STAT AxisValue to fall back to
+  // either, fontTools' instancer will actually raise rather than produce a usable name (the
+  // same ValueError case discussed earlier for updateFontNames). This is a pre-flight check for
+  // a real write-time failure, not just an imperfect one — so unlike the amber fallback case,
+  // it blocks Generate the same way a collision does.
+  function willFail(inst){
+    return !state.overrides[inst.id] && !inst.fvarOk && !inst.stat;
+  }
+
+  function isBlocking(inst, collisions){
+    return collisions.has(inst.id) || willFail(inst);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function studioToast(msg){
+    $("studioToastMsg").textContent = msg;
+    $("studioToast").classList.add("show");
+    clearTimeout(studioToast._t);
+    studioToast._t = setTimeout(() => $("studioToast").classList.remove("show"), 3400);
+  }
+
+  function visible(){
+    const collisions = classifyCollisions();
+    const q = state.filterText.trim().toLowerCase();
+    return allInstances().filter(inst => {
+      const isCollision = collisions.has(inst.id);
+      const isFallback = !state.overrides[inst.id] && !inst.fvarOk;
+      switch (state.filterKind){
+        case "clean": if (isCollision || isFallback) return false; break;
+        case "custom": if (!inst.custom) return false; break;
+        case "collision": if (!isCollision) return false; break;
+        case "attention": if (!isFallback) return false; break;
+      }
+      if (!q) return true;
+      const blob = [resolvedName(inst), inst.fvar, inst.stat, coordsText(inst), outputFile(inst)].join(" ").toLowerCase();
+      return blob.includes(q);
+    }).sort(compareInstances);
+  }
+
+  function setFilterBadges(){
+    document.querySelectorAll(".filter-badge").forEach(b => {
+      const on = b.dataset.filter === state.filterKind;
+      b.classList.toggle("off", state.filterKind !== "all" && !on);
+      b.classList.toggle("isolate", on && state.filterKind !== "all");
+      if (state.filterKind === "all") b.classList.remove("off", "isolate");
+    });
+  }
+
+  function render(){
+    const hasFont = state.hasFont;
+    $("toolbar").style.display = hasFont ? "" : "none";
+    $("headline").style.display = hasFont ? "" : "none";
+    $("list").style.display = hasFont ? "" : "none";
+    $("summary").querySelector(".ps-row").style.display = hasFont ? "" : "none";
+    $("filterBar").style.display = hasFont ? "" : "none";
+    $("dropzone").classList.toggle("show", !hasFont);
+    $("btnGenerate").disabled = !hasFont || state.selected.size === 0;
+    $("btnAddInstance").style.display = hasFont ? "" : "none";
+    $("btnFixStudio").style.display = hasFont ? "" : "none";
+    if (!hasFont) $("composer").hidden = true;
+
+    $("psRow").classList.toggle("overridden", state.psPrefix !== state.psInferred);
+    $("psSrc").innerHTML = `from <b>${state.psSourceLabel}</b>`;
+
+    setFilterBadges();
+
+    if (!hasFont){
+      $("rowcount").textContent = "";
+      ["cAll","cClean","cCustom","cCollision","cAtt"].forEach(id => $(id).textContent = "0");
+      return;
+    }
+
+    const collisions = classifyCollisions();
+    const all = allInstances();
+    // Needs attention is now specifically the fvar-fallback case; collisions (of any of the
+    // three shapes) are counted and filtered separately, matching the two distinct pill colors.
+    const isCollision = i => collisions.has(i.id);
+    const isFallback = i => !state.overrides[i.id] && !i.fvarOk;
+    const isCustom = i => !!i.custom;
+    const isClean = i => !isCollision(i) && !isFallback(i);
+    $("cAll").textContent = String(all.length);
+    $("cClean").textContent = String(all.filter(isClean).length);
+    $("cCustom").textContent = String(all.filter(isCustom).length);
+    $("cCollision").textContent = String(all.filter(isCollision).length);
+    $("cAtt").textContent = String(all.filter(isFallback).length);
+
+    const sourceAttCount = INSTANCES.filter(isFallback).length;
+    $("btnFixStudio").textContent = sourceAttCount > 0 ? `Fix in Studio (${sourceAttCount})` : "Fix in Studio";
+    $("btnFixStudio").title = state.custom.length > 0
+      ? `${state.custom.length} custom instance${state.custom.length === 1 ? "" : "s"} would be suggested as new Axis Tree stops`
+      : "Open this file in Studio";
+
+    const n = state.selected.size;
+    // Generate is blocked on any collision among *selected* rows — a colliding row that's been
+    // deselected isn't going anywhere, so it shouldn't hold the button hostage.
+    const selectedCollision = Array.from(state.selected).some(id => collisions.has(id) && !state.overrides[id]);
+    const selectedWillFail = Array.from(state.selected).some(id => {
+      const inst = all.find(i => i.id === id);
+      return inst && willFail(inst);
+    });
+    $("btnGenerate").disabled = n === 0 || selectedCollision || selectedWillFail;
+    $("btnGenerate").title = selectedWillFail
+      ? "Some selected instances have no usable name at all — resolve them or deselect before generating"
+      : selectedCollision ? "Resolve the flagged rows in your selection before generating" : "";
+    $("sheetOK").textContent = `Generate ${n} Font${n === 1 ? "" : "s"}`;
+    $("headline").innerHTML = `Named instances — <b>${n} selected</b>`;
+
+    const rows = visible();
+    const axes = fontAxes();
+    document.documentElement.style.setProperty("--coord-cols", axes.map(() => "56px").join(" ") || "0px");
+    const list = $("list");
+    const head = `
+      <div class="thead">
+        <div></div><div>Name</div><div>RIBBI</div>${axes.map(ax => `<div class="axishead">${ax}</div>`).join("")}<div>Output</div><div></div>
+      </div>`;
+
+    if (!rows.length){
+      list.innerHTML = head + `<div class="empty">No instances match</div>`;
+    } else {
+      list.innerHTML = head + rows.map(inst => {
+        const on = state.selected.has(inst.id);
+        const kind = collisions.get(inst.id) || null; // "collision" | "identical" | "exact" | null
+        const att = needsAttention(inst, collisions);
+        const overridden = !!state.overrides[inst.id];
+        const editingThis = state.editingId === inst.id;
+
+        const fails = willFail(inst);
+
+        const classes = ["row"];
+        if (on) classes.push("selected");
+        if (inst.custom) classes.push("custom");
+        if (att && !overridden) classes.push(kind === "collision" ? "collision" : (kind || fails) ? "severe" : "attention");
+
+        // One computed background per row, combining a flag-color gradient (if any) with the
+        // selection tint (if selected) as stacked layers — rather than letting whichever CSS
+        // class happens to come last in the stylesheet win and silently erase the other state.
+        const tint = (kind === "exact" || kind === "identical" || fails) ? "severe"
+          : kind === "collision" ? "collision"
+          : (inst.custom && !overridden) ? "custom"
+          : (att && !overridden) ? "warning"
+          : null;
+        const tintFill = {
+          severe: "var(--c-severe-fill)", collision: "var(--c-collision-fill)",
+          custom: "var(--c-custom-fill)", warning: "var(--c-warning-fill)",
+        }[tint];
+        const bgLayers = [];
+        if (tintFill) bgLayers.push(`linear-gradient(90deg, ${tintFill}, transparent 40%)`);
+        if (on) bgLayers.push("var(--selection-fill)");
+        const rowStyle = bgLayers.length ? ` style="background:${bgLayers.join(", ")}"` : "";
+
+        let sub = "";
+        if (overridden){
+          sub = `<div class="sub">overridden for this static file</div>`;
+        } else if (fails){
+          sub = `<div class="sub severe">no usable name — fvar incomplete and no STAT value either. This will fail to generate.</div>`;
+        } else if (!inst.fvarOk){
+          sub = `<div class="sub warn">fvar incomplete — using STAT “${escapeHtml(inst.stat)}”</div>`;
+        } else if (kind === "exact"){
+          sub = `<div class="sub severe">exact duplicate of another row — same name, same coordinates</div>`;
+        } else if (kind === "identical"){
+          sub = `<div class="sub severe">same coordinates as another row — will be an identical design under a different name</div>`;
+        } else if (kind === "collision"){
+          sub = `<div class="sub collision">same output as another row</div>`;
+        }
+
+        const nameField = editingThis
+          ? `<input type="text" class="nameEdit" data-id="${inst.id}" value="${escapeHtml(state.overrides[inst.id] ?? resolvedName(inst))}" spellcheck="false">`
+          : `<span>${escapeHtml(resolvedName(inst))}</span>${overridden ? '<span class="edited-dot" title="edited for this static file"></span>' : ""}<button type="button" class="pencil" data-edit="${inst.id}" title="Override name for this static file">✎</button>`;
+
+        let flagHtml = "";
+        if (inst.custom){
+          if (kind === "exact") flagHtml = `<span class="flag-severe">◆ exact duplicate</span><span class="sep">·</span><a class="fixlink" data-remove="${inst.id}">Remove</a>`;
+          else if (kind === "identical") flagHtml = `<span class="flag-severe">◆ identical design</span><span class="sep">·</span><a class="fixlink" data-remove="${inst.id}">Remove</a>`;
+          else if (kind === "collision") flagHtml = `<span class="flag-collision">◆ collision</span><span class="sep">·</span><a class="fixlink" data-remove="${inst.id}">Remove</a>`;
+          else flagHtml = `<span class="tag-custom">＋ custom</span><span class="sep">·</span><a class="fixlink" data-remove="${inst.id}">Remove</a>`;
+        } else if (att && !overridden){
+          if (kind === "exact" || kind === "identical"){
+            flagHtml = `<span class="flag-severe">◆ ${kind === "exact" ? "exact duplicate" : "identical design"}</span>`;
+          } else if (kind === "collision"){
+            flagHtml = `<span class="flag-collision">◆ collision</span>`;
+          } else if (fails){
+            flagHtml = `<span class="flag-severe">✕ will fail</span><span class="sep">·</span><a class="fixlink" data-fix="${inst.id}">Fix in Studio</a>`;
+          } else {
+            flagHtml = `<span class="flag-fallback">⚠ fallback</span><span class="sep">·</span><a class="fixlink" data-fix="${inst.id}">Fix in Studio</a>`;
+          }
+        } else if (overridden){
+          flagHtml = `<a class="fixlink" data-revert="${inst.id}">Revert</a>`;
+        }
+
+        // Custom rows have no source-of-truth to protect — they don't exist in the file, so
+        // unlike source rows (name-only override), every axis stays live-editable in place.
+        const coordCells = axes.map(ax => inst.custom
+          ? `<div class="axisval"><input type="number" class="axisEdit" data-id="${inst.id}" data-axis="${ax}" value="${inst.coords[ax] ?? AXIS_DEFAULT[ax] ?? 0}"></div>`
+          : `<div class="axisval">${inst.coords[ax] ?? AXIS_DEFAULT[ax] ?? 0}</div>`
+        ).join("");
+
+        return `
+          <div class="${classes.join(" ")}" data-id="${inst.id}"${rowStyle}>
+            <input type="checkbox" ${on ? "checked" : ""} tabindex="-1">
+            <div class="namecell"><div class="primary">${nameField}</div>${sub}</div>
+            <div class="ribbi">${ribbi(inst)}</div>
+            ${coordCells}
+            <div class="file" title="${escapeHtml(outputFile(inst))}">${escapeHtml(outputFile(inst))}</div>
+            <div class="flagcell">${flagHtml}</div>
+          </div>`;
+      }).join("");
+    }
+
+    $("rowcount").textContent = `${rows.length} of ${allInstances().length} shown`;
+
+    const editInput = list.querySelector(".nameEdit");
+    if (editInput){
+      editInput.focus();
+      editInput.select();
+    }
+  }
+
+  function selectDefault(){
+    // First occurrence (in sorted/display order) of a given name *or* a given coordinate wins;
+    // later rows sharing either one start deselected. This covers all three collision shapes:
+    // exact (shares both), identical (shares coords), and collision (shares name).
+    const seenNames = new Set();
+    const seenCoords = new Set();
+    state.selected = new Set();
+    allInstances().slice().sort(compareInstances).forEach(inst => {
+      const nameKey = resolvedName(inst), coordKey = coordsKey(inst);
+      if (!seenNames.has(nameKey) && !seenCoords.has(coordKey)) state.selected.add(inst.id);
+      seenNames.add(nameKey);
+      seenCoords.add(coordKey);
+    });
+  }
+
+  function applyScenario(){
+    document.querySelectorAll(".scenario").forEach(b => b.classList.toggle("on", b.dataset.scenario === state.scenario));
+    state.overrides = {};
+    state.editingId = null;
+    state.custom = [];
+    $("composer").hidden = true;
+
+    if (state.scenario === "standalone"){
+      state.hasFont = false;
+      INSTANCES = [];
+      $("winTitle").textContent = "Instance Static Fonts";
+      $("subtitle").textContent = "Open a variable font, choose instances, generate static files.";
+      $("srcMono").textContent = "—";
+      $("srcPill").hidden = true;
+      $("btnOpen").hidden = false;
+    } else if (state.scenario === "raw"){
+      state.hasFont = true;
+      INSTANCES = BASE_INSTANCES.map(i => ({...i,
+        fvarOk: (i.id === 3 || i.id === 14) ? false : i.fvarOk,
+        stat: i.id === 14 ? null : i.stat, // no STAT AxisValue either — this one can't be named at all
+      }));
+      state.defaultFolder = "~/Fonts/MullerNext/static";
+      state.psInferred = "MllrNxt-Var";
+      state.psSourceLabel = "PostScript name stem";
+      state.psPrefix = state.psInferred;
+      $("winTitle").textContent = "Instance — MullerNext-Var-Unhinted.ttf";
+      $("subtitle").textContent = "Generate static fonts — this file hasn't been through Studio, so a few names fall back to STAT.";
+      $("srcMono").textContent = "MullerNext-Var-Unhinted.ttf";
+      $("srcPill").hidden = true;
+      $("btnOpen").hidden = true;
+    } else {
+      state.hasFont = true;
+      INSTANCES = BASE_INSTANCES.map(i => ({...i}));
+      state.defaultFolder = "~/Exports/MullerNext/static";
+      state.psInferred = "MullerNext";
+      state.psSourceLabel = "nameID 25";
+      state.psPrefix = state.psInferred;
+      $("winTitle").textContent = "Instance — MullerNext-Variable.ttf";
+      $("subtitle").textContent = "Generate static fonts from named instances — names follow fvar, with STAT as a fallback.";
+      $("srcMono").textContent = "MullerNext-Variable.ttf";
+      $("srcPill").hidden = false;
+      $("btnOpen").hidden = true;
+    }
+
+    $("psInput").value = state.psPrefix;
+    state.filterText = ""; state.filterKind = "all"; $("search").value = "";
+    selectDefault();
+    render();
+  }
+
+  function toast(msg, showReveal = false){
+    $("toastMsg").textContent = msg;
+    $("toastReveal").style.display = showReveal ? "" : "none";
+    $("toast").classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => $("toast").classList.remove("show"), 3200);
+  }
+
+  $("introToggle").addEventListener("click", () => {
+    $("intro").classList.toggle("open");
+    $("introToggle").textContent = $("intro").classList.contains("open") ? "Hide notes" : "Notes";
+  });
+
+  document.querySelectorAll(".scenario").forEach(btn => btn.addEventListener("click", () => { state.scenario = btn.dataset.scenario; applyScenario(); }));
+
+  document.querySelectorAll(".filter-badge").forEach(btn => btn.addEventListener("click", () => {
+    const kind = btn.dataset.filter;
+    state.filterKind = (state.filterKind === kind && kind !== "all") ? "all" : kind;
+    render();
+  }));
+
+  const DEFAULT_STATUS = $("statusbar").textContent;
+  document.querySelectorAll(".filter-badge").forEach(btn => {
+    btn.addEventListener("mouseenter", () => { $("statusbar").textContent = btn.dataset.hint; });
+    btn.addEventListener("mouseleave", () => { $("statusbar").textContent = DEFAULT_STATUS; });
+  });
+
+  $("search").addEventListener("input", () => { state.filterText = $("search").value; render(); });
+
+  $("psInput").addEventListener("input", () => { state.psPrefix = $("psInput").value || state.psInferred; render(); });
+  $("psReset").addEventListener("click", () => { state.psPrefix = state.psInferred; $("psInput").value = state.psPrefix; render(); });
+
+  $("list").addEventListener("click", (e) => {
+    if (e.target.closest(".nameEdit") || e.target.closest(".axisEdit")) return;
+
+    const editBtn = e.target.closest("[data-edit]");
+    if (editBtn){ state.editingId = Number(editBtn.dataset.edit); render(); return; }
+
+    const revertBtn = e.target.closest("[data-revert]");
+    if (revertBtn){ delete state.overrides[Number(revertBtn.dataset.revert)]; render(); return; }
+
+    const removeBtn = e.target.closest("[data-remove]");
+    if (removeBtn){
+      const id = Number(removeBtn.dataset.remove);
+      state.custom = state.custom.filter(i => i.id !== id);
+      state.selected.delete(id);
+      render();
+      return;
+    }
+
+    const fixBtn = e.target.closest("[data-fix]");
+    if (fixBtn){
+      const inst = INSTANCES.find(i => i.id === Number(fixBtn.dataset.fix));
+      studioToast(`Would jump to Studio's naming order for instance #${inst.id}, so every static export gets a usable fvar name — not just this one.`);
+      return;
+    }
+
+    const row = e.target.closest(".row");
+    if (!row) return;
+    const id = Number(row.dataset.id);
+    if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id);
+    render();
+  });
+
+  $("list").addEventListener("keydown", (e) => {
+    if (!e.target.classList.contains("nameEdit")) return;
+    if (e.key === "Enter") { commitEdit(e.target); }
+    if (e.key === "Escape") { state.editingId = null; render(); }
+  });
+  $("list").addEventListener("focusout", (e) => {
+    if (e.target.classList.contains("nameEdit")) commitEdit(e.target);
+  });
+  function commitEdit(input){
+    const id = Number(input.dataset.id);
+    const val = input.value.trim();
+    const inst = allInstances().find(i => i.id === id);
+    if (val && val !== resolvedName(inst)) state.overrides[id] = val;
+    state.editingId = null;
+    render();
+  }
+
+  $("btnAll").addEventListener("click", () => { visible().forEach(i => state.selected.add(i.id)); render(); });
+  $("btnNone").addEventListener("click", () => { visible().forEach(i => state.selected.delete(i.id)); render(); });
+
+  $("btnAddInstance").addEventListener("click", () => {
+    const composer = $("composer");
+    composer.hidden = !composer.hidden;
+    if (!composer.hidden) $("composerName").focus();
+  });
+  function resetComposerInputs(){
+    document.querySelectorAll(".composer .cx").forEach(i => {
+      i.value = i.dataset.default ?? "";
+      i.style.borderColor = "";
+    });
+    $("composerName").value = "";
+    $("composerName").style.borderColor = "";
+    $("composerBold").checked = false;
+    $("composerItalic").checked = false;
+    $("composerWarn").hidden = true;
+    $("composerAdd").textContent = "Add";
+    delete $("composerAdd").dataset.confirmed;
+  }
+  $("composerCancel").addEventListener("click", () => {
+    $("composer").hidden = true;
+    resetComposerInputs();
+  });
+  $("composerAdd").addEventListener("click", () => {
+    const name = $("composerName").value.trim();
+    const wghtInput = document.querySelector('.composer .cx[data-axis="wght"]');
+    const wghtVal = wghtInput.value.trim();
+    const coords = {};
+    document.querySelectorAll(".composer .cx").forEach(input => {
+      if (input.value !== "") coords[input.dataset.axis] = Number(input.value);
+    });
+    // wght has no sane default for a *new* instance — every other axis does (its value
+    // is already sitting in the field), so it's the one field that's actually required.
+    if (!name || wghtVal === ""){
+      $("composerName").style.borderColor = name ? "" : "var(--c-warning)";
+      wghtInput.style.borderColor = wghtVal ? "" : "var(--c-warning)";
+      return;
+    }
+
+    // Same-coordinate check happens before the row ever joins the table — the common case
+    // here is human error (the instance the user wants is already in the list and they just
+    // didn't spot it), not an intentional second file at the same design-space point. So this
+    // blocks on the first click and only proceeds on an explicit second one, rather than
+    // adding the row and hoping the resulting "identical" flag gets noticed after the fact.
+    const key = fontAxes().map(ax => coords[ax] ?? AXIS_DEFAULT[ax] ?? 0).join(",");
+    const match = allInstances().find(i => coordsKey(i) === key);
+    if (match && !$("composerAdd").dataset.confirmed){
+      const warn = $("composerWarn");
+      warn.hidden = false;
+      warn.innerHTML = `This coordinate matches #${match.id} “${escapeHtml(resolvedName(match))}” already in the list — probably the instance you're after.
+        <button type="button" id="composerForce">Add anyway</button>`;
+      $("composerAdd").textContent = "Confirm";
+      $("composerAdd").dataset.confirmed = "pending";
+      $("composerForce").addEventListener("click", () => { $("composerAdd").dataset.confirmed = "yes"; $("composerAdd").click(); });
+      return;
+    }
+
+    const nextId = Math.max(0, ...allInstances().map(i => i.id)) + 1;
+    const inst = {
+      id: nextId, fvar: name, stat: null, coords, fvarOk: true,
+      bold: $("composerBold").checked, ital: $("composerItalic").checked, custom: true,
+    };
+    state.custom.push(inst);
+    state.selected.add(nextId);
+    $("composer").hidden = true;
+    resetComposerInputs();
+    render();
+  });
+
+  // Custom rows have no source-of-truth in the file to protect, so every axis stays
+  // live-editable in place (see the "custom rows get more permission" note above coordsKey).
+  $("list").addEventListener("change", (e) => {
+    if (!e.target.classList.contains("axisEdit")) return;
+    const id = Number(e.target.dataset.id);
+    const axis = e.target.dataset.axis;
+    const inst = state.custom.find(i => i.id === id);
+    if (!inst) return;
+    const v = Number(e.target.value);
+    inst.coords[axis] = Number.isFinite(v) ? v : (AXIS_DEFAULT[axis] ?? 0);
+    render();
+  });
+
+  $("btnFixStudio").addEventListener("click", () => {
+    const collisions = classifyCollisions();
+    const sourceAtt = INSTANCES.filter(i => needsAttention(i, collisions));
+    const parts = [];
+    if (sourceAtt.length) parts.push(`${sourceAtt.length} instance${sourceAtt.length === 1 ? "" : "s"} flagged for naming`);
+    if (state.custom.length) parts.push(`${state.custom.length} custom instance${state.custom.length === 1 ? "" : "s"} would be proposed as new Axis Tree stops`);
+    const detail = parts.length ? " — " + parts.join(", ") + "." : ".";
+    studioToast(`Would open MullerNext-Variable.ttf in Studio's Axis Tree${detail}`);
+  });
+
+  $("btnOpen").addEventListener("click", () => { state.scenario = "export"; applyScenario(); });
+  $("dropzone").addEventListener("click", () => $("btnOpen").click());
+
+  $("btnCancel").addEventListener("click", () => toast("Window closed"));
+  // A fresh subfolder per batch, so re-running Generate never silently overwrites a prior
+  // run's output. Turning the checkbox off opts back into writing straight into the chosen
+  // folder — useful if something downstream expects a stable path — with an explicit warning
+  // that filename collisions there will overwrite.
+  function batchFolderName(){
+    const d = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    return `static-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  }
+  function resolvedGeneratePath(){
+    return $("sheetUniqueFolder").checked ? `${state.defaultFolder}/${state.batchFolder}` : state.defaultFolder;
+  }
+  function updateSheetPath(){
+    $("sheetPath").textContent = resolvedGeneratePath();
+    $("sheetOverwriteWarn").hidden = $("sheetUniqueFolder").checked;
+  }
+
+  $("btnGenerate").addEventListener("click", () => {
+    state.batchFolder = batchFolderName();
+    $("sheetUniqueFolder").checked = true;
+    updateSheetPath();
+    $("folderSheet").classList.add("show");
+  });
+  $("sheetUniqueFolder").addEventListener("change", updateSheetPath);
+  $("sheetCancel").addEventListener("click", () => $("folderSheet").classList.remove("show"));
+  $("sheetOK").addEventListener("click", () => {
+    const path = resolvedGeneratePath();
+    $("folderSheet").classList.remove("show");
+    toast(`Wrote ${state.selected.size} static fonts to ${path}`, true);
+    state.lastWritePath = path;
+  });
+  $("folderSheet").addEventListener("click", (e) => { if (e.target === $("folderSheet")) $("folderSheet").classList.remove("show"); });
+  $("toastReveal").addEventListener("click", () => toast(`Reveal ${state.lastWritePath ?? state.defaultFolder}`));
+
+  applyScenario();
+})();
+</script>
+</body>
+</html>

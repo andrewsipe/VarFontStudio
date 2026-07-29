@@ -179,13 +179,13 @@ struct EmptyWorkspaceView: View {
                 .foregroundStyle(isDropTargeted ? Color.accentColor : .secondary)
                 .animation(.easeOut(duration: 0.12), value: isDropTargeted)
 
-            Text(isDropTargeted ? "Drop to open" : "Drop fonts or projects to begin")
+            Text(isDropTargeted ? "Drop to open" : "Open or drop fonts or projects to get started")
                 .font(StudioTypography.emphasis)
                 .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
 
             Text(isDropTargeted
                 ? "Projects open as tabs · fonts start a new project"
-                : "Or use File → Open… · TTF, OTF, WOFF, WOFF2, VARF · folders OK")
+                : "File → Open… · TTF, OTF, WOFF, WOFF2, VARF · folders OK")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

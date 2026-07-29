@@ -245,15 +245,38 @@ def _write_fvar_instances(
     value_lists = [ad.values for ad in axis_defs]
     tag_list = [ad.tag for ad in axis_defs]
     pinned = pinned_coords or {}
+    registration = plan.file_stat_registration or {}
     values_by_tag = {
         ad.tag: {float(av.value): av for av in ad.values}
         for ad in axis_defs
     }
 
+    def complete_fvar_coordinates(coords: dict[str, float]) -> dict[str, float]:
+        """fontTools NamedInstance.compile requires a value for every fvar axis.
+
+        Naming axes (design_record_only) are off the instance grid and are not
+        pinned by request_bridge, but they may still exist in fvar (e.g. a
+        hidden ital pinned at −12). Fill those from registration when in-range,
+        otherwise the axis default.
+        """
+        completed = dict(coords)
+        for axis in fvar.axes:
+            tag = axis.axisTag
+            if tag in completed:
+                continue
+            if tag in registration:
+                candidate = float(registration[tag])
+                if float(axis.minValue) - 1e-4 <= candidate <= float(axis.maxValue) + 1e-4:
+                    completed[tag] = candidate
+                    continue
+            completed[tag] = float(axis.defaultValue)
+        return completed
+
     def append_instance(combo):
         coords = {tag: float(av.value) for tag, av in zip(tag_list, combo)}
-        if pinned_coords:
-            coords.update(pinned_coords)
+        if pinned:
+            coords.update(pinned)
+        coords = complete_fvar_coordinates(coords)
         composed = compose_instance_name(
             combo,
             elided_fallback_name,

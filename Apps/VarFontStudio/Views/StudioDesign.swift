@@ -232,6 +232,15 @@ enum StudioColors {
     static let successForeground = Color.green
     static let errorForeground = Color.red
     static let errorStroke = Color.red.opacity(0.5)
+    /// Instancer — name-only collision (distinct from amber fallback / red severe).
+    static let collisionForeground = Color(red: 0.90, green: 0.31, blue: 0.76) // #e64ec2
+    static let collisionFill = collisionForeground.opacity(0.16)
+    static let collisionStroke = collisionForeground.opacity(0.45)
+    /// Instancer — user-added custom instance.
+    static let customForeground = Color(red: 0.18, green: 0.83, blue: 0.75) // #2dd4bf
+    static let customFill = customForeground.opacity(0.16)
+    /// Instancer / name overrides — edited-from-default cyan.
+    static let editedForeground = Color(red: 0.39, green: 0.82, blue: 1.0) // #64d2ff
     /// Save Review diff semantics.
     static let diffRemoved = Color(red: 0.97, green: 0.44, blue: 0.44)
     static let diffAdded = Color(red: 0.29, green: 0.87, blue: 0.50)
@@ -761,6 +770,56 @@ enum SaveReviewLayout {
     static let phaseHeaderBackground = Color(red: 0.133, green: 0.133, blue: 0.141)
 }
 
+/// Spacing tokens for the Instancer window — shares Review density where chrome matches.
+enum InstancerLayout {
+    static let horizontalPadding: CGFloat = SaveReviewLayout.horizontalPadding
+    static let chromeSectionGap: CGFloat = SaveReviewLayout.chromeSectionGap
+    static let filterBadgeGap: CGFloat = SaveReviewLayout.filterBadgeGap
+    static let toolRowMinHeight: CGFloat = SaveReviewLayout.toolRowMinHeight
+    static let toolRowVerticalPadding: CGFloat = SaveReviewLayout.toolRowVerticalPadding
+    static let statusBarHeight: CGFloat = StudioSpace.x7 // 28
+    static let searchFieldWidth: CGFloat = 180
+    static let canvasBackground = SaveReviewLayout.canvasBackground
+
+    /// Checkbox / progress column.
+    static let selectColumnWidth: CGFloat = StudioIncludeCheckbox.hitSize
+    /// Fits “Bold Italic”.
+    static let styleColumnWidth: CGFloat = 72
+    static let axisColumnWidth: CGFloat = 52
+    /// Gap between Style and Output.
+    static let outputLeadingGap: CGFloat = StudioSpace.x4 // 16
+    static let flagColumnWidth: CGFloat = 140
+    static let nameColumnMinWidth: CGFloat = 140
+    static let nameColumnMaxWidth: CGFloat = 360
+    static let outputColumnMinWidth: CGFloat = 180
+    static let columnGap: CGFloat = StudioSpace.x2 // 8
+
+    /// Shared Name / Output widths so every row aligns and both columns share leftover space.
+    struct ColumnWidths: Equatable {
+        var name: CGFloat
+        var output: CGFloat
+    }
+
+    static func columnWidths(totalWidth: CGFloat, axisCount: Int) -> ColumnWidths {
+        let axisBlock = CGFloat(axisCount) * axisColumnWidth
+        // select, name, axes…, style, output, flags
+        let gapCount = CGFloat(4 + max(axisCount, 0))
+        let fixed =
+            horizontalPadding * 2
+            + selectColumnWidth
+            + styleColumnWidth
+            + axisBlock
+            + flagColumnWidth
+            + outputLeadingGap
+            + columnGap * gapCount
+        let flex = max(nameColumnMinWidth + outputColumnMinWidth, totalWidth - fixed)
+        // Split flexible space ~45/55 toward Output so filenames stay readable.
+        let name = min(nameColumnMaxWidth, max(nameColumnMinWidth, flex * 0.45))
+        let output = max(outputColumnMinWidth, flex - name)
+        return ColumnWidths(name: name, output: output)
+    }
+}
+
 extension SaveReviewDisplayCategory {
     var pillStyle: StudioDiffPillStyle {
         switch self {
@@ -1051,6 +1110,14 @@ enum StudioChromeBand {
     static let scope: CGFloat = StudioSpace.x9
     /// Context / tools row (filter, project title, instance-grid summary).
     static let context: CGFloat = StudioSpace.x17
+}
+
+/// Shared empty-state copy so Studio + Instancer read as one product.
+enum StudioEmptyCopy {
+    static let openOrDropFont = "Open or drop a variable font to get started."
+    static let openOrDropFontOrProject = "Open or drop fonts or projects to get started."
+    static let instancerListHint = "Select a project font tab to load its named instances."
+    static let noProjectInspector = "Open or drop fonts or projects to get started."
 }
 
 /// Shared panel header band with bottom divider — use for section headers and collapsed panel rails.

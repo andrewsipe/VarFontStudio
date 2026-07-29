@@ -66,6 +66,12 @@ public enum ProjectPathResolver {
                 document.fonts[index].sourcePath,
                 relativeTo: projectDirectory
             )
+            if let importPath = document.fonts[index].importPath {
+                document.fonts[index].importPath = resolveStoredPath(
+                    importPath,
+                    relativeTo: projectDirectory
+                )
+            }
             if let outputPath = document.fonts[index].outputPath {
                 document.fonts[index].outputPath = resolveStoredPath(
                     outputPath,
@@ -81,6 +87,12 @@ public enum ProjectPathResolver {
                 for: document.fonts[index].sourcePath,
                 relativeTo: projectDirectory
             )
+            if let importPath = document.fonts[index].importPath {
+                document.fonts[index].importPath = storedPath(
+                    for: importPath,
+                    relativeTo: projectDirectory
+                )
+            }
             if let outputPath = document.fonts[index].outputPath {
                 document.fonts[index].outputPath = storedPath(
                     for: outputPath,

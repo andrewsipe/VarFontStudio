@@ -36,6 +36,13 @@ struct ProjectInspectorPanel: View {
                     isFileNamingExpanded = true
                 }
             }
+        } else {
+            ContentUnavailableView(
+                "No Project Open",
+                systemImage: "folder",
+                description: Text(StudioEmptyCopy.noProjectInspector)
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

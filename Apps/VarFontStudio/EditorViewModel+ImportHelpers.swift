@@ -47,12 +47,14 @@ extension EditorViewModel {
     func regeneratePlan() {
         guard project != nil, selectedFontID != nil else {
             instancePlan = nil
+            pendingExportInstanceKeys = []
             instanceListDisplay = .empty
             return
         }
         backfillMissingInferredAxisRoles()
         guard let project else {
             instancePlan = nil
+            pendingExportInstanceKeys = []
             return
         }
         instancePlan = InstancePlanner.plan(project: project, fontID: selectedFontID!)
@@ -62,6 +64,7 @@ extension EditorViewModel {
             selectedInstanceKey = instancePlan?.instances.first?.key
         }
         refreshInstanceListDisplay()
+        refreshPendingExportKeys()
     }
 
     func setInstanceIncluded(_ key: String, included: Bool) {

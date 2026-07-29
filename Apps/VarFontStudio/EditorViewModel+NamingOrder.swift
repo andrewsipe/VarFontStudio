@@ -297,15 +297,21 @@ extension EditorViewModel {
         if instanceFilter == .duplicates, !instancePlan.instances.contains(where: \.duplicate) {
             instanceFilter = .all
         }
+        if instanceFilter == .pendingExport, pendingExportInstanceKeys.isEmpty {
+            instanceFilter = .all
+        }
 
         var captions: [String: String] = [:]
         var includedByKey: [String: Bool] = [:]
+        var pendingExportByKey: [String: Bool] = [:]
         captions.reserveCapacity(instancePlan.instances.count)
         includedByKey.reserveCapacity(instancePlan.instances.count)
+        pendingExportByKey.reserveCapacity(instancePlan.instances.count)
         for instance in instancePlan.instances {
             let pairs = coordCaptionPairs(for: instance)
             captions[instance.key] = StudioFormatting.truncatingCoordCaption(pairs: pairs)
             includedByKey[instance.key] = instance.included
+            pendingExportByKey[instance.key] = pendingExportInstanceKeys.contains(instance.key)
         }
 
         let rows = computeFilteredInstances(from: instancePlan.instances, coordCaptions: captions)
@@ -323,7 +329,9 @@ extension EditorViewModel {
             ),
             axisStopFilterLabel: selectedAxisStopFilterLabelValue,
             coordCaptions: captions,
-            includedByKey: includedByKey
+            includedByKey: includedByKey,
+            pendingExportByKey: pendingExportByKey,
+            pendingExportCount: pendingExportInstanceKeys.count
         )
     }
 
@@ -342,12 +350,13 @@ extension EditorViewModel {
             filtered = filtered.filter { !$0.included }
         case .duplicates:
             filtered = filtered.filter(\.duplicate)
+        case .pendingExport:
+            filtered = filtered.filter { pendingExportInstanceKeys.contains($0.key) }
         }
 
         if let stopFilter = selectedAxisStopFilter {
             filtered = filtered.filter { instance in
-                guard let value = instance.coords[stopFilter.tag] else { return false }
-                return AxisCoordinate.valuesEqual(value, stopFilter.value)
+                instanceMatchesAxisStopFilter(instance, filter: stopFilter)
             }
         }
 
@@ -421,6 +430,23 @@ extension EditorViewModel {
             return (axis.tag, stop.value, stop.name)
         }
         return nil
+    }
+
+    /// Instance-grid stops filter by coords; naming-axis (registration) stops match the
+    /// file's registered value and keep every instance on this file.
+    private func instanceMatchesAxisStopFilter(
+        _ instance: PlannedInstance,
+        filter: (tag: String, value: Double, stopName: String?)
+    ) -> Bool {
+        if let axis = selectedFont?.axes.first(where: { $0.tag == filter.tag }),
+           axis.isDesignRecordOnly {
+            guard let registered = selectedFont?.fileStatRegistration[filter.tag] else {
+                return false
+            }
+            return AxisCoordinate.valuesEqual(registered, filter.value)
+        }
+        guard let value = instance.coords[filter.tag] else { return false }
+        return AxisCoordinate.valuesEqual(value, filter.value)
     }
 
     private var instanceGroupByTag: String? {

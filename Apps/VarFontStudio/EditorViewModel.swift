@@ -10,6 +10,7 @@ enum InstanceFilter: String, CaseIterable, Identifiable {
     case included
     case excluded
     case duplicates
+    case pendingExport
 
     var id: String { rawValue }
 
@@ -19,6 +20,7 @@ enum InstanceFilter: String, CaseIterable, Identifiable {
         case .included: "Included"
         case .excluded: "Excluded"
         case .duplicates: "Duplicates"
+        case .pendingExport: "Pending export"
         }
     }
 }
@@ -53,12 +55,25 @@ struct InstanceListDisplay: Equatable {
     var axisStopFilterLabel: String?
     var coordCaptions: [String: String] = [:]
     var includedByKey: [String: Bool] = [:]
+    var pendingExportByKey: [String: Bool] = [:]
+    var pendingExportCount: Int = 0
 }
 
 struct AxisTreeFocusRequest: Equatable {
     let axisTag: String
     let stopID: String
     let token: UUID
+}
+
+struct MainWindowOpenRequest: Equatable {
+    let token: UUID
+}
+
+/// Gate for `applicationShouldTerminate` — cancel vs defer to SwiftUI quit UI.
+enum ApplicationTerminateGate {
+    case allow
+    case deferToUI
+    case cancel
 }
 
 @MainActor
@@ -76,6 +91,8 @@ final class EditorViewModel: ObservableObject {
     @Published var isPreviewHoverActive = false
     /// Review / export chrome and preflight sessions (Track B1 carve-out).
     let saveReview = SaveReviewStore()
+    /// Static instancer window sessions (project fonts only).
+    let instancer = InstancerStore()
     /// Conflict / plan-issue resolver sheets and review-queue walk (Track B2).
     let issueResolvers = IssueResolverStore()
     /// Inspector scope / reveal / axis-tree focus chrome (Track B3).
@@ -90,21 +107,29 @@ final class EditorViewModel: ObservableObject {
     @Published var instancePlan: InstancePlan?
     @Published var planRevision = 0
     @Published var statusMessage: String?
+    /// Bumped to reopen / focus the main Studio window via `openWindow(id: "main")`.
+    @Published private(set) var mainWindowOpenRequest: MainWindowOpenRequest?
+    /// Set after export refresh — offers opening Instancer from the main window.
+    @Published var postExportInstancerRecommendation: PostExportInstancerRecommendation?
     @Published var isBusy = false
     /// 0...1 while `isBusy`; nil means indeterminate.
     @Published var busyProgress: Double?
     @Published var busyStatus: String?
     @Published var instanceListDisplay = InstanceListDisplay.empty
+    @Published var pendingExportInstanceKeys: Set<String> = []
     @Published var canSave = false
 
     /// Workspace confirmations / missing-fonts / target picker (Track B4).
     
     let workspaceDrag = WorkspaceDragCoordinator()
 
+    var pendingExportRefreshTask: Task<Void, Never>?
+
     var debouncedPlanTask: Task<Void, Never>?
     private var statusMessageDismissTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     let commitService = CommitService()
+    let instanceService = InstanceService()
     var sourceBookmarks: [String: Data] = [:]
 
     private static let statusMessageDisplayDuration: TimeInterval = 4
@@ -144,6 +169,19 @@ final class EditorViewModel: ObservableObject {
             return "One or more projects have unsaved changes. Save the project file before quitting, or discard those changes."
         }
         return "Quit VarFont Studio?"
+    }
+
+    /// Reopen or focus the main Studio window (e.g. after it was closed while Instancer stayed open).
+    /// Prefer focusing an existing window — never spawn a duplicate over an open panel.
+    func ensureMainWindowVisible() {
+        if MainWindowLifecycle.focusExistingMainWindow() { return }
+        mainWindowOpenRequest = MainWindowOpenRequest(token: UUID())
+    }
+
+    /// Focus a project tab in the main window, reopening the window only if needed.
+    func focusProjectInMainWindow(projectID: String) {
+        activateProject(id: projectID)
+        ensureMainWindowVisible()
     }
 
     var canDragProjectForCombine: Bool { openProjects.count > 1 }
@@ -405,7 +443,14 @@ final class EditorViewModel: ObservableObject {
 
     init() {
         saveReview.host = self
+        instancer.host = self
         saveReview.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        instancer.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
@@ -506,8 +551,15 @@ final class EditorViewModel: ObservableObject {
         instancePlan?.instances.contains(where: \.duplicate) ?? false
     }
 
+    var hasPendingExportInstances: Bool {
+        !pendingExportInstanceKeys.isEmpty
+    }
+
     var visibleInstanceFilters: [InstanceFilter] {
         var filters: [InstanceFilter] = [.all, .included, .excluded]
+        if hasPendingExportInstances {
+            filters.append(.pendingExport)
+        }
         if hasDuplicateInstances {
             filters.append(.duplicates)
         }

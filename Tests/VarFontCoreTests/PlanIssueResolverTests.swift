@@ -109,13 +109,83 @@ final class PlanIssueResolverTests: XCTestCase {
         let warning = StatFormat3Pairing.orphanLinkWarnings(for: font.axes[0]).first
         XCTAssertEqual(warning?.code, "orphan_stat_link")
 
-        let proposal = PlanIssueResolver.proposals(for: try XCTUnwrap(warning), font: font)
-            .first { $0.title == "Keep as standalone style value (Format 1)" }
-        XCTAssertNotNil(proposal)
+        let proposals = PlanIssueResolver.proposals(for: try XCTUnwrap(warning), font: font)
+        let recommended = try XCTUnwrap(proposals.first { $0.isRecommended })
+        XCTAssertTrue(recommended.title.contains("Format 3"))
+        XCTAssertTrue(recommended.title.contains("1 (Italic)"))
 
-        PlanIssueResolver.apply(try XCTUnwrap(proposal).action, to: &font)
-        XCTAssertEqual(font.axes[0].values[0].statFormat, 1)
-        XCTAssertNil(font.axes[0].values[0].linkedValue)
+        PlanIssueResolver.apply(recommended.action, to: &font)
+        XCTAssertEqual(font.axes[0].values[0].statFormat, 3)
+        XCTAssertEqual(font.axes[0].values[0].linkedValue, 1)
+
+        XCTAssertTrue(proposals.contains { $0.title == "Keep as standalone style value (Format 1)" })
+    }
+
+    func testItalRenameRevalueKeepsFormat3LinkToCounterpart() throws {
+        var font = FontDocument(
+            id: "italic",
+            sourcePath: "/tmp/ResanDisplay-VariableItalic.ttf",
+            axes: [
+                italAxis(stops: [
+                    AxisValue(
+                        id: "stop",
+                        value: 0,
+                        name: "Italic",
+                        elidable: false,
+                        statFormat: 3,
+                        linkedValue: 1
+                    ),
+                ]),
+            ],
+            fileStatRegistration: ["ital": 0],
+            inferredIsItalicFile: true
+        )
+
+        let warning = try XCTUnwrap(
+            RegistrationAxisSupport.italConventionWarnings(font: font).first
+        )
+        let recommended = try XCTUnwrap(
+            PlanIssueResolver.recommendedProposal(for: warning, font: font)
+        )
+        XCTAssertTrue(recommended.title.contains("1 (Italic)"))
+        XCTAssertTrue(recommended.title.contains("Format 3"))
+
+        PlanIssueResolver.apply(recommended.action, to: &font)
+        XCTAssertEqual(font.axes[0].values[0].value, 1)
+        XCTAssertEqual(font.axes[0].values[0].statFormat, 3)
+        XCTAssertEqual(font.axes[0].values[0].linkedValue, 0)
+        XCTAssertEqual(font.fileStatRegistration["ital"], 1)
+        XCTAssertTrue(StatFormat3Pairing.orphanLinkWarnings(for: font.axes[0]).isEmpty)
+    }
+
+    func testOrphanItalAtOnePrefersRelinkToZero() throws {
+        var font = FontDocument(
+            id: "italic",
+            sourcePath: "/tmp/ResanDisplay-VariableItalic.ttf",
+            axes: [
+                italAxis(stops: [
+                    AxisValue(
+                        id: "stop",
+                        value: 1,
+                        name: "Italic",
+                        elidable: false,
+                        statFormat: 3,
+                        linkedValue: 1
+                    ),
+                ]),
+            ],
+            fileStatRegistration: ["ital": 1],
+            inferredIsItalicFile: true
+        )
+
+        let warning = try XCTUnwrap(StatFormat3Pairing.orphanLinkWarnings(for: font.axes[0]).first)
+        let recommended = try XCTUnwrap(
+            PlanIssueResolver.recommendedProposal(for: warning, font: font)
+        )
+        XCTAssertTrue(recommended.title.contains("0 (Roman)"))
+        PlanIssueResolver.apply(recommended.action, to: &font)
+        XCTAssertEqual(font.axes[0].values[0].statFormat, 3)
+        XCTAssertEqual(font.axes[0].values[0].linkedValue, 0)
     }
 
     func testRevalueStopSyncsRegistrationWhenRegistered() {
@@ -572,5 +642,117 @@ final class PlanIssueResolverTests: XCTestCase {
             return false
         })
         XCTAssertTrue(proposals.contains { $0.title == "Don't change" })
+    }
+
+    func testPinnedNonBinaryItalRecommendsNamingAxisNotStatOnly() throws {
+        var font = FontDocument(
+            id: "resan-italic",
+            sourcePath: "/tmp/ResanDisplay-VariableItalic.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "ital",
+                    displayName: "Italic",
+                    min: -12,
+                    default: -12,
+                    max: -12,
+                    role: .instance,
+                    values: []
+                ),
+            ],
+            inferredIsItalicFile: true
+        )
+
+        let emptyWarning = PlanWarning(
+            code: "empty_instance_axis",
+            axis: "ital",
+            message: "Instance axis 'ital' has no stops."
+        )
+        let emptyRecommended = try XCTUnwrap(
+            PlanIssueResolver.recommendedProposal(for: emptyWarning, font: font)
+        )
+        XCTAssertTrue(emptyRecommended.title.contains("naming axis"))
+        XCTAssertTrue(emptyRecommended.title.contains("Italic"))
+
+        let defaultWarning = try XCTUnwrap(
+            OpenTypeAxisAudit.defaultInstanceWarnings(font: font, instances: []).first
+        )
+        let defaultRecommended = try XCTUnwrap(
+            PlanIssueResolver.recommendedProposal(for: defaultWarning, font: font)
+        )
+        XCTAssertTrue(defaultRecommended.title.contains("naming axis"))
+
+        PlanIssueResolver.apply(defaultRecommended.action, to: &font)
+
+        let ital = try XCTUnwrap(font.axes.first { $0.tag == "ital" })
+        XCTAssertEqual(ital.role, .designRecordOnly)
+        XCTAssertEqual(ital.values.count, 1)
+        XCTAssertEqual(ital.values[0].value, -12)
+        XCTAssertEqual(ital.values[0].name, "Italic")
+        XCTAssertEqual(ital.values[0].statFormat, 1)
+        XCTAssertEqual(font.fileStatRegistration["ital"], -12)
+
+        // Promote is role-first; inserting after design_record_only must still work.
+        var emptyNaming = FontDocument(
+            id: "empty-naming",
+            sourcePath: "/tmp/ResanDisplay-VariableItalic.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "ital",
+                    displayName: "Italic",
+                    min: -12,
+                    default: -12,
+                    max: -12,
+                    role: .designRecordOnly,
+                    values: []
+                ),
+            ],
+            fileStatRegistration: ["ital": -12],
+            inferredIsItalicFile: true
+        )
+        let missing = try XCTUnwrap(
+            RegistrationAxisSupport.registrationWarnings(font: emptyNaming, analysis: nil)
+                .first { $0.code == "registration_value_missing" }
+        )
+        let addStop = try XCTUnwrap(
+            PlanIssueResolver.recommendedProposal(for: missing, font: emptyNaming)
+        )
+        PlanIssueResolver.apply(addStop.action, to: &emptyNaming)
+        XCTAssertEqual(emptyNaming.axes[0].values.count, 1)
+        XCTAssertEqual(emptyNaming.axes[0].values[0].name, "Italic")
+        XCTAssertEqual(emptyNaming.axes[0].values[0].value, -12)
+
+        let naming = NamingComposer.compose(
+            coords: ["wght": 400],
+            axes: font.axes,
+            naming: NamingPolicy(order: ["wght", "ital"], elidedFallback: "Regular"),
+            fileStatRegistration: font.fileStatRegistration
+        )
+        XCTAssertTrue(naming.name.contains("Italic"))
+    }
+
+    func testNonBinaryItalNamingAxisDoesNotPushBinaryConvention() {
+        let font = FontDocument(
+            id: "resan-italic",
+            sourcePath: "/tmp/ResanDisplay-VariableItalic.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "ital",
+                    displayName: "Italic",
+                    min: -12,
+                    default: -12,
+                    max: -12,
+                    role: .designRecordOnly,
+                    values: [
+                        AxisValue(id: "i", value: -12, name: "Italic", elidable: false, statFormat: 1),
+                    ]
+                ),
+            ],
+            fileStatRegistration: ["ital": -12],
+            inferredIsItalicFile: true
+        )
+
+        XCTAssertTrue(RegistrationAxisSupport.isNonBinaryItalAxis(font.axes[0]))
+        XCTAssertTrue(RegistrationAxisSupport.italConventionWarnings(font: font).isEmpty)
+        XCTAssertTrue(RegistrationAxisSupport.italFormat1UpgradeWarnings(font: font).isEmpty)
     }
 }

@@ -7,58 +7,75 @@ struct ProjectFileSubBar: View {
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
 
     var body: some View {
-        Group {
-            if editor.hasOpenProjects,
-               let project = editor.project,
+        HStack(spacing: StudioSpacing.controlGap) {
+            StudioSectionLabel(title: "File")
+
+            if let project = editor.project,
                let projectID = editor.activeProjectID,
                !project.fonts.isEmpty {
-                HStack(spacing: StudioSpacing.controlGap) {
-                    StudioSectionLabel(title: "File")
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: StudioSpacing.tightGap) {
+                        ForEach(project.fonts) { font in
+                            fileChip(font, projectID: projectID, projectFontCount: project.fonts.count)
+                        }
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: StudioSpacing.tightGap) {
-                            ForEach(project.fonts) { font in
-                                fileChip(font, projectID: projectID, projectFontCount: project.fonts.count)
-                            }
-
-                            Color.clear
-                                .frame(width: 12, height: 1)
-                                .background {
-                                    GeometryReader { geometry in
-                                        Color.clear.preference(
-                                            key: FileChipFrameKey.self,
-                                            value: ["\(projectID):__end__": geometry.frame(in: .global)]
-                                        )
-                                    }
+                        Color.clear
+                            .frame(width: 12, height: 1)
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: FileChipFrameKey.self,
+                                        value: ["\(projectID):__end__": geometry.frame(in: .global)]
+                                    )
                                 }
-                        }
-                        .onPreferenceChange(FileChipFrameKey.self) { frames in
-                            guard !workspaceDrag.isActive else { return }
-                            editor.workspaceDrag.setFontChipFrames(frames, source: .fileSubBar)
-                        }
+                            }
                     }
-                    .scrollDisabled(workspaceDrag.isActive)
-                }
-                .padding(.horizontal, StudioSpacing.editorChromeInset)
-                .padding(.vertical, StudioSpacing.toolbarVertical)
-                .workspaceDropZoneHighlight(
-                    isActive: workspaceDrag.shouldHighlightFileSubBarRow(
-                        activeProjectID: editor.activeProjectID
-                    ),
-                    tint: StudioColors.dropAddExisting
-                )
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(
-                            key: ProjectFileSubBarFrameKey.self,
-                            value: geometry.frame(in: .global)
-                        )
+                    .onPreferenceChange(FileChipFrameKey.self) { frames in
+                        guard !workspaceDrag.isActive else { return }
+                        editor.workspaceDrag.setFontChipFrames(frames, source: .fileSubBar)
                     }
                 }
-                .onPreferenceChange(ProjectFileSubBarFrameKey.self) { frame in
-                    editor.workspaceDrag.setFileSubBarFrame(frame)
+                .scrollDisabled(workspaceDrag.isActive)
+            } else {
+                Text(editor.hasOpenProjects ? "No files" : "No file")
+                    .font(StudioTypography.rowName)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: StudioSpacing.controlGap)
+
+            Button("+ Add file…") {
+                if editor.hasOpenProjects {
+                    editor.presentAddFontPanel()
+                } else {
+                    editor.presentOpenPanel()
                 }
             }
+            .font(StudioTypography.meta)
+            .buttonStyle(.plain)
+            .help(editor.hasOpenProjects
+                ? "Add a variable font to the active project"
+                : "Open a variable font — creates a new project")
+        }
+        .padding(.horizontal, StudioSpacing.editorChromeInset)
+        .padding(.vertical, StudioSpacing.toolbarVertical)
+        .workspaceDropZoneHighlight(
+            isActive: workspaceDrag.shouldHighlightFileSubBarRow(
+                activeProjectID: editor.activeProjectID
+            ),
+            tint: StudioColors.dropAddExisting
+        )
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: ProjectFileSubBarFrameKey.self,
+                    value: geometry.frame(in: .global)
+                )
+            }
+        }
+        .onPreferenceChange(ProjectFileSubBarFrameKey.self) { frame in
+            editor.workspaceDrag.setFileSubBarFrame(frame)
         }
     }
 

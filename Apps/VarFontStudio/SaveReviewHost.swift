@@ -27,6 +27,14 @@ protocol SaveReviewHost: AnyObject {
     func publishOpenProjects()
     func refreshCanSave()
     func postSaveFailure(_ message: String)
+    func clearPersistentSaveError()
+    func refreshProjectAfterExport(
+        projectID: String,
+        fontID: String,
+        writtenPath: String,
+        inPlace: Bool,
+        previousSourcePath: String
+    ) async
 }
 
 extension SaveReviewHost {

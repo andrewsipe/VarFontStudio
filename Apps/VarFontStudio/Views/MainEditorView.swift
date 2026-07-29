@@ -1,10 +1,10 @@
+import AppKit
 import SwiftUI
 import VarFontCore
 
 struct MainEditorView: View {
     @EnvironmentObject private var editor: EditorViewModel
     @EnvironmentObject private var layout: EditorLayoutPreferences
-    @Environment(\.openWindow) private var openWindow
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @State private var isDropTargeted = false
     @State private var workspaceOrigin: CGPoint = .zero
@@ -44,6 +44,9 @@ struct MainEditorView: View {
                     if editor.isBusy {
                         loadingOverlay
                     }
+                }
+                .overlay(alignment: .top) {
+                    postExportInstancerBanner
                 }
                 .onChange(of: editor.isBusy) { _, busy in
                     if busy {
@@ -90,10 +93,7 @@ struct MainEditorView: View {
             // transition unless the view's identity actually changes.
             .id(session.id)
         }
-        .onChange(of: editor.saveReview.openRequest) { _, request in
-            guard let request else { return }
-            openWindow(id: "save-review", value: request.projectID)
-        }
+        .background(AuxiliaryWindowOpenBridge())
         .sheet(isPresented: commitDiffSheetBinding) {
             if let projectID = editor.activeProjectID,
                let fontID = editor.selectedFontID {
@@ -395,25 +395,16 @@ struct MainEditorView: View {
                 .padding(.top, StudioSpace.x2)
             }
 
-            if editor.hasOpenProjects {
-                projectChrome
-            }
+            projectChrome
 
-            Group {
-                if editor.hasOpenProjects {
-                    StudioPanelSplitView()
-                } else {
-                    EmptyWorkspaceView(isDropTargeted: isDropTargeted)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .toolbar { toolbarItems }
+            StudioPanelSplitView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .toolbar { toolbarItems }
 
-            if editor.hasOpenProjects {
-                editorFooter
-            }
+            editorFooter
         }
         .navigationTitle(activeNavigationTitle)
+        .background(MainWindowConfigurator(title: activeNavigationTitle))
     }
 
     private var projectChrome: some View {
@@ -488,6 +479,14 @@ struct MainEditorView: View {
             .disabled(!editor.canPreviewSaveReview)
             .help("Open a review window for the active project")
         }
+
+        ToolbarItem {
+            Button("Instance…", systemImage: "square.stack.3d.up") {
+                editor.toggleInstancerWindow()
+            }
+            .disabled(!editor.canPresentInstancer)
+            .help("Open Instancer for the active project — generate static fonts from named instances")
+        }
     }
 
     private var statusBar: some View {
@@ -512,10 +511,16 @@ struct MainEditorView: View {
                         .font(StudioTypography.meta)
                         .foregroundStyle(Color.accentColor)
                         .lineLimit(1)
+                } else if editor.activeProjectID == nil, editor.statusMessage == nil, !editor.instancer.isGenerateBusy {
+                    Text("Ready")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
                 }
             }
 
             Spacer(minLength: StudioSpacing.controlGap)
+
+            instancerStatusChip
 
             if let message = editor.statusMessage {
                 Text(message)
@@ -527,6 +532,69 @@ struct MainEditorView: View {
         }
         .padding(.horizontal, StudioSpacing.editorChromeInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
+        .frame(minHeight: StudioChromeBand.header, alignment: .center)
+    }
+
+    @ViewBuilder
+    private var instancerStatusChip: some View {
+        if editor.instancer.isGenerateBusy,
+           let key = editor.instancer.activeGenerateSessionKey,
+           let session = editor.instancer.session(forKey: key) {
+            let done = session.generateCompletedCount
+            let total = max(session.generateTotalCount, 1)
+            let fraction = min(1, Double(done) / Double(total))
+            Button {
+                editor.instancer.revealActiveGenerateWindow()
+            } label: {
+                HStack(spacing: StudioSpacing.tightGap) {
+                    ProgressView()
+                        .controlSize(.mini)
+                    Text("Instancing \(done)/\(total)")
+                        .font(StudioTypography.meta)
+                        .monospacedDigit()
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(StudioColors.surfaceStrokeStrong.opacity(0.55))
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.85))
+                                .frame(width: max(4, geo.size.width * fraction))
+                        }
+                    }
+                    .frame(width: 56, height: 4)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, StudioSpace.x2)
+                .padding(.vertical, 3)
+                .background(StudioColors.surfaceLight, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Instancer is still generating — click to reopen")
+        }
+    }
+
+    @ViewBuilder
+    private var postExportInstancerBanner: some View {
+        if editor.postExportInstancerRecommendation != nil {
+            HStack(spacing: StudioSpacing.controlGap) {
+                Text("Export complete — ready to instance static fonts.")
+                    .font(StudioTypography.bodyMedium)
+                Spacer(minLength: StudioSpacing.controlGap)
+                Button("Instance…") {
+                    editor.acceptPostExportInstancerRecommendation()
+                }
+                .buttonStyle(.borderedProminent)
+                StudioDismissButton(scale: .toolbar, help: "Dismiss") {
+                    editor.dismissPostExportInstancerRecommendation()
+                }
+            }
+            .padding(.horizontal, StudioSpace.x4)
+            .padding(.vertical, StudioSpace.x3)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.top, StudioSpace.x4)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
     }
 
     private var loadingOverlay: some View {
@@ -578,5 +646,31 @@ struct MainEditorView: View {
         .padding(StudioSpace.x6)
         .frame(width: 420)
         .preferredColorScheme(.dark)
+    }
+}
+
+private struct MainWindowConfigurator: NSViewRepresentable {
+    let title: String
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            apply(to: view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            apply(to: nsView.window)
+        }
+    }
+
+    private func apply(to window: NSWindow?) {
+        guard let window else { return }
+        window.identifier = NSUserInterfaceItemIdentifier(MainWindowLifecycle.identifier)
+        window.title = title
+        // Avoid macOS restoring a second blank main window beside a live one.
+        window.isRestorable = false
     }
 }

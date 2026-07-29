@@ -62,6 +62,10 @@ extension EditorViewModel {
         saveReview.setPersistentError(nil)
     }
 
+    func clearPersistentSaveError() {
+        dismissPersistentSaveError()
+    }
+
     func postSaveFailure(_ message: String) {
         saveReview.setPersistentError(message)
         postStatusMessage(message)
@@ -560,6 +564,10 @@ extension EditorViewModel {
             // Preserve the user's ascending/descending preference when possible.
             let preferAscending = Self.axisStopsValueSortAscending(font.axes[axisIndex].values) ?? true
             font.axes[axisIndex].values[stopIndex].value = clamped
+            if font.axes[axisIndex].values[stopIndex].statFormat == 3,
+               let linked = StatFormat3Pairing.format3LinkedValue(for: clamped, axisTag: axisTag) {
+                font.axes[axisIndex].values[stopIndex].linkedValue = linked
+            }
             font.axes[axisIndex].values.sort {
                 preferAscending ? $0.value < $1.value : $0.value > $1.value
             }
@@ -637,7 +645,8 @@ extension EditorViewModel {
         axisTag: String,
         stopID: String,
         format: Int,
-        linkTargetStopID: String? = nil
+        linkTargetStopID: String? = nil,
+        linkedValue: Double? = nil
     ) {
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
@@ -656,9 +665,16 @@ extension EditorViewModel {
             case 3:
                 stop.rangeMin = nil
                 stop.rangeMax = nil
-                if let linkTargetStopID,
-                   let target = font.axes[axisIndex].values.first(where: { $0.id == linkTargetStopID }) {
+                if let linkedValue {
+                    stop.linkedValue = linkedValue
+                } else if let linkTargetStopID,
+                          let target = font.axes[axisIndex].values.first(where: { $0.id == linkTargetStopID }) {
                     stop.linkedValue = target.value
+                } else if let convention = StatFormat3Pairing.format3LinkedValue(
+                    for: stop.value,
+                    axisTag: axisTag
+                ) {
+                    stop.linkedValue = convention
                 }
             default:
                 stop.statFormat = 1
@@ -677,6 +693,17 @@ extension EditorViewModel {
                   let target = font.axes[axisIndex].values.first(where: { $0.id == linkTargetStopID }) else { return }
             font.axes[axisIndex].values[stopIndex].statFormat = 3
             font.axes[axisIndex].values[stopIndex].linkedValue = target.value
+        }
+    }
+
+    func updateAxisStopLinkedValue(axisTag: String, stopID: String, linkedValue: Double) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
+            font.axes[axisIndex].values[stopIndex].statFormat = 3
+            font.axes[axisIndex].values[stopIndex].linkedValue = linkedValue
+            font.axes[axisIndex].values[stopIndex].rangeMin = nil
+            font.axes[axisIndex].values[stopIndex].rangeMax = nil
         }
     }
 
@@ -863,16 +890,23 @@ extension EditorViewModel {
         rangeMin: Double? = nil,
         rangeMax: Double? = nil,
         linkedStopID: String? = nil,
+        linkedValue: Double? = nil,
         code: String? = nil
     ) {
         var addedStopID: String?
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
             let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
-            var linkedValue: Double?
-            if statFormat == 3, let linkedStopID,
-               let target = font.axes[axisIndex].values.first(where: { $0.id == linkedStopID }) {
-                linkedValue = target.value
+            var resolvedLink: Double?
+            if statFormat == 3 {
+                if let linkedValue {
+                    resolvedLink = linkedValue
+                } else if let linkedStopID,
+                          let target = font.axes[axisIndex].values.first(where: { $0.id == linkedStopID }) {
+                    resolvedLink = target.value
+                } else {
+                    resolvedLink = StatFormat3Pairing.format3LinkedValue(for: value, axisTag: axisTag)
+                }
             }
             let stop = AxisValue(
                 id: stopID,
@@ -882,7 +916,7 @@ extension EditorViewModel {
                 statFormat: statFormat,
                 rangeMin: rangeMin,
                 rangeMax: rangeMax,
-                linkedValue: linkedValue,
+                linkedValue: resolvedLink,
                 code: InstanceCodeBuilder.sanitize(code)
             )
             font.axes[axisIndex].values.append(stop)

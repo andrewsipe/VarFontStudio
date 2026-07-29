@@ -93,6 +93,7 @@ struct CommitDiffReviewView: View {
                 }
             }
             .padding(.horizontal, SaveReviewLayout.horizontalPadding)
+            .padding(.top, StudioSpace.x4)
             .padding(.bottom, SaveReviewLayout.chromeSectionGap)
 
             if !session.presentation.tabs.isEmpty {

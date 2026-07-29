@@ -158,12 +158,13 @@ struct AddAxisStopSheet: View {
                 submitBehavior: .advance
             )
             .focused($focusedField, equals: .pin)
+            .onChange(of: pinText) { _, _ in seedLinkTargetIfNeeded() }
             Picker("Link to", selection: Binding(
                 get: { linkTargetID ?? linkCandidates.first?.id },
                 set: { linkTargetID = $0 }
             )) {
                 ForEach(linkCandidates) { candidate in
-                    Text(candidate.name).tag(Optional(candidate.id))
+                    Text(candidate.label).tag(Optional(candidate.id))
                 }
             }
         default:
@@ -201,8 +202,11 @@ struct AddAxisStopSheet: View {
         return order
     }
 
-    private var linkCandidates: [AxisValue] {
-        axis.values.filter { $0.statFormat != 3 }
+    private var linkCandidates: [StatFormat3Pairing.LinkTarget] {
+        StatFormat3Pairing.linkTargets(
+            for: axis,
+            stopValue: parsedPin ?? editor.suggestedNewStopValue(for: axis)
+        )
     }
 
     private func seedDefaults() {
@@ -210,8 +214,13 @@ struct AddAxisStopSheet: View {
         pinText = StudioFormatting.axisValue(suggested)
         minText = StudioFormatting.axisValue(max((axis.min ?? suggested) , suggested - 20))
         maxText = StudioFormatting.axisValue(min((axis.max ?? suggested + 20), suggested + 20))
-        if linkTargetID == nil {
-            linkTargetID = linkCandidates.first?.id
+        seedLinkTargetIfNeeded(force: true)
+    }
+
+    private func seedLinkTargetIfNeeded(force: Bool = false) {
+        let candidates = linkCandidates
+        if force || linkTargetID == nil || candidates.contains(where: { $0.id == linkTargetID }) == false {
+            linkTargetID = candidates.first?.id
         }
     }
 
@@ -242,12 +251,17 @@ struct AddAxisStopSheet: View {
                 ?? (min <= pin && pin <= max ? nil : "Min ≤ Pin ≤ Max required.")
         case 3:
             guard parsedPin != nil else { return "Enter a valid static value." }
-            guard linkTargetID != nil else { return "Choose a link target." }
+            guard selectedLinkTarget != nil else { return "Choose a link target." }
             return parsedPin.flatMap { editor.validateAxisStopValue($0, for: axis) }
         default:
             guard let pin = parsedPin else { return "Enter a valid static value." }
             return editor.validateAxisStopValue(pin, for: axis)
         }
+    }
+
+    private var selectedLinkTarget: StatFormat3Pairing.LinkTarget? {
+        let id = linkTargetID ?? linkCandidates.first?.id
+        return linkCandidates.first { $0.id == id }
     }
 
     private var canAdd: Bool { validationMessage == nil }
@@ -257,6 +271,7 @@ struct AddAxisStopSheet: View {
         let name = trimmedName
         let tag = axis.tag
         let code = trimmedCode
+        let linkValue = selectedLinkTarget?.value
         onComplete()
         dismiss()
         Task { @MainActor in
@@ -279,7 +294,7 @@ struct AddAxisStopSheet: View {
                     value: pin,
                     name: name,
                     statFormat: 3,
-                    linkedStopID: linkTargetID,
+                    linkedValue: linkValue,
                     code: code
                 )
             default:
@@ -409,14 +424,25 @@ struct ChangeAxisStopFormatSheet: View {
         self.stop = stop
         self.onComplete = onComplete
         _statFormat = State(initialValue: stop.statFormat)
+        let candidates = StatFormat3Pairing.linkTargets(
+            for: axis,
+            stopValue: stop.value,
+            excludingStopID: stop.id
+        )
         if stop.statFormat == 3, let linkedValue = stop.linkedValue,
-           let target = axis.values.first(where: { $0.id != stop.id && AxisCoordinate.valuesEqual($0.value, linkedValue) }) {
-            _linkTargetID = State(initialValue: target.id)
+           let match = candidates.first(where: { AxisCoordinate.valuesEqual($0.value, linkedValue) }) {
+            _linkTargetID = State(initialValue: match.id)
+        } else {
+            _linkTargetID = State(initialValue: candidates.first?.id)
         }
     }
 
-    private var linkCandidates: [AxisValue] {
-        axis.values.filter { $0.id != stop.id && $0.statFormat != 3 }
+    private var linkCandidates: [StatFormat3Pairing.LinkTarget] {
+        StatFormat3Pairing.linkTargets(
+            for: axis,
+            stopValue: stop.value,
+            excludingStopID: stop.id
+        )
     }
 
     var body: some View {
@@ -437,7 +463,7 @@ struct ChangeAxisStopFormatSheet: View {
                     set: { linkTargetID = $0 }
                 )) {
                     ForEach(linkCandidates) { candidate in
-                        Text(candidate.name).tag(Optional(candidate.id))
+                        Text(candidate.label).tag(Optional(candidate.id))
                     }
                 }
             }
@@ -452,11 +478,16 @@ struct ChangeAxisStopFormatSheet: View {
                     apply()
                 }
                 .keyboardShortcut(.defaultAction)
-                .disabled(statFormat == 3 && linkTargetID == nil && linkCandidates.isEmpty)
+                .disabled(statFormat == 3 && selectedLinkTarget == nil)
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 320)
+    }
+
+    private var selectedLinkTarget: StatFormat3Pairing.LinkTarget? {
+        let id = linkTargetID ?? linkCandidates.first?.id
+        return linkCandidates.first { $0.id == id }
     }
 
     private func apply() {
@@ -464,7 +495,7 @@ struct ChangeAxisStopFormatSheet: View {
             axisTag: axis.tag,
             stopID: stop.id,
             format: statFormat,
-            linkTargetStopID: statFormat == 3 ? linkTargetID : nil
+            linkedValue: statFormat == 3 ? selectedLinkTarget?.value : nil
         )
         onComplete()
         dismiss()

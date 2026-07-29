@@ -46,31 +46,59 @@ public enum CommitRequestBuilder {
         return directory.appendingPathComponent(name).path
     }
 
-    /// Folder for Export All: if writing into `chosenDirectory` with original basenames would
-    /// overwrite any source file, nest under `{folderLabel} Patched` (or `Patched`).
+    public enum PackageNestedKind: Equatable, Sendable {
+        /// Review export: `{label} Patched` when writing would overwrite sources.
+        case patched
+        /// Instancer: `{label} Static` when the user picks the source font's folder.
+        case staticFonts
+
+        fileprivate var suffix: String {
+            switch self {
+            case .patched: return "Patched"
+            case .staticFonts: return "Static"
+            }
+        }
+    }
+
+    /// Folder for Export All / Instancer: nest under `{folderLabel} {Patched|Static}` when
+    /// writing into the chosen directory would land beside (static) or on top of (patched) sources.
     public static func packageExportDirectory(
         chosenDirectory: URL,
         sourcePaths: [String],
-        folderLabel: String?
+        folderLabel: String?,
+        nestedKind: PackageNestedKind = .patched
     ) -> (directory: URL, nestedBecauseOfCollision: Bool) {
+        let chosen = chosenDirectory.standardizedFileURL
         let wouldCollide = sourcePaths.contains { source in
-            let package = URL(fileURLWithPath: packageOutputPath(for: source, in: chosenDirectory))
-            return package.standardizedFileURL == URL(fileURLWithPath: source).standardizedFileURL
+            let sourceURL = URL(fileURLWithPath: source).standardizedFileURL
+            switch nestedKind {
+            case .patched:
+                let package = URL(fileURLWithPath: packageOutputPath(for: source, in: chosenDirectory))
+                return package.standardizedFileURL == sourceURL
+            case .staticFonts:
+                // Statics use different basenames than the VF — nest when the user picks
+                // the source folder so files don't sit beside the variable font.
+                return chosen == sourceURL.deletingLastPathComponent().standardizedFileURL
+            }
         }
         guard wouldCollide else {
             return (chosenDirectory, false)
         }
+        let nestedName = nestedFolderName(folderLabel: folderLabel, kind: nestedKind)
+        return (chosenDirectory.appendingPathComponent(nestedName, isDirectory: true), true)
+    }
+
+    public static func nestedFolderName(folderLabel: String?, kind: PackageNestedKind) -> String {
         let base = folderLabel?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
-        let nestedName: String = {
-            if let base, !base.isEmpty {
-                return base.hasSuffix(" Patched") ? base : "\(base) Patched"
-            }
-            return "Patched"
-        }()
-        return (chosenDirectory.appendingPathComponent(nestedName, isDirectory: true), true)
+        let suffix = kind.suffix
+        if let base, !base.isEmpty {
+            let tagged = " \(suffix)"
+            return base.hasSuffix(tagged) ? base : "\(base)\(tagged)"
+        }
+        return suffix
     }
 
     public static func orderedAxes(_ axes: [AxisDefinition], naming: NamingPolicy) -> [AxisDefinition] {

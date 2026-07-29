@@ -517,7 +517,13 @@ extension SaveReviewStore {
                 self?.confirmSaveToOriginal = session
                 return
             }
+            let accessed = url.startAccessingSecurityScopedResource()
             Task { @MainActor in
+                defer {
+                    if accessed {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                }
                 await self?.performSave(session: session, to: url)
             }
         }
@@ -561,8 +567,8 @@ extension SaveReviewStore {
         guard let projectID = projectID ?? requireHost.activeProjectID,
               let open = requireHost.openProject(for: projectID) else { return }
 
-        let fontsToWrite = open.document.fonts.filter(\.dirty)
-        let targets = fontsToWrite.isEmpty ? open.document.fonts : fontsToWrite
+        // Always export every font — "dirty only" silently skipped clean siblings.
+        let targets = open.document.fonts
         guard !targets.isEmpty else {
             requireHost.postStatusMessage("Nothing to export.")
             return
@@ -622,7 +628,7 @@ extension SaveReviewStore {
         var outputDirectory: URL?
         var nestedBecauseOfCollision = false
         if targets.contains(where: { outputURLs[$0.id] == nil }) {
-            guard let chosen = await chooseOutputDirectory(
+            guard let chosen = await StudioOutputFolderPicker.choose(
                 title: "Export Fonts",
                 message: "Choose a folder. Fonts keep their original filenames. If you pick the source folder, a “Patched” subfolder is created automatically."
             ) else { return }
@@ -711,21 +717,6 @@ extension SaveReviewStore {
         }
     }
 
-    private func chooseOutputDirectory(title: String, message: String) async -> URL? {
-        await withCheckedContinuation { continuation in
-            let panel = NSOpenPanel()
-            panel.title = title
-            panel.message = message
-            panel.canChooseFiles = false
-            panel.canChooseDirectories = true
-            panel.canCreateDirectories = true
-            panel.prompt = "Choose Folder"
-            panel.begin { response in
-                continuation.resume(returning: response == .OK ? panel.url : nil)
-            }
-        }
-    }
-
     var isSaveActionBlocked: Bool {
         if requireHost.isBusy { return true }
         guard let projectID = requireHost.activeProjectID else { return false }
@@ -746,9 +737,11 @@ extension SaveReviewStore {
 
         let originalSourcePath = requireHost.openProjects[projectIndex].document.fonts[fontIndex].sourcePath
         guard FileManager.default.fileExists(atPath: originalSourcePath) else {
-            requireHost.postStatusMessage("Source font file is missing — re-open the original file.")
+            requireHost.postSaveFailure("Source font file is missing — re-open the original file.")
             return
         }
+
+        requireHost.clearPersistentSaveError()
 
         var request = session.baseRequest
         request.outputPath = outputURL.path
@@ -774,8 +767,16 @@ extension SaveReviewStore {
             await Task.yield()
             let result = try await requireHost.commitService.commit(request)
             guard result.ok else {
-                let message = result.errors.first?.message ?? "Export failed."
-                requireHost.postStatusMessage(message)
+                let raw = result.errors.first?.message ?? "Export failed."
+                requireHost.postSaveFailure(friendlyExportFailureMessage(raw))
+                return
+            }
+
+            let writtenPath = inPlace ? originalSourcePath : outputURL.path
+            guard FileManager.default.fileExists(atPath: writtenPath) else {
+                requireHost.postSaveFailure(
+                    "Export finished without writing \(URL(fileURLWithPath: writtenPath).lastPathComponent). Try another folder or check disk permissions."
+                )
                 return
             }
 
@@ -784,22 +785,14 @@ extension SaveReviewStore {
                 await Task.yield()
             }
 
-            var project = requireHost.openProjects[projectIndex].document
-            if inPlace {
-                SourceFontAccess.invalidateCache(fontID: session.fontID)
-                let sourceURL = URL(fileURLWithPath: originalSourcePath)
-                requireHost.registerSourceBookmark(url: sourceURL, fontID: session.fontID)
-                project.fonts[fontIndex].outputPath = originalSourcePath
-            } else {
-                project.fonts[fontIndex].outputPath = outputURL.path
-            }
-            project.fonts[fontIndex].dirty = false
-            requireHost.openProjects[projectIndex].document = project
-            requireHost.publishOpenProjects()
-            if requireHost.activeProjectID == session.projectID {
-                requireHost.project = project
-                requireHost.refreshCanSave()
-            }
+            await requireHost.refreshProjectAfterExport(
+                projectID: session.projectID,
+                fontID: session.fontID,
+                writtenPath: writtenPath,
+                inPlace: inPlace,
+                previousSourcePath: originalSourcePath
+            )
+
             clearSaveReviewState(forProjectID: session.projectID, fontID: session.fontID)
             dismissSheet()
             if closeReviewOnSuccess {
@@ -812,15 +805,24 @@ extension SaveReviewStore {
 
             if inPlace {
                 let backupName = URL(fileURLWithPath: originalSourcePath).lastPathComponent + ".vfstudio-backup"
-                requireHost.postStatusMessage("Saved to original (backup: \(backupName))")
+                requireHost.postStatusMessage("Saved to original (backup: \(backupName)) — ready to instance static fonts.")
             } else if let count = result.summary?.instancesWritten {
-                requireHost.postStatusMessage("Saved \(count) instances to \(outputURL.lastPathComponent)")
+                requireHost.postStatusMessage("Saved \(count) instances to \(outputURL.lastPathComponent) — ready to instance static fonts.")
             } else {
-                requireHost.postStatusMessage("Saved \(outputURL.lastPathComponent)")
+                requireHost.postStatusMessage("Saved \(outputURL.lastPathComponent) — ready to instance static fonts.")
             }
         } catch {
             requireHost.postSaveFailure(commitFailureMessage(error))
         }
+    }
+
+    private func friendlyExportFailureMessage(_ detail: String) -> String {
+        if detail.localizedCaseInsensitiveContains("KeyError"),
+           detail.localizedCaseInsensitiveContains("ital")
+        {
+            return "Couldn't write the font — a naming-only ital axis is still present in fvar and needs a coordinate on every instance. Re-export with the updated save engine, or set the ital naming stop to the fvar pin (e.g. −12)."
+        }
+        return detail
     }
 
     private func commitFailureMessage(_ error: Error) -> String {
@@ -840,6 +842,8 @@ extension SaveReviewStore {
             #if DEBUG
             print("Save helper failed: \(detail)")
             #endif
+            let friendly = friendlyExportFailureMessage(detail)
+            if friendly != detail { return friendly }
             return "Couldn't write the font. \(detail)"
         case let CommitServiceError.invalidHelperOutput(detail):
             #if DEBUG
@@ -850,6 +854,8 @@ extension SaveReviewStore {
             {
                 return userFacingSaveEngineMessage
             }
+            let friendly = friendlyExportFailureMessage(detail)
+            if friendly != detail { return friendly }
             return "Couldn't write the font. \(detail)"
         default:
             return "Export failed: \(error.localizedDescription)"

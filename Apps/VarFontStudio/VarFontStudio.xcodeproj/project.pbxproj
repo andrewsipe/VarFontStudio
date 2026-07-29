@@ -59,6 +59,15 @@
 				B2000027 /* SourceFontAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000026 /* SourceFontAccess.swift */; };
 		B2000080 /* SourceFontPreviewCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000080 /* SourceFontPreviewCache.swift */; };
 		B2000081 /* FontPreviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000081 /* FontPreviewPanel.swift */; };
+		B2000082 /* InstancerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000082 /* InstancerStore.swift */; };
+		B2000083 /* InstancerWindowLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000083 /* InstancerWindowLifecycle.swift */; };
+		B2000084 /* EditorViewModel+Instancer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000084 /* EditorViewModel+Instancer.swift */; };
+		B2000085 /* InstancerWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000085 /* InstancerWindow.swift */; };
+		B2000086 /* AuxiliaryWindowOpenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000086 /* AuxiliaryWindowOpenBridge.swift */; };
+		B2000087 /* StudioOutputFolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000087 /* StudioOutputFolderPicker.swift */; };
+		B2000088 /* MainWindowLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000088 /* MainWindowLifecycle.swift */; };
+		B2000089 /* EditorViewModel+ExportRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000089 /* EditorViewModel+ExportRefresh.swift */; };
+		B2000090 /* EditorViewModel+PendingExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000090 /* EditorViewModel+PendingExport.swift */; };
 		B2000028 /* SaveReviewWindowLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000027 /* SaveReviewWindowLifecycle.swift */; };
 		B2000029 /* FileClarifiersBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000028 /* FileClarifiersBar.swift */; };
 		B2000030 /* ProjectFileCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000029 /* ProjectFileCommands.swift */; };
@@ -133,6 +142,15 @@
 		F2000026 /* SourceFontAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontAccess.swift; sourceTree = "<group>"; };
 		F2000080 /* SourceFontPreviewCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontPreviewCache.swift; sourceTree = "<group>"; };
 		F2000081 /* FontPreviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontPreviewPanel.swift; sourceTree = "<group>"; };
+		F2000082 /* InstancerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancerStore.swift; sourceTree = "<group>"; };
+		F2000083 /* InstancerWindowLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancerWindowLifecycle.swift; sourceTree = "<group>"; };
+		F2000084 /* EditorViewModel+Instancer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+Instancer.swift"; sourceTree = "<group>"; };
+		F2000085 /* InstancerWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstancerWindow.swift; sourceTree = "<group>"; };
+		F2000086 /* AuxiliaryWindowOpenBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuxiliaryWindowOpenBridge.swift; sourceTree = "<group>"; };
+		F2000087 /* StudioOutputFolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioOutputFolderPicker.swift; sourceTree = "<group>"; };
+		F2000088 /* MainWindowLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowLifecycle.swift; sourceTree = "<group>"; };
+		F2000089 /* EditorViewModel+ExportRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+ExportRefresh.swift"; sourceTree = "<group>"; };
+		F2000090 /* EditorViewModel+PendingExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+PendingExport.swift"; sourceTree = "<group>"; };
 		F2000027 /* SaveReviewWindowLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewWindowLifecycle.swift; sourceTree = "<group>"; };
 		F2000028 /* FileClarifiersBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClarifiersBar.swift; sourceTree = "<group>"; };
 		F2000029 /* ProjectFileCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileCommands.swift; sourceTree = "<group>"; };
@@ -193,6 +211,11 @@
 				F2000043 /* SaveReviewStore.swift */,
 				F2000051 /* SaveReviewStore+Orchestration.swift */,
 				F2000050 /* SaveReviewHost.swift */,
+				F2000082 /* InstancerStore.swift */,
+				F2000083 /* InstancerWindowLifecycle.swift */,
+				F2000088 /* MainWindowLifecycle.swift */,
+				F2000084 /* EditorViewModel+Instancer.swift */,
+				F2000087 /* StudioOutputFolderPicker.swift */,
 				F2000044 /* IssueResolverStore.swift */,
 				F2000053 /* IssueResolverStore+Orchestration.swift */,
 				F2000052 /* IssueResolverHost.swift */,
@@ -206,6 +229,8 @@
 				F2000072 /* EditorViewModel+WindowsNames.swift */,
 				F2000056 /* EditorViewModel+Inspector.swift */,
 				F2000057 /* EditorViewModel+ProjectIO.swift */,
+				F2000089 /* EditorViewModel+ExportRefresh.swift */,
+				F2000090 /* EditorViewModel+PendingExport.swift */,
 				F2000058 /* EditorViewModel+WorkspaceOps.swift */,
 				F2000059 /* EditorViewModel+ImportHelpers.swift */,
 				F2000069 /* EditorViewModel+AxisOrder.swift */,
@@ -273,6 +298,8 @@
 				F2000010 /* InstanceInclusionCommands.swift */,
 				F2000011 /* NamingOrderChainFooter.swift */,
 				F2000081 /* FontPreviewPanel.swift */,
+				F2000085 /* InstancerWindow.swift */,
+				F2000086 /* AuxiliaryWindowOpenBridge.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -299,6 +326,7 @@
 				S2000001 /* Sources */,
 				C2000001 /* Frameworks */,
 				SH200001 /* Bundle vfcommit */,
+				SH200002 /* Bundle vfinstance */,
 				R2000001 /* Resources */,
 			);
 			buildRules = (
@@ -401,6 +429,24 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\nVFCOMMIT_SRC=\"${SRCROOT}/../../Tools/vfcommit\"\nVFCOMMIT_DST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/vfcommit\"\nif [ ! -d \"$VFCOMMIT_SRC\" ]; then\n  echo \"error: vfcommit source missing at $VFCOMMIT_SRC\" >&2\n  exit 1\nfi\nrm -rf \"$VFCOMMIT_DST\"\nmkdir -p \"$(dirname \"$VFCOMMIT_DST\")\"\ncp -R \"$VFCOMMIT_SRC\" \"$VFCOMMIT_DST\"\nfind \"$VFCOMMIT_DST\" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true\nfind \"$VFCOMMIT_DST\" -name '.DS_Store' -delete 2>/dev/null || true\n";
 		};
+		SH200002 /* Bundle vfinstance */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../Tools/vfinstance",
+			);
+			name = "Bundle vfinstance";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/vfinstance/vfinstance.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/vfinstance/vfinstance_lib",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nVFINSTANCE_SRC=\"${SRCROOT}/../../Tools/vfinstance\"\nVFINSTANCE_DST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/vfinstance\"\nif [ ! -d \"$VFINSTANCE_SRC\" ]; then\n  echo \"error: vfinstance source missing at $VFINSTANCE_SRC\" >&2\n  exit 1\nfi\nrm -rf \"$VFINSTANCE_DST\"\nmkdir -p \"$(dirname \"$VFINSTANCE_DST\")\"\ncp -R \"$VFINSTANCE_SRC\" \"$VFINSTANCE_DST\"\nfind \"$VFINSTANCE_DST\" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true\nfind \"$VFINSTANCE_DST\" -name '.DS_Store' -delete 2>/dev/null || true\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -473,6 +519,15 @@
 				B2000011 /* InstanceInclusionCommands.swift in Sources */,
 				B2000012 /* NamingOrderChainFooter.swift in Sources */,
 				B2000081 /* FontPreviewPanel.swift in Sources */,
+				B2000082 /* InstancerStore.swift in Sources */,
+				B2000083 /* InstancerWindowLifecycle.swift in Sources */,
+				B2000084 /* EditorViewModel+Instancer.swift in Sources */,
+				B2000085 /* InstancerWindow.swift in Sources */,
+				B2000086 /* AuxiliaryWindowOpenBridge.swift in Sources */,
+				B2000087 /* StudioOutputFolderPicker.swift in Sources */,
+				B2000088 /* MainWindowLifecycle.swift in Sources */,
+				B2000089 /* EditorViewModel+ExportRefresh.swift in Sources */,
+				B2000090 /* EditorViewModel+PendingExport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -132,6 +132,13 @@ struct ProjectScopeHeader: View {
         }
         .disabled(!editor.canPreviewSaveReview(forProjectID: openProject.id))
 
+        Button {
+            editor.presentInstancerWindow(projectID: openProject.id)
+        } label: {
+            Label("Instance Static Fonts…", systemImage: "square.stack.3d.up")
+        }
+        .disabled(!editor.canPresentInstancer(forProjectID: openProject.id))
+
         Divider()
 
         Button(role: .destructive) {

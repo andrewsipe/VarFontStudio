@@ -22,6 +22,8 @@ extension EditorViewModel {
     }
 
     func presentOpenPanel() {
+        // Do not force a main window open before the panel — that can create a
+        // duplicate window that covers the file dialog.
         let panel = NSOpenPanel()
         panel.title = "New Project — Open Variable Font"
         panel.canChooseFiles = true
@@ -31,6 +33,7 @@ extension EditorViewModel {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
+                self?.ensureMainWindowVisible()
                 await self?.createProject(from: url)
             }
         }
@@ -46,6 +49,7 @@ extension EditorViewModel {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
+                self?.ensureMainWindowVisible()
                 await self?.openProjectFile(at: url)
             }
         }
@@ -228,10 +232,24 @@ extension EditorViewModel {
         postStatusMessage("Opened project — \(projectFileURL.lastPathComponent)")
     }
 
-    func handleApplicationTerminateRequest() -> Bool {
-        guard firstProjectNeedingProjectFileSave() != nil else { return true }
+    func handleApplicationTerminateRequest() -> ApplicationTerminateGate {
+        if instancer.isGenerateBusy {
+            let alert = NSAlert()
+            alert.messageText = "Instancing is still in progress"
+            alert.informativeText =
+                "Quitting now stops the generator. Any static fonts already written stay on disk, but unfinished instances are lost — you’ll need to run Instancer again after relaunch."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "Quit Anyway")
+            alert.addButton(withTitle: "Cancel")
+            if alert.runModal() != .alertFirstButtonReturn {
+                return .cancel
+            }
+        }
+
+        guard firstProjectNeedingProjectFileSave() != nil else { return .allow }
+        ensureMainWindowVisible()
         workspace.confirmQuitRequested = true
-        return false
+        return .deferToUI
     }
 
     func completeApplicationTermination() {

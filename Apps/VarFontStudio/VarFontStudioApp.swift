@@ -12,7 +12,7 @@ struct VarFontStudioApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: "main") {
             MainEditorView()
                 .environmentObject(editor)
                 .environmentObject(layout)
@@ -23,10 +23,12 @@ struct VarFontStudioApp: App {
                 }
                 .onOpenURL { url in
                     Task { @MainActor in
+                        editor.ensureMainWindowVisible()
                         await editor.openProjectFile(at: url)
                     }
                 }
         }
+        .defaultSize(width: 1280, height: 820)
         .commands {
             mainWindowCommands
         }
@@ -45,6 +47,15 @@ struct VarFontStudioApp: App {
             }
         }
         .defaultSize(width: 960, height: 720)
+
+        WindowGroup(id: "instancer", for: String.self) { $windowKey in
+            if let windowKey {
+                InstancerWindow(windowKey: windowKey)
+                    .environmentObject(editor)
+                    .environmentObject(layout)
+            }
+        }
+        .defaultSize(width: 1080, height: 760)
     }
 
     @CommandsBuilder
@@ -125,6 +136,11 @@ struct VarFontStudioApp: App {
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
                 .disabled(!editor.canPreviewSaveReview)
+
+                Button("Instance Static Fonts…") {
+                    editor.presentInstancerWindow()
+                }
+                .disabled(!editor.canPresentInstancer)
             }
 
             CommandGroup(replacing: .help) {
@@ -172,6 +188,31 @@ struct VarFontStudioApp: App {
                 }
                 .keyboardShortcut("4", modifiers: [.command, .control])
                 .disabled(!editor.canPreviewSaveReview)
+
+                Button("Toggle Instancer Window") {
+                    editor.toggleInstancerWindow()
+                }
+                .keyboardShortcut("5", modifiers: [.command, .control])
+                .disabled(!editor.canPresentInstancer)
+            }
+
+            CommandGroup(after: .windowList) {
+                if editor.openProjects.isEmpty {
+                    Button("No Open Projects") {}
+                        .disabled(true)
+                } else {
+                    ForEach(editor.openProjects) { project in
+                        Button {
+                            editor.focusProjectInMainWindow(projectID: project.id)
+                        } label: {
+                            if project.id == editor.activeProjectID {
+                                Text("✓ \(editor.projectTabLabel(for: project))")
+                            } else {
+                                Text(editor.projectTabLabel(for: project))
+                            }
+                        }
+                    }
+                }
             }
 
             CommandMenu("Instances") {
@@ -220,18 +261,39 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         SaveReviewWindowLifecycle.closeRestoredWindows()
+        InstancerWindowLifecycle.closeRestoredWindows()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         SaveReviewWindowLifecycle.scheduleCloseRestoredWindows()
+        InstancerWindowLifecycle.scheduleCloseRestoredWindows()
+        // Collapse accidental duplicate main windows from earlier openWindow races.
+        DispatchQueue.main.async {
+            let mains = NSApplication.shared.windows.filter(MainWindowLifecycle.isMainWindow)
+            guard mains.count > 1 else { return }
+            // Keep the key window if it's main; otherwise keep the first.
+            let keep = mains.first(where: \.isKeyWindow) ?? mains[0]
+            for window in mains where window !== keep {
+                window.close()
+            }
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        editor?.ensureMainWindowVisible()
+        return true
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let editor else { return .terminateNow }
-        if !editor.handleApplicationTerminateRequest() {
+        switch editor.handleApplicationTerminateRequest() {
+        case .allow:
+            editor.completeApplicationTermination()
             return .terminateLater
+        case .deferToUI:
+            return .terminateLater
+        case .cancel:
+            return .terminateCancel
         }
-        editor.completeApplicationTermination()
-        return .terminateLater
     }
 }

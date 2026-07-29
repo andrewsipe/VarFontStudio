@@ -242,6 +242,7 @@ Workspace state; multi-file tabs. Saved as **`.varf`** JSON (legacy **`.varfont`
 {
   "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "source_path": "/path/to/PlayfairRomanVF.woff2",
+  "import_path": null,
   "output_path": null,
   "analysis_snapshot_id": "optional-hash-or-mtime",
   "dirty": false,
@@ -265,6 +266,10 @@ Workspace state; multi-file tabs. Saved as **`.varf`** JSON (legacy **`.varfont`
   "overrides": { "per_instance": [] }
 }
 ```
+
+- **`source_path`** — working variable font on disk (Review input and Instancer source after export refresh).
+- **`import_path`** — optional original import anchor; set on first sidecar promote, never moved afterward.
+- **`output_path`** — last successful export path; after sidecar refresh matches `source_path`.
 
 ### `fonts[].file_role`
 

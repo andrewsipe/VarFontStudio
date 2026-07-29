@@ -131,7 +131,7 @@ public enum PlanIssueResolver {
             return axis.role != role
         case .insertAxisStop(let axisTag, let value, _):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
-            guard axis.role == .instance, !axis.isDesignRecordOnly else { return false }
+            guard axis.role == .instance || axis.role == .designRecordOnly else { return false }
             return !axis.values.contains { AxisCoordinate.valuesEqual($0.value, value) }
         case .insertAxisStops(let axisTag, _):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
@@ -200,6 +200,14 @@ public enum PlanIssueResolver {
             let wasRegistered = font.fileStatRegistration[axisTag]
                 .map { AxisCoordinate.valuesEqual($0, previousValue) } ?? false
             font.axes[axisIndex].values[stopIndex].value = newValue
+            // Keep Format 3 style-linking on convention axes (ital 0↔1, wght 400→700).
+            if font.axes[axisIndex].values[stopIndex].statFormat == 3,
+               let linked = StatFormat3Pairing.format3LinkedValue(
+                   for: newValue,
+                   axis: font.axes[axisIndex]
+               ) {
+                font.axes[axisIndex].values[stopIndex].linkedValue = linked
+            }
             font.axes[axisIndex].values.sort { $0.value < $1.value }
             if wasRegistered {
                 font.fileStatRegistration[axisTag] = newValue
@@ -226,7 +234,8 @@ public enum PlanIssueResolver {
             font.axes[axisIndex].role = role
         case let .insertAxisStop(axisTag, value, name):
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
-            guard font.axes[axisIndex].role == .instance, !font.axes[axisIndex].isDesignRecordOnly else { return }
+            let role = font.axes[axisIndex].role
+            guard role == .instance || role == .designRecordOnly else { return }
             guard !font.axes[axisIndex].values.contains(where: { AxisCoordinate.valuesEqual($0.value, value) }) else { return }
             let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
             let stop = AxisValue(
@@ -364,6 +373,29 @@ public enum PlanIssueResolver {
         guard let tag = warning.axis,
               let axis = font.axes.first(where: { $0.tag == tag }),
               axis.isDesignRecordOnly else { return [] }
+
+        if axis.values.isEmpty,
+           let regValue = font.fileStatRegistration[tag] {
+            let name: String
+            if tag == "ital" {
+                name = RegistrationAxisSupport.italNamingStopName(for: font)
+            } else {
+                name = AxisStopNamingDefaults.suggestedName(
+                    for: AxisValue(id: "preview", value: regValue, name: "", elidable: false),
+                    axisTag: tag
+                )
+            }
+            return [
+                PlanIssueProposal(
+                    id: "reg-missing-add-stop",
+                    title: "Add “\(name)” stop at \(AxisCoordinateFormat.format(regValue))",
+                    detail: "Registration points at \(AxisCoordinateFormat.format(regValue)) but this naming axis has no stops yet.",
+                    action: .insertAxisStop(axisTag: tag, value: regValue, name: name),
+                    isRecommended: true
+                ),
+            ]
+        }
+
         guard !axis.values.isEmpty else { return [] }
 
         if let inferred = RegistrationAxisSupport.inferRegistrationValue(
@@ -468,21 +500,37 @@ public enum PlanIssueResolver {
             return []
         }
 
-        return [
+        var proposals: [PlanIssueProposal] = []
+        if let linked = StatFormat3Pairing.format3LinkedValue(for: stop.value, axis: axis) {
+            let linkedLabel = StatFormat3Pairing.format3LinkedLabel(axis: axis, linkedValue: linked)
+            proposals.append(
+                PlanIssueProposal(
+                    id: "orphan-relink-convention",
+                    title: "Keep Format 3 · link to \(linkedLabel)",
+                    detail: "Retarget “\(stop.name)” to the usual \(tag) style-link coordinate (\(linkedLabel)). No named stop is required there.",
+                    action: .updateStopFormat3Link(axisTag: tag, stopID: stopID, linkedValue: linked),
+                    isRecommended: true
+                )
+            )
+        }
+        proposals.append(
             PlanIssueProposal(
                 id: "orphan-convert-f1",
                 title: "Keep as standalone style value (Format 1)",
                 detail: "Remove the broken Format 3 link on “\(stop.name)” and keep it as a standalone stop.",
                 action: .convertStopToFormat1(axisTag: tag, stopID: stopID),
-                isRecommended: true
-            ),
+                isRecommended: proposals.isEmpty
+            )
+        )
+        proposals.append(
             PlanIssueProposal(
                 id: "orphan-keep-f3",
-                title: "Keep Format 3 link",
+                title: "Keep current Format 3 link",
                 detail: "Accept the source font’s link as-is.",
                 action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
-            ),
-        ]
+            )
+        )
+        return proposals
     }
 
     private static func format1UpgradeProposals(
@@ -494,9 +542,9 @@ public enum PlanIssueResolver {
               let axis = font.axes.first(where: { $0.tag == tag }),
               let stop = axis.values.first(where: { $0.id == stopID }),
               StatFormat3Pairing.shouldUpgradeStopToFormat3(stop: stop, axis: axis),
-              let linked = StatFormat3Pairing.format3LinkedValue(for: stop.value, axisTag: tag) else { return [] }
+              let linked = StatFormat3Pairing.format3LinkedValue(for: stop.value, axis: axis) else { return [] }
 
-        let linkedLabel = StatFormat3Pairing.format3LinkedLabel(axisTag: tag, linkedValue: linked)
+        let linkedLabel = StatFormat3Pairing.format3LinkedLabel(axis: axis, linkedValue: linked)
         return [
             PlanIssueProposal(
                 id: "\(tag)-upgrade-f3",
@@ -565,6 +613,19 @@ public enum PlanIssueResolver {
               axis.role == .instance,
               let defaultValue = axis.default else {
             return suggestionProposals(for: warning)
+        }
+
+        if let promote = promoteNonBinaryItalToNamingAxisProposal(axis: axis, font: font) {
+            var proposals = [promote]
+            proposals.append(
+                PlanIssueProposal(
+                    id: "keep-default-missing-\(tag)",
+                    title: "Don't change",
+                    detail: "Leave \(axis.displayName ?? tag) without treating it as a naming axis yet.",
+                    action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
+                )
+            )
+            return proposals
         }
 
         let defaultText = AxisCoordinateFormat.format(defaultValue)
@@ -660,11 +721,18 @@ public enum PlanIssueResolver {
         }
 
         let label = corrected == 0 ? "0 (Roman/upright)" : "1 (Italic)"
+        let keepsFormat3 = stop.statFormat == 3
+        let title = keepsFormat3
+            ? "Set value to \(label) and keep Format 3 link"
+            : "Set value to \(label)"
+        let detail = keepsFormat3
+            ? "Align “\(stop.name)” with the usual \(tag) convention and retarget the Format 3 link to the counterpart style."
+            : "Align “\(stop.name)” with the usual \(tag) convention (\(label))."
         return [
             PlanIssueProposal(
                 id: "ital-convention-fix",
-                title: "Set value to \(label)",
-                detail: "Align “\(stop.name)” with the usual \(tag) convention (\(label)).",
+                title: title,
+                detail: detail,
                 action: .revalueStop(axisTag: tag, stopID: stopID, newValue: corrected),
                 isRecommended: true
             ),
@@ -757,12 +825,17 @@ public enum PlanIssueResolver {
 
         var proposals: [PlanIssueProposal] = []
 
+        if let promote = promoteNonBinaryItalToNamingAxisProposal(axis: axis, font: font) {
+            proposals.append(promote)
+        }
+
         proposals.append(
             PlanIssueProposal(
                 id: "empty-axis-add-stop-\(tag)",
                 title: "Add a default stop",
                 detail: "Adds a stop at \(valueText) named “\(name)” on \(label).",
-                action: .insertAxisStop(axisTag: tag, value: value, name: name)
+                action: .insertAxisStop(axisTag: tag, value: value, name: name),
+                isRecommended: proposals.isEmpty
             )
         )
 
@@ -770,9 +843,11 @@ public enum PlanIssueResolver {
             PlanIssueProposal(
                 id: "empty-axis-stat-only-\(tag)",
                 title: "Switch to STAT-only",
-                detail: "Takes \(label) off the instance grid so composed names no longer require stops on this axis.",
+                detail: tag == "ital"
+                    ? "Takes \(label) off the instance grid and out of composed names. Prefer Convert to naming axis when this axis is file identity."
+                    : "Takes \(label) off the instance grid so composed names no longer require stops on this axis.",
                 action: .setAxisRole(axisTag: tag, role: .statOnly),
-                isRecommended: AxisStopFillPlanner.options(for: axis) == nil
+                isRecommended: proposals.isEmpty && AxisStopFillPlanner.options(for: axis) == nil
             )
         )
 
@@ -786,6 +861,40 @@ public enum PlanIssueResolver {
         )
 
         return proposals
+    }
+
+    /// Non-binary `ital` (pinned angle, etc.) → naming axis with Format 1 stop + registration.
+    private static func promoteNonBinaryItalToNamingAxisProposal(
+        axis: AxisDefinition,
+        font: FontDocument
+    ) -> PlanIssueProposal? {
+        guard RegistrationAxisSupport.isNonBinaryItalAxis(axis),
+              axis.role == .instance,
+              let pin = RegistrationAxisSupport.preferredItalPinValue(for: axis) else {
+            return nil
+        }
+        let name = RegistrationAxisSupport.italNamingStopName(for: font)
+        let pinText = AxisCoordinateFormat.format(pin)
+        var actions: [PlanIssueAction] = [
+            // Role first so a naming-axis convert stays valid even if insert is re-run.
+            .setAxisRole(axisTag: axis.tag, role: .designRecordOnly),
+        ]
+        if let existing = axis.values.first(where: { AxisCoordinate.valuesEqual($0.value, pin) }) {
+            if existing.name != name {
+                actions.append(.renameStop(axisTag: axis.tag, stopID: existing.id, newName: name))
+            }
+        } else {
+            actions.append(.insertAxisStop(axisTag: axis.tag, value: pin, name: name))
+        }
+        actions.append(.setFileRegistration(tag: axis.tag, value: pin))
+
+        return PlanIssueProposal(
+            id: "ital-promote-naming-\(pinText)",
+            title: "Convert to naming axis (“\(name)” at \(pinText))",
+            detail: "This ital fvar is pinned outside the usual 0/1 model. Keep it as a per-file naming axis with a Format 1 stop — STAT-only would drop the name from composed styles.",
+            action: .compound(actions),
+            isRecommended: true
+        )
     }
 
     private static func noAutomaticNamingFixProposals(for warning: PlanWarning) -> [PlanIssueProposal] {

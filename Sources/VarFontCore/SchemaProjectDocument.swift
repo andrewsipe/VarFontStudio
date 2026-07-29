@@ -128,7 +128,10 @@ public struct ProjectTemplate: Codable, Equatable, Sendable {
 
 public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public var id: String
+    /// Working variable font on disk (Review input and Instancer source after export refresh).
     public var sourcePath: String
+    /// Original import path preserved after sidecar promote; nil until first patched export.
+    public var importPath: String?
     public var outputPath: String?
     public var analysisSnapshotID: String?
     public var dirty: Bool
@@ -155,6 +158,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id
         case sourcePath = "source_path"
+        case importPath = "import_path"
         case outputPath = "output_path"
         case analysisSnapshotID = "analysis_snapshot_id"
         case dirty
@@ -174,6 +178,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public init(
         id: String,
         sourcePath: String,
+        importPath: String? = nil,
         outputPath: String? = nil,
         analysisSnapshotID: String? = nil,
         dirty: Bool = false,
@@ -192,6 +197,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     ) {
         self.id = id
         self.sourcePath = sourcePath
+        self.importPath = importPath
         self.outputPath = outputPath
         self.analysisSnapshotID = analysisSnapshotID
         self.dirty = dirty
@@ -213,6 +219,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         sourcePath = try c.decode(String.self, forKey: .sourcePath)
+        importPath = try c.decodeIfPresent(String.self, forKey: .importPath)
         outputPath = try c.decodeIfPresent(String.self, forKey: .outputPath)
         analysisSnapshotID = try c.decodeIfPresent(String.self, forKey: .analysisSnapshotID)
         dirty = try c.decodeIfPresent(Bool.self, forKey: .dirty) ?? false

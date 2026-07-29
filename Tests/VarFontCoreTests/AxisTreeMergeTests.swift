@@ -115,4 +115,53 @@ final class AxisTreeMergeTests: XCTestCase {
         let ital = try XCTUnwrap(merged.first)
         XCTAssertEqual(ital.role, .designRecordOnly)
     }
+
+    func testPushSeedsItalicItalWhenTargetMissingAxis() throws {
+        let masterItal = italAxis(
+            role: .designRecordOnly,
+            values: [
+                AxisValue(id: "roman", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+            ]
+        )
+
+        let merged = AxisTreeMerge.mergeAxesFromMaster(
+            master: [masterItal],
+            into: [],
+            syncRoles: true,
+            targetFileStatRegistration: ["ital": 1],
+            targetIsItalicFile: true
+        )
+
+        let ital = try XCTUnwrap(merged.first { $0.tag == "ital" })
+        XCTAssertEqual(ital.values.count, 1)
+        XCTAssertEqual(ital.values[0].value, 1)
+        XCTAssertEqual(ital.values[0].name, "Italic")
+        XCTAssertEqual(ital.values[0].statFormat, 3)
+        XCTAssertEqual(ital.values[0].linkedValue, 0)
+    }
+
+    func testPushSeedsItalicItalWhenTargetAxisEmpty() throws {
+        let masterItal = italAxis(
+            role: .designRecordOnly,
+            values: [
+                AxisValue(id: "roman", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+            ]
+        )
+        let targetItal = italAxis(role: .designRecordOnly, values: [])
+
+        let merged = AxisTreeMerge.mergeAxesFromMaster(
+            master: [masterItal],
+            into: [targetItal],
+            syncRoles: true,
+            targetFileStatRegistration: ["ital": 1],
+            targetIsItalicFile: true
+        )
+
+        let ital = try XCTUnwrap(merged.first { $0.tag == "ital" })
+        XCTAssertEqual(ital.values.count, 1)
+        XCTAssertEqual(ital.values[0].value, 1)
+        XCTAssertEqual(ital.values[0].name, "Italic")
+        XCTAssertEqual(ital.values[0].statFormat, 3)
+        XCTAssertEqual(ital.values[0].linkedValue, 0)
+    }
 }
