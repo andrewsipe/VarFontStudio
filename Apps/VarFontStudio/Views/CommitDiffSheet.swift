@@ -62,6 +62,8 @@ private struct SaveReviewActionBar: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .studioHoverFill(shape: .circle)
                 .disabled(!canRefresh || isLoading)
                 .help("Re-read the font on disk and rebuild the diff")
 
@@ -164,6 +166,7 @@ private struct SaveReviewFileTabBar: View {
             }
         }
         .buttonStyle(.plain)
+        .studioHoverFill(shape: .capsule)
         .disabled(!editor.canPreviewSaveReview(forProjectID: projectID, fontID: font.id))
     }
 }
@@ -259,7 +262,11 @@ struct SaveReviewWindow: View {
                     Text("No preview loaded yet.")
                         .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
-                    Button("Refresh") {
+                    StudioPlainLinkButton(
+                        title: "Refresh",
+                        role: .accent,
+                        help: "Re-read the font on disk and rebuild the diff"
+                    ) {
                         refreshCurrentFile()
                     }
                     .disabled(!canRefreshCurrentFile)

@@ -108,13 +108,13 @@ struct FontPreviewPanel: View {
 
     private var toolbar: some View {
         HStack(spacing: StudioSpacing.controlGap) {
-            TextField("Sample text", text: $sampleText)
-                .textFieldStyle(.plain)
-                .font(StudioTypography.bodyMedium)
-                .padding(.horizontal, StudioFieldMetrics.horizontalPadding)
-                .frame(height: StudioFieldMetrics.bodyMediumRowHeight)
-                .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
-                .frame(maxWidth: .infinity)
+            StudioTextField(
+                placeholder: "Sample text",
+                text: $sampleText,
+                font: StudioTypography.bodyMedium,
+                rowHeight: StudioFieldMetrics.bodyMediumRowHeight
+            )
+            .frame(maxWidth: .infinity)
 
             HStack(spacing: StudioSpacing.rowGap) {
                 Text("Size")
@@ -154,6 +154,11 @@ struct FontPreviewPanel: View {
                         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(
+                    shape: .roundedRect(cornerRadius: StudioRadius.small),
+                    isEnabled: alignment != option,
+                    emphasized: alignment == option
+                )
                 .help(option.help)
             }
         }

@@ -75,6 +75,7 @@ struct ProjectInspectorPanel: View {
                 }
             }
             .buttonStyle(.plain)
+            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
 
             Spacer(minLength: 0)
 
@@ -143,21 +144,24 @@ struct ProjectInspectorPanel: View {
             Spacer(minLength: 0)
 
             if openProject.document.fonts.count > 1 {
-                Button("Export All…") {
+                StudioPlainLinkButton(
+                    title: "Export All…",
+                    role: .accent,
+                    font: StudioTypography.meta
+                ) {
                     editor.saveAllFiles(inProjectID: openProject.id)
                 }
-                .font(StudioTypography.meta)
-                .buttonStyle(.plain)
                 .disabled(!editor.canSave || editor.isSaveActionBlocked)
             }
 
-            Button {
+            StudioPlainLinkButton(
+                title: "Add font",
+                systemImage: "plus",
+                role: .accent,
+                font: StudioTypography.meta
+            ) {
                 editor.presentAddFontPanel(projectID: openProject.id)
-            } label: {
-                Label("Add font", systemImage: "plus")
             }
-            .font(StudioTypography.meta)
-            .buttonStyle(.plain)
         }
     }
 
@@ -171,35 +175,40 @@ struct ProjectInspectorPanel: View {
             && !editor.clarifierLabels(for: font.id).isEmpty
 
         HStack(spacing: StudioSpacing.controlGap) {
-            Button("Infer Prefix") {
+            StudioPlainLinkButton(
+                title: "Infer Prefix",
+                role: .accent,
+                font: StudioTypography.meta,
+                help: inferEnabled
+                    ? "Suggest clarifiers from the filename when axis naming does not already cover them. Uses stop names from the font — never expands abbreviations."
+                    : "Axis and registration naming already cover this file, or clarifiers belong on variant files."
+            ) {
                 editor.selectFont(id: font.id)
                 editor.inferFileClarifiersForSelectedFont()
             }
-            .font(StudioTypography.meta)
-            .buttonStyle(.plain)
             .disabled(!inferEnabled)
-            .help(inferEnabled
-                ? "Suggest clarifiers from the filename when axis naming does not already cover them. Uses stop names from the font — never expands abbreviations."
-                : "Axis and registration naming already cover this file, or clarifiers belong on variant files.")
 
             if showsPush {
-                Button("Push Axis Tree") {
+                StudioPlainLinkButton(
+                    title: "Push Axis Tree",
+                    role: .accent,
+                    font: StudioTypography.meta,
+                    help: "Copy master axis stops to all other files in this project"
+                ) {
                     editor.selectFont(id: font.id)
                     editor.requestPushMasterAxisTree()
                 }
-                .font(StudioTypography.meta)
-                .buttonStyle(.plain)
-                .help("Copy master axis stops to all other files in this project")
             }
 
             if showsClear {
-                Button("Clear") {
+                StudioPlainLinkButton(
+                    title: "Clear",
+                    role: .secondary,
+                    font: StudioTypography.meta
+                ) {
                     editor.selectFont(id: font.id)
                     editor.clearFileClarifiers(for: font.id)
                 }
-                .font(StudioTypography.meta)
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
             }
         }
     }

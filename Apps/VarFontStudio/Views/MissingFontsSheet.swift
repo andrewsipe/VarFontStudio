@@ -64,12 +64,17 @@ struct MissingFontsSheet: View {
 
             statusPill(for: entry)
 
-            Button(entry.isResolved ? "Relocate…" : "Locate…") {
+            StudioPlainLinkButton(
+                title: entry.isResolved ? "Relocate…" : "Locate…",
+                role: .accent,
+                font: StudioTypography.meta
+            ) {
                 editor.locateMissingFont(fontID: entry.fontID)
             }
         }
         .padding(StudioSpacing.cardPadding)
         .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.chip))
     }
 
     @ViewBuilder

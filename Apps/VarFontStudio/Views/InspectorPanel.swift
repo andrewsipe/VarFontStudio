@@ -181,6 +181,7 @@ struct InstanceInspectorContent: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
 
                 if showPlannedWrites {
                     let rows = editor.openTypePreviewRows(for: instance)

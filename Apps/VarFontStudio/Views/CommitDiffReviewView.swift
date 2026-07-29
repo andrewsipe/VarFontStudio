@@ -276,29 +276,76 @@ struct CommitDiffReviewView: View {
     }
 
     private var nameidStrategyPreference: some View {
-        let strategy = Binding<NameIDStrategy>(
-            get: { editor.nameidStrategy(forProjectID: projectID, fontID: session.fontID) },
-            set: { editor.setNameIDStrategy(forProjectID: projectID, fontID: session.fontID, strategy: $0) }
-        )
+        let current = editor.nameidStrategy(forProjectID: projectID, fontID: session.fontID)
+        let isLoading = editor.isSaveReviewLoading(forProjectID: projectID, fontID: session.fontID)
         return HStack(spacing: StudioSpacing.controlGap) {
-            Text("OpenType labels")
+            Text("Feature labels")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize()
-            Picker("OpenType labels", selection: strategy) {
-                Text("Preserve IDs").tag(NameIDStrategy.preserve)
-                Text("Repack to 256+").tag(NameIDStrategy.reflow)
+
+            HStack(spacing: 1) {
+                nameidStrategySegment(
+                    title: "Preserve",
+                    isSelected: current == .preserve,
+                    isEnabled: !isLoading
+                ) {
+                    editor.setNameIDStrategy(
+                        forProjectID: projectID,
+                        fontID: session.fontID,
+                        strategy: .preserve
+                    )
+                }
+                nameidStrategySegment(
+                    title: "Reflow",
+                    isSelected: current == .reflow,
+                    isEnabled: !isLoading
+                ) {
+                    editor.setNameIDStrategy(
+                        forProjectID: projectID,
+                        fontID: session.fontID,
+                        strategy: .reflow
+                    )
+                }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            .padding(2)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
             .fixedSize()
-            .disabled(editor.isSaveReviewLoading(forProjectID: projectID, fontID: session.fontID))
         }
         .layoutPriority(1)
         .help(
-            "Override for this file only. "
-                + "App Settings sets the default for other files and new imports."
+            "Preserve keeps existing OpenType feature name IDs. "
+                + "Reflow renumbers feature labels starting at 256 so they stay clear of reserved IDs. "
+                + "Override for this file only — Settings sets the default."
         )
+    }
+
+    private func nameidStrategySegment(
+        title: String,
+        isSelected: Bool,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(StudioTypography.meta)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.vertical, StudioSpacing.tightGap)
+                .background {
+                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                        .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: StudioRadius.small),
+            isEnabled: isEnabled && !isSelected,
+            emphasized: isSelected
+        )
+        .disabled(!isEnabled)
     }
 
     @ViewBuilder

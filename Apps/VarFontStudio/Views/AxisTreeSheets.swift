@@ -778,6 +778,7 @@ struct AddFileAxisSheet: View {
                         }
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: 6), isEnabled: !selected)
                 .disabled(!enabled)
                 .help(enabled ? option.title : (option.template.flatMap { editor.namingAxisBlockReason(for: $0) } ?? ""))
             }
@@ -919,10 +920,13 @@ struct AddFileAxisSheet: View {
                     .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
             }
             if slopeOverrideIsItalic != nil {
-                Button("Reset to detected") { slopeOverrideIsItalic = nil }
-                    .buttonStyle(.plain)
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(StudioColors.registrationForeground)
+                StudioPlainLinkButton(
+                    title: "Reset to detected",
+                    role: .accent,
+                    font: StudioTypography.meta
+                ) {
+                    slopeOverrideIsItalic = nil
+                }
             } else {
                 Text("Auto-detected from this file")
                     .font(StudioTypography.meta)
@@ -949,6 +953,10 @@ struct AddFileAxisSheet: View {
                 )
         }
         .buttonStyle(.plain)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: 5),
+            isEnabled: !selected
+        )
     }
 
     private var policyBox: some View {

@@ -84,6 +84,7 @@ struct AxisStopTableHeader: View {
                 label
             }
             .buttonStyle(.plain)
+            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
         } else {
             label
         }

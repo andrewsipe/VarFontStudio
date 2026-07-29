@@ -120,7 +120,11 @@ enum StudioRadius {
 /// - Use `StudioFieldMetrics.*RowHeight` — never ad-hoc `.padding(.vertical)` on `TextField` alone.
 /// - Return accepts and resigns focus (`.commit`). Use `.advance` only where Return should move to the next field (e.g. Add Stop sheet).
 /// - Escape runs optional `onCancel`, then resigns focus.
-/// - Forbidden outside this file: `.textFieldStyle(.roundedBorder)`, raw `TextField`, `.padding(.top, 1)` toolbar hacks.
+/// - Forbidden outside this file: `.textFieldStyle(.roundedBorder)`, raw `TextField`
+///   with hand-rolled borders, `.padding(.top, 1)` toolbar hacks.
+/// - Field chrome: flat fill only (`StudioColors.fieldFill` → `fieldFillFocused`).
+///   Never stroke an editable field. Display ↔ edit must share the same padding,
+///   row height, and idle fill so text does not shift.
 /// - Selection: default `StudioRowSelectionStyle.fillOnly` — no stroke on list rows.
 /// - Chips: use `StudioTabChip` for project/file/save-review tabs (fixed padding, stable height).
 /// - Typography: `bodyMedium` (12pt) for compact UI rows; `body` (13pt) for axis stop names and inspector prose.
@@ -141,8 +145,10 @@ enum StudioRadius {
 ///   the pair centers together (never a naked `star.fill` next to the dot).
 /// - Link glyph: `StudioLinkGlyph` — keep outside `Menu` labels. Use
 ///   `StudioFormat3LinkLabel` only for non-Menu Format-3 suffixes. Add affordance label: `StudioAddLabel`.
-/// - Icon scale: `StudioChromeScale` — one glyph weight, two hit targets
+/// - Icon scale: `StudioChromeScale` — one glyph weight (`.semibold`), two hit targets
 ///   (`.toolbar` 12/24, `.chip` 12/16). Do not hand-size chrome icons.
+/// - Rename / edit affordance: `StudioSymbols.edit` (`pencil.line`) only.
+///   Never `pencil` or `pencil.circle` (too thin / reads as a prohibition mark).
 ///
 /// ## Spacing scale (4pt lattice)
 /// - Base unit: `StudioSpace.unit` (4pt). Steps: `x0_5`…`x8` (incl. half-steps).
@@ -251,6 +257,9 @@ enum StudioColors {
     static let surfaceMuted = Color.primary.opacity(0.04)
     static let surfaceLight = Color.primary.opacity(0.05)
     static let surfaceInset = Color.primary.opacity(0.06)
+    /// Flat editable field fills — idle always present; focused is a stronger wash (no strokes).
+    static let fieldFill = Color.primary.opacity(0.06)
+    static let fieldFillFocused = Color.primary.opacity(0.12)
     static let surfaceStroke = Color.primary.opacity(0.08)
     static let surfaceStrokeStrong = Color.primary.opacity(0.10)
     /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
@@ -378,6 +387,7 @@ struct StudioStatFormatBadge: View {
                     badgeLabel
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: 3))
                 .help("Change STAT format")
             } else {
                 badgeLabel
@@ -783,38 +793,41 @@ enum InstancerLayout {
 
     /// Checkbox / progress column.
     static let selectColumnWidth: CGFloat = StudioIncludeCheckbox.hitSize
-    /// Fits “Bold Italic”.
-    static let styleColumnWidth: CGFloat = 72
-    static let axisColumnWidth: CGFloat = 52
-    /// Gap between Style and Output.
-    static let outputLeadingGap: CGFloat = StudioSpace.x4 // 16
+    /// Same track as Axis Tree Value — fits typical axis coords (e.g. 1000, 112.5).
+    static let axisColumnWidth: CGFloat = StopTableLayout.valueColumnWidth
+    /// Fits “Bold Italic” in caption.
+    static let styleColumnWidth: CGFloat = 80
+    /// Uniform gap between fixed columns (select, name, axes…).
+    static let columnGap: CGFloat = StudioSpace.x2_5 // 10
+    /// Extra lead into left-aligned text columns after numeric axes (matches Axis Tree `nameGap`).
+    static let textColumnLeadingGap: CGFloat = StopTableLayout.nameGap
     static let flagColumnWidth: CGFloat = 140
-    static let nameColumnMinWidth: CGFloat = 140
-    static let nameColumnMaxWidth: CGFloat = 360
-    static let outputColumnMinWidth: CGFloat = 180
-    static let columnGap: CGFloat = StudioSpace.x2 // 8
+    static let nameColumnMinWidth: CGFloat = 160
+    static let outputColumnMinWidth: CGFloat = 200
 
-    /// Shared Name / Output widths so every row aligns and both columns share leftover space.
+    /// Shared Name / Output widths — both flex with the window; axes + Style stay fixed.
     struct ColumnWidths: Equatable {
         var name: CGFloat
         var output: CGFloat
     }
 
     static func columnWidths(totalWidth: CGFloat, axisCount: Int) -> ColumnWidths {
-        let axisBlock = CGFloat(axisCount) * axisColumnWidth
-        // select, name, axes…, style, output, flags
-        let gapCount = CGFloat(4 + max(axisCount, 0))
+        let axes = max(axisCount, 0)
+        let axisBlock = CGFloat(axes) * axisColumnWidth
+        let axisGaps = CGFloat(max(axes - 1, 0)) * columnGap
+        // Gaps: select→name, name→axes, axes→style (text lead), style→output (text lead), output→flags
         let fixed =
             horizontalPadding * 2
             + selectColumnWidth
-            + styleColumnWidth
             + axisBlock
+            + axisGaps
+            + styleColumnWidth
             + flagColumnWidth
-            + outputLeadingGap
-            + columnGap * gapCount
+            + columnGap * 3
+            + textColumnLeadingGap * 2
         let flex = max(nameColumnMinWidth + outputColumnMinWidth, totalWidth - fixed)
-        // Split flexible space ~45/55 toward Output so filenames stay readable.
-        let name = min(nameColumnMaxWidth, max(nameColumnMinWidth, flex * 0.45))
+        // Name ~42%, Output the rest — both grow on wide windows (no hard name cap).
+        let name = max(nameColumnMinWidth, flex * 0.42)
         let output = max(outputColumnMinWidth, flex - name)
         return ColumnWidths(name: name, output: output)
     }
@@ -839,6 +852,7 @@ struct StudioFilterBadge: View {
     var isHidden: Bool
     var isIsolated: Bool
     let action: (_ commandClick: Bool) -> Void
+    @State private var isHovered = false
 
     var body: some View {
         Button {
@@ -850,10 +864,18 @@ struct StudioFilterBadge: View {
                 .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(category.pillStyle.foreground))
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(
-                    isHidden ? Color.clear : category.pillStyle.background,
-                    in: RoundedRectangle(cornerRadius: 3)
-                )
+                .background {
+                    ZStack {
+                        if !isHidden {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(category.pillStyle.background)
+                        }
+                        if isHovered, !isHidden, !isIsolated {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(StudioColors.hoverFill)
+                        }
+                    }
+                }
                 .overlay {
                     RoundedRectangle(cornerRadius: 3)
                         .strokeBorder(
@@ -864,6 +886,7 @@ struct StudioFilterBadge: View {
                 .opacity(isHidden ? 0.32 : 1)
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -902,6 +925,10 @@ struct StudioSaveReviewTabBar: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(
+                    shape: .roundedRect(cornerRadius: 6),
+                    isEnabled: !isSelected
+                )
             }
         }
         .padding(3)
@@ -1179,6 +1206,7 @@ struct StudioWarningBadge: View {
         if let action {
             Button(action: action) { icon }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .circle)
                 .help(help)
         } else {
             icon.help(help)
@@ -1344,7 +1372,7 @@ enum StudioFieldFocus {
     }
 }
 
-/// Compact text field — fixed row height, dark editable surface, subtle border, no accent focus ring.
+/// Compact text field — fixed row height, flat fill, darker when focused, no stroke / focus ring.
 struct StudioTextField: View {
     let placeholder: String
     @Binding var text: String
@@ -1386,12 +1414,6 @@ struct StudioTextField: View {
                         .fill(fieldBackground)
                 }
             }
-            .overlay {
-                if showsFieldChrome {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
-                        .strokeBorder(borderColor, lineWidth: 0.5)
-                }
-            }
             .focused(activeFocus)
             .modifier(StudioFocusRingSuppression())
             .onSubmit { handleSubmit() }
@@ -1418,15 +1440,11 @@ struct StudioTextField: View {
     }
 
     private var fieldBackground: Color {
-        activeFocus.wrappedValue ? Color(nsColor: .textBackgroundColor) : Color.primary.opacity(0.05)
-    }
-
-    private var borderColor: Color {
-        activeFocus.wrappedValue ? Color.primary.opacity(0.22) : Color.secondary.opacity(0.28)
+        activeFocus.wrappedValue ? StudioColors.fieldFillFocused : StudioColors.fieldFill
     }
 }
 
-/// Search bar with magnifier and optional clear button.
+/// Search bar with magnifier and optional clear button — same flat field chrome as `StudioTextField`.
 struct StudioSearchField: View {
     @Binding var text: String
     var placeholder: String = "Search"
@@ -1436,6 +1454,10 @@ struct StudioSearchField: View {
 
     private var activeFocus: FocusState<Bool>.Binding {
         isFocused ?? $internalFocus
+    }
+
+    private var isFieldFocused: Bool {
+        activeFocus.wrappedValue
     }
 
     var body: some View {
@@ -1458,12 +1480,81 @@ struct StudioSearchField: View {
             }
         }
         .padding(.horizontal, 7)
-        .padding(.vertical, 4)
         .frame(height: StudioFieldMetrics.captionRowHeight + 8)
         .background(
-            .quaternary.opacity(0.55),
-            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            isFieldFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill,
+            in: RoundedRectangle(cornerRadius: StudioRadius.control)
         )
+    }
+}
+
+/// Optional / required numeric field — same flat chrome as `StudioTextField`.
+struct StudioNumberField: View {
+    let placeholder: String
+    @Binding var value: Double?
+    var font: Font = StudioTypography.monoMeta
+    var rowHeight: CGFloat = StudioFieldMetrics.monoValueRowHeight
+    var alignment: TextAlignment = .leading
+    var onSubmit: (() -> Void)? = nil
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField(
+            "",
+            value: $value,
+            format: .number,
+            prompt: Text(placeholder)
+                .font(font)
+                .foregroundStyle(.tertiary)
+        )
+        .textFieldStyle(.plain)
+        .font(font)
+        .multilineTextAlignment(alignment)
+        .padding(.horizontal, StudioFieldMetrics.horizontalPadding)
+        .frame(height: rowHeight, alignment: .center)
+        .background {
+            RoundedRectangle(cornerRadius: StudioRadius.control)
+                .fill(isFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill)
+        }
+        .focused($isFocused)
+        .modifier(StudioFocusRingSuppression())
+        .onSubmit {
+            onSubmit?()
+            isFocused = false
+            StudioFieldFocus.resignIfEditing()
+        }
+    }
+}
+
+/// Non-optional numeric field — same flat chrome as `StudioTextField`.
+struct StudioBoundNumberField: View {
+    @Binding var value: Double
+    var font: Font = StudioTypography.monoMeta
+    var rowHeight: CGFloat = StudioFieldMetrics.monoValueRowHeight
+    var alignment: TextAlignment = .trailing
+    var onSubmit: (() -> Void)? = nil
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("", value: $value, format: .number)
+            .textFieldStyle(.plain)
+            .font(font)
+            .multilineTextAlignment(alignment)
+            .padding(.horizontal, StudioFieldMetrics.horizontalPadding)
+            .frame(height: rowHeight, alignment: .center)
+            .background {
+                RoundedRectangle(cornerRadius: StudioRadius.control)
+                    .fill(isFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill)
+            }
+            .focused($isFocused)
+            .modifier(StudioFocusRingSuppression())
+            .onSubmit {
+                onSubmit?()
+                isFocused = false
+                StudioFieldFocus.resignIfEditing()
+            }
     }
 }
 
@@ -1487,7 +1578,7 @@ struct StudioInlineTextField: View {
             .font(font)
             .foregroundStyle(foreground)
             .multilineTextAlignment(alignment)
-            .studioInlineEditField(isActive: true, rowHeight: rowHeight)
+            .studioInlineEditField(isActive: true, isFocused: isFocused, rowHeight: rowHeight)
             .modifier(StudioFocusRingSuppression())
             .focused($isFocused)
             .onSubmit { handleSubmit() }
@@ -1522,6 +1613,7 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
     var shape: StudioTabChipShape = .capsule
     @ViewBuilder var label: () -> Label
     @ViewBuilder var trailing: () -> Trailing
+    @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: 5) {
@@ -1567,6 +1659,7 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
             }
         }
         .animation(.easeOut(duration: 0.12), value: isDropTarget)
+        .onHover { isHovered = $0 }
     }
 
     @ViewBuilder
@@ -1584,6 +1677,9 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
     private var chipFill: Color {
         if isSelected || isHighlighted {
             return StudioColors.selectionFill
+        }
+        if isHovered {
+            return StudioColors.hoverFill
         }
         return Color.primary.opacity(0.04)
     }
@@ -1604,13 +1700,15 @@ struct StudioDisclosureLabelRow<Leading: View, Trailing: View>: View {
     }
 }
 
-/// Static label occupying the same vertical space as `StudioTextField` at a given tier.
+/// Static label occupying the same vertical space and idle fill as `StudioTextField`.
 struct StudioFieldLabel: View {
     let text: String
     var font: Font = StudioTypography.caption
     var rowHeight: CGFloat = StudioFieldMetrics.captionRowHeight
     var fontWeight: Font.Weight = .regular
     var foreground: Color = .primary
+    /// Match editable field chrome so display ↔ edit does not shift.
+    var showsFieldChrome: Bool = true
 
     var body: some View {
         Text(text)
@@ -1619,6 +1717,13 @@ struct StudioFieldLabel: View {
             .lineLimit(1)
             .padding(.horizontal, StudioFieldMetrics.horizontalPadding)
             .frame(height: rowHeight, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                if showsFieldChrome {
+                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                        .fill(StudioColors.fieldFill)
+                }
+            }
     }
 }
 
@@ -1627,6 +1732,9 @@ struct StudioFieldLabel: View {
 enum StudioChromeScale {
     case toolbar
     case chip
+
+    /// Shared SF Symbol weight for chrome icons (dismiss, overflow, toolbar, edit).
+    static let symbolWeight: Font.Weight = .semibold
 
     var pointSize: CGFloat {
         switch self {
@@ -1641,6 +1749,12 @@ enum StudioChromeScale {
         case .chip: StudioFieldMetrics.chipIconHitSize
         }
     }
+}
+
+/// Shared SF Symbol names for Studio chrome — keep call sites on these, not ad-hoc strings.
+enum StudioSymbols {
+    /// Rename / edit affordance. Prefer over bare `pencil` or `pencil.circle`.
+    static let edit = "pencil.line"
 }
 
 /// Unified dismiss / remove control. Replaces the ad-hoc `xmark`, `xmark.circle`,
@@ -1660,7 +1774,7 @@ struct StudioDismissButton: View {
     }
 
     var scale: StudioChromeScale = .toolbar
-    var style: Style = .outline
+    var style: Style = .fill
     var help: String = ""
     /// Hierarchical rendering level (`.secondary` for chrome, `.tertiary` for quiet in-row remove).
     var foreground: HierarchicalShapeStyle = .secondary
@@ -1669,13 +1783,14 @@ struct StudioDismissButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: style.symbol)
-                .font(.system(size: scale.pointSize, weight: .regular))
+                .font(.system(size: scale.pointSize, weight: StudioChromeScale.symbolWeight))
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(foreground)
                 .frame(width: scale.hitSize, height: scale.hitSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .studioHoverFill(shape: .circle)
         .help(help)
     }
 }
@@ -1692,7 +1807,7 @@ struct StudioOverflowMenu<Content: View>: View {
             content()
         } label: {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: scale.pointSize, weight: .regular))
+                .font(.system(size: scale.pointSize, weight: StudioChromeScale.symbolWeight))
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(.secondary)
                 .frame(width: scale.hitSize, height: scale.hitSize)
@@ -1701,6 +1816,7 @@ struct StudioOverflowMenu<Content: View>: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .studioHoverFill(shape: .circle)
         .help(help)
     }
 }
@@ -1784,7 +1900,10 @@ struct StudioToolbarIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: StudioFieldMetrics.toolbarIconPointSize, weight: .regular))
+                .font(.system(
+                    size: StudioFieldMetrics.toolbarIconPointSize,
+                    weight: StudioChromeScale.symbolWeight
+                ))
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(.secondary)
                 .frame(
@@ -1794,6 +1913,7 @@ struct StudioToolbarIconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .studioHoverFill(shape: .circle)
         .help(help)
     }
 }
@@ -1809,7 +1929,10 @@ struct StudioToolbarIconMenu<Content: View>: View {
             content()
         } label: {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: StudioFieldMetrics.toolbarIconPointSize, weight: .regular))
+                .font(.system(
+                    size: StudioFieldMetrics.toolbarIconPointSize,
+                    weight: StudioChromeScale.symbolWeight
+                ))
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(.secondary)
                 .frame(
@@ -1820,6 +1943,7 @@ struct StudioToolbarIconMenu<Content: View>: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        .studioHoverFill(shape: .circle)
         .help(help)
     }
 }
@@ -1835,23 +1959,143 @@ struct StudioFocusRingSuppression: ViewModifier {
 }
 
 extension View {
-    /// Inline axis-tree / table edit chrome — fixed height, no layout shift vs static text.
-    func studioInlineEditField(isActive: Bool, rowHeight: CGFloat = StudioFieldMetrics.bodyRowHeight) -> some View {
+    /// Inline axis-tree / table edit chrome — fixed height, flat fill, no stroke.
+    func studioInlineEditField(
+        isActive: Bool,
+        isFocused: Bool = true,
+        rowHeight: CGFloat = StudioFieldMetrics.bodyRowHeight
+    ) -> some View {
         padding(.horizontal, isActive ? StudioFieldMetrics.horizontalPadding : 0)
             .frame(height: isActive ? rowHeight : nil, alignment: .center)
             .background {
                 if isActive {
-                    RoundedRectangle(cornerRadius: StudioRadius.small)
-                        .fill(Color(nsColor: .textBackgroundColor))
-                }
-            }
-            .overlay {
-                if isActive {
-                    RoundedRectangle(cornerRadius: StudioRadius.small)
-                        .strokeBorder(Color.primary.opacity(0.22), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                        .fill(isFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill)
                 }
             }
             .modifier(StudioFocusRingSuppression())
+    }
+}
+
+// MARK: - Hover chrome
+
+enum StudioHoverShape: Equatable {
+    case rect
+    case roundedRect(cornerRadius: CGFloat = StudioRadius.row)
+    case capsule
+    case circle
+}
+
+private struct StudioHoverFillModifier: ViewModifier {
+    var shape: StudioHoverShape
+    var isEnabled: Bool
+    var emphasized: Bool
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if isEnabled, isHovered {
+                    hoverBackground
+                }
+            }
+            .onHover { hovering in
+                isHovered = isEnabled && hovering
+            }
+    }
+
+    @ViewBuilder
+    private var hoverBackground: some View {
+        let fill = emphasized ? Color.primary.opacity(0.08) : StudioColors.hoverFill
+        switch shape {
+        case .rect:
+            Rectangle().fill(fill)
+        case .roundedRect(let radius):
+            RoundedRectangle(cornerRadius: radius).fill(fill)
+        case .capsule:
+            Capsule().fill(fill)
+        case .circle:
+            Circle().fill(fill)
+        }
+    }
+}
+
+extension View {
+    /// Pointer-over fill for plain buttons, icons, and chips.
+    func studioHoverFill(
+        shape: StudioHoverShape = .roundedRect(),
+        isEnabled: Bool = true,
+        emphasized: Bool = false
+    ) -> some View {
+        modifier(StudioHoverFillModifier(shape: shape, isEnabled: isEnabled, emphasized: emphasized))
+    }
+}
+
+/// Plain text/icon action — accent, secondary, or quiet. Replaces one-off `.buttonStyle(.plain)` links.
+struct StudioPlainLinkButton: View {
+    enum Role {
+        case accent
+        case secondary
+        case quiet
+
+        var foreground: Color {
+            switch self {
+            case .accent: Color.accentColor
+            case .secondary: Color.secondary
+            case .quiet: Color.secondary.opacity(0.85)
+            }
+        }
+    }
+
+    let title: String
+    var systemImage: String?
+    var role: Role = .accent
+    var font: Font = StudioTypography.caption
+    var help: String = ""
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 10))
+                }
+                Text(title)
+                    .font(font)
+            }
+            .foregroundStyle(role.foreground)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control), emphasized: role == .accent)
+        .help(help)
+    }
+}
+
+/// Segmented scope control (Instances | Names, Project | Instance).
+struct StudioSegmentButton: View {
+    let title: String
+    var isSelected: Bool = false
+    var font: Font = StudioTypography.caption
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(font.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: StudioRadius.control),
+            isEnabled: !isSelected
+        )
     }
 }
 
@@ -1953,6 +2197,7 @@ struct StudioInspectorConflictBadge: View {
         if let action {
             Button(action: action) { label }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .capsule)
                 .help("Show conflict details")
         } else {
             label
@@ -2171,6 +2416,7 @@ struct InspectorInstanceNamingChain: View {
                     .padding(.vertical, 2)
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.chip), isEnabled: onLinkTap != nil)
             }
         }
     }
@@ -2229,21 +2475,38 @@ struct InspectorAxisCoordinatesView: View {
         isLast: Bool,
         linkActiveToNext: Bool
     ) -> some View {
-        let isSelected = row.stopID == selectedStopID
+        InspectorAxisCoordRowView(
+            row: row,
+            isFirst: isFirst,
+            isLast: isLast,
+            linkActiveToNext: linkActiveToNext,
+            isSelected: row.stopID == selectedStopID,
+            showsElisionColumn: showsElisionColumn,
+            onRowTap: onRowTap,
+            onElisionToggle: onElisionToggle
+        )
+    }
+}
 
-        return HStack(spacing: StudioSpacing.controlGap) {
+private struct InspectorAxisCoordRowView: View {
+    let row: InspectorAxisCoordRow
+    let isFirst: Bool
+    let isLast: Bool
+    let linkActiveToNext: Bool
+    let isSelected: Bool
+    let showsElisionColumn: Bool
+    var onRowTap: ((InspectorAxisCoordRow) -> Void)?
+    var onElisionToggle: ((InspectorAxisCoordRow) -> Void)?
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: StudioSpacing.controlGap) {
             Button {
                 onRowTap?(row)
             } label: {
                 HStack(spacing: StudioSpacing.controlGap) {
-                    chainRail(
-                        for: row,
-                        isFirst: isFirst,
-                        isLast: isLast,
-                        linkActiveToNext: linkActiveToNext,
-                        isSelected: isSelected
-                    )
-                    .frame(width: InspectorAxisCoordLayout.chainWidth)
+                    chainRail
+                        .frame(width: InspectorAxisCoordLayout.chainWidth)
 
                     Text(StudioFormatting.axisValue(row.value))
                         .font(StudioTypography.monoValue)
@@ -2258,7 +2521,7 @@ struct InspectorAxisCoordinatesView: View {
 
                     Text(row.stopName)
                         .font(StudioTypography.body)
-                        .foregroundStyle(nameColor(for: row))
+                        .foregroundStyle(nameColor)
                         .strikethrough(row.isElided, color: Color.secondary.opacity(0.45))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2267,16 +2530,20 @@ struct InspectorAxisCoordinatesView: View {
                 .padding(.horizontal, 4)
                 .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
                 .background {
-                    StudioRowBackground(isSelected: isSelected, isHovered: false)
+                    StudioRowBackground(
+                        isSelected: isSelected,
+                        isHovered: isHovered && !isSelected
+                    )
                 }
             }
             .buttonStyle(.plain)
             .disabled(onRowTap == nil || row.stopID == nil)
+            .onHover { isHovered = $0 }
 
             if showsElisionColumn {
                 Group {
                     if row.showsElisionToggle {
-                        StudioElidableRadio(isOn: row.isElidable) {
+                        StudioElidableRadio(isOn: row.isElided) {
                             onElisionToggle?(row)
                         }
                     }
@@ -2289,20 +2556,14 @@ struct InspectorAxisCoordinatesView: View {
             : "Not in the instance naming grid")
     }
 
-    private func nameColor(for row: InspectorAxisCoordRow) -> Color {
+    private var nameColor: Color {
         if !row.participatesInNaming { return Color.secondary }
         if row.isElided { return Color.secondary.opacity(0.55) }
         return Color.primary
     }
 
     @ViewBuilder
-    private func chainRail(
-        for row: InspectorAxisCoordRow,
-        isFirst: Bool,
-        isLast: Bool,
-        linkActiveToNext: Bool,
-        isSelected: Bool
-    ) -> some View {
+    private var chainRail: some View {
         let dotColor: Color = {
             if isSelected { return .accentColor }
             if row.participatesInNaming && !row.isElided { return .accentColor.opacity(0.7) }

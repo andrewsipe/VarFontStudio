@@ -10,20 +10,20 @@ struct StudioSettingsView: View {
         Form {
             Section {
                 Picker(selection: defaultStrategyBinding) {
-                    Text("Preserve OpenType Feature Name IDs").tag(NameIDStrategy.preserve)
-                    Text("Repack feature labels (starting at ID 256)").tag(NameIDStrategy.reflow)
+                    Text("Preserve existing feature name IDs").tag(NameIDStrategy.preserve)
+                    Text("Reflow feature labels (from ID 256)").tag(NameIDStrategy.reflow)
                 } label: {
                     Text("OpenType feature labels")
                 }
                 .pickerStyle(.radioGroup)
                 .help(
                     "Default for every open project and new imports. "
-                        + "Review can override this for the selected file only."
+                        + "Save Review can override this for the selected file only."
                 )
             } footer: {
                 Text(
-                    "Preserve keeps existing feature name IDs. "
-                        + "Repack renumbers them to start at 256 to avoid reserved low IDs."
+                    "Preserve keeps existing OpenType feature name IDs. "
+                        + "Reflow renumbers them starting at 256 so STAT and fvar rebuilds don’t collide."
                 )
                 .foregroundStyle(.secondary)
             }

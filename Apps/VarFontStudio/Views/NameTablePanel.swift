@@ -137,6 +137,7 @@ struct NameTablePanel: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
             }
         }
         .frame(width: NameTableLayout.addPopoverWidth)
@@ -198,6 +199,7 @@ struct NameTablePanel: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .studioHoverFill(shape: .circle)
                     .foregroundStyle(Color.accentColor)
                     .help("Fill from font · \(suggestion.source)\n→ \(suggestion.value)")
                 }
@@ -237,15 +239,12 @@ struct NameTablePanel: View {
                     .frame(height: StudioFieldMetrics.monoValueRowHeight, alignment: .center)
                     .background {
                         RoundedRectangle(cornerRadius: StudioRadius.control)
-                            .fill(Color.primary.opacity(0.05))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: StudioRadius.control)
-                            .strokeBorder(Color.secondary.opacity(0.28), lineWidth: 0.5)
+                            .fill(StudioColors.fieldFill)
                     }
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
             .accessibilityLabel(row.label)
             .accessibilityValue(binding.wrappedValue)
             .overlay(alignment: .leading) {
@@ -285,11 +284,7 @@ struct NameTablePanel: View {
         .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.monoValueRowHeight, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: StudioRadius.control)
-                .fill(Color(nsColor: .textBackgroundColor))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
-                .strokeBorder(Color.primary.opacity(0.22), lineWidth: 0.5)
+                .fill(StudioColors.fieldFillFocused)
         }
         .modifier(StudioFocusRingSuppression())
         .focused($focusedNameID, equals: nameID)

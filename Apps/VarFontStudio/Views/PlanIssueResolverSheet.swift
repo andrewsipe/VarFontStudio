@@ -18,6 +18,8 @@ struct PlanIssueResolverSheet: View {
     @State private var fillMode: AxisStopFillMode = .evenCount
     @State private var stopCount: Double = 6
     @State private var intervalStep: Double = 1
+    @State private var hoveredHeaderTitle: String?
+    @State private var hoveredProposalID: String?
 
     private var proposals: [PlanIssueProposal] {
         editor.planIssueProposals(for: warning)
@@ -176,7 +178,8 @@ struct PlanIssueResolverSheet: View {
         isRecommended: Bool,
         onSelect: @escaping () -> Void
     ) -> some View {
-        Button(action: onSelect) {
+        let isHovered = hoveredHeaderTitle == title
+        return Button(action: onSelect) {
             HStack(spacing: StudioSpacing.controlGap) {
                 StudioRadioMark(isOn: isSelected)
                 Text(title)
@@ -189,12 +192,25 @@ struct PlanIssueResolverSheet: View {
                 }
                 Spacer(minLength: 0)
             }
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.vertical, StudioSpacing.panelVertical)
+            .background {
+                StudioRowBackground(
+                    isSelected: isSelected,
+                    isHovered: isHovered && !isSelected
+                )
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredHeaderTitle = hovering ? title : (hoveredHeaderTitle == title ? nil : hoveredHeaderTitle)
+        }
     }
 
     private func proposalRow(_ proposal: PlanIssueProposal) -> some View {
         let isSelected = fixSelection == .proposal(proposal.id)
+        let isHovered = hoveredProposalID == proposal.id
         return Button {
             fixSelection = .proposal(proposal.id)
         } label: {
@@ -225,10 +241,15 @@ struct PlanIssueResolverSheet: View {
         .buttonStyle(.plain)
         .padding(.horizontal, StudioSpacing.panelHorizontal)
         .padding(.vertical, StudioSpacing.panelVertical)
-        .background(
-            isSelected ? StudioColors.surfaceMuted : Color.clear,
-            in: RoundedRectangle(cornerRadius: StudioRadius.row)
-        )
+        .background {
+            StudioRowBackground(
+                isSelected: isSelected,
+                isHovered: isHovered && !isSelected
+            )
+        }
+        .onHover { hovering in
+            hoveredProposalID = hovering ? proposal.id : (hoveredProposalID == proposal.id ? nil : hoveredProposalID)
+        }
     }
 
     // MARK: - Actions

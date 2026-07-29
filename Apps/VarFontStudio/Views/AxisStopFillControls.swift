@@ -101,6 +101,7 @@ struct AxisStopFillControls: View {
                 )
         }
         .buttonStyle(.plain)
+        .studioHoverFill(shape: .capsule, isEnabled: enabled)
         .disabled(!enabled)
     }
 

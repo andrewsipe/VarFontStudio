@@ -17,7 +17,7 @@ struct AxisTreeAxisHeader: View {
     let onToggleExpansion: () -> Void
     var onResolveConflict: (() -> Void)?
     var onReviewPlanIssue: (() -> Void)?
-    /// When set, shows a pencil to rename the STAT/fvar axis display name (not the 4-char tag).
+    /// When set, shows an edit affordance to rename the STAT/fvar axis display name (not the 4-char tag).
     var onUpdateDisplayName: ((String) -> Void)? = nil
 
     @State private var isEditingDisplayName = false
@@ -120,6 +120,7 @@ struct AxisTreeAxisHeader: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
                         .help(lane == .registration
                             ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
                             : "Expand axis stops")
@@ -127,7 +128,7 @@ struct AxisTreeAxisHeader: View {
 
                     if onUpdateDisplayName != nil, !isEditingDisplayName {
                         StudioToolbarIconButton(
-                            systemName: "pencil.circle",
+                            systemName: StudioSymbols.edit,
                             help: "Rename axis (STAT and fvar label). The 4-character tag and interpolation are unchanged."
                         ) {
                             editedDisplayName = currentDisplayName
@@ -140,6 +141,7 @@ struct AxisTreeAxisHeader: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
                     .help(isExpanded ? "Collapse axis stops" : "Expand axis stops")
 
                     Spacer(minLength: 0)

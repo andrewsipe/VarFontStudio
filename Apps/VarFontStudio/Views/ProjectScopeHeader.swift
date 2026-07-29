@@ -104,7 +104,7 @@ struct ProjectScopeHeader: View {
 
     private var headerActions: some View {
         HStack(spacing: 0) {
-            StudioToolbarIconButton(systemName: "pencil.circle", help: "Rename project tab") {
+            StudioToolbarIconButton(systemName: StudioSymbols.edit, help: "Rename project tab") {
                 editedName = currentDisplayName
                 isEditingName = true
             }
@@ -144,7 +144,7 @@ struct ProjectScopeHeader: View {
         Button(role: .destructive) {
             editor.requestCloseProject(id: openProject.id)
         } label: {
-            Label("Close Project", systemImage: "xmark.circle")
+            Label("Close Project", systemImage: "xmark.circle.fill")
         }
     }
 

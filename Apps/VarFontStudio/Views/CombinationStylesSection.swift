@@ -47,6 +47,7 @@ struct CombinationStylesSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
         .help("Named multi-axis points in STAT. They do not multiply the instance grid.")
     }
 
@@ -141,6 +142,7 @@ struct CombinationStylesSection: View {
                 }
             }
             .buttonStyle(.plain)
+            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
         }
     }
 

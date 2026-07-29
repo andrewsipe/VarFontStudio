@@ -173,6 +173,10 @@ struct StudioPanelSplitView: View {
                 .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
         }
         .buttonStyle(.plain)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: StudioRadius.row),
+            emphasized: isOn
+        )
     }
 
     // MARK: - Axis tree column
@@ -275,6 +279,7 @@ private struct AxisTreeRail: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
                 .help("Show axis tree")
             }
 

@@ -45,18 +45,20 @@ struct ProjectFileSubBar: View {
 
             Spacer(minLength: StudioSpacing.controlGap)
 
-            Button("+ Add file…") {
+            StudioPlainLinkButton(
+                title: "+ Add file…",
+                role: .accent,
+                font: StudioTypography.meta,
+                help: editor.hasOpenProjects
+                    ? "Add a variable font to the active project"
+                    : "Open a variable font — creates a new project"
+            ) {
                 if editor.hasOpenProjects {
                     editor.presentAddFontPanel()
                 } else {
                     editor.presentOpenPanel()
                 }
             }
-            .font(StudioTypography.meta)
-            .buttonStyle(.plain)
-            .help(editor.hasOpenProjects
-                ? "Add a variable font to the active project"
-                : "Open a variable font — creates a new project")
         }
         .padding(.horizontal, StudioSpacing.editorChromeInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)

@@ -569,6 +569,7 @@ struct MainEditorView: View {
                 .background(StudioColors.surfaceLight, in: Capsule())
             }
             .buttonStyle(.plain)
+            .studioHoverFill(shape: .capsule)
             .help("Instancer is still generating — click to reopen")
         }
     }

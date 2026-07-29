@@ -166,6 +166,7 @@ struct NamingOrderChainFooter: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
             .help(isExpanded ? "Collapse footer" : "Expand footer")
 
             footerModeSwitcher
@@ -226,6 +227,11 @@ struct NamingOrderChainFooter: View {
                         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(
+                    shape: .roundedRect(cornerRadius: StudioRadius.small),
+                    isEnabled: editor.footerPanelMode != mode,
+                    emphasized: editor.footerPanelMode == mode
+                )
                 .help(modeHelp(mode))
             }
         }
@@ -329,15 +335,16 @@ struct NamingOrderChainFooter: View {
     }
 
     private var restoreButton: some View {
-        Button("Restore") {
+        StudioPlainLinkButton(
+            title: "Restore",
+            role: .secondary,
+            font: StudioTypography.meta,
+            help: "Restore STAT-inferred naming order and axis instance roles from import"
+        ) {
             session.reset()
             editor.restoreNamingDefaults()
         }
-        .font(StudioTypography.meta)
-        .foregroundStyle(editor.namingDefaultsNeedRestore ? .secondary : .quaternary)
-        .buttonStyle(.plain)
         .disabled(!editor.namingDefaultsNeedRestore)
-        .help("Restore STAT-inferred naming order and axis instance roles from import")
     }
 
     private var exampleRow: some View {
@@ -414,6 +421,7 @@ struct NamingOrderChainFooter: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
                 }
             }
 
@@ -498,6 +506,7 @@ struct NamingOrderChainFooter: View {
             }
         }
         .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.chip))
         .help(postScriptPrefixHelp(hasPrefix: hasPrefix))
     }
 

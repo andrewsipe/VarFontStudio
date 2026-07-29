@@ -187,21 +187,25 @@ struct AxisTreePanel: View {
             Spacer(minLength: StudioSpacing.controlGap)
 
             if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
-                Button("Push Axis Tree") {
+                StudioPlainLinkButton(
+                    title: "Push Axis Tree",
+                    role: .accent,
+                    font: StudioTypography.meta,
+                    help: "Copy master axis stops to all other files in this project"
+                ) {
                     editor.requestPushMasterAxisTree()
                 }
-                .font(StudioTypography.meta)
-                .buttonStyle(.plain)
-                .help("Copy master axis stops to all other files in this project")
             }
 
             if !editor.hasOpenProjects {
-                Button("+ Add project…") {
+                StudioPlainLinkButton(
+                    title: "+ Add project…",
+                    role: .accent,
+                    font: StudioTypography.meta,
+                    help: "Open a variable font as a new project tab"
+                ) {
                     editor.presentOpenPanel()
                 }
-                .font(StudioTypography.meta)
-                .buttonStyle(.plain)
-                .help("Open a variable font as a new project tab")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -275,7 +279,11 @@ struct AxisTreePanel: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: StudioSpacing.controlGap)
                         if warning.code == "duplicate_composed_name" {
-                            Button("Show in list…") {
+                            StudioPlainLinkButton(
+                                title: "Show in list…",
+                                role: .secondary,
+                                font: StudioTypography.meta
+                            ) {
                                 layout.showInstances = true
                                 if let name = warning.name {
                                     editor.showDuplicateInstances(matchingName: name)
@@ -283,20 +291,18 @@ struct AxisTreePanel: View {
                                     editor.showAllDuplicateInstances()
                                 }
                             }
-                            .font(StudioTypography.meta)
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
                         }
                         if PlanIssueCodes.resolvable.contains(warning.code), issueCount > 0 {
-                            Button("Review…") {
+                            StudioPlainLinkButton(
+                                title: "Review…",
+                                role: .secondary,
+                                font: StudioTypography.meta
+                            ) {
                                 editor.startReviewSession(jumpingTo: warning)
                                 if let axis = warning.axis {
                                     focusAxis(axis, scrollProxy: scrollProxy)
                                 }
                             }
-                            .font(StudioTypography.meta)
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -390,6 +396,7 @@ struct AxisTreePanel: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: 5))
                 .padding(.top, StudioSpacing.sectionGap)
                 .help("Add a naming axis for family identity across files (no fvar scale)")
 
@@ -676,6 +683,7 @@ struct AxisTreePanel: View {
                         axisActionButtonLabel(title: "Add Stop", systemImage: "plus")
                     }
                     .buttonStyle(.plain)
+                    .studioHoverFill(shape: .roundedRect(cornerRadius: 5))
                     .frame(minWidth: 0, maxWidth: showFill ? .infinity : nil)
 
                     if showFill {
@@ -688,6 +696,7 @@ struct AxisTreePanel: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .studioHoverFill(shape: .roundedRect(cornerRadius: 5))
                         .frame(minWidth: 0, maxWidth: .infinity)
                         .help(
                             axis.values.isEmpty

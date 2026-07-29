@@ -305,6 +305,10 @@ struct InstanceListPanel: View {
                 )
         }
         .buttonStyle(.plain)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: StudioRadius.small),
+            isEnabled: !isSelected
+        )
         .studioCompactControl()
         .help(showFilterHelp(for: filter))
     }

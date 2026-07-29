@@ -312,20 +312,22 @@ struct AxisConflictResolverSheet: View {
 
                 if usesEditableBulkNames {
                     Spacer()
-                    Button("Reset suggestions") {
+                    StudioPlainLinkButton(
+                        title: "Reset suggestions",
+                        role: .secondary,
+                        font: StudioTypography.meta
+                    ) {
                         syncBulkNameDrafts()
                     }
-                    .font(StudioTypography.meta)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
                 } else if usesEditableBulkValues {
                     Spacer()
-                    Button("Reset suggestions") {
+                    StudioPlainLinkButton(
+                        title: "Reset suggestions",
+                        role: .secondary,
+                        font: StudioTypography.meta
+                    ) {
                         syncBulkValueDrafts()
                     }
-                    .font(StudioTypography.meta)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
                 }
             }
 

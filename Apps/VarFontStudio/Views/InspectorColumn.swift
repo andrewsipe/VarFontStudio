@@ -107,5 +107,9 @@ struct InspectorColumn: View {
                 .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
         }
         .buttonStyle(.plain)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: StudioRadius.row),
+            emphasized: isOn
+        )
     }
 }

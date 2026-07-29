@@ -35,12 +35,14 @@ struct ProjectToolbar: View {
                 newProjectAffordance
             }
 
-            Button("+ Add project…") {
+            StudioPlainLinkButton(
+                title: "+ Add project…",
+                role: .accent,
+                font: StudioTypography.meta,
+                help: "Open a variable font as a new project tab"
+            ) {
                 editor.presentOpenPanel()
             }
-            .font(StudioTypography.meta)
-            .buttonStyle(.plain)
-            .help("Open a variable font as a new project tab")
         }
         .padding(.horizontal, StudioSpacing.editorChromeInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
@@ -152,7 +154,7 @@ private struct ProjectTabChip: View {
             Button(role: .destructive) {
                 editor.requestCloseProject(id: openProject.id)
             } label: {
-                Label("Close Project", systemImage: "xmark.circle")
+                Label("Close Project", systemImage: "xmark.circle.fill")
             }
         }
         .background {

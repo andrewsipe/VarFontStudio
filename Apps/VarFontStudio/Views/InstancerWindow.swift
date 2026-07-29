@@ -105,6 +105,11 @@ private struct InstancerWindowContent: View {
         } && !editor.instancer.isGenerateBusy
     }
 
+    /// Return should commit inline edits — not trigger Generate.
+    private var suppressGenerateShortcut: Bool {
+        session.editingRowID != nil || session.showComposer
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             summaryChrome
@@ -173,12 +178,22 @@ private struct InstancerWindowContent: View {
             .disabled(!canGenerateAll)
             .help(generateAllHelp)
 
-            Button("Generate This File…") {
-                Task { await presentGenerate() }
-            }
-            .keyboardShortcut(.defaultAction)
-            .disabled(!session.canGenerate || session.isGenerating || editor.instancer.isGenerateBusy)
-            .help(generateHelp)
+            generateThisFileButton
+        }
+    }
+
+    @ViewBuilder
+    private var generateThisFileButton: some View {
+        let button = Button("Generate This File…") {
+            Task { await presentGenerate() }
+        }
+        .disabled(!session.canGenerate || session.isGenerating || editor.instancer.isGenerateBusy)
+        .help(generateHelp)
+
+        if suppressGenerateShortcut {
+            button
+        } else {
+            button.keyboardShortcut(.defaultAction)
         }
     }
 
@@ -212,13 +227,12 @@ private struct InstancerWindowContent: View {
                     )
             }
             if session.fontID != nil, session.projectID != nil {
-                Button(fixStudioTitle) {
+                StudioPlainLinkButton(
+                    title: fixStudioTitle,
+                    help: fixStudioHelp
+                ) {
                     editor.instancer.focusStudioForNaming(session: session)
                 }
-                .font(StudioTypography.caption)
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
-                .help(fixStudioHelp)
             }
             Spacer(minLength: 0)
         }
@@ -282,26 +296,29 @@ private struct InstancerWindowContent: View {
             }
             .help("Close the custom instance row")
 
-            TextField("Name — e.g. SemiBold", text: $session.composerName)
-                .frame(minWidth: 160, idealWidth: 200, maxWidth: 240)
-                .textFieldStyle(.roundedBorder)
+            StudioTextField(
+                placeholder: "Name — e.g. SemiBold",
+                text: $session.composerName,
+                font: StudioTypography.bodyMedium,
+                rowHeight: StudioFieldMetrics.bodyMediumRowHeight
+            )
+            .frame(minWidth: 160, idealWidth: 200, maxWidth: 240)
 
             ForEach(session.axisTags, id: \.self) { tag in
                 HStack(spacing: StudioSpace.x1) {
                     Text(tag)
                         .font(StudioTypography.meta)
                         .foregroundStyle(.tertiary)
-                    TextField(
-                        tag == "wght" ? "required" : "0",
+                    StudioNumberField(
+                        placeholder: tag == "wght" ? "required" : "0",
                         value: Binding(
                             get: { session.composerCoords[tag] },
                             set: { session.composerCoords[tag] = $0 }
                         ),
-                        format: .number
+                        font: StudioTypography.monoMeta,
+                        rowHeight: StudioFieldMetrics.monoValueRowHeight
                     )
-                    .font(StudioTypography.monoMeta)
                     .frame(width: tag == "wght" ? 78 : 64)
-                    .textFieldStyle(.roundedBorder)
                 }
             }
 
@@ -383,46 +400,13 @@ private struct InstancerWindowContent: View {
     }
 
     private func filterBadge(_ kind: InstancerFilterKind, count: Int, tint: Color? = nil) -> some View {
-        let isolated = session.filterKind == kind && kind != .all
-        let dimmed = session.filterKind != .all && session.filterKind != kind
-        let accent = tint ?? Color.primary
-        return Button {
-            if session.filterKind == kind && kind != .all {
-                session.filterKind = .all
-            } else {
-                session.filterKind = kind
-            }
-        } label: {
-            HStack(spacing: 4) {
-                if kind == .custom || kind == .collision || kind == .attention {
-                    Text("◆")
-                        .font(.system(size: 8.5, weight: .bold))
-                        .foregroundStyle(accent)
-                }
-                Text("\(kind.title.uppercased()) \(count)")
-                    .font(.system(size: 8.5, weight: .bold))
-                    .tracking(0.3)
-            }
-            .foregroundStyle(dimmed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(accent))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(
-                isolated ? accent.opacity(0.16) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 3)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 3)
-                    .strokeBorder(
-                        isolated ? accent.opacity(0.45) : (dimmed ? Color.clear : Color.primary.opacity(0.12)),
-                        lineWidth: isolated ? 1 : 0.5
-                    )
-            }
-            .opacity(dimmed ? 0.45 : 1)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            statusOverride = hovering ? kind.hint : nil
-        }
+        InstancerFilterBadgeButton(
+            kind: kind,
+            count: count,
+            tint: tint,
+            session: session,
+            statusOverride: $statusOverride
+        )
     }
 
     private var fixStudioTitle: String {
@@ -503,25 +487,18 @@ private struct InstancerWindowContent: View {
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize()
-            TextField("Prefix", text: $session.psPrefix)
-                .font(StudioTypography.monoMeta)
-                .textFieldStyle(.plain)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .frame(width: 140, alignment: .leading)
-                .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
-                .overlay(
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
-                        .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
-                )
-                .disabled(!session.hasSource || session.isLoading)
+            StudioTextField(
+                placeholder: "Prefix",
+                text: $session.psPrefix,
+                font: StudioTypography.monoMeta,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight
+            )
+            .frame(width: 140, alignment: .leading)
+            .disabled(!session.hasSource || session.isLoading)
             if session.psPrefix != session.psInferred {
-                Button("Reset") {
+                StudioPlainLinkButton(title: "Reset") {
                     session.psPrefix = session.psInferred
                 }
-                .font(StudioTypography.caption)
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
             } else {
                 Text("from \(session.psSourceLabel)")
                     .font(StudioTypography.meta)
@@ -535,19 +512,12 @@ private struct InstancerWindowContent: View {
     private var headline: some View {
         HStack(spacing: StudioSpace.x3) {
             if session.hasSource, !session.isLoading, !session.isGenerating {
-                Button("Select All") {
+                StudioPlainLinkButton(title: "Select All", role: .secondary) {
                     session.visibleRows.forEach { session.selectedIDs.insert($0.id) }
                 }
-                .buttonStyle(.plain)
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-
-                Button("Deselect All") {
+                StudioPlainLinkButton(title: "Deselect All", role: .secondary) {
                     session.visibleRows.forEach { session.selectedIDs.remove($0.id) }
                 }
-                .buttonStyle(.plain)
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
             }
 
             Text(headlineText)
@@ -674,9 +644,10 @@ private struct InstancerWindowContent: View {
             }
             Text("Style")
                 .frame(width: InstancerLayout.styleColumnWidth, alignment: .leading)
+                .padding(.leading, InstancerLayout.textColumnLeadingGap)
             Text("Output")
                 .frame(width: columns.output, alignment: .leading)
-                .padding(.leading, InstancerLayout.outputLeadingGap)
+                .padding(.leading, InstancerLayout.textColumnLeadingGap)
             Color.clear
                 .frame(width: InstancerLayout.flagColumnWidth, height: 1)
         }
@@ -801,6 +772,7 @@ private struct InstancerRowView: View {
     @ObservedObject var session: InstancerSessionState
     let columns: InstancerLayout.ColumnWidths
     @EnvironmentObject private var editor: EditorViewModel
+    @State private var isHovered = false
 
     private var selected: Bool { session.selectedIDs.contains(row.id) }
     private var isActivelyGenerating: Bool { session.generatingRowID == row.id }
@@ -838,6 +810,7 @@ private struct InstancerRowView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .frame(width: InstancerLayout.styleColumnWidth, alignment: .leading)
+                .padding(.leading, InstancerLayout.textColumnLeadingGap)
 
             Text(InstancerNaming.outputFileName(psPrefix: session.psPrefix, row: row) ?? "—")
                 .font(StudioTypography.monoMeta)
@@ -845,7 +818,7 @@ private struct InstancerRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(width: columns.output, alignment: .leading)
-                .padding(.leading, InstancerLayout.outputLeadingGap)
+                .padding(.leading, InstancerLayout.textColumnLeadingGap)
                 .help(InstancerNaming.outputFileName(psPrefix: session.psPrefix, row: row) ?? "")
 
             flagCell
@@ -854,8 +827,13 @@ private struct InstancerRowView: View {
         .padding(.horizontal, InstancerLayout.horizontalPadding)
         .padding(.vertical, StudioSpace.x2)
         .background(rowBackground)
+        .overlay(alignment: .bottom) {
+            Divider()
+                .opacity(0.55)
+        }
         .opacity(session.isGenerating && !selected && !isActivelyGenerating ? 0.55 : 1)
         .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
         .onTapGesture {
             guard !session.isGenerating else { return }
             toggleSelection()
@@ -872,18 +850,19 @@ private struct InstancerRowView: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 5) {
                 if session.editingRowID == row.id {
-                    TextField(
-                        "Name",
+                    StudioTextField(
+                        placeholder: "Name",
                         text: Binding(
                             get: { row.nameOverride ?? InstancerNaming.resolvedName(for: row) ?? "" },
                             set: { newValue in
                                 session.updateRow(row.id) { $0.nameOverride = newValue }
                             }
                         ),
-                        onCommit: { session.editingRowID = nil }
+                        font: StudioTypography.bodyMedium,
+                        rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
+                        onSubmit: { session.editingRowID = nil },
+                        onCancel: { session.editingRowID = nil }
                     )
-                    .textFieldStyle(.roundedBorder)
-                    .font(StudioTypography.bodyMedium)
                 } else {
                     Text(InstancerNaming.resolvedName(for: row) ?? "—")
                         .font(StudioTypography.bodyMedium)
@@ -894,14 +873,12 @@ private struct InstancerRowView: View {
                             .fill(StudioColors.editedForeground)
                             .frame(width: 6, height: 6)
                     }
-                    Button {
+                    StudioToolbarIconButton(
+                        systemName: StudioSymbols.edit,
+                        help: "Edit instance name for this session"
+                    ) {
                         session.editingRowID = row.id
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             if let note = subtitle {
@@ -938,19 +915,17 @@ private struct InstancerRowView: View {
     private func coordCell(tag: String) -> some View {
         let value = row.coords[tag] ?? InstancerAxisDefaults.value(for: tag)
         if row.origin == .custom {
-            TextField(
-                "",
+            StudioBoundNumberField(
                 value: Binding(
                     get: { session.rows.first(where: { $0.id == row.id })?.coords[tag] ?? value },
                     set: { newValue in
                         session.updateRowCoords(row.id, tag: tag, value: newValue)
                     }
                 ),
-                format: .number
+                font: StudioTypography.monoMeta,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                alignment: .trailing
             )
-            .font(StudioTypography.monoMeta)
-            .multilineTextAlignment(.trailing)
-            .textFieldStyle(.roundedBorder)
         } else {
             Text(InstancerNaming.formatCoord(value))
                 .font(StudioTypography.monoMeta)
@@ -970,18 +945,14 @@ private struct InstancerRowView: View {
                         .foregroundStyle(StudioColors.customForeground)
                 }
                 Text("·").foregroundStyle(.tertiary)
-                Button("Remove") {
+                StudioPlainLinkButton(title: "Remove", font: StudioTypography.meta) {
                     session.rows.removeAll { $0.id == row.id }
                     session.selectedIDs.remove(row.id)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
             } else if overridden {
-                Button("Revert") {
+                StudioPlainLinkButton(title: "Revert", font: StudioTypography.meta) {
                     session.updateRow(row.id) { $0.nameOverride = nil }
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
             } else if let collision {
                 Text(collisionFlagLabel(collision))
                     .foregroundStyle(collision == .collision ? StudioColors.collisionForeground : StudioColors.errorForeground)
@@ -989,20 +960,16 @@ private struct InstancerRowView: View {
                 Text("✕ will fail")
                     .foregroundStyle(StudioColors.errorForeground)
                 Text("·").foregroundStyle(.tertiary)
-                Button("Fix in Studio") {
+                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta) {
                     editor.instancer.focusStudioForNaming(session: session)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
             } else if fallback {
                 Text("⚠ fallback")
                     .foregroundStyle(StudioColors.warningForeground)
                 Text("·").foregroundStyle(.tertiary)
-                Button("Fix in Studio") {
+                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta) {
                     editor.instancer.focusStudioForNaming(session: session)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
             }
         }
         .font(StudioTypography.meta)
@@ -1025,6 +992,16 @@ private struct InstancerRowView: View {
             return nil
         }()
         return ZStack(alignment: .leading) {
+            // Full-bleed table chrome — not rounded, so hover/selection reads as a grid row.
+            if isActivelyGenerating {
+                Rectangle().fill(Color.accentColor.opacity(0.12))
+            } else if selected {
+                Rectangle().fill(StudioColors.selectionFill)
+            }
+            // Hover sits on top of selection too — most rows start selected, so suppress would hide it.
+            if isHovered {
+                Rectangle().fill(Color.primary.opacity(selected || isActivelyGenerating ? 0.08 : 0.06))
+            }
             if let tint {
                 LinearGradient(
                     colors: [tint.opacity(0.14), .clear],
@@ -1032,11 +1009,65 @@ private struct InstancerRowView: View {
                     endPoint: UnitPoint(x: 0.4, y: 0.5)
                 )
             }
-            if isActivelyGenerating {
-                Color.accentColor.opacity(0.16)
-            } else if selected {
-                StudioColors.selectionFill
+        }
+    }
+}
+
+private struct InstancerFilterBadgeButton: View {
+    let kind: InstancerFilterKind
+    let count: Int
+    var tint: Color?
+    @ObservedObject var session: InstancerSessionState
+    @Binding var statusOverride: String?
+    @State private var isHovered = false
+
+    var body: some View {
+        let isolated = session.filterKind == kind && kind != .all
+        let dimmed = session.filterKind != .all && session.filterKind != kind
+        let accent = tint ?? Color.primary
+        Button {
+            if session.filterKind == kind && kind != .all {
+                session.filterKind = .all
+            } else {
+                session.filterKind = kind
             }
+        } label: {
+            HStack(spacing: 4) {
+                if kind == .custom || kind == .collision || kind == .attention {
+                    Text("◆")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .foregroundStyle(accent)
+                }
+                Text("\(kind.title.uppercased()) \(count)")
+                    .font(.system(size: 8.5, weight: .bold))
+                    .tracking(0.3)
+            }
+            .foregroundStyle(dimmed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(accent))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background {
+                ZStack {
+                    if isolated {
+                        RoundedRectangle(cornerRadius: 3).fill(accent.opacity(0.16))
+                    }
+                    if isHovered, !isolated {
+                        RoundedRectangle(cornerRadius: 3).fill(StudioColors.hoverFill)
+                    }
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(
+                        isolated ? accent.opacity(0.45) : (dimmed ? Color.clear : Color.primary.opacity(0.12)),
+                        lineWidth: isolated ? 1 : 0.5
+                    )
+            }
+            .opacity(dimmed ? 0.45 : 1)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+            statusOverride = hovering ? kind.hint : nil
         }
     }
 }
