@@ -100,6 +100,7 @@ struct FontPreviewPanel: View {
             }
             .frame(minHeight: Self.minCanvasHeight, maxHeight: .infinity)
             .clipped()
+            .environment(\.colorScheme, .light)
 
             statusBar
         }
@@ -145,18 +146,18 @@ struct FontPreviewPanel: View {
                 } label: {
                     Image(systemName: option.systemImage)
                         .font(StudioTypography.meta)
-                        .foregroundStyle(alignment == option ? Color.accentColor : .secondary)
+                        .foregroundStyle(alignment == option ? StudioColors.brand : .secondary)
                         .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.tabChipRowHeight)
                         .background {
                             RoundedRectangle(cornerRadius: StudioRadius.small)
-                                .fill(alignment == option ? Color.accentColor.opacity(0.12) : Color.clear)
+                                .fill(alignment == option ? StudioColors.brand.opacity(0.12) : Color.clear)
                         }
                         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
                 }
                 .buttonStyle(.plain)
                 .studioHoverIcon(
                     isEnabled: alignment != option,
-                    tint: alignment == option ? Color.accentColor : nil
+                    tint: alignment == option ? StudioColors.brand : nil
                 )
                 .help(option.help)
             }
@@ -170,7 +171,7 @@ struct FontPreviewPanel: View {
             if let nsFont = previewFont {
                 Text(sampleText.isEmpty ? " " : sampleText)
                     .font(Font(nsFont))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(StudioColors.canvasForeground)
                     .multilineTextAlignment(alignment.textAlignment)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: true)
@@ -178,7 +179,7 @@ struct FontPreviewPanel: View {
             } else {
                 Text(unavailableMessage)
                     .font(StudioTypography.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(StudioColors.canvasTertiary)
             }
         }
         .padding(.horizontal, StudioSpacing.previewInset)
@@ -190,20 +191,24 @@ struct FontPreviewPanel: View {
             if let instance = editor.previewActiveInstance {
                 Text(instance.composedName)
                     .font(StudioTypography.caption)
-                    .foregroundStyle(editor.isPreviewHoverPeeking ? Color.secondary : .primary)
+                    .foregroundStyle(
+                        editor.isPreviewHoverPeeking
+                            ? StudioColors.canvasSecondary
+                            : StudioColors.canvasForeground
+                    )
                     .lineLimit(1)
 
                 Text("·")
-                    .foregroundStyle(.quaternary)
+                    .foregroundStyle(StudioColors.canvasQuaternary)
 
                 Text(coordsCaption(for: instance))
                     .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StudioColors.canvasSecondary)
                     .lineLimit(1)
             } else {
                 Text("Select an instance to preview")
                     .font(StudioTypography.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(StudioColors.canvasTertiary)
             }
 
             Spacer(minLength: 0)
@@ -217,14 +222,14 @@ struct FontPreviewPanel: View {
                     Capsule()
                         .strokeBorder(
                             editor.isPreviewHoverPeeking
-                                ? Color.secondary.opacity(0.35)
-                                : Color.secondary.opacity(0.22),
+                                ? StudioColors.canvasTertiary
+                                : StudioColors.canvasDivider,
                             lineWidth: StudioStroke.regular
                         )
                         .background(
                             Capsule().fill(
                                 editor.isPreviewHoverPeeking
-                                    ? StudioColors.surfaceLight
+                                    ? StudioColors.canvasHoverFill
                                     : Color.clear
                             )
                         )
@@ -232,14 +237,13 @@ struct FontPreviewPanel: View {
         }
         .padding(.horizontal, StudioSpacing.previewInset)
         .padding(.vertical, StudioSpacing.panelVertical)
-        .background(Self.canvasColor.opacity(0.92))
+        .background(StudioColors.canvasPhaseHeader)
     }
 
-    private var statusPillForeground: some ShapeStyle {
-        if editor.isPreviewHoverPeeking {
-            return AnyShapeStyle(.secondary)
-        }
-        return AnyShapeStyle(.tertiary)
+    private var statusPillForeground: Color {
+        editor.isPreviewHoverPeeking
+            ? StudioColors.canvasSecondary
+            : StudioColors.canvasTertiary
     }
 
     private var previewFont: NSFont? {

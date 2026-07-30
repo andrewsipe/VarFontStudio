@@ -51,6 +51,12 @@ check "no showsSelectionStroke" \
 check "no Color(red: literals outside StudioDesign" \
   rg -q 'Color\(red:' Views --glob '!StudioDesign.swift'
 
+check "no preferredColorScheme outside app root" \
+  rg -q 'preferredColorScheme' Views
+
+check "no raw accentColor outside StudioDesign" \
+  rg -q 'Color\.accentColor' Views --glob '!StudioDesign.swift'
+
 check "no raw .font(.system outside allowlist" \
   rg -q '\.font\(\.system' Views "${ALLOW_FONTS[@]}"
 

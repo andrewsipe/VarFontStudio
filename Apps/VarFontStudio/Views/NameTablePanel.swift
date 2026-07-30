@@ -195,7 +195,7 @@ struct NameTablePanel: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .studioHoverIcon(tint: Color.accentColor)
+                    .studioHoverIcon(tint: StudioColors.brand)
                     .help("Fill from font · \(suggestion.source)\n→ \(suggestion.value)")
                 }
             }

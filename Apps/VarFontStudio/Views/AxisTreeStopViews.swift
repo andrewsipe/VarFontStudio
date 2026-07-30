@@ -75,7 +75,7 @@ struct AxisStopTableHeader: View {
             Image(systemName: valueSortSymbol)
                 .font(StudioTypography.iconGlyph)
         }
-        .foregroundStyle(valueSortAscending == nil ? Color.secondary.opacity(0.7) : Color.accentColor.opacity(0.85))
+        .foregroundStyle(valueSortAscending == nil ? Color.secondary : StudioColors.brand)
         .contentShape(Rectangle())
         .help(valueSortHelp)
 
@@ -83,8 +83,7 @@ struct AxisStopTableHeader: View {
             Button(action: onToggleValueSort) {
                 label
             }
-            .buttonStyle(.plain)
-            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+            .buttonStyle(StudioLinkButtonStyle(linkStyle: .accent))
         } else {
             label
         }

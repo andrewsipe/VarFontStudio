@@ -245,19 +245,114 @@ enum StudioRowSelectionStyle {
     case fillAndStroke
 }
 
+enum StudioInteractionState {
+    case idle
+    case hovered
+    case pressed
+}
+
+/// Single opacity contract for brand/semantic foreground hovers and presses.
+enum StudioInteractionRule {
+    static func resolve(base: Color, state: StudioInteractionState) -> Color {
+        switch state {
+        case .idle: return base
+        case .hovered: return base.opacity(0.85)
+        case .pressed: return base.opacity(0.7)
+        }
+    }
+}
+
+extension StudioInteractionState {
+    static func from(isPressed: Bool, isHovered: Bool) -> StudioInteractionState {
+        if isPressed { return .pressed }
+        if isHovered { return .hovered }
+        return .idle
+    }
+}
+
+private enum StudioLinkForeground {
+    static func resolve(style: StudioHoverLinkStyle, state: StudioInteractionState) -> Color {
+        switch style {
+        case .accent:
+            return StudioInteractionRule.resolve(base: StudioColors.brand, state: state)
+        case .secondary:
+            switch state {
+            case .idle: return .secondary
+            case .hovered, .pressed: return .primary
+            }
+        case .primary:
+            switch state {
+            case .idle: return .primary
+            case .hovered, .pressed:
+                return StudioInteractionRule.resolve(base: .primary, state: state)
+            }
+        }
+    }
+}
+
+private enum StudioIconForeground {
+    static func resolve(tint: Color?, state: StudioInteractionState) -> Color {
+        if let tint {
+            return StudioInteractionRule.resolve(base: tint, state: state)
+        }
+        switch state {
+        case .idle: return .secondary
+        case .hovered, .pressed: return .primary
+        }
+    }
+}
+
+private enum StudioReadableOrange {
+    /// System orange on dark surfaces; darker amber on light for WCAG contrast on white/gray.
+    static let foreground = Color(
+        nsColor: NSColor(name: NSColor.Name("StudioReadableOrange"), dynamicProvider: { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if isDark {
+                return NSColor.systemOrange
+            }
+            return NSColor(calibratedHue: 0.07, saturation: 0.78, brightness: 0.42, alpha: 1.0)
+        })
+    )
+}
+
+/// `Color.primary` washes — slightly stronger in light mode for perceptual parity with dark.
+private enum StudioPrimaryWash {
+    static func make(name: String, light: CGFloat, dark: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: NSColor.Name("Studio.PrimaryWash.\(name)"), dynamicProvider: { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor.labelColor.withAlphaComponent(isDark ? dark : light)
+        }))
+    }
+}
+
 enum StudioColors {
-    /// Neutral axis/key tags — accent is reserved for selection and interaction.
+    /// Tier 1 — fixed brand for interactive/selected chrome (not system accent).
+    static let brand = Color.blue
+    /// AppKit bridge for caret/selection styling in `StudioTextField`.
+    static var brandNSColor: NSColor { NSColor(brand) }
+
+    /// Neutral axis/key tags — brand is reserved for selection and interaction.
     static let tagForeground = Color.secondary
     static let tagBackground = Color.secondary.opacity(0.12)
-    static let axisValue = Color.orange.opacity(0.85)
-    static let selectionFill = Color.accentColor.opacity(0.10)
-    static let selectionStroke = Color.accentColor.opacity(0.20)
+    /// Axis numeric values — readable on light panels and white canvas.
+    static let axisValue = StudioReadableOrange.foreground
+    static let selectionFill = brand.opacity(0.10)
+    static let selectionStroke = brand.opacity(0.20)
     /// Neutral (non-accent) selection / hover-over-selection fills — not for borders.
-    static let selectionNeutralFill = Color.primary.opacity(0.08)
-    static let selectionNeutralFillStrong = Color.primary.opacity(0.12)
-    static let hoverFill = Color.primary.opacity(0.05)
-    /// Shared near-black canvas for glyph preview / Save Review / Instancer.
-    static let canvasBackground = Color(red: 0.11, green: 0.11, blue: 0.118)
+    static let selectionNeutralFill = StudioPrimaryWash.make(name: "selectionNeutralFill", light: 0.11, dark: 0.08)
+    static let selectionNeutralFillStrong = StudioPrimaryWash.make(name: "selectionNeutralFillStrong", light: 0.15, dark: 0.12)
+    static let hoverFill = StudioPrimaryWash.make(name: "hoverFill", light: 0.08, dark: 0.05)
+    /// Fixed paper-white glyph preview — font preview panel only (not Review/Instancer tables).
+    static let canvasBackground = Color.white
+    /// Ink on the font preview canvas — always black regardless of system appearance.
+    static let canvasForeground = Color.black
+    static let canvasSecondary = Color.black.opacity(0.55)
+    static let canvasTertiary = Color.black.opacity(0.38)
+    static let canvasQuaternary = Color.black.opacity(0.22)
+    static let canvasDivider = Color.black.opacity(0.10)
+    /// Status strip on the font preview panel.
+    static let canvasPhaseHeader = Color(white: 0.96)
+    static let canvasHoverFill = brand.opacity(0.08)
     static let warningFill = Color.orange.opacity(0.12)
     static let warningFillHover = Color.orange.opacity(0.18)
     static let warningForeground = Color.orange
@@ -267,63 +362,63 @@ enum StudioColors {
     static let errorForeground = Color.red
     static let errorStroke = Color.red.opacity(0.5)
     /// Instancer — name-only collision (distinct from amber fallback / red severe).
-    static let collisionForeground = Color(red: 0.90, green: 0.31, blue: 0.76) // #e64ec2
+    static let collisionForeground = Color.pink
     static let collisionFill = collisionForeground.opacity(0.16)
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Instancer — user-added custom instance.
-    static let customForeground = Color(red: 0.18, green: 0.83, blue: 0.75) // #2dd4bf
+    static let customForeground = Color.teal
     static let customFill = customForeground.opacity(0.16)
-    /// Instancer / name overrides — edited-from-default cyan.
-    static let editedForeground = Color(red: 0.39, green: 0.82, blue: 1.0) // #64d2ff
+    /// Instancer / name overrides — edited-from-default.
+    static let editedForeground = Color.cyan
     /// Save Review diff semantics.
-    static let diffRemoved = Color(red: 0.97, green: 0.44, blue: 0.44)
-    static let diffAdded = Color(red: 0.29, green: 0.87, blue: 0.50)
-    static let diffReflowed = Color(red: 0.65, green: 0.55, blue: 0.98)
-    static let diffProtected = Color(red: 0.38, green: 0.65, blue: 0.98)
-    /// Neutral panel surfaces.
-    static let surfaceSubtle = Color.primary.opacity(0.03)
-    static let surfaceMuted = Color.primary.opacity(0.04)
-    static let surfaceLight = Color.primary.opacity(0.05)
-    static let surfaceInset = Color.primary.opacity(0.06)
+    static let diffRemoved = Color.red
+    static let diffAdded = Color.green
+    static let diffReflowed = Color.purple
+    static let diffProtected = Color.blue
+    /// Renamed/changed rows — readable orange, distinct from warning banners.
+    static let diffRenamed = StudioReadableOrange.foreground
+    /// Neutral panel surfaces — light-mode opacities bumped for clearer hierarchy on pale chrome.
+    static let surfaceSubtle = StudioPrimaryWash.make(name: "surfaceSubtle", light: 0.055, dark: 0.03)
+    static let surfaceMuted = StudioPrimaryWash.make(name: "surfaceMuted", light: 0.07, dark: 0.04)
+    static let surfaceLight = StudioPrimaryWash.make(name: "surfaceLight", light: 0.08, dark: 0.05)
+    static let surfaceInset = StudioPrimaryWash.make(name: "surfaceInset", light: 0.09, dark: 0.06)
     /// Flat editable field fills — idle always present; focused is a stronger wash (no strokes).
-    static let fieldFill = Color.primary.opacity(0.06)
-    static let fieldFillFocused = Color.primary.opacity(0.12)
-    static let surfaceStroke = Color.primary.opacity(0.08)
-    static let surfaceStrokeStrong = Color.primary.opacity(0.10)
+    static let fieldFill = StudioPrimaryWash.make(name: "fieldFill", light: 0.09, dark: 0.06)
+    static let fieldFillFocused = StudioPrimaryWash.make(name: "fieldFillFocused", light: 0.16, dark: 0.12)
+    static let surfaceStroke = StudioPrimaryWash.make(name: "surfaceStroke", light: 0.11, dark: 0.08)
+    static let surfaceStrokeStrong = StudioPrimaryWash.make(name: "surfaceStrokeStrong", light: 0.13, dark: 0.10)
     /// Disabled-selected chip stroke (stronger than `surfaceStroke`).
-    static let surfaceStrokeEmphasized = Color.primary.opacity(0.18)
+    static let surfaceStrokeEmphasized = StudioPrimaryWash.make(name: "surfaceStrokeEmphasized", light: 0.22, dark: 0.18)
     /// Softened primary for idle-but-enabled label text.
-    static let primaryMuted = Color.primary.opacity(0.85)
+    static let primaryMuted = StudioPrimaryWash.make(name: "primaryMuted", light: 0.88, dark: 0.85)
     /// Flat secondary action fill (Cancel, Generate All…, Add Instance…).
-    static let buttonSecondaryFill = Color.primary.opacity(0.12)
-    static let buttonSecondaryFillDisabled = Color.primary.opacity(0.05)
-    /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
-    static let computedHighlight = Color.accentColor
+    static let buttonSecondaryFill = StudioPrimaryWash.make(name: "buttonSecondaryFill", light: 0.15, dark: 0.12)
+    static let buttonSecondaryFillDisabled = StudioPrimaryWash.make(name: "buttonSecondaryFillDisabled", light: 0.07, dark: 0.05)
+    /// App-computed totals (grid counts, group sizes) — brand, not axis-value orange.
+    static let computedHighlight = brand
     /// STAT elided fallback — name when all elidable segments drop (naming footer, instance list).
-    static let elidedFallbackForeground = Color.accentColor
-    /// Registration / design-record axes — file identity (indigo; absorbed clarifier language).
-    static let registrationForeground = Color(red: 0.55, green: 0.45, blue: 0.95)
-    static let registrationBackground = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.14)
-    static let registrationStroke = Color(red: 0.55, green: 0.45, blue: 0.95).opacity(0.35)
+    static let elidedFallbackForeground = brand
+    /// Registration / design-record axes — file identity (indigo).
+    static let registrationForeground = Color.indigo
+    static let registrationBackground = Color.indigo.opacity(0.14)
+    static let registrationStroke = Color.indigo.opacity(0.35)
     /// Legacy clarifier alias — same indigo as registration.
     static let clarifierForeground = registrationForeground
     static let clarifierBackground = registrationBackground
     static let clarifierStroke = registrationStroke
-    /// Classification code chip — amber, distinct from registration indigo.
-    static let codeForeground = Color(red: 0.78, green: 0.52, blue: 0.18)
-    static let codeBackground = Color(red: 0.78, green: 0.52, blue: 0.18).opacity(0.14)
-    static let codeStroke = Color(red: 0.78, green: 0.52, blue: 0.18).opacity(0.40)
+    /// Classification code chip — brown, distinct from registration indigo.
+    static let codeForeground = Color.brown
+    static let codeBackground = Color.brown.opacity(0.14)
+    static let codeStroke = Color.brown.opacity(0.40)
     /// STAT format badges in the axis tree format grid.
     static let statFormat1 = Color.green
     static let statFormat2 = Color.cyan
-    static let statFormat3 = Color.accentColor
+    static let statFormat3 = brand
     /// Drop zone half fills — 5% tint over the target region during drag.
     static let dropZoneFillOpacity: CGFloat = 0.05
     static let dropZoneAddFill = registrationForeground.opacity(dropZoneFillOpacity)
     static let dropZoneNewFill = Color.green.opacity(dropZoneFillOpacity)
     /// Drop zone borders when the cursor is over a half.
-    /// Teal (not accentColor) — accentColor is already the app-wide selection
-    /// color, so reusing it here would read as "selected" rather than "drop target."
     static let dropAddExisting = registrationForeground
     static let dropNewProject = Color.green
 }
@@ -454,7 +549,7 @@ struct StudioClarifierPill: View {
             if let showCategory {
                 Text(showCategory)
                     .font(StudioTypography.meta)
-                    .foregroundStyle(StudioColors.clarifierForeground.opacity(0.85))
+                    .foregroundStyle(StudioColors.clarifierForeground)
             }
             Text(label)
                 .font(compact ? StudioTypography.caption : StudioTypography.bodyMedium)
@@ -480,7 +575,7 @@ enum StudioDiffPillStyle {
         switch self {
         case .removed: StudioColors.diffRemoved
         case .added: StudioColors.diffAdded
-        case .changed: StudioColors.warningForeground
+        case .changed: StudioColors.diffRenamed
         case .reflowed: StudioColors.diffReflowed
         case .unchanged: .secondary
         case .protected: StudioColors.diffProtected
@@ -596,7 +691,7 @@ struct StudioElidableRadio: View {
                 .frame(width: 14, height: 14)
             if isOn {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(StudioColors.brand)
                     .frame(width: 8, height: 8)
             }
         }
@@ -810,10 +905,8 @@ enum SaveReviewLayout {
     static let gutterLeadingPadding: CGFloat = StudioSpacing.panelHorizontal
     static let gutterTrailingPadding: CGFloat = StudioSpacing.panelHorizontal
 
-    /// Prototype `--bg` / row canvas — opaque so sticky headers don't show scroll-through.
-    static let canvasBackground = StudioColors.canvasBackground
-    /// Prototype `.phase` band — opaque sticky header fill.
-    static let phaseHeaderBackground = Color(red: 0.133, green: 0.133, blue: 0.141)
+    /// Sticky section band in the diff table — matches neutral chrome elsewhere.
+    static let phaseHeaderBackground = StudioColors.surfaceMuted
 }
 
 /// Spacing tokens for the Instancer window — shares Review density where chrome matches.
@@ -825,7 +918,6 @@ enum InstancerLayout {
     static let toolRowVerticalPadding: CGFloat = SaveReviewLayout.toolRowVerticalPadding
     static let statusBarHeight: CGFloat = StudioSpace.x7 // 28
     static let searchFieldWidth: CGFloat = 180
-    static let canvasBackground = SaveReviewLayout.canvasBackground
 
     /// Checkbox / progress column.
     static let selectColumnWidth: CGFloat = StudioIncludeCheckbox.hitSize
@@ -1118,7 +1210,6 @@ struct StudioStreamlinedDiffRow: View {
         }
         .padding(.vertical, SaveReviewLayout.rowVerticalPadding)
         .padding(.trailing, SaveReviewLayout.horizontalPadding)
-        .background(SaveReviewLayout.canvasBackground)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(StudioColors.surfaceStroke)
@@ -1137,7 +1228,7 @@ struct StudioStreamlinedDiffRow: View {
 
     private var gutterColor: Color {
         if row.category == .same {
-            return Color.primary.opacity(0.12)
+            return StudioColors.surfaceStroke
         }
         return row.category.pillStyle.foreground
     }
@@ -1295,7 +1386,9 @@ struct StudioIncludeCheckbox: View {
             ZStack {
                 RoundedRectangle(cornerRadius: StudioRadius.small)
                     .strokeBorder(
-                        Color.secondary.opacity(isOn || isIndeterminate ? 0.55 : 0.35),
+                        isOn || isIndeterminate
+                            ? StudioColors.brand.opacity(0.55)
+                            : Color.secondary.opacity(0.35),
                         lineWidth: StudioStroke.regular
                     )
                     .frame(width: Self.size, height: Self.size)
@@ -1306,7 +1399,7 @@ struct StudioIncludeCheckbox: View {
                 } else if isOn {
                     Image(systemName: "checkmark")
                         .font(StudioTypography.iconGlyph.weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StudioColors.brand)
                 }
             }
             .frame(width: Self.hitSize, height: Self.hitSize)
@@ -1409,6 +1502,125 @@ enum StudioFieldFocus {
     }
 }
 
+/// Routes caret + selection highlight through `StudioColors.brand` instead of system accent.
+private struct StudioTextInputAccentModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .tint(StudioColors.brand)
+            .background {
+                StudioTextInputAccentConfigurator()
+                    .frame(width: 0, height: 0)
+            }
+    }
+}
+
+private struct StudioTextInputAccentConfigurator: NSViewRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> StudioTextInputAccentView {
+        let view = StudioTextInputAccentView()
+        view.coordinator = context.coordinator
+        context.coordinator.hostView = view
+        context.coordinator.startObserving()
+        return view
+    }
+
+    func updateNSView(_ nsView: StudioTextInputAccentView, context: Context) {
+        nsView.applyAccent()
+    }
+
+    final class Coordinator {
+        weak var hostView: StudioTextInputAccentView?
+        private var observers: [NSObjectProtocol] = []
+
+        func startObserving() {
+            guard observers.isEmpty else { return }
+            let center = NotificationCenter.default
+            observers.append(
+                center.addObserver(
+                    forName: NSControl.textDidBeginEditingNotification,
+                    object: nil,
+                    queue: .main
+                ) { [weak self] _ in
+                    self?.hostView?.applyAccent()
+                }
+            )
+            observers.append(
+                center.addObserver(
+                    forName: NSControl.textDidEndEditingNotification,
+                    object: nil,
+                    queue: .main
+                ) { [weak self] _ in
+                    self?.hostView?.applyAccent()
+                }
+            )
+        }
+
+        deinit {
+            for observer in observers {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+}
+
+private final class StudioTextInputAccentView: NSView {
+    weak var coordinator: StudioTextInputAccentConfigurator.Coordinator?
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyAccent()
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        applyAccent()
+    }
+
+    func applyAccent() {
+        guard let field = findNearestTextField() else { return }
+        let brand = StudioColors.brandNSColor
+        if let editor = field.currentEditor() as? NSTextView {
+            editor.insertionPointColor = brand
+            editor.selectedTextAttributes = [
+                .backgroundColor: brand.withAlphaComponent(0.28),
+                .foregroundColor: editor.textColor ?? .textColor,
+            ]
+        }
+    }
+
+    private func findNearestTextField() -> NSTextField? {
+        var view: NSView? = superview
+        while let current = view {
+            if let field = findTextField(in: current) {
+                return field
+            }
+            view = current.superview
+        }
+        return nil
+    }
+
+    private func findTextField(in root: NSView) -> NSTextField? {
+        if let field = root as? NSTextField, field.isEditable || field.isSelectable {
+            return field
+        }
+        for subview in root.subviews {
+            if let field = findTextField(in: subview) {
+                return field
+            }
+        }
+        return nil
+    }
+}
+
+extension View {
+    /// Fixed brand tint for switches, links, and controls that would otherwise follow system accent.
+    func studioBrandTint() -> some View {
+        tint(StudioColors.brand)
+    }
+}
+
 /// Compact text field — fixed row height, flat fill, darker when focused, no stroke / focus ring.
 struct StudioTextField: View {
     let placeholder: String
@@ -1453,6 +1665,7 @@ struct StudioTextField: View {
             }
             .focused(activeFocus)
             .modifier(StudioFocusRingSuppression())
+            .modifier(StudioTextInputAccentModifier())
             .studioInteractiveCursor()
             .onSubmit { handleSubmit() }
             .onExitCommand { handleCancel() }
@@ -1521,6 +1734,7 @@ struct StudioWrappingTextField: View {
                 .fill(StudioColors.fieldFillFocused)
         }
         .modifier(StudioFocusRingSuppression())
+        .modifier(StudioTextInputAccentModifier())
         .focused($focused)
         .onAppear { focused = true }
         .onSubmit { onSubmit?() }
@@ -1562,7 +1776,7 @@ struct StudioSearchField: View {
             )
 
             if !text.isEmpty {
-                StudioDismissButton(scale: .chip, style: .fill, foreground: .tertiary) {
+                StudioDismissButton(scale: .chip, style: .fill) {
                     text = ""
                 }
             }
@@ -1607,6 +1821,7 @@ struct StudioNumberField: View {
         }
         .focused($isFocused)
         .modifier(StudioFocusRingSuppression())
+        .modifier(StudioTextInputAccentModifier())
         .onSubmit {
             onSubmit?()
             isFocused = false
@@ -1638,6 +1853,7 @@ struct StudioBoundNumberField: View {
             }
             .focused($isFocused)
             .modifier(StudioFocusRingSuppression())
+            .modifier(StudioTextInputAccentModifier())
             .onSubmit {
                 onSubmit?()
                 isFocused = false
@@ -1668,6 +1884,7 @@ struct StudioInlineTextField: View {
             .multilineTextAlignment(alignment)
             .studioInlineEditField(isActive: true, isFocused: isFocused, rowHeight: rowHeight)
             .modifier(StudioFocusRingSuppression())
+            .modifier(StudioTextInputAccentModifier())
             .focused($isFocused)
             .studioInteractiveCursor()
             .onSubmit { handleSubmit() }
@@ -1865,8 +2082,6 @@ struct StudioDismissButton: View {
     var scale: StudioChromeScale = .toolbar
     var style: Style = .fill
     var help: String = ""
-    /// Hierarchical rendering level (`.secondary` for chrome, `.tertiary` for quiet in-row remove).
-    var foreground: HierarchicalShapeStyle = .secondary
     let action: () -> Void
 
     var body: some View {
@@ -1877,8 +2092,7 @@ struct StudioDismissButton: View {
                 .frame(width: scale.hitSize, height: scale.hitSize)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .studioHoverIcon()
+        .buttonStyle(StudioIconButtonStyle())
         .help(help)
     }
 }
@@ -1921,7 +2135,7 @@ struct StudioRadioMark: View {
                 .frame(width: 14, height: 14)
             if isOn {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(StudioColors.brand)
                     .frame(width: 8, height: 8)
             }
         }
@@ -1998,8 +2212,7 @@ struct StudioToolbarIconButton: View {
                 )
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .studioHoverIcon()
+        .buttonStyle(StudioIconButtonStyle())
         .studioInteractiveCursor()
         .help(help)
     }
@@ -2126,17 +2339,13 @@ private struct StudioHoverLinkModifier: ViewModifier {
             }
     }
 
-    private var active: Bool { isEnabled && isHovered }
+    private var interactionState: StudioInteractionState {
+        guard isEnabled else { return .idle }
+        return isHovered ? .hovered : .idle
+    }
 
     private var resolvedForeground: Color {
-        switch style {
-        case .accent:
-            return active ? Color.accentColor : Color.accentColor.opacity(0.78)
-        case .secondary:
-            return active ? Color.primary : Color.secondary
-        case .primary:
-            return active ? Color.primary : Color.primary.opacity(0.82)
-        }
+        StudioLinkForeground.resolve(style: style, state: interactionState)
     }
 }
 
@@ -2160,13 +2369,12 @@ private struct StudioHoverIconModifier: ViewModifier {
         }
     }
 
-    private var active: Bool { isHovered }
+    private var interactionState: StudioInteractionState {
+        isHovered ? .hovered : .idle
+    }
 
     private var resolvedForeground: Color {
-        if let tint {
-            return active ? tint : tint.opacity(0.72)
-        }
-        return active ? Color.primary : Color.secondary
+        StudioIconForeground.resolve(tint: tint, state: interactionState)
     }
 }
 
@@ -2739,7 +2947,7 @@ struct StudioMenuPicker<Value: Hashable>: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 4)
-                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                        .background(StudioColors.brand, in: RoundedRectangle(cornerRadius: StudioRadius.small))
                 }
                 .padding(.leading, StudioSpacing.panelHorizontal)
                 .padding(.trailing, StudioSpace.x1)
@@ -2785,72 +2993,41 @@ struct StudioFlatButton: View {
     var help: String = ""
     let action: () -> Void
 
-    @State private var isHovered = false
-
     var body: some View {
         Button(action: action) {
-            label
-                .frame(
-                    maxWidth: expands || size == .row ? .infinity : nil,
-                    minHeight: size == .row ? StudioFieldMetrics.listRowMinHeight : nil
-                )
-                .padding(.horizontal, horizontalPadding)
-                .padding(.vertical, verticalPadding)
-                .background(fill, in: RoundedRectangle(cornerRadius: StudioRadius.control))
-                .overlay {
-                    if isEnabled, isHovered {
-                        RoundedRectangle(cornerRadius: StudioRadius.control)
-                            .fill(Color.primary.opacity(roleIsPrimary ? 0.10 : 0.06))
-                    }
+            Group {
+                if let systemImage {
+                    Label(title, systemImage: systemImage)
+                        .labelStyle(.titleAndIcon)
+                } else {
+                    Text(title)
                 }
-                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.control))
+            }
+            .font(StudioFlatButtonChrome.font(size: size))
+            .lineLimit(1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StudioFlatButtonStyle(role: role, size: size, expands: expands))
         .disabled(!isEnabled)
-        .onHover { hovering in
-            isHovered = isEnabled && hovering
-        }
         .modifier(StudioDefaultActionModifier(isEnabled: isDefaultAction))
         .studioInteractiveCursor()
         .help(help)
     }
+}
 
-    @ViewBuilder
-    private var label: some View {
-        Group {
-            if let systemImage {
-                Label(title, systemImage: systemImage)
-                    .labelStyle(.titleAndIcon)
-            } else {
-                Text(title)
-            }
-        }
-        .font(font)
-        .foregroundStyle(foreground)
-        .lineLimit(1)
-    }
-
-    private var roleIsPrimary: Bool {
-        if case .primary = role { return true }
-        return false
-    }
-
-    private var font: Font {
+/// Fill-based button chrome — hover/press use overlay washes, not foreground dimming.
+private enum StudioFlatButtonChrome {
+    static func font(size: StudioFlatButton.Size) -> Font {
         switch size {
         case .regular, .row: StudioTypography.caption
         case .compact: StudioTypography.meta
         }
     }
 
-    private var horizontalPadding: CGFloat {
-        switch size {
-        case .regular: StudioSpacing.panelHorizontal
-        case .compact: StudioSpacing.panelHorizontal
-        case .row: StudioSpacing.panelHorizontal
-        }
+    static func horizontalPadding(size: StudioFlatButton.Size) -> CGFloat {
+        StudioSpacing.panelHorizontal
     }
 
-    private var verticalPadding: CGFloat {
+    static func verticalPadding(size: StudioFlatButton.Size) -> CGFloat {
         switch size {
         case .regular: StudioSpacing.tightGap + StudioSpace.x0_5
         case .compact: StudioSpacing.tightGap
@@ -2858,7 +3035,12 @@ struct StudioFlatButton: View {
         }
     }
 
-    private var foreground: Color {
+    static func roleIsPrimary(_ role: StudioFlatButton.Role) -> Bool {
+        if case .primary = role { return true }
+        return false
+    }
+
+    static func foreground(role: StudioFlatButton.Role, isEnabled: Bool) -> Color {
         guard isEnabled else {
             switch role {
             case .primary: return Color.primary.opacity(0.35)
@@ -2873,18 +3055,139 @@ struct StudioFlatButton: View {
         }
     }
 
-    private var fill: Color {
+    static func fill(role: StudioFlatButton.Role, isEnabled: Bool) -> Color {
         guard isEnabled else {
             switch role {
-            case .primary: return Color.accentColor.opacity(0.22)
+            case .primary: return StudioColors.brand.opacity(0.22)
             case .secondary: return StudioColors.buttonSecondaryFillDisabled
             case .tinted(_, let background): return background.opacity(0.45)
             }
         }
         switch role {
-        case .primary: return Color.accentColor
+        case .primary: return StudioColors.brand
         case .secondary: return StudioColors.buttonSecondaryFill
         case .tinted(_, let background): return background
+        }
+    }
+
+    /// Fill buttons use overlay washes on hover/press — not `StudioInteractionRule` on label color.
+    static func overlayOpacity(role: StudioFlatButton.Role, state: StudioInteractionState) -> CGFloat {
+        let isPrimary = roleIsPrimary(role)
+        switch state {
+        case .idle: return 0
+        case .hovered: return isPrimary ? 0.10 : 0.06
+        case .pressed: return isPrimary ? 0.14 : 0.10
+        }
+    }
+}
+
+struct StudioFlatButtonStyle: ButtonStyle {
+    var role: StudioFlatButton.Role
+    var size: StudioFlatButton.Size
+    var expands: Bool
+
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        let state = StudioInteractionState.from(
+            isPressed: configuration.isPressed,
+            isHovered: isEnabled && isHovered
+        )
+        let overlayOpacity = StudioFlatButtonChrome.overlayOpacity(role: role, state: state)
+
+        configuration.label
+            .foregroundStyle(StudioFlatButtonChrome.foreground(role: role, isEnabled: isEnabled))
+            .frame(
+                maxWidth: expands || size == .row ? .infinity : nil,
+                minHeight: size == .row ? StudioFieldMetrics.listRowMinHeight : nil
+            )
+            .padding(.horizontal, StudioFlatButtonChrome.horizontalPadding(size: size))
+            .padding(.vertical, StudioFlatButtonChrome.verticalPadding(size: size))
+            .background(
+                StudioFlatButtonChrome.fill(role: role, isEnabled: isEnabled),
+                in: RoundedRectangle(cornerRadius: StudioRadius.control)
+            )
+            .overlay {
+                if overlayOpacity > 0 {
+                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                        .fill(Color.primary.opacity(overlayOpacity))
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: StudioRadius.control))
+            .onHover { isHovered = $0 }
+    }
+}
+
+struct StudioLinkButtonStyle: ButtonStyle {
+    var linkStyle: StudioHoverLinkStyle
+
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        let state = StudioInteractionState.from(
+            isPressed: configuration.isPressed,
+            isHovered: isEnabled && isHovered
+        )
+        configuration.label
+            .foregroundStyle(StudioLinkForeground.resolve(style: linkStyle, state: state))
+            .onHover { isHovered = $0 }
+    }
+}
+
+struct StudioIconButtonStyle: ButtonStyle {
+    var tint: Color?
+
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        let state: StudioInteractionState = {
+            guard isEnabled else { return .idle }
+            return StudioInteractionState.from(
+                isPressed: configuration.isPressed,
+                isHovered: isHovered
+            )
+        }()
+        configuration.label
+            .foregroundStyle(StudioIconForeground.resolve(tint: tint, state: state))
+            .onHover { isHovered = $0 }
+    }
+}
+
+struct StudioSegmentButtonStyle: ButtonStyle {
+    var isSelected: Bool
+    var expands: Bool
+
+    @State private var isHovered = false
+
+    private var cornerRadius: CGFloat {
+        expands ? StudioRadius.row : StudioRadius.small
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        let state = StudioInteractionState.from(
+            isPressed: configuration.isPressed,
+            isHovered: isHovered
+        )
+        configuration.label
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(segmentBackground(state: state))
+            }
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .onHover { isHovered = $0 }
+    }
+
+    private func segmentBackground(state: StudioInteractionState) -> Color {
+        if isSelected {
+            return StudioColors.brand.opacity(0.12)
+        }
+        switch state {
+        case .idle: return .clear
+        case .hovered: return StudioColors.hoverFill
+        case .pressed: return Color.primary.opacity(0.08)
         }
     }
 }
@@ -2907,14 +3210,6 @@ struct StudioPlainLinkButton: View {
         case accent
         case secondary
         case quiet
-
-        var foreground: Color {
-            switch self {
-            case .accent: Color.accentColor
-            case .secondary: Color.secondary
-            case .quiet: Color.secondary.opacity(0.85)
-            }
-        }
     }
 
     let title: String
@@ -2936,8 +3231,7 @@ struct StudioPlainLinkButton: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .studioHoverLink(hoverLinkStyle)
+        .buttonStyle(StudioLinkButtonStyle(linkStyle: hoverLinkStyle))
         .help(help)
     }
 
@@ -2964,22 +3258,12 @@ struct StudioSegmentButton: View {
         Button(action: action) {
             Text(title)
                 .font(font.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                .foregroundStyle(isSelected ? StudioColors.brand : .secondary)
                 .frame(maxWidth: expands ? .infinity : nil)
                 .padding(.horizontal, expands ? 0 : StudioSpacing.panelHorizontal)
                 .padding(.vertical, expands ? StudioSpacing.panelVertical : StudioSpacing.tightGap)
-                .background {
-                    RoundedRectangle(cornerRadius: expands ? StudioRadius.row : StudioRadius.small)
-                        .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
-                }
-                .contentShape(RoundedRectangle(cornerRadius: expands ? StudioRadius.row : StudioRadius.small))
         }
-        .buttonStyle(.plain)
-        .studioHoverFill(
-            shape: .roundedRect(cornerRadius: expands ? StudioRadius.row : StudioRadius.small),
-            isEnabled: !isSelected,
-            emphasized: isSelected
-        )
+        .buttonStyle(StudioSegmentButtonStyle(isSelected: isSelected, expands: expands))
         .help(help)
     }
 }
@@ -3004,7 +3288,7 @@ enum StudioRowChrome {
 struct StudioDirtyDot: View {
     var body: some View {
         Circle()
-            .fill(Color.accentColor)
+            .fill(StudioColors.brand)
             .frame(width: StudioFieldMetrics.dirtyDotSize, height: StudioFieldMetrics.dirtyDotSize)
             .frame(width: StudioFieldMetrics.statusBadgeSlot, height: StudioFieldMetrics.statusBadgeSlot)
     }
@@ -3148,7 +3432,7 @@ struct StudioComposedNameCallout: View {
             )
             .overlay(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(isDuplicate ? StudioColors.warningForeground : Color.accentColor)
+                    .fill(isDuplicate ? StudioColors.warningForeground : StudioColors.brand)
                     .frame(width: 3)
             }
     }
@@ -3255,11 +3539,11 @@ struct InspectorInstanceNamingChain: View {
     private var namingArrow: some View {
         HStack(spacing: 0) {
             Rectangle()
-                .fill(Color.accentColor.opacity(0.3))
+                .fill(StudioColors.brand.opacity(0.3))
                 .frame(width: 8, height: 1.5)
             Image(systemName: "chevron.right")
                 .font(.system(size: 7, weight: .light))
-                .foregroundStyle(Color.accentColor.opacity(0.5))
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 4)
     }
@@ -3453,8 +3737,8 @@ private struct InspectorAxisCoordRowView: View {
     @ViewBuilder
     private var chainRail: some View {
         let dotColor: Color = {
-            if isSelected { return .accentColor }
-            if row.participatesInNaming && !row.isElided { return .accentColor.opacity(0.7) }
+            if isSelected { return StudioColors.brand }
+            if row.participatesInNaming && !row.isElided { return StudioColors.registrationForeground }
             if row.isElided { return .secondary.opacity(0.35) }
             return .secondary.opacity(0.25)
         }()
@@ -3473,7 +3757,7 @@ private struct InspectorAxisCoordRowView: View {
 
             if !isLast {
                 Rectangle()
-                    .fill(linkActiveToNext ? Color.accentColor.opacity(0.3) : Color.secondary.opacity(0.2))
+                    .fill(linkActiveToNext ? StudioColors.brand.opacity(0.3) : Color.secondary.opacity(0.2))
                     .frame(width: 1)
                     .frame(maxHeight: .infinity)
             }

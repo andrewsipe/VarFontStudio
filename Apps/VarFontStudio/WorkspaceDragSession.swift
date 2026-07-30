@@ -579,7 +579,7 @@ struct WorkspaceDragGhostOverlay: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 0.5)
+                .strokeBorder(StudioColors.brand.opacity(0.28), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
         .opacity(0.92)

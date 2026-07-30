@@ -18,6 +18,7 @@ struct VarFontStudioApp: App {
                 .environmentObject(layout)
                 .environment(editor.workspaceDrag)
                 .frame(minWidth: 960, minHeight: 620)
+                .studioBrandTint()
                 .onAppear {
                     appDelegate.editor = editor
                 }
@@ -37,6 +38,7 @@ struct VarFontStudioApp: App {
             StudioSettingsView()
                 .environmentObject(layout)
                 .environmentObject(editor)
+                .studioBrandTint()
         }
 
         WindowGroup(id: "save-review", for: String.self) { $projectID in
@@ -44,6 +46,7 @@ struct VarFontStudioApp: App {
                 SaveReviewWindow(projectID: projectID)
                     .environmentObject(editor)
                     .environmentObject(layout)
+                    .studioBrandTint()
             }
         }
         .defaultSize(width: 960, height: 720)
@@ -53,6 +56,7 @@ struct VarFontStudioApp: App {
                 InstancerWindow(windowKey: windowKey)
                     .environmentObject(editor)
                     .environmentObject(layout)
+                    .studioBrandTint()
             }
         }
         .defaultSize(width: 1080, height: 760)

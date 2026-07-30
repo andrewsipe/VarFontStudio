@@ -160,7 +160,7 @@ struct ProjectFileSubBar: View {
             }
 
             if projectFontCount > 1 {
-                StudioDismissButton(scale: .chip, style: .fill, help: "Remove from project", foreground: .tertiary) {
+                StudioDismissButton(scale: .chip, style: .fill, help: "Remove from project") {
                     editor.requestRemoveFont(projectID: projectID, fontID: font.id)
                 }
             }

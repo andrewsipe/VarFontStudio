@@ -176,12 +176,12 @@ struct EmptyWorkspaceView: View {
         VStack(spacing: StudioSpace.x3) {
             Image(systemName: isDropTargeted ? "plus.circle.fill" : "arrow.down.doc")
                 .font(StudioTypography.dropHeroIcon)
-                .foregroundStyle(isDropTargeted ? Color.accentColor : .secondary)
+                .foregroundStyle(isDropTargeted ? StudioColors.brand : .secondary)
                 .animation(.easeOut(duration: 0.12), value: isDropTargeted)
 
             Text(isDropTargeted ? "Drop to open" : "Open or drop fonts or projects to get started")
                 .font(StudioTypography.emphasis)
-                .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
+                .foregroundStyle(isDropTargeted ? StudioColors.brand : .primary)
 
             Text(isDropTargeted
                 ? "Projects open as tabs · fonts start a new project"

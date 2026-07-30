@@ -78,7 +78,6 @@ struct MainEditorView: View {
                 reviewTotal: session.reviewTotal
             )
             .environmentObject(editor)
-            .preferredColorScheme(.dark)
         }
         .sheet(item: planIssueResolverBinding) { session in
             PlanIssueResolverSheet(
@@ -87,7 +86,6 @@ struct MainEditorView: View {
                 reviewTotal: session.reviewTotal
             )
             .environmentObject(editor)
-            .preferredColorScheme(.dark)
             // Forces a fresh view (and fresh @State) per session — "Apply and continue" swaps
             // one non-nil sheet item for another, and SwiftUI won't re-run onAppear for that
             // transition unless the view's identity actually changes.
@@ -557,7 +555,7 @@ struct MainEditorView: View {
                             Capsule()
                                 .fill(StudioColors.surfaceStrokeStrong.opacity(0.55))
                             Capsule()
-                                .fill(Color.accentColor.opacity(0.85))
+                                .fill(StudioColors.brand.opacity(0.85))
                                 .frame(width: max(4, geo.size.width * fraction))
                         }
                     }
@@ -625,7 +623,6 @@ struct MainEditorView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(width: 360, height: 180)
-        .preferredColorScheme(.dark)
     }
 
     private var saveReviewSheetErrorState: some View {
@@ -645,7 +642,6 @@ struct MainEditorView: View {
         }
         .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 420)
-        .preferredColorScheme(.dark)
     }
 }
 

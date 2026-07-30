@@ -818,7 +818,7 @@ struct AddFileAxisSheet: View {
                     text: .constant(previewTag),
                     font: StudioTypography.monoMeta,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    filledForeground: StudioColors.registrationForeground.opacity(0.55)
+                    filledForeground: .secondary
                 )
                 .disabled(true)
                 StudioTextField(
@@ -954,12 +954,12 @@ struct AddFileAxisSheet: View {
                 .foregroundStyle(kindEnabled ? StudioColors.registrationForeground : .secondary)
             Text(policyCopy)
                 .font(StudioTypography.caption)
-                .foregroundStyle(kindEnabled ? StudioColors.registrationForeground.opacity(0.9) : .secondary)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if kindEnabled {
                 Text("Elidable: \(previewElidable ? "yes — name drops when composing" : "no — name stays in the style string"). Naming order: inserts \(editor.namingOrderInsertHint(forNewTag: previewTag)).")
                     .font(StudioTypography.meta)
-                    .foregroundStyle(StudioColors.registrationForeground.opacity(0.75))
+                    .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, StudioSpace.x0_5)
             }

@@ -99,6 +99,5 @@ struct StudioShortcutsHelpView: View {
         }
         .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 460, height: 540)
-        .preferredColorScheme(.dark)
     }
 }

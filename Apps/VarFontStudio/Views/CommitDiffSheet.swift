@@ -23,7 +23,6 @@ struct CommitDiffSheet: View {
         }
         .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 900, height: 680)
-        .preferredColorScheme(.dark)
     }
 }
 
@@ -287,7 +286,6 @@ struct SaveReviewWindow: View {
             }
         }
         .frame(minWidth: 920, minHeight: 680)
-        .preferredColorScheme(.dark)
         .navigationTitle(editor.saveReviewWindowTitle(forProjectID: projectID))
         .background(SaveReviewWindowConfigurator())
         .overlay {

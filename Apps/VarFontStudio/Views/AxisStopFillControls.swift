@@ -107,7 +107,7 @@ struct AxisStopFillControls: View {
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background(
-                    isSelected ? Color.accentColor.opacity(0.14) : StudioColors.surfaceLight,
+                    isSelected ? StudioColors.brand.opacity(0.14) : StudioColors.surfaceLight,
                     in: Capsule()
                 )
         }

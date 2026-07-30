@@ -465,27 +465,27 @@ struct NamingOrderChainFooter: View {
             HStack(spacing: StudioSpacing.tightGap) {
                 Text("PS")
                     .font(StudioTypography.tag)
-                    .foregroundStyle(Color.accentColor.opacity(0.85))
+                    .foregroundStyle(StudioColors.registrationForeground)
                     .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
-                    .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 3))
+                    .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: 3))
 
                 Text(hasPrefix ? prefix : "Set prefix…")
                     .font(StudioTypography.caption.weight(hasPrefix ? .semibold : .regular))
-                    .foregroundStyle(hasPrefix ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+                    .foregroundStyle(hasPrefix ? AnyShapeStyle(StudioColors.registrationForeground) : AnyShapeStyle(.tertiary))
                     .lineLimit(1)
             }
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
-                hasPrefix ? Color.accentColor.opacity(0.14) : StudioColors.buttonSecondaryFill,
+                hasPrefix ? StudioColors.registrationBackground : StudioColors.buttonSecondaryFill,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
             .overlay {
                 if hasPrefix {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .strokeBorder(Color.accentColor.opacity(0.55), lineWidth: StudioStroke.regular)
+                        .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.regular)
                 }
             }
         }
@@ -647,7 +647,10 @@ struct NamingOrderChainFooter: View {
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
-            .studioDragAffordances(isDragging: isDragging)
+            .studioDragAffordances(
+                isDragging: isDragging,
+                outlineHorizontalOutset: StudioSpace.x1
+            )
         )
     }
 
@@ -656,20 +659,23 @@ struct NamingOrderChainFooter: View {
 
         return Text("[-] PS hyphen")
             .font(StudioTypography.caption.weight(.semibold))
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(StudioColors.registrationForeground)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-            .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(Color.accentColor.opacity(0.55), lineWidth: StudioStroke.regular)
+                    .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.regular)
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
             .help("Drag to set where the PostScript hyphen splits the style segment (fvar postscriptNameID field).")
-            .studioDragAffordances(isDragging: isDragging)
+            .studioDragAffordances(
+                isDragging: isDragging,
+                outlineHorizontalOutset: StudioSpace.x1
+            )
             .gesture(dragGesture(for: tag))
     }
 
@@ -691,7 +697,10 @@ struct NamingOrderChainFooter: View {
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
             .help("Classification code — concatenated from Axis Tree stop codes in axis order. Drag to reorder.")
-            .studioDragAffordances(isDragging: isDragging)
+            .studioDragAffordances(
+                isDragging: isDragging,
+                outlineHorizontalOutset: StudioSpace.x1
+            )
             .gesture(dragGesture(for: tag))
     }
 
@@ -716,7 +725,10 @@ struct NamingOrderChainFooter: View {
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
             .help("Legacy clarifier token — prefer registration axes in the Axis Tree")
-            .studioDragAffordances(isDragging: isDragging)
+            .studioDragAffordances(
+                isDragging: isDragging,
+                outlineHorizontalOutset: StudioSpace.x1
+            )
             .gesture(dragGesture(for: tag))
     }
 
@@ -744,7 +756,10 @@ struct NamingOrderChainFooter: View {
         }
         .opacity(isDragging ? 0.3 : 1)
         .contentShape(Rectangle())
-        .studioDragAffordances(isDragging: isDragging)
+        .studioDragAffordances(
+            isDragging: isDragging,
+            outlineHorizontalOutset: StudioSpace.x1
+        )
         .gesture(dragGesture(for: tag))
     }
 
@@ -783,32 +798,31 @@ struct NamingOrderChainFooter: View {
                 if editor.isPostscriptHyphenToken(tag) {
                     Text("[-] PS hyphen")
                         .font(StudioTypography.caption.weight(.semibold))
-                        .foregroundStyle(Color.accentColor.opacity(0.5))
+                        .foregroundStyle(StudioColors.registrationForeground)
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isCodeNamingToken(tag) {
                     Text("Code")
                         .font(StudioTypography.caption.weight(.semibold))
-                        .foregroundStyle(StudioColors.codeForeground.opacity(0.5))
+                        .foregroundStyle(StudioColors.codeForeground)
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isClarifierNamingToken(tag) {
                     Text(chainChipLabel(for: tag))
                         .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.clarifierForeground.opacity(0.5))
+                        .foregroundStyle(StudioColors.clarifierForeground)
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isRegistrationNamingAxis(tag: tag) {
                     HStack(spacing: StudioSpacing.tightGap) {
                         StudioTagPill(text: tag, compact: true, role: .registration)
-                            .opacity(0.4)
 
                         Text(chainChipLabel(for: tag))
                             .font(StudioTypography.caption)
-                            .foregroundStyle(StudioColors.registrationForeground.opacity(0.5))
+                            .foregroundStyle(StudioColors.registrationForeground)
                             .lineLimit(1)
                     }
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -816,7 +830,6 @@ struct NamingOrderChainFooter: View {
                 } else {
                     HStack(spacing: StudioSpacing.tightGap) {
                         StudioTagPill(text: tag, compact: true)
-                            .opacity(0.4)
 
                         Text(chainChipLabel(for: tag))
                             .font(StudioTypography.caption)
@@ -828,9 +841,10 @@ struct NamingOrderChainFooter: View {
                 }
             }
         }
+        .opacity(0.5)
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(Color.accentColor.opacity(0.5), style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: [4, 3]))
+                .strokeBorder(StudioColors.registrationStroke, style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: [4, 3]))
         }
         .transition(.opacity)
     }
@@ -856,11 +870,11 @@ struct NamingOrderChainFooter: View {
         if editor.isPostscriptHyphenToken(tag) {
             Text("[-] PS hyphen")
                 .font(StudioTypography.caption.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(StudioColors.registrationForeground)
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-                .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         } else if editor.isCodeNamingToken(tag) {
             Text("Code")
                 .font(StudioTypography.caption.weight(.semibold))

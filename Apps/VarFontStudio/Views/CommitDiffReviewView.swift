@@ -60,7 +60,6 @@ struct CommitDiffReviewView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .preferredColorScheme(.dark)
         .frame(maxHeight: fillsAvailableHeight ? .infinity : nil, alignment: .top)
     }
 
@@ -330,12 +329,12 @@ struct CommitDiffReviewView: View {
             Text(title)
                 .font(StudioTypography.meta)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                .foregroundStyle(isSelected ? StudioColors.brand : .secondary)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioSpacing.tightGap)
                 .background {
                     RoundedRectangle(cornerRadius: StudioRadius.small)
-                        .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+                        .fill(isSelected ? StudioColors.brand.opacity(0.12) : Color.clear)
                 }
                 .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
         }
@@ -404,7 +403,6 @@ struct CommitDiffReviewView: View {
                 }
                 .padding(.bottom, StudioSpacing.panelVertical)
             }
-            .background(SaveReviewLayout.canvasBackground)
             .scrollContentBackground(.hidden)
             .frame(minHeight: fillsAvailableHeight ? 200 : 420, maxHeight: fillsAvailableHeight ? .infinity : 420)
         }

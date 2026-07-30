@@ -22,7 +22,6 @@ struct InstancerWindow: View {
                 .id(session.sessionKey)
         }
         .frame(minWidth: 880, minHeight: 560)
-        .preferredColorScheme(.dark)
         .navigationTitle(editor.instancer.windowTitle(forWindowKey: windowKey))
         .background(InstancerWindowConfigurator())
         .background(AuxiliaryWindowOpenBridge())
@@ -594,21 +593,18 @@ private struct InstancerWindowContent: View {
                             .padding(.vertical, StudioSpace.x6)
                     }
                 }
-                .background(InstancerLayout.canvasBackground)
             } else if session.rows.isEmpty {
                 ContentUnavailableView(
                     "No instances",
                     systemImage: "square.stack.3d.up.slash",
                     description: Text("This font has no fvar named instances.")
                 )
-                .background(InstancerLayout.canvasBackground)
             } else if session.visibleRows.isEmpty {
                 ContentUnavailableView(
                     "No instances match",
                     systemImage: "line.3.horizontal.decrease.circle",
                     description: Text("Try another filter or clear the search.")
                 )
-                .background(InstancerLayout.canvasBackground)
             } else {
                 GeometryReader { geo in
                     let columns = InstancerLayout.columnWidths(
@@ -627,11 +623,9 @@ private struct InstancerWindowContent: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
-                .background(InstancerLayout.canvasBackground)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(InstancerLayout.canvasBackground)
     }
 
     private func headerRow(columns: InstancerLayout.ColumnWidths) -> some View {
@@ -660,7 +654,11 @@ private struct InstancerWindowContent: View {
         .padding(.vertical, StudioSpace.x1) // 4
         .fixedSize(horizontal: false, vertical: true)
         .background(SaveReviewLayout.phaseHeaderBackground)
-        .overlay(alignment: .bottom) { Divider() }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(StudioColors.surfaceStroke)
+                .frame(height: 0.5)
+        }
     }
 
     private var statusBar: some View {
@@ -1000,9 +998,12 @@ private struct InstancerRowView: View {
             } else if selected {
                 Rectangle().fill(StudioColors.selectionFill)
             }
-            // Hover sits on top of selection too — most rows start selected, so suppress would hide it.
             if isHovered {
-                Rectangle().fill(selected || isActivelyGenerating ? StudioColors.selectionNeutralFill : StudioColors.surfaceInset)
+                Rectangle().fill(
+                    selected || isActivelyGenerating
+                        ? StudioColors.selectionNeutralFill
+                        : StudioColors.hoverFill
+                )
             }
             if let tint {
                 LinearGradient(

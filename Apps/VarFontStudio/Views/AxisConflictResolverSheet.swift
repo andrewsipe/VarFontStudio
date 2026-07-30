@@ -777,7 +777,7 @@ struct AxisConflictResolverSheet: View {
         .overlay(alignment: .leading) {
             if outcome.isTarget {
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(Color.accentColor)
+                    .fill(StudioColors.brand)
                     .frame(width: 3)
                     .padding(.vertical, StudioSpacing.tightGap)
             }
@@ -952,13 +952,13 @@ private struct ConflictElidableIndicator: View {
         ZStack {
             Circle()
                 .strokeBorder(
-                    changed ? Color.accentColor.opacity(0.7) : Color.secondary.opacity(0.35),
+                    changed ? StudioColors.brand.opacity(0.7) : Color.secondary.opacity(0.35),
                     lineWidth: StudioStroke.regular
                 )
                 .frame(width: 12, height: 12)
             if isOn {
                 Circle()
-                    .fill(Color.accentColor)
+                    .fill(StudioColors.brand)
                     .frame(width: 6, height: 6)
             }
         }

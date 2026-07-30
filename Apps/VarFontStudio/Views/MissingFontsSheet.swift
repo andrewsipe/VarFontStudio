@@ -47,7 +47,6 @@ struct MissingFontsSheet: View {
         }
         .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 480)
-        .preferredColorScheme(.dark)
     }
 
     @ViewBuilder
