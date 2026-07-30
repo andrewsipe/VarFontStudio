@@ -76,16 +76,14 @@ struct NameTablePanel: View {
                         nameRow(row)
                     }
                 }
-                .padding(.leading, StudioSpacing.panelHorizontal)
-                .padding(.trailing, StudioSpacing.panelHorizontal + StudioSpacing.scrollGutter)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioSpacing.tightGap)
 
                 Text("Windows English only (3 · 1 · 0x409). ID 25 ≡ File naming PS prefix.")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, StudioSpacing.panelHorizontal)
-                    .padding(.trailing, StudioSpacing.panelHorizontal + StudioSpacing.scrollGutter)
+                    .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.vertical, StudioSpace.x2_5)
             }
         }
@@ -197,8 +195,7 @@ struct NameTablePanel: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .studioHoverFill(shape: .circle)
-                    .foregroundStyle(Color.accentColor)
+                    .studioHoverIcon(tint: Color.accentColor)
                     .help("Fill from font · \(suggestion.source)\n→ \(suggestion.value)")
                 }
             }

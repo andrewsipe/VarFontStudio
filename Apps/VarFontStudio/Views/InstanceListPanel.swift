@@ -16,8 +16,8 @@ struct InstanceListPanel: View {
     /// When hosted under middle-column chrome, the column owns the title header.
     var showsPanelHeader: Bool = true
 
-    /// Matches list row checkbox column: list inset + row horizontal padding.
-    private static let checkboxLeading = StudioSpacing.listInset + StudioSpacing.rowHorizontal
+    /// Matches list row checkbox column at the panel margin rail.
+    private static let checkboxLeading = StudioSpacing.panelHorizontal
 
     private var display: InstanceListDisplay {
         editor.instanceListDisplay
@@ -137,7 +137,7 @@ struct InstanceListPanel: View {
                     }
                 }
             }
-            .padding(.horizontal, StudioSpacing.listInset)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.bottom, StudioSpacing.panelVertical)
         }
         .transaction { $0.animation = nil }
@@ -470,6 +470,6 @@ private struct InstanceRowView: View {
                 .frame(maxWidth: 140, alignment: .trailing)
         }
         .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
-        .studioRowInsets()
+        .padding(.vertical, StudioSpacing.instanceRowVertical)
     }
 }

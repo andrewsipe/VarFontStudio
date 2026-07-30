@@ -154,10 +154,9 @@ struct FontPreviewPanel: View {
                         .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(
-                    shape: .roundedRect(cornerRadius: StudioRadius.small),
+                .studioHoverIcon(
                     isEnabled: alignment != option,
-                    emphasized: alignment == option
+                    tint: alignment == option ? Color.accentColor : nil
                 )
                 .help(option.help)
             }

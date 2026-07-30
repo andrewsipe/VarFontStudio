@@ -72,8 +72,7 @@ struct StudioPanelSplitView: View {
     private var middleColumn: some View {
         VStack(spacing: 0) {
             StudioPanelHeader(
-                title: middlePanelTitle,
-                horizontalPadding: StudioSpacing.panelHorizontal
+                title: middlePanelTitle
             ) {
                 middleHeaderMeta
             }
@@ -258,7 +257,7 @@ private struct AxisTreeRail: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+                .studioHoverIcon()
                 .help("Show axis tree")
             }
 

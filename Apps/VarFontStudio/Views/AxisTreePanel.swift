@@ -45,13 +45,13 @@ struct AxisTreePanel: View {
 
             axisTreeScopeBand
                 .frame(height: StudioChromeBand.scope)
-                .padding(.horizontal, StudioSpacing.scrollContentHorizontal)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
 
             Divider()
 
             axisTreeContextBand
                 .frame(height: StudioChromeBand.context)
-                .padding(.horizontal, StudioSpacing.scrollContentHorizontal)
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .background(StudioColors.surfaceMuted)
                 .overlay(alignment: .bottom) { Divider() }
 
@@ -61,8 +61,7 @@ struct AxisTreePanel: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         axesContent(scrollProxy: scrollProxy)
                     }
-                    .padding(.leading, StudioSpacing.scrollContentHorizontal)
-                    .padding(.trailing, StudioSpacing.scrollContentHorizontal + StudioSpacing.scrollGutter)
+                    .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.top, StudioSpacing.panelContentTop)
                     .padding(.bottom, StudioSpacing.panelVertical)
                 }
@@ -455,7 +454,10 @@ struct AxisTreePanel: View {
                 }
             }
             .contentShape(Rectangle())
-            .studioDragAffordances(isDragging: axisDragSession.draggingTag == axis.tag)
+            .studioDragAffordances(
+                isDragging: axisDragSession.draggingTag == axis.tag,
+                outlineHorizontalOutset: StudioSpace.x1
+            )
             .simultaneousGesture(axisReorderPressThenDragGesture(for: axis.tag))
             .help("Click to expand · click and hold to reorder")
             .background {

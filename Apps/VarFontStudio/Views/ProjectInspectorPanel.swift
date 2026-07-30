@@ -75,7 +75,7 @@ struct ProjectInspectorPanel: View {
                 }
             }
             .buttonStyle(.plain)
-            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+            .studioHoverLink(.primary)
 
             Spacer(minLength: 0)
 
@@ -119,7 +119,6 @@ struct ProjectInspectorPanel: View {
                             }
                         }
                 }
-                .padding(.trailing, StudioSpacing.scrollGutter)
                 .padding(.bottom, StudioSpacing.controlGap)
                 .onPreferenceChange(FileChipFrameKey.self) { frames in
                     guard !workspaceDrag.isActive else { return }

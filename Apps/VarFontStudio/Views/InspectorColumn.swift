@@ -7,7 +7,7 @@ struct InspectorColumn: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StudioPanelHeader(title: "Inspector", horizontalPadding: StudioSpacing.panelHorizontal) {
+            StudioPanelHeader(title: "Inspector") {
                 inspectorHeaderMeta
             }
 

@@ -72,7 +72,9 @@ enum StudioSpace {
 /// steps at call sites. Values are expressed in `StudioSpace` so the 4pt lattice
 /// stays the single source of truth.
 enum StudioSpacing {
-    static let panelHorizontal: CGFloat = StudioSpace.x2
+    /// Universal horizontal inset for panels, sheets, windows, and chrome bands.
+    /// Symmetric left/right — trailing space includes macOS overlay scrollbar clearance.
+    static let panelHorizontal: CGFloat = StudioSpace.x3
     static let panelVertical: CGFloat = StudioSpace.x1_5
     static let rowHorizontal: CGFloat = StudioSpace.x1_5
     static let rowVertical: CGFloat = StudioSpace.x0_5
@@ -81,24 +83,22 @@ enum StudioSpacing {
     static let tightGap: CGFloat = StudioSpace.x1
     static let controlGap: CGFloat = StudioSpace.x2
     static let sectionGap: CGFloat = StudioSpace.x2_5
-    /// Standard sheet outer inset (pickers, conflict resolver, save review chrome).
-    static let sheetOuterPadding: CGFloat = StudioSpace.x5
-    /// All-around content inset for cards / inner boxes inside sheets and panels
-    /// (looser than `panelHorizontal`, tighter than `sheetOuterPadding`).
-    static let cardPadding: CGFloat = StudioSpace.x2_5
+    /// Sheet / modal outer inset — same horizontal rail as panels.
+    static let sheetOuterPadding: CGFloat = panelHorizontal
+    /// Card / inner-box inset inside sheets and panels.
+    static let cardPadding: CGFloat = panelHorizontal
     /// Root spacing in stacked editor sheets — slightly looser than `sectionGap` for dense multi-section layouts.
     static let sheetSectionSpacing: CGFloat = StudioSpace.x3_5
-    static let listInset: CGFloat = StudioSpace.x1_5
-    /// Horizontal inset for scrollable panel bodies — matches `StudioPanelHeader` text edges.
-    static let scrollContentHorizontal: CGFloat = StudioSpace.x2_5
-    /// Density tier: editor chrome (project toolbar, file sub-bar). Tightest horizontal inset.
-    static let editorChromeInset: CGFloat = StudioSpace.x3
-    /// Density tier: preview / naming-footer chrome — slightly looser than editor chrome.
-    static let previewInset: CGFloat = StudioSpace.x3_5
-    /// Extra trailing inset so overlay scroll indicators don't cover row chrome (toggles, badges).
-    static let scrollGutter: CGFloat = StudioSpace.x2
-    /// Trailing inset for scroll content inside a padded card (card inset + scrollbar gutter).
-    static let cardScrollTrailing: CGFloat = StudioSpace.x4
+    /// Scroll list edge inset for section-header bleed (matches `panelHorizontal`).
+    static let listInset: CGFloat = panelHorizontal
+    /// Alias — scroll bodies use the same horizontal rail as headers and chrome.
+    static let scrollContentHorizontal: CGFloat = panelHorizontal
+    /// Alias — toolbar / file-bar chrome.
+    static let editorChromeInset: CGFloat = panelHorizontal
+    /// Alias — font preview / naming footer chrome.
+    static let previewInset: CGFloat = panelHorizontal
+    /// Alias — trailing inset inside padded cards (no extra scroll gutter).
+    static let cardScrollTrailing: CGFloat = panelHorizontal
     /// Top inset when scroll content sits directly under `StudioPanelHeader` (no filter/toolbar row).
     static let panelContentTop: CGFloat = toolbarVertical
     /// Off-lattice micro (3pt) — optical gap under group headers; do not "snap" to 4.
@@ -185,11 +185,11 @@ enum StudioRadius {
 ///   local track contracts — not part of the spacing lattice. Stop-style tables (Axis Tree,
 ///   conflict resolver, combination styles) share `StopTableLayout`.
 ///
-/// ## Density tiers (named on purpose — never "normalize" them into one)
-/// - editor: `StudioSpacing.editorChromeInset` — tight toolbar / file-bar chrome.
-/// - preview: `StudioSpacing.previewInset` — font preview + naming footer chrome.
-/// - sheet: `StudioSpacing.sheetOuterPadding` (20) — modal editors / pickers.
-/// - review: `SaveReviewLayout` (24) — deliberately roomier Save Review window (on-lattice).
+/// ## Container horizontal inset
+/// - `StudioSpacing.panelHorizontal` (12pt) — every panel, sheet, window, and chrome band.
+///   Trailing inset includes macOS overlay scrollbar clearance; never add extra scroll gutter.
+/// - Aliases (`editorChromeInset`, `previewInset`, `sheetOuterPadding`, …) all resolve to
+///   `panelHorizontal` — prefer `panelHorizontal` at new call sites.
 ///
 /// ## Cross-panel chrome bands (vertical alignment)
 /// Three shared horizontal bands across Axis Tree / Instances / Inspector so
@@ -787,10 +787,10 @@ struct StudioDiffRow: View {
 
 // MARK: - Save Review (streamlined diff)
 
-/// Spacing tokens for the Save Review window — roomier density tier, on the 4pt lattice.
+/// Spacing tokens for the Save Review window — on the 4pt lattice.
 /// (`gutterWidth` stays a 3pt micro for the change rail.)
 enum SaveReviewLayout {
-    static let horizontalPadding: CGFloat = StudioSpace.x6 // 24
+    static let horizontalPadding: CGFloat = StudioSpacing.panelHorizontal
     static let summaryCardGap: CGFloat = StudioSpace.x2 // 8
     static let chromeSectionGap: CGFloat = StudioSpace.x3 // 12
     static let filterBadgeGap: CGFloat = StudioSpace.x1_5 // 6
@@ -807,8 +807,8 @@ enum SaveReviewLayout {
     static let toolRowMinHeight: CGFloat = StudioSpace.x9 // 36
     static let toolRowVerticalPadding: CGFloat = StudioSpace.x1_5 // 6
     static let gutterWidth: CGFloat = 3
-    static let gutterLeadingPadding: CGFloat = StudioSpace.x6 // 24
-    static let gutterTrailingPadding: CGFloat = StudioSpace.x3 // 12
+    static let gutterLeadingPadding: CGFloat = StudioSpacing.panelHorizontal
+    static let gutterTrailingPadding: CGFloat = StudioSpacing.panelHorizontal
 
     /// Prototype `--bg` / row canvas — opaque so sticky headers don't show scroll-through.
     static let canvasBackground = StudioColors.canvasBackground
@@ -1201,12 +1201,12 @@ struct StudioPanelHeaderChrome<Content: View>: View {
 /// Panel section header — fixed height via `StudioChromeBand.header`.
 struct StudioPanelHeader<Trailing: View>: View {
     let title: String
-    var horizontalPadding: CGFloat = StudioSpacing.panelHorizontal + 2
+    var horizontalPadding: CGFloat = StudioSpacing.panelHorizontal
     @ViewBuilder var trailing: () -> Trailing
 
     init(
         title: String,
-        horizontalPadding: CGFloat = StudioSpacing.panelHorizontal + 2,
+        horizontalPadding: CGFloat = StudioSpacing.panelHorizontal,
         @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
     ) {
         self.title = title
@@ -1242,7 +1242,7 @@ struct StudioWarningBadge: View {
         if let action {
             Button(action: action) { icon }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .circle)
+                .studioHoverIcon(tint: StudioColors.warningForeground)
                 .help(help)
         } else {
             icon.help(help)
@@ -1314,6 +1314,7 @@ struct StudioIncludeCheckbox: View {
         }
         .buttonStyle(.plain)
         .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.small))
+        .studioInteractiveCursor()
         .help(helpText)
     }
 
@@ -1340,13 +1341,12 @@ struct StudioGroupHeader: View {
         .font(StudioTypography.columnLabel)
         .textCase(nil)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, StudioSpacing.rowHorizontal)
         .padding(.vertical, 5)
         // Opaque flat band — no padding outside this view; list owns section spacing.
         .background {
             Rectangle()
                 .fill(.background)
-                .padding(.horizontal, -StudioSpacing.listInset)
+                .padding(.horizontal, -StudioSpacing.panelHorizontal)
         }
     }
 }
@@ -1453,6 +1453,7 @@ struct StudioTextField: View {
             }
             .focused(activeFocus)
             .modifier(StudioFocusRingSuppression())
+            .studioInteractiveCursor()
             .onSubmit { handleSubmit() }
             .onExitCommand { handleCancel() }
     }
@@ -1668,6 +1669,7 @@ struct StudioInlineTextField: View {
             .studioInlineEditField(isActive: true, isFocused: isFocused, rowHeight: rowHeight)
             .modifier(StudioFocusRingSuppression())
             .focused($isFocused)
+            .studioInteractiveCursor()
             .onSubmit { handleSubmit() }
             .onExitCommand { handleCancel() }
     }
@@ -1872,12 +1874,11 @@ struct StudioDismissButton: View {
             Image(systemName: style.symbol)
                 .font(.system(size: scale.pointSize, weight: StudioChromeScale.symbolWeight))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(foreground)
                 .frame(width: scale.hitSize, height: scale.hitSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .studioHoverFill(shape: .circle)
+        .studioHoverIcon()
         .help(help)
     }
 }
@@ -1896,14 +1897,13 @@ struct StudioOverflowMenu<Content: View>: View {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: scale.pointSize, weight: StudioChromeScale.symbolWeight))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(.secondary)
                 .frame(width: scale.hitSize, height: scale.hitSize)
                 .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .studioHoverFill(shape: .circle)
+        .studioHoverIcon()
         .help(help)
     }
 }
@@ -1992,7 +1992,6 @@ struct StudioToolbarIconButton: View {
                     weight: StudioChromeScale.symbolWeight
                 ))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(.secondary)
                 .frame(
                     width: StudioFieldMetrics.toolbarIconHitSize,
                     height: StudioFieldMetrics.toolbarIconHitSize
@@ -2000,7 +1999,8 @@ struct StudioToolbarIconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .studioHoverFill(shape: .circle)
+        .studioHoverIcon()
+        .studioInteractiveCursor()
         .help(help)
     }
 }
@@ -2021,7 +2021,6 @@ struct StudioToolbarIconMenu<Content: View>: View {
                     weight: StudioChromeScale.symbolWeight
                 ))
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(.secondary)
                 .frame(
                     width: StudioFieldMetrics.toolbarIconHitSize,
                     height: StudioFieldMetrics.toolbarIconHitSize
@@ -2030,7 +2029,7 @@ struct StudioToolbarIconMenu<Content: View>: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .studioHoverFill(shape: .circle)
+        .studioHoverIcon()
         .help(help)
     }
 }
@@ -2107,8 +2106,72 @@ private struct StudioHoverFillModifier: ViewModifier {
     }
 }
 
+/// Pointer-over color shift for plain text links — no fill wash, no weight change.
+enum StudioHoverLinkStyle: Equatable {
+    case accent
+    case secondary
+    case primary
+}
+
+private struct StudioHoverLinkModifier: ViewModifier {
+    var style: StudioHoverLinkStyle
+    var isEnabled: Bool
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(resolvedForeground)
+            .onHover { hovering in
+                isHovered = isEnabled && hovering
+            }
+    }
+
+    private var active: Bool { isEnabled && isHovered }
+
+    private var resolvedForeground: Color {
+        switch style {
+        case .accent:
+            return active ? Color.accentColor : Color.accentColor.opacity(0.78)
+        case .secondary:
+            return active ? Color.primary : Color.secondary
+        case .primary:
+            return active ? Color.primary : Color.primary.opacity(0.82)
+        }
+    }
+}
+
+/// Pointer-over color shift for toolbar / row icons — secondary → primary, or tinted brighten.
+private struct StudioHoverIconModifier: ViewModifier {
+    var isEnabled: Bool
+    var tint: Color?
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        Group {
+            if isEnabled {
+                content
+                    .foregroundStyle(resolvedForeground)
+                    .onHover { hovering in
+                        isHovered = hovering
+                    }
+            } else {
+                content
+            }
+        }
+    }
+
+    private var active: Bool { isHovered }
+
+    private var resolvedForeground: Color {
+        if let tint {
+            return active ? tint : tint.opacity(0.72)
+        }
+        return active ? Color.primary : Color.secondary
+    }
+}
+
 extension View {
-    /// Pointer-over fill for plain buttons, icons, and chips.
+    /// Pointer-over fill for chips, segment tabs, and other padded controls.
     func studioHoverFill(
         shape: StudioHoverShape = .roundedRect(),
         isEnabled: Bool = true,
@@ -2117,13 +2180,28 @@ extension View {
         modifier(StudioHoverFillModifier(shape: shape, isEnabled: isEnabled, emphasized: emphasized))
     }
 
+    /// Pointer-over color shift for plain text links — no background wash or weight change.
+    func studioHoverLink(
+        _ style: StudioHoverLinkStyle = .primary,
+        isEnabled: Bool = true
+    ) -> some View {
+        modifier(StudioHoverLinkModifier(style: style, isEnabled: isEnabled))
+    }
+
+    /// Pointer-over color shift for icons — secondary → primary, or subtle tint brighten.
+    func studioHoverIcon(isEnabled: Bool = true, tint: Color? = nil) -> some View {
+        modifier(StudioHoverIconModifier(isEnabled: isEnabled, tint: tint))
+    }
+
     /// Dashed hover ring + open-hand cursor for press-drag reorder targets (no fill wash).
     func studioDragAffordances(
         isEnabled: Bool = true,
         isDragging: Bool = false,
         cornerRadius: CGFloat = StudioRadius.chip,
         showsOutline: Bool = true,
-        showsCursor: Bool = true
+        showsCursor: Bool = true,
+        /// Extends the dashed outline into horizontal margins without shifting content.
+        outlineHorizontalOutset: CGFloat = 0
     ) -> some View {
         modifier(
             StudioDragAffordancesModifier(
@@ -2131,9 +2209,245 @@ extension View {
                 isDragging: isDragging,
                 cornerRadius: cornerRadius,
                 showsOutline: showsOutline,
-                showsCursor: showsCursor
+                showsCursor: showsCursor,
+                outlineHorizontalOutset: outlineHorizontalOutset
             )
         )
+    }
+
+    /// Marks a control that should show the arrow pointer inside a drag-hover container.
+    func studioInteractiveCursor() -> some View {
+        modifier(StudioInteractiveCursorModifier())
+    }
+}
+
+private struct StudioInteractiveHoverKey: PreferenceKey {
+    static var defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
+private struct StudioDragCursorGateKey: EnvironmentKey {
+    static var defaultValue: StudioDragCursorGate? = nil
+}
+
+extension EnvironmentValues {
+    fileprivate var studioDragCursorGate: StudioDragCursorGate? {
+        get { self[StudioDragCursorGateKey.self] }
+        set { self[StudioDragCursorGateKey.self] = newValue }
+    }
+}
+
+/// Synchronous grab-cursor suppressor for interactive children inside drag targets.
+private final class StudioDragCursorGate {
+    private var depth = 0
+    var onChange: ((Bool) -> Void)?
+
+    var isSuppressed: Bool { depth > 0 }
+
+    func push() {
+        depth += 1
+        if depth == 1 {
+            onChange?(true)
+            NSCursor.arrow.set()
+        }
+    }
+
+    func pop() {
+        guard depth > 0 else { return }
+        depth -= 1
+        if depth == 0 {
+            onChange?(false)
+        }
+    }
+}
+
+private struct StudioInteractiveCursorModifier: ViewModifier {
+    @State private var isHovered = false
+    @Environment(\.studioDragCursorGate) private var gate
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                StudioInteractiveHoverReporter(isHovered: $isHovered, gate: gate)
+            }
+            .preference(key: StudioInteractiveHoverKey.self, value: isHovered)
+    }
+}
+
+private enum StudioCursorMarkers {
+    static let interactive = NSUserInterfaceItemIdentifier("studio.interactive.cursor")
+}
+
+private enum StudioDragCursorPolicy {
+    static func defersDragCursor(
+        at locationInWindow: NSPoint,
+        in window: NSWindow?,
+        suppressGrabCursor: Bool,
+        gate: StudioDragCursorGate? = nil
+    ) -> Bool {
+        if suppressGrabCursor || gate?.isSuppressed == true { return true }
+        guard let window, let contentView = window.contentView else { return false }
+        let point = contentView.convert(locationInWindow, from: nil)
+        guard let hitView = contentView.hitTest(point) else { return false }
+        return hitView.studioDefersDragCursor
+    }
+}
+
+private extension NSView {
+    var studioDefersDragCursor: Bool {
+        var view: NSView? = self
+        while let current = view {
+            if current.identifier == StudioCursorMarkers.interactive {
+                return true
+            }
+            if current is NSControl {
+                return true
+            }
+            if let textField = current as? NSTextField, textField.isEditable {
+                return true
+            }
+            if current is NSTextView {
+                return true
+            }
+            let typeName = String(describing: Swift.type(of: current))
+            if typeName.contains("Switch")
+                || typeName.contains("PopUpButton")
+                || typeName.contains("Button")
+                || typeName.contains("TextField") {
+                return true
+            }
+            view = current.superview
+        }
+        return false
+    }
+}
+
+/// AppKit hover reporter for interactive controls inside drag targets.
+private struct StudioInteractiveHoverReporter: NSViewRepresentable {
+    @Binding var isHovered: Bool
+    var gate: StudioDragCursorGate?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isHovered: $isHovered, gate: gate)
+    }
+
+    func makeNSView(context: Context) -> StudioInteractiveHoverView {
+        let view = StudioInteractiveHoverView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: StudioInteractiveHoverView, context: Context) {
+        context.coordinator.isHovered = $isHovered
+        context.coordinator.gate = gate
+    }
+
+    final class Coordinator {
+        var isHovered: Binding<Bool>
+        var gate: StudioDragCursorGate?
+
+        init(isHovered: Binding<Bool>, gate: StudioDragCursorGate?) {
+            self.isHovered = isHovered
+            self.gate = gate
+        }
+
+        func setHover(_ hovering: Bool) {
+            guard isHovered.wrappedValue != hovering else { return }
+            isHovered.wrappedValue = hovering
+            if hovering {
+                gate?.push()
+            } else {
+                gate?.pop()
+            }
+        }
+    }
+}
+
+private final class StudioInteractiveHoverView: NSView {
+    weak var coordinator: StudioInteractiveHoverReporter.Coordinator?
+    private var isMouseInside = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        identifier = StudioCursorMarkers.interactive
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        identifier = StudioCursorMarkers.interactive
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero,
+                options: [
+                    .activeInKeyWindow,
+                    .inVisibleRect,
+                    .mouseEnteredAndExited,
+                    .mouseMoved,
+                    .cursorUpdate,
+                ],
+                owner: self,
+                userInfo: nil
+            )
+        )
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        setMouseInside(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        setMouseInside(false)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        syncMouseInside(at: event.locationInWindow)
+        if isMouseInside {
+            NSCursor.arrow.set()
+        }
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        if isPointerInside(event: event) {
+            NSCursor.arrow.set()
+        } else {
+            super.cursorUpdate(with: event)
+        }
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .arrow)
+    }
+
+    private func setMouseInside(_ inside: Bool) {
+        guard isMouseInside != inside else { return }
+        isMouseInside = inside
+        coordinator?.setHover(inside)
+        if inside {
+            NSCursor.arrow.set()
+        }
+    }
+
+    private func syncMouseInside(at locationInWindow: NSPoint) {
+        setMouseInside(isPointerInside(locationInWindow: locationInWindow))
+    }
+
+    private func isPointerInside(event: NSEvent) -> Bool {
+        isPointerInside(locationInWindow: event.locationInWindow)
+    }
+
+    private func isPointerInside(locationInWindow: NSPoint) -> Bool {
+        let point = convert(locationInWindow, from: nil)
+        return bounds.contains(point)
     }
 }
 
@@ -2143,47 +2457,241 @@ private struct StudioDragAffordancesModifier: ViewModifier {
     var cornerRadius: CGFloat
     var showsOutline: Bool
     var showsCursor: Bool
+    var outlineHorizontalOutset: CGFloat
     @State private var isHovered = false
+    @State private var interactiveChildHovered = false
+    @State private var cursorGate = StudioDragCursorGate()
+
+    private var affordanceActive: Bool {
+        isEnabled && !isDragging && isHovered
+    }
+
+    private var trackingEnabled: Bool {
+        isEnabled && !isDragging
+    }
 
     func body(content: Content) -> some View {
         content
+            .environment(\.studioDragCursorGate, cursorGate)
+            .onAppear {
+                cursorGate.onChange = { interactiveChildHovered = $0 }
+            }
             .overlay {
-                if isEnabled, !isDragging, showsOutline, isHovered {
+                if affordanceActive, showsOutline {
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .strokeBorder(
                             Color.secondary.opacity(0.4),
                             style: StrokeStyle(lineWidth: StudioStroke.regular, dash: StudioStroke.dragDash)
                         )
+                        .padding(.horizontal, -outlineHorizontalOutset)
+                        .allowsHitTesting(false)
                 }
             }
-            .onHover { hovering in
-                updateHover(hovering)
+            .overlay {
+                StudioDragHoverBridge(
+                    isHovered: $isHovered,
+                    isEnabled: trackingEnabled,
+                    showsCursor: showsCursor,
+                    suppressGrabCursor: interactiveChildHovered,
+                    gate: cursorGate
+                )
             }
-            .onDisappear {
-                clearHoverCursor()
+            .onPreferenceChange(StudioInteractiveHoverKey.self) { interactiveChildHovered = $0 }
+            .onChange(of: isDragging) { _, dragging in
+                if dragging { isHovered = false }
+            }
+            .onChange(of: isEnabled) { _, enabled in
+                if !enabled { isHovered = false }
             }
     }
+}
 
-    private func updateHover(_ hovering: Bool) {
-        guard isEnabled, !isDragging else {
-            clearHoverCursor()
+/// AppKit hover + cursor bridge. SwiftUI `onHover` misses fast pointer moves and
+/// flickers across child controls; this view owns enter/exit via tracking areas.
+private struct StudioDragHoverBridge: NSViewRepresentable {
+    @Binding var isHovered: Bool
+    var isEnabled: Bool
+    var showsCursor: Bool
+    var suppressGrabCursor: Bool
+    var gate: StudioDragCursorGate?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isHovered: $isHovered)
+    }
+
+    func makeNSView(context: Context) -> StudioDragHoverView {
+        let view = StudioDragHoverView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: StudioDragHoverView, context: Context) {
+        context.coordinator.isHovered = $isHovered
+        nsView.showsCursor = showsCursor
+        let suppressChanged = nsView.suppressGrabCursor != suppressGrabCursor
+            || nsView.gate !== gate
+        nsView.suppressGrabCursor = suppressGrabCursor
+        nsView.gate = gate
+        nsView.setEnabled(isEnabled)
+        if suppressChanged, let window = nsView.window {
+            nsView.applyCursor(at: window.mouseLocationOutsideOfEventStream)
+        }
+    }
+
+    final class Coordinator {
+        var isHovered: Binding<Bool>
+
+        init(isHovered: Binding<Bool>) {
+            self.isHovered = isHovered
+        }
+
+        func setHover(_ hovering: Bool) {
+            guard isHovered.wrappedValue != hovering else { return }
+            isHovered.wrappedValue = hovering
+        }
+    }
+}
+
+private final class StudioDragHoverView: NSView {
+    weak var coordinator: StudioDragHoverBridge.Coordinator?
+    weak var gate: StudioDragCursorGate?
+    var showsCursor = true
+    var suppressGrabCursor = false
+    private var isEnabled = true
+    private var isMouseInside = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func setEnabled(_ enabled: Bool) {
+        let wasEnabled = isEnabled
+        isEnabled = enabled
+        window?.invalidateCursorRects(for: self)
+        if !enabled {
+            if isMouseInside {
+                isMouseInside = false
+                coordinator?.setHover(false)
+            }
+            if wasEnabled, showsCursor {
+                NSCursor.arrow.set()
+            }
             return
         }
-        guard hovering != isHovered else { return }
-        isHovered = hovering
-        guard showsCursor else { return }
-        if hovering {
-            NSCursor.openHand.push()
-        } else {
-            NSCursor.pop()
+        if isMouseInside {
+            coordinator?.setHover(true)
+            applyCursor()
         }
     }
 
-    private func clearHoverCursor() {
-        guard isHovered else { return }
-        isHovered = false
-        guard showsCursor else { return }
-        NSCursor.pop()
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(
+            NSTrackingArea(
+                rect: .zero,
+                options: [
+                    .activeInKeyWindow,
+                    .inVisibleRect,
+                    .mouseEnteredAndExited,
+                    .mouseMoved,
+                    .cursorUpdate,
+                ],
+                owner: self,
+                userInfo: nil
+            )
+        )
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            syncHoverState(for: window?.mouseLocationOutsideOfEventStream)
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        syncHoverState(for: window?.mouseLocationOutsideOfEventStream)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        setMouseInside(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        setMouseInside(false)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        syncHoverState(for: event.locationInWindow)
+        updateCursor(at: event.locationInWindow)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        if isEnabled, showsCursor, isPointerInside(event: event) {
+            updateCursor(at: event.locationInWindow)
+        } else {
+            super.cursorUpdate(with: event)
+        }
+    }
+
+    override func resetCursorRects() {
+        // Open-hand is applied in cursorUpdate / mouseMoved so child controls can defer.
+    }
+
+    private func setMouseInside(_ inside: Bool) {
+        guard isMouseInside != inside else { return }
+        isMouseInside = inside
+        if isEnabled {
+            coordinator?.setHover(inside)
+            if inside {
+                applyCursor()
+            }
+        }
+    }
+
+    private func syncHoverState(for locationInWindow: NSPoint?) {
+        guard let locationInWindow else { return }
+        setMouseInside(isPointerInside(locationInWindow: locationInWindow))
+    }
+
+    private func isPointerInside(event: NSEvent? = nil) -> Bool {
+        if let event {
+            return isPointerInside(locationInWindow: event.locationInWindow)
+        }
+        return isMouseInside
+    }
+
+    private func isPointerInside(locationInWindow: NSPoint) -> Bool {
+        let point = convert(locationInWindow, from: nil)
+        return bounds.contains(point)
+    }
+
+    func applyCursor(at locationInWindow: NSPoint? = nil) {
+        guard let window else { return }
+        let point = locationInWindow ?? window.mouseLocationOutsideOfEventStream
+        updateCursor(at: point)
+    }
+
+    private func updateCursor(at locationInWindow: NSPoint) {
+        guard isEnabled, showsCursor, isPointerInside(locationInWindow: locationInWindow) else { return }
+        if StudioDragCursorPolicy.defersDragCursor(
+            at: locationInWindow,
+            in: window,
+            suppressGrabCursor: suppressGrabCursor,
+            gate: gate
+        ) {
+            NSCursor.arrow.set()
+        } else {
+            NSCursor.openHand.set()
+        }
     }
 }
 
@@ -2243,6 +2751,7 @@ struct StudioMenuPicker<Value: Hashable>: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+            .studioInteractiveCursor()
             .accessibilityLabel(title.isEmpty ? selectedTitle : title)
         }
     }
@@ -2302,6 +2811,7 @@ struct StudioFlatButton: View {
             isHovered = isEnabled && hovering
         }
         .modifier(StudioDefaultActionModifier(isEnabled: isDefaultAction))
+        .studioInteractiveCursor()
         .help(help)
     }
 
@@ -2334,7 +2844,7 @@ struct StudioFlatButton: View {
 
     private var horizontalPadding: CGFloat {
         switch size {
-        case .regular: StudioSpacing.panelHorizontal + StudioSpace.x1
+        case .regular: StudioSpacing.panelHorizontal
         case .compact: StudioSpacing.panelHorizontal
         case .row: StudioSpacing.panelHorizontal
         }
@@ -2424,14 +2934,19 @@ struct StudioPlainLinkButton: View {
                 Text(title)
                     .font(font)
             }
-            .foregroundStyle(role.foreground)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control), emphasized: role == .accent)
+        .studioHoverLink(hoverLinkStyle)
         .help(help)
+    }
+
+    private var hoverLinkStyle: StudioHoverLinkStyle {
+        switch role {
+        case .accent: .accent
+        case .secondary: .secondary
+        case .quiet: .secondary
+        }
     }
 }
 

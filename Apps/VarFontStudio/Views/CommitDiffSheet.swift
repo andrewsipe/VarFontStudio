@@ -63,7 +63,7 @@ private struct SaveReviewActionBar: View {
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .circle)
+                .studioHoverIcon()
                 .disabled(!canRefresh || isLoading)
                 .help("Re-read the font on disk and rebuild the diff")
 

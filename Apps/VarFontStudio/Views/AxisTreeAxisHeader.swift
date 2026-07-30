@@ -120,7 +120,8 @@ struct AxisTreeAxisHeader: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+                        .studioHoverLink(.primary)
+                        .studioInteractiveCursor()
                         .help(lane == .registration
                             ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
                             : "Expand axis stops")
@@ -141,7 +142,8 @@ struct AxisTreeAxisHeader: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+                    .studioHoverIcon()
+                    .studioInteractiveCursor()
                     .help(isExpanded ? "Collapse axis stops" : "Expand axis stops")
 
                     Spacer(minLength: 0)
@@ -206,6 +208,7 @@ struct AxisTreeAxisHeader: View {
                                 + "Naming axes never use this toggle."
                         )
                         .accessibilityLabel("Instance axis")
+                        .studioInteractiveCursor()
                 }
             }
             .fixedSize(horizontal: true, vertical: false)
@@ -265,7 +268,8 @@ struct AxisTreeAxisHeader: View {
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
-                    .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+                    .studioHoverLink(.accent)
+                    .studioInteractiveCursor()
                     .help(registrationStopHelp)
                 }
             }

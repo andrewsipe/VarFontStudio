@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import VarFontCore
 
@@ -167,7 +166,7 @@ struct NamingOrderChainFooter: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+            .studioHoverIcon()
             .help(isExpanded ? "Collapse footer" : "Expand footer")
 
             footerModeSwitcher
@@ -627,14 +626,6 @@ struct NamingOrderChainFooter: View {
             HStack(spacing: StudioSpacing.tightGap) {
                 StudioIncludeCheckbox(isOn: inGrid) {
                     editor.setAxisInstanceGridEnabled(tag: tag, enabled: !inGrid)
-                }
-                // Keep the arrow over the open-hand the chip pushes on hover.
-                .onHover { hovering in
-                    if hovering {
-                        NSCursor.arrow.push()
-                    } else {
-                        NSCursor.pop()
-                    }
                 }
 
                 chainChipBody(tag: tag, inGrid: inGrid)

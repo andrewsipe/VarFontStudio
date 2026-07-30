@@ -57,4 +57,7 @@ check "no raw .font(.system outside allowlist" \
 check "no primary.opacity surfaces outside allowlist" \
   rg -q 'primary\.opacity\(0\.' Views "${ALLOW_SURFACES[@]}"
 
+check "no removed scrollGutter token" \
+  rg -q 'scrollGutter' Views
+
 exit "$FAIL"

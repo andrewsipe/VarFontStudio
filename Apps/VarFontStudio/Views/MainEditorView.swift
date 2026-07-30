@@ -608,7 +608,7 @@ struct MainEditorView: View {
                 ProgressView()
                     .controlSize(.small)
             }
-            .padding(.horizontal, StudioSpace.x7)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, StudioSpacing.sheetOuterPadding)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
         }
@@ -643,7 +643,7 @@ struct MainEditorView: View {
                 }
             }
         }
-        .padding(StudioSpace.x6)
+        .padding(StudioSpacing.sheetOuterPadding)
         .frame(width: 420)
         .preferredColorScheme(.dark)
     }
