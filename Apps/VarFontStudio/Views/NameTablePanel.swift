@@ -9,7 +9,6 @@ struct NameTablePanel: View {
     @State private var filterText = ""
     @State private var showAddPopover = false
     @State private var expandedNameID: Int?
-    @FocusState private var focusedNameID: Int?
 
     /// When hosted under middle-column chrome, the column owns the title header.
     var showsPanelHeader: Bool = true
@@ -95,14 +94,13 @@ struct NameTablePanel: View {
     private var toolbar: some View {
         HStack(spacing: StudioSpacing.controlGap) {
             StudioSearchField(text: $filterText, placeholder: "Filter IDs…")
-            Button {
+            StudioFlatButton(
+                title: "Add ID…",
+                size: .compact,
+                isEnabled: !missingIDs.isEmpty
+            ) {
                 showAddPopover = true
-            } label: {
-                Text("Add ID…")
-                    .font(StudioTypography.meta)
             }
-            .buttonStyle(.bordered)
-            .disabled(missingIDs.isEmpty)
             .popover(isPresented: $showAddPopover, arrowEdge: .bottom) {
                 addIDPopover
             }
@@ -147,7 +145,7 @@ struct NameTablePanel: View {
     private func namesHeaderMeta(_ analysis: FontAnalysis) -> some View {
         let rows = populatedRows(from: analysis)
         let missing = missingIDs.count
-        return HStack(spacing: 3) {
+        return HStack(spacing: StudioSpacing.instanceRowVertical) {
             Text("\(rows.count)")
                 .foregroundStyle(StudioColors.computedHighlight)
             Text("populated")
@@ -185,7 +183,7 @@ struct NameTablePanel: View {
                 if row.isLinkedToPSPrefix {
                     Text("≡ PS prefix")
                         .font(StudioTypography.rowName)
-                        .foregroundStyle(Color.accentColor.opacity(0.85))
+                        .foregroundStyle(StudioColors.registrationForeground)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
@@ -194,7 +192,7 @@ struct NameTablePanel: View {
                         editor.applyWindowsNamePolicy(nameID: row.nameID, value: suggestion.value)
                     } label: {
                         Image(systemName: "doc.badge.plus")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(StudioTypography.columnLabel)
                             .frame(width: Self.nameLabelRowHeight, height: Self.nameLabelRowHeight)
                             .contentShape(Rectangle())
                     }
@@ -222,7 +220,6 @@ struct NameTablePanel: View {
         if isExpanded {
             wrappingValueEditor(
                 binding: binding,
-                nameID: row.nameID,
                 placeholder: row.isLinkedToPSPrefix ? "Family PS prefix" : "Name string"
             )
         } else {
@@ -263,49 +260,24 @@ struct NameTablePanel: View {
     /// Return commits & collapses (no hard newlines); Escape cancels.
     private func wrappingValueEditor(
         binding: Binding<String>,
-        nameID: Int,
         placeholder: String
     ) -> some View {
-        TextField(
-            "",
+        StudioWrappingTextField(
+            placeholder: placeholder,
             text: binding,
-            prompt: Text(placeholder)
-                .font(StudioTypography.monoValue)
-                .foregroundStyle(.tertiary),
-            axis: .vertical
+            font: StudioTypography.monoValue,
+            lineSpacing: NameTableLayout.wrappedLineSpacing,
+            lineLimit: 1...NameTableLayout.maxWrappedLines,
+            horizontalPadding: NameTableLayout.editorHorizontalPadding,
+            verticalPadding: NameTableLayout.editorVerticalPadding,
+            minHeight: StudioFieldMetrics.monoValueRowHeight,
+            onSubmit: { collapseEditor() },
+            onCancel: { collapseEditor() }
         )
-        .textFieldStyle(.plain)
-        .font(StudioTypography.monoValue)
-        .lineSpacing(NameTableLayout.wrappedLineSpacing)
-        .lineLimit(1...NameTableLayout.maxWrappedLines)
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, NameTableLayout.editorHorizontalPadding)
-        .padding(.vertical, NameTableLayout.editorVerticalPadding)
-        .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.monoValueRowHeight, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
-                .fill(StudioColors.fieldFillFocused)
-        }
-        .modifier(StudioFocusRingSuppression())
-        .focused($focusedNameID, equals: nameID)
-        .onAppear {
-            focusedNameID = nameID
-        }
-        .onSubmit {
-            collapseEditor()
-        }
-        .onKeyPress(.return) {
-            collapseEditor()
-            return .handled
-        }
-        .onExitCommand {
-            collapseEditor()
-        }
     }
 
     private func collapseEditor() {
         expandedNameID = nil
-        focusedNameID = nil
         StudioFieldFocus.resignIfEditing()
     }
 

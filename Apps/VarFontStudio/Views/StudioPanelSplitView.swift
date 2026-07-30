@@ -114,7 +114,7 @@ struct StudioPanelSplitView: View {
             InstanceListPanel.headerCounts(editor: editor)
         case .names:
             if let meta = namesHeaderMeta {
-                HStack(spacing: 3) {
+                HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("\(meta.populated)")
                         .foregroundStyle(StudioColors.computedHighlight)
                     Text("populated")
@@ -138,45 +138,24 @@ struct StudioPanelSplitView: View {
     }
 
     private var middleScopeSwitcher: some View {
-        HStack(spacing: 2) {
-            middleScopeButton(title: "Instances", scope: .instances)
-            middleScopeButton(title: "Names", scope: .names)
-        }
-    }
-
-    private func middleScopeButton(title: String, scope: MiddlePanelScope) -> some View {
-        let isOn = editor.inspectorFocus.middlePanelScope == scope
-        return Button {
-            if scope == .names {
-                editor.inspectorFocus.showNamesPanel()
-            } else {
+        HStack(spacing: StudioSpace.x0_5) {
+            StudioSegmentButton(
+                title: "Instances",
+                isSelected: editor.inspectorFocus.middlePanelScope == .instances,
+                expands: true
+            ) {
                 editor.inspectorFocus.middlePanelScope = .instances
             }
-        } label: {
-            Text(title)
-                .font(StudioTypography.meta)
-                .fontWeight(isOn ? .semibold : .regular)
-                .foregroundStyle(isOn ? Color.accentColor : .secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, StudioSpacing.panelVertical)
-                .background {
-                    RoundedRectangle(cornerRadius: StudioRadius.row)
-                        .fill(isOn ? Color.accentColor.opacity(0.12) : Color.clear)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: StudioRadius.row)
-                                .strokeBorder(
-                                    isOn ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.22),
-                                    lineWidth: 1
-                                )
-                        }
-                }
-                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+            StudioSegmentButton(
+                title: "Names",
+                isSelected: editor.inspectorFocus.middlePanelScope == .names,
+                expands: true
+            ) {
+                editor.inspectorFocus.showNamesPanel()
+            }
         }
-        .buttonStyle(.plain)
-        .studioHoverFill(
-            shape: .roundedRect(cornerRadius: StudioRadius.row),
-            emphasized: isOn
-        )
+        .padding(StudioSpace.x0_5)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
     }
 
     // MARK: - Axis tree column

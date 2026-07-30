@@ -52,7 +52,7 @@ struct CombinationStylesSection: View {
     }
 
     private func compoundRow(_ compound: CompoundStatValue) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
             HStack(alignment: .center, spacing: 0) {
                 Color.clear
                     .frame(width: StopTableLayout.stopIndentWidth)
@@ -125,7 +125,7 @@ struct CombinationStylesSection: View {
                 editingLeg = (compound.id, tag)
                 legDraft = StudioFormatting.axisValue(value)
             } label: {
-                HStack(spacing: 2) {
+                HStack(spacing: StudioSpace.x0_5) {
                     Text(tag)
                         .font(StudioTypography.monoMeta)
                         .foregroundStyle(

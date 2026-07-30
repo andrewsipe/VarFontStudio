@@ -28,18 +28,21 @@ struct MissingFontsSheet: View {
                 }
             }
 
-            HStack {
-                Button("Cancel") {
+            HStack(spacing: StudioSpacing.controlGap) {
+                StudioFlatButton(title: "Cancel") {
                     editor.cancelMissingFontsRequest()
                     dismiss()
                 }
                 Spacer()
-                Button("Continue") {
+                StudioFlatButton(
+                    title: "Continue",
+                    role: .primary,
+                    isEnabled: request.allResolved,
+                    isDefaultAction: true
+                ) {
                     editor.completeMissingFontsRequest()
                     dismiss()
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!request.allResolved)
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)
@@ -50,7 +53,7 @@ struct MissingFontsSheet: View {
     @ViewBuilder
     private func missingFontRow(_ entry: MissingFontEntry) -> some View {
         HStack(alignment: .center, spacing: StudioSpacing.sectionGap) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
                 Text(entry.basename)
                     .font(StudioTypography.body)
                     .fontWeight(.medium)
@@ -74,7 +77,6 @@ struct MissingFontsSheet: View {
         }
         .padding(StudioSpacing.cardPadding)
         .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.chip))
     }
 
     @ViewBuilder
@@ -82,7 +84,7 @@ struct MissingFontsSheet: View {
         Text(entry.isResolved ? "Found" : "Missing")
             .font(StudioTypography.monoMeta)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, 3)
+            .padding(.vertical, StudioSpacing.instanceRowVertical)
             .background(
                 (entry.isResolved ? Color.green.opacity(0.2) : Color.orange.opacity(0.25)),
                 in: Capsule()

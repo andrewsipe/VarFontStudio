@@ -105,7 +105,7 @@ struct InstanceInspectorContent: View {
             HStack(spacing: StudioSpacing.controlGap) {
                 Image(systemName: included ? "checkmark.circle.fill" : "minus.circle.fill")
                     .foregroundStyle(included ? StudioColors.successForeground : StudioColors.warningForeground)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
                     Text(included ? "Included in export" : "Excluded (not included)")
                         .font(StudioTypography.bodyMedium)
                     if !included {

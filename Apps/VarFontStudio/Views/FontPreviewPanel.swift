@@ -54,7 +54,7 @@ struct FontPreviewPanel: View {
         nonmutating set { alignmentRaw = newValue.rawValue }
     }
 
-    private static let canvasColor = Color(red: 0.11, green: 0.11, blue: 0.118)
+    private static let canvasColor = StudioColors.canvasBackground
 
     /// Floor on the glyph canvas height so it never collapses to nothing if the
     /// shared naming-order/preview footer height is ever smaller than expected.
@@ -138,7 +138,7 @@ struct FontPreviewPanel: View {
     }
 
     private var alignmentPicker: some View {
-        HStack(spacing: 1) {
+        HStack(spacing: StudioSpacing.instanceRowGap) {
             ForEach(FontPreviewAlignment.allCases) { option in
                 Button {
                     alignment = option
@@ -146,7 +146,7 @@ struct FontPreviewPanel: View {
                     Image(systemName: option.systemImage)
                         .font(StudioTypography.meta)
                         .foregroundStyle(alignment == option ? Color.accentColor : .secondary)
-                        .frame(width: 24, height: 22)
+                        .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.tabChipRowHeight)
                         .background {
                             RoundedRectangle(cornerRadius: StudioRadius.small)
                                 .fill(alignment == option ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -162,8 +162,8 @@ struct FontPreviewPanel: View {
                 .help(option.help)
             }
         }
-        .padding(2)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .padding(StudioSpace.x0_5)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
     }
 
     private var canvasForeground: some View {
@@ -191,7 +191,7 @@ struct FontPreviewPanel: View {
             if let instance = editor.previewActiveInstance {
                 Text(instance.composedName)
                     .font(StudioTypography.caption)
-                    .foregroundStyle(editor.isPreviewHoverPeeking ? Color.accentColor : .primary)
+                    .foregroundStyle(editor.isPreviewHoverPeeking ? Color.secondary : .primary)
                     .lineLimit(1)
 
                 Text("·")
@@ -213,19 +213,19 @@ struct FontPreviewPanel: View {
                 .font(StudioTypography.meta)
                 .foregroundStyle(statusPillForeground)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 2)
+                .padding(.vertical, StudioSpace.x0_5)
                 .background(
                     Capsule()
                         .strokeBorder(
                             editor.isPreviewHoverPeeking
-                                ? Color.accentColor.opacity(0.35)
+                                ? Color.secondary.opacity(0.35)
                                 : Color.secondary.opacity(0.22),
-                            lineWidth: 1
+                            lineWidth: StudioStroke.regular
                         )
                         .background(
                             Capsule().fill(
                                 editor.isPreviewHoverPeeking
-                                    ? Color.accentColor.opacity(0.12)
+                                    ? StudioColors.surfaceLight
                                     : Color.clear
                             )
                         )
@@ -238,7 +238,7 @@ struct FontPreviewPanel: View {
 
     private var statusPillForeground: some ShapeStyle {
         if editor.isPreviewHoverPeeking {
-            return AnyShapeStyle(Color.accentColor)
+            return AnyShapeStyle(.secondary)
         }
         return AnyShapeStyle(.tertiary)
     }

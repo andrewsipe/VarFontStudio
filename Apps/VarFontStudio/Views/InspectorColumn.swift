@@ -46,7 +46,7 @@ struct InspectorColumn: View {
         switch editor.inspectorFocus.panelScope {
         case .project:
             if let project = editor.project {
-                HStack(spacing: 3) {
+                HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("\(project.fonts.count)")
                         .foregroundStyle(StudioColors.computedHighlight)
                     Text(project.fonts.count == 1 ? "file" : "files")
@@ -56,7 +56,7 @@ struct InspectorColumn: View {
             }
         case .instance:
             if editor.inspectorInspectableInstance != nil {
-                HStack(spacing: 3) {
+                HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("1")
                         .foregroundStyle(StudioColors.computedHighlight)
                     Text("instance")
@@ -64,7 +64,7 @@ struct InspectorColumn: View {
                 }
                 .font(StudioTypography.meta)
             } else if editor.activeInstanceSelection.count > 1 {
-                HStack(spacing: 3) {
+                HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("\(editor.activeInstanceSelection.count)")
                         .foregroundStyle(.secondary)
                     Text("selected")
@@ -76,40 +76,23 @@ struct InspectorColumn: View {
     }
 
     private var scopeSwitcher: some View {
-        HStack(spacing: 2) {
-            scopeButton(title: "Project", scope: .project)
-            scopeButton(title: "Instance", scope: .instance)
+        HStack(spacing: StudioSpace.x0_5) {
+            StudioSegmentButton(
+                title: "Project",
+                isSelected: editor.inspectorFocus.panelScope == .project,
+                expands: true
+            ) {
+                editor.inspectorFocus.panelScope = .project
+            }
+            StudioSegmentButton(
+                title: "Instance",
+                isSelected: editor.inspectorFocus.panelScope == .instance,
+                expands: true
+            ) {
+                editor.inspectorFocus.panelScope = .instance
+            }
         }
-    }
-
-    private func scopeButton(title: String, scope: InspectorPanelScope) -> some View {
-        let isOn = editor.inspectorFocus.panelScope == scope
-        return Button {
-            editor.inspectorFocus.panelScope = scope
-        } label: {
-            Text(title)
-                .font(StudioTypography.meta)
-                .fontWeight(isOn ? .semibold : .regular)
-                .foregroundStyle(isOn ? Color.accentColor : .secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, StudioSpacing.panelVertical)
-                .background {
-                    RoundedRectangle(cornerRadius: StudioRadius.row)
-                        .fill(isOn ? Color.accentColor.opacity(0.12) : Color.clear)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: StudioRadius.row)
-                                .strokeBorder(
-                                    isOn ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.22),
-                                    lineWidth: 1
-                                )
-                        }
-                }
-                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
-        }
-        .buttonStyle(.plain)
-        .studioHoverFill(
-            shape: .roundedRect(cornerRadius: StudioRadius.row),
-            emphasized: isOn
-        )
+        .padding(StudioSpace.x0_5)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
     }
 }

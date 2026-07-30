@@ -40,9 +40,10 @@ struct ProjectScopeHeader: View {
             .transaction { $0.animation = nil }
 
             if isEditingName {
-                Button("Done") { commitRename() }
-                    .controlSize(.small)
-                    .frame(height: StudioFieldMetrics.bodyMediumRowHeight)
+                StudioFlatButton(title: "Done", role: .primary, size: .compact) {
+                    commitRename()
+                }
+                .frame(height: StudioFieldMetrics.bodyMediumRowHeight)
             } else {
                 headerActions
             }

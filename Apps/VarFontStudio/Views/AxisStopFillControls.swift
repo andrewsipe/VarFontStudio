@@ -25,12 +25,23 @@ struct AxisStopFillControls: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            Picker("Fill mode", selection: $fillMode) {
-                Text("Evenly spaced").tag(AxisStopFillMode.evenCount)
-                Text("Every N units").tag(AxisStopFillMode.fixedInterval)
+            HStack(spacing: StudioSpacing.instanceRowGap) {
+                StudioSegmentButton(
+                    title: "Evenly spaced",
+                    isSelected: fillMode == .evenCount
+                ) {
+                    fillMode = .evenCount
+                }
+                StudioSegmentButton(
+                    title: "Every N units",
+                    isSelected: fillMode == .fixedInterval
+                ) {
+                    fillMode = .fixedInterval
+                }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            .padding(StudioSpace.x0_5)
+            .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            .accessibilityLabel("Fill mode")
 
             switch fillMode {
             case .evenCount:
@@ -94,9 +105,9 @@ struct AxisStopFillControls: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(enabled ? .primary : .tertiary)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 3)
+                .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background(
-                    isSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05),
+                    isSelected ? Color.accentColor.opacity(0.14) : StudioColors.surfaceLight,
                     in: Capsule()
                 )
         }

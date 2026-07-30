@@ -288,7 +288,7 @@ struct AxisConflictResolverSheet: View {
                     .font(StudioTypography.meta.weight(.medium))
                     .foregroundStyle(StudioColors.warningForeground)
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
-                    .padding(.vertical, 3)
+                    .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(StudioColors.warningFill, in: Capsule())
             }
         }
@@ -331,7 +331,7 @@ struct AxisConflictResolverSheet: View {
                 }
             }
 
-            VStack(spacing: 2) {
+            VStack(spacing: StudioSpace.x0_5) {
                 stopTableHeader
 
                 ForEach(involvedStops) { stop in
@@ -379,7 +379,7 @@ struct AxisConflictResolverSheet: View {
         .font(StudioTypography.columnLabel)
         .foregroundStyle(.tertiary)
         .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
-        .padding(.bottom, 2)
+        .padding(.bottom, StudioSpace.x0_5)
     }
 
     private func editableStopRow(_ stop: AxisValue, axis: AxisDefinition) -> some View {
@@ -401,7 +401,7 @@ struct AxisConflictResolverSheet: View {
             ConflictElidableIndicator(isOn: stop.elidable)
                 .frame(width: StopTableLayout.elidableWidth)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, StudioSpacing.instanceRowVertical)
         .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
     }
 
@@ -440,7 +440,7 @@ struct AxisConflictResolverSheet: View {
             ConflictElidableIndicator(isOn: stop.elidable)
                 .frame(width: StopTableLayout.elidableWidth)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, StudioSpacing.instanceRowVertical)
         .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
     }
 
@@ -719,7 +719,7 @@ struct AxisConflictResolverSheet: View {
                     .font(StudioTypography.sectionLabel)
                     .foregroundStyle(.secondary)
 
-                VStack(spacing: 2) {
+                VStack(spacing: StudioSpace.x0_5) {
                     stopTableHeader
 
                     ForEach(stopOutcomes) { outcome in
@@ -732,7 +732,7 @@ struct AxisConflictResolverSheet: View {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(
                             resolvesConflict ? StudioColors.successStroke : StudioColors.warningStroke,
-                            lineWidth: 0.5
+                            lineWidth: StudioStroke.hairline
                         )
                 }
 
@@ -853,23 +853,25 @@ struct AxisConflictResolverSheet: View {
     }
 
     private var actions: some View {
-        HStack {
+        HStack(spacing: StudioSpacing.controlGap) {
             Spacer()
-            Button("Cancel") {
+            StudioFlatButton(title: "Cancel") {
                 editor.dismissConflictResolver()
                 dismiss()
             }
             if showsContinue {
-                Button("Apply and continue") {
+                StudioFlatButton(title: "Apply and continue", isEnabled: canApply) {
                     applyFix(andContinue: true)
                 }
-                .disabled(!canApply)
             }
-            Button(applyButtonTitle) {
+            StudioFlatButton(
+                title: applyButtonTitle,
+                role: .primary,
+                isEnabled: canApply,
+                isDefaultAction: true
+            ) {
                 applyFix(andContinue: false)
             }
-            .keyboardShortcut(.defaultAction)
-            .disabled(!canApply)
         }
         .padding(.top, StudioSpacing.tightGap)
     }
@@ -951,7 +953,7 @@ private struct ConflictElidableIndicator: View {
             Circle()
                 .strokeBorder(
                     changed ? Color.accentColor.opacity(0.7) : Color.secondary.opacity(0.35),
-                    lineWidth: 1
+                    lineWidth: StudioStroke.regular
                 )
                 .frame(width: 12, height: 12)
             if isOn {

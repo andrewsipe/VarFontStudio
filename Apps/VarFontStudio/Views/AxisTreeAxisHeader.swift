@@ -93,13 +93,13 @@ struct AxisTreeAxisHeader: View {
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, StudioSpacing.tightGap)
-                    .padding(.vertical, 1)
+                    .padding(.vertical, StudioSpacing.instanceRowGap)
                     .background(Color.secondary.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .help("Hide this axis from user-facing controls (fvar HIDDEN_AXIS flag).")
             }
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: StudioSpacing.instanceRowGap) {
                 HStack(spacing: StudioSpacing.tightGap) {
                     if isEditingDisplayName {
                         StudioTextField(
@@ -174,15 +174,21 @@ struct AxisTreeAxisHeader: View {
             Spacer(minLength: 0)
 
             if hasConflict, let onResolveConflict {
-                Button("Resolve", action: onResolveConflict)
-                    .font(StudioTypography.meta)
-                    .controlSize(.small)
-                    .help("Open conflict resolver for this axis")
+                StudioFlatButton(
+                    title: "Resolve",
+                    size: .compact,
+                    help: "Open conflict resolver for this axis"
+                ) {
+                    onResolveConflict()
+                }
             } else if !resolvablePlanWarnings.isEmpty, let onReviewPlanIssue {
-                Button("Review…", action: onReviewPlanIssue)
-                    .font(StudioTypography.meta)
-                    .controlSize(.small)
-                    .help(resolvablePlanWarnings.first?.hint ?? "Review plan issues on this axis")
+                StudioFlatButton(
+                    title: "Review…",
+                    size: .compact,
+                    help: resolvablePlanWarnings.first?.hint ?? "Review plan issues on this axis"
+                ) {
+                    onReviewPlanIssue()
+                }
             }
 
             HStack(spacing: StudioSpacing.rowGap) {
@@ -247,7 +253,7 @@ struct AxisTreeAxisHeader: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 2) {
+                        HStack(spacing: StudioSpace.x0_5) {
                             Text(selectedRegistrationName)
                                 .font(StudioTypography.meta)
                                 .fontWeight(.medium)
@@ -259,6 +265,7 @@ struct AxisTreeAxisHeader: View {
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
+                    .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
                     .help(registrationStopHelp)
                 }
             }

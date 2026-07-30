@@ -55,10 +55,10 @@ struct FileClarifierFields: View {
                 focusBinding: $postScriptPrefixFocused
             )
             .help(psPrefixHelp(for: fontID))
-            .overlay {
+            .background {
                 if highlightPostScriptPrefix {
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .strokeBorder(Color.accentColor.opacity(0.65), lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                        .fill(StudioColors.selectionFill)
                 }
             }
         }

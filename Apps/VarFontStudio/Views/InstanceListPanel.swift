@@ -78,7 +78,7 @@ struct InstanceListPanel: View {
         let display = editor.instanceListDisplay
         let visible = display.groups.reduce(0) { $0 + $1.instances.count }
         if !display.isEmpty {
-            HStack(spacing: 3) {
+            HStack(spacing: StudioSpacing.instanceRowVertical) {
                 Text("\(visible)")
                     .foregroundStyle(StudioColors.computedHighlight)
                 Text("shown")
@@ -236,8 +236,8 @@ struct InstanceListPanel: View {
                         .font(StudioTypography.meta)
                         .foregroundStyle(.secondary)
                 }
-                .toggleStyle(.checkbox)
-                .controlSize(.small)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
                 .disabled(editor.filteredInstances.isEmpty)
 
                 Spacer(minLength: StudioSpacing.controlGap)
@@ -269,13 +269,13 @@ struct InstanceListPanel: View {
                 .foregroundStyle(.tertiary)
                 .fixedSize()
 
-            HStack(spacing: 1) {
+            HStack(spacing: StudioSpacing.instanceRowGap) {
                 ForEach(editor.visibleInstanceFilters) { filter in
                     showFilterButton(filter)
                 }
             }
-            .padding(2)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            .padding(StudioSpace.x0_5)
+            .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
         }
     }
 
@@ -289,7 +289,7 @@ struct InstanceListPanel: View {
         } label: {
             Text(filter.label)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 3)
+                .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .foregroundStyle(showFilterForeground(
                     isSelected: isSelected,
                     isDuplicates: isDuplicates,
@@ -341,9 +341,9 @@ struct InstanceListPanel: View {
                 : StudioColors.warningFill.opacity(0.45)
         }
         if isPendingExport {
-            return isSelected ? Color.primary.opacity(0.08) : Color.clear
+            return isSelected ? StudioColors.selectionNeutralFill : Color.clear
         }
-        return isSelected ? Color.primary.opacity(0.12) : Color.clear
+        return isSelected ? StudioColors.selectionNeutralFillStrong : Color.clear
     }
 
     private var emptyListTitle: String {
@@ -441,9 +441,9 @@ private struct InstanceRowView: View {
                 Text("After export")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 3))
+                    .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+                    .padding(.vertical, StudioSpacing.instanceRowGap)
+                    .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.small))
                     .help("Included in the plan but not yet written to the working font")
             }
 

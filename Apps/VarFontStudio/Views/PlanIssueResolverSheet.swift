@@ -150,23 +150,20 @@ struct PlanIssueResolverSheet: View {
     }
 
     private var actionBar: some View {
-        HStack {
+        HStack(spacing: StudioSpacing.controlGap) {
             Spacer()
-            Button("Cancel") {
+            StudioFlatButton(title: "Cancel") {
                 editor.dismissPlanIssueResolver()
                 dismiss()
             }
             if showsContinue {
-                Button("Apply and continue") {
+                StudioFlatButton(title: "Apply and continue", isEnabled: canApply) {
                     applySelected(andContinue: true)
                 }
-                .disabled(!canApply)
             }
-            Button("Apply") {
+            StudioFlatButton(title: "Apply", role: .primary, isEnabled: canApply, isDefaultAction: true) {
                 applySelected(andContinue: false)
             }
-            .keyboardShortcut(.defaultAction)
-            .disabled(!canApply)
         }
     }
 
@@ -216,9 +213,9 @@ struct PlanIssueResolverSheet: View {
         } label: {
             HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
                 StudioRadioMark(isOn: isSelected)
-                    .padding(.top, 2)
+                    .padding(.top, StudioSpace.x0_5)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
                     HStack(spacing: StudioSpacing.rowGap) {
                         Text(proposal.title)
                             .font(StudioTypography.bodyMedium)

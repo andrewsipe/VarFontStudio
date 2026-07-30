@@ -389,7 +389,7 @@ struct MainEditorView: View {
                 .padding(StudioSpacing.cardPadding)
                 .background(
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
+                        .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
                 )
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.top, StudioSpace.x2)
@@ -509,7 +509,7 @@ struct MainEditorView: View {
                 if let font = editor.selectedFont {
                     Text(editor.fontBasename(for: font))
                         .font(StudioTypography.meta)
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 } else if editor.activeProjectID == nil, editor.statusMessage == nil, !editor.instancer.isGenerateBusy {
                     Text("Ready")
@@ -565,7 +565,7 @@ struct MainEditorView: View {
                 }
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, StudioSpace.x2)
-                .padding(.vertical, 3)
+                .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background(StudioColors.surfaceLight, in: Capsule())
             }
             .buttonStyle(.plain)
@@ -581,10 +581,9 @@ struct MainEditorView: View {
                 Text("Export complete — ready to instance static fonts.")
                     .font(StudioTypography.bodyMedium)
                 Spacer(minLength: StudioSpacing.controlGap)
-                Button("Instance…") {
+                StudioFlatButton(title: "Instance…", role: .primary, size: .compact) {
                     editor.acceptPostExportInstancerRecommendation()
                 }
-                .buttonStyle(.borderedProminent)
                 StudioDismissButton(scale: .toolbar, help: "Dismiss") {
                     editor.dismissPostExportInstancerRecommendation()
                 }
@@ -639,7 +638,7 @@ struct MainEditorView: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Dismiss") {
+                StudioFlatButton(title: "Dismiss") {
                     editor.dismissCommitDiffSheet()
                 }
             }

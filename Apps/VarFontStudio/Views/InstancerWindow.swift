@@ -125,13 +125,12 @@ private struct InstancerWindowContent: View {
                     Text(toastMessage)
                         .font(StudioTypography.bodyMedium)
                     if let toastRevealPath {
-                        Button("Show in Finder") {
+                        StudioFlatButton(title: "Show in Finder", size: .compact) {
                             NSWorkspace.shared.selectFile(
                                 toastRevealPath,
                                 inFileViewerRootedAtPath: ""
                             )
                         }
-                        .buttonStyle(.bordered)
                     }
                 }
                 .padding(.horizontal, StudioSpace.x3)
@@ -172,11 +171,13 @@ private struct InstancerWindowContent: View {
 
     private var actionBar: some View {
         HStack(spacing: StudioSpacing.controlGap) {
-            Button("Generate All…") {
+            StudioFlatButton(
+                title: "Generate All…",
+                isEnabled: canGenerateAll,
+                help: generateAllHelp
+            ) {
                 Task { await presentGenerateAll() }
             }
-            .disabled(!canGenerateAll)
-            .help(generateAllHelp)
 
             generateThisFileButton
         }
@@ -184,16 +185,14 @@ private struct InstancerWindowContent: View {
 
     @ViewBuilder
     private var generateThisFileButton: some View {
-        let button = Button("Generate This File…") {
+        StudioFlatButton(
+            title: "Generate This File…",
+            role: .primary,
+            isEnabled: session.canGenerate && !session.isGenerating && !editor.instancer.isGenerateBusy,
+            isDefaultAction: !suppressGenerateShortcut,
+            help: generateHelp
+        ) {
             Task { await presentGenerate() }
-        }
-        .disabled(!session.canGenerate || session.isGenerating || editor.instancer.isGenerateBusy)
-        .help(generateHelp)
-
-        if suppressGenerateShortcut {
-            button
-        } else {
-            button.keyboardShortcut(.defaultAction)
         }
     }
 
@@ -205,8 +204,8 @@ private struct InstancerWindowContent: View {
             Text(session.hasSource ? session.sourceDisplayName : "None")
                 .font(StudioTypography.monoMeta)
                 .foregroundStyle(session.hasSource ? .primary : .tertiary)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
+                .padding(.horizontal, StudioSpacing.pillHorizontalInset)
+                .padding(.vertical, StudioSpace.x0_5)
                 .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: StudioRadius.control))
             if session.isLoading {
                 ProgressView()
@@ -219,8 +218,8 @@ private struct InstancerWindowContent: View {
                 Text("Studio export")
                     .font(StudioTypography.pillLabel)
                     .foregroundStyle(StudioColors.editedForeground)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
+                    .padding(.horizontal, StudioSpacing.pillHorizontalInset)
+                    .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(
                         StudioColors.editedForeground.opacity(0.12),
                         in: RoundedRectangle(cornerRadius: 3)
@@ -245,12 +244,14 @@ private struct InstancerWindowContent: View {
                 composerFields
             } else {
                 HStack(spacing: StudioSpacing.controlGap) {
-                    Button("Add Instance…") {
+                    StudioFlatButton(
+                        title: "Add Instance…",
+                        isEnabled: session.hasSource && !session.isLoading,
+                        help: "Add a custom instance at any coordinate — not written back to the source font"
+                    ) {
                         session.showComposer = true
                         session.resetComposer()
                     }
-                    .help("Add a custom instance at any coordinate — not written back to the source font")
-                    .disabled(!session.hasSource || session.isLoading)
                     Spacer(minLength: 0)
                 }
             }
@@ -261,7 +262,7 @@ private struct InstancerWindowContent: View {
                         .foregroundStyle(StudioColors.warningForeground)
                     Spacer(minLength: 0)
                     if session.composerForcePending {
-                        Button("Add anyway") {
+                        StudioFlatButton(title: "Add anyway", size: .compact) {
                             session.composerForcePending = false
                             commitCustomInstance(force: true)
                         }
@@ -291,10 +292,9 @@ private struct InstancerWindowContent: View {
         }()
 
         return HStack(spacing: StudioSpacing.controlGap) {
-            Button("Cancel") {
+            StudioFlatButton(title: "Cancel", help: "Close the custom instance row") {
                 dismissComposer()
             }
-            .help("Close the custom instance row")
 
             StudioTextField(
                 placeholder: "Name — e.g. SemiBold",
@@ -337,10 +337,12 @@ private struct InstancerWindowContent: View {
                 .help(draftOutput == "—" ? "Output filename preview" : draftOutput)
 
             Spacer(minLength: 0)
-            Button(session.composerForcePending ? "Confirm" : "Add") {
+            StudioFlatButton(
+                title: session.composerForcePending ? "Confirm" : "Add",
+                role: .primary
+            ) {
                 addCustomInstance()
             }
-            .buttonStyle(.borderedProminent)
         }
     }
 
@@ -570,7 +572,7 @@ private struct InstancerWindowContent: View {
                     Text(error)
                 } actions: {
                     if let projectID = session.projectID, let fontID = session.fontID {
-                        Button("Reload from Project") {
+                        StudioFlatButton(title: "Reload from Project") {
                             editor.instancer.reloadSessionAfterExport(projectID: projectID, fontID: fontID)
                         }
                     }
@@ -847,8 +849,8 @@ private struct InstancerRowView: View {
 
     @ViewBuilder
     private var nameCell: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 5) {
+        VStack(alignment: .leading, spacing: StudioSpacing.instanceRowGap) {
+            HStack(spacing: StudioSpacing.tagHorizontalInset) {
                 if session.editingRowID == row.id {
                     StudioTextField(
                         placeholder: "Name",
@@ -935,7 +937,7 @@ private struct InstancerRowView: View {
 
     @ViewBuilder
     private var flagCell: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: StudioSpacing.instanceRowVertical) {
             if row.origin == .custom {
                 if let collision {
                     Text(collisionFlagLabel(collision))
@@ -994,13 +996,13 @@ private struct InstancerRowView: View {
         return ZStack(alignment: .leading) {
             // Full-bleed table chrome — not rounded, so hover/selection reads as a grid row.
             if isActivelyGenerating {
-                Rectangle().fill(Color.accentColor.opacity(0.12))
+                Rectangle().fill(StudioColors.selectionFill)
             } else if selected {
                 Rectangle().fill(StudioColors.selectionFill)
             }
             // Hover sits on top of selection too — most rows start selected, so suppress would hide it.
             if isHovered {
-                Rectangle().fill(Color.primary.opacity(selected || isActivelyGenerating ? 0.08 : 0.06))
+                Rectangle().fill(selected || isActivelyGenerating ? StudioColors.selectionNeutralFill : StudioColors.surfaceInset)
             }
             if let tint {
                 LinearGradient(
@@ -1019,7 +1021,6 @@ private struct InstancerFilterBadgeButton: View {
     var tint: Color?
     @ObservedObject var session: InstancerSessionState
     @Binding var statusOverride: String?
-    @State private var isHovered = false
 
     var body: some View {
         let isolated = session.filterKind == kind && kind != .all
@@ -1032,41 +1033,39 @@ private struct InstancerFilterBadgeButton: View {
                 session.filterKind = kind
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: StudioSpacing.tightGap) {
                 if kind == .custom || kind == .collision || kind == .attention {
                     Text("◆")
-                        .font(.system(size: 8.5, weight: .bold))
+                        .font(StudioTypography.filterBadgeLabel)
                         .foregroundStyle(accent)
                 }
                 Text("\(kind.title.uppercased()) \(count)")
-                    .font(.system(size: 8.5, weight: .bold))
+                    .font(StudioTypography.filterBadgeLabel)
                     .tracking(0.3)
             }
             .foregroundStyle(dimmed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(accent))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
+            .padding(.horizontal, StudioSpacing.pillHorizontalInset)
+            .padding(.vertical, StudioSpacing.instanceRowVertical)
             .background {
-                ZStack {
-                    if isolated {
-                        RoundedRectangle(cornerRadius: 3).fill(accent.opacity(0.16))
-                    }
-                    if isHovered, !isolated {
-                        RoundedRectangle(cornerRadius: 3).fill(StudioColors.hoverFill)
-                    }
+                if isolated {
+                    RoundedRectangle(cornerRadius: StudioRadius.small).fill(accent.opacity(0.16))
                 }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: StudioRadius.small)
                     .strokeBorder(
-                        isolated ? accent.opacity(0.45) : (dimmed ? Color.clear : Color.primary.opacity(0.12)),
-                        lineWidth: isolated ? 1 : 0.5
+                        isolated ? accent.opacity(0.45) : (dimmed ? Color.clear : StudioColors.selectionNeutralFillStrong),
+                        lineWidth: isolated ? StudioStroke.regular : StudioStroke.hairline
                     )
             }
             .opacity(dimmed ? 0.45 : 1)
         }
         .buttonStyle(.plain)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: StudioRadius.small),
+            isEnabled: !isolated
+        )
         .onHover { hovering in
-            isHovered = hovering
             statusOverride = hovering ? kind.hint : nil
         }
     }

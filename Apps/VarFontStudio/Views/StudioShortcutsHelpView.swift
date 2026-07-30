@@ -92,8 +92,9 @@ struct StudioShortcutsHelpView: View {
 
             HStack {
                 Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+                StudioFlatButton(title: "Done", role: .primary, isDefaultAction: true) {
+                    dismiss()
+                }
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)

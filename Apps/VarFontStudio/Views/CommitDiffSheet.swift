@@ -67,53 +67,65 @@ private struct SaveReviewActionBar: View {
                 .disabled(!canRefresh || isLoading)
                 .help("Re-read the font on disk and rebuild the diff")
 
-                Button("Save Project") {
+                StudioFlatButton(title: "Save Project", isEnabled: editor.canSaveProject) {
                     editor.saveProject()
                 }
-                .disabled(!editor.canSaveProject)
             }
 
             HStack(spacing: StudioSpacing.controlGap) {
                 if includeCancel {
-                    Button("Cancel") {
+                    StudioFlatButton(title: "Cancel") {
                         editor.dismissCommitDiffSheet()
                         dismiss()
                     }
                 }
 
                 if showsExportAll {
-                    Button("Export All…") {
+                    StudioFlatButton(
+                        title: "Export All…",
+                        role: .primary,
+                        isEnabled: session.preflight.ok && !editor.isSaveActionBlocked,
+                        isDefaultAction: true,
+                        help: "Export all files in this project to a folder. Picking the source folder creates a Patched subfolder."
+                    ) {
                         editor.saveAllFiles(inProjectID: projectID)
                     }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Export all files in this project to a folder. Picking the source folder creates a Patched subfolder.")
 
-                    Button("Export This File…") {
+                    StudioFlatButton(
+                        title: "Export This File…",
+                        isEnabled: session.preflight.ok && !editor.isSaveActionBlocked,
+                        help: "Choose a path for the selected file only"
+                    ) {
                         editor.presentSavePanel(for: session)
                     }
-                    .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Choose a path for the selected file only")
                 } else if canExportToRememberedPath {
-                    Button("Export As…") {
+                    StudioFlatButton(
+                        title: "Export As…",
+                        isEnabled: session.preflight.ok && !editor.isSaveActionBlocked,
+                        help: "Choose a new path for this font"
+                    ) {
                         editor.presentSavePanel(for: session)
                     }
-                    .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Choose a new path for this font")
 
-                    Button("Export") {
+                    StudioFlatButton(
+                        title: "Export",
+                        role: .primary,
+                        isEnabled: session.preflight.ok && !editor.isSaveActionBlocked,
+                        isDefaultAction: true,
+                        help: "Write to the last export path"
+                    ) {
                         editor.save(session: session)
                     }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Write to the last export path")
                 } else {
-                    Button("Export…") {
+                    StudioFlatButton(
+                        title: "Export…",
+                        role: .primary,
+                        isEnabled: session.preflight.ok && !editor.isSaveActionBlocked,
+                        isDefaultAction: true,
+                        help: "Choose a path for the exported font"
+                    ) {
                         editor.presentSavePanel(for: session)
                     }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!session.preflight.ok || editor.isSaveActionBlocked)
-                    .help("Choose a path for the exported font")
                 }
             }
         }
@@ -215,7 +227,7 @@ struct SaveReviewWindow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
+                        .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
                 )
                 .padding(.horizontal, StudioSpacing.sheetOuterPadding)
                 .padding(.top, StudioSpace.x2)
@@ -364,7 +376,7 @@ struct SaveReviewWindow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
+                .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
         )
     }
 
@@ -381,7 +393,7 @@ struct SaveReviewWindow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.warningStroke, lineWidth: 1)
+                .strokeBorder(StudioColors.warningStroke, lineWidth: StudioStroke.regular)
         )
     }
 }

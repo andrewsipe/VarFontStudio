@@ -34,6 +34,12 @@ enum StudioTypography {
     static let iconGlyph = Font.system(size: 8, weight: .semibold)
     /// Format-3 link chain — lighter/smaller than adjacent caption text.
     static let linkGlyph = Font.system(size: 10, weight: .regular)
+    /// Instancer / Save Review filter count badges (8.5pt bold).
+    static let filterBadgeLabel = Font.system(size: 8.5, weight: .bold)
+    /// Naming-chain micro chevron (optical; lighter than `iconGlyph`).
+    static let linkChevronMicro = Font.system(size: 7, weight: .light)
+    /// Empty-workspace drop hero glyph.
+    static let dropHeroIcon = Font.system(size: 36)
 }
 
 /// 4pt spacing scale. Prefer `StudioSpacing` semantic aliases at call sites;
@@ -101,7 +107,24 @@ enum StudioSpacing {
     static let instanceRowVertical: CGFloat = 3
     /// Off-lattice micro (1pt) — hairline gap between instance rows.
     static let instanceRowGap: CGFloat = 1
+    /// Off-lattice micro (1pt) — optical top nudge for warning glyphs beside multi-line text.
+    static let warningGlyphTopNudge: CGFloat = 1
+    /// Off-lattice (7pt) — Instancer / Save Review filter pill horizontal inset.
+    static let pillHorizontalInset: CGFloat = 7
+    /// Off-lattice (5pt) — compact tag / badge horizontal inset.
+    static let tagHorizontalInset: CGFloat = 5
     static let toolbarVertical: CGFloat = StudioSpace.x1_5
+}
+
+enum StudioStroke {
+    static let hairline: CGFloat = 0.5
+    static let regular: CGFloat = 1
+    /// Dashed focus / drop-gap affordance.
+    static let emphasis: CGFloat = 1.2
+    /// Highlight ring / drag-ghost outline.
+    static let strong: CGFloat = 1.5
+    /// Shared dash pattern for drag hover rings and drop gaps.
+    static let dragDash: [CGFloat] = [4, 3]
 }
 
 enum StudioRadius {
@@ -229,7 +252,12 @@ enum StudioColors {
     static let axisValue = Color.orange.opacity(0.85)
     static let selectionFill = Color.accentColor.opacity(0.10)
     static let selectionStroke = Color.accentColor.opacity(0.20)
+    /// Neutral (non-accent) selection / hover-over-selection fills — not for borders.
+    static let selectionNeutralFill = Color.primary.opacity(0.08)
+    static let selectionNeutralFillStrong = Color.primary.opacity(0.12)
     static let hoverFill = Color.primary.opacity(0.05)
+    /// Shared near-black canvas for glyph preview / Save Review / Instancer.
+    static let canvasBackground = Color(red: 0.11, green: 0.11, blue: 0.118)
     static let warningFill = Color.orange.opacity(0.12)
     static let warningFillHover = Color.orange.opacity(0.18)
     static let warningForeground = Color.orange
@@ -262,6 +290,13 @@ enum StudioColors {
     static let fieldFillFocused = Color.primary.opacity(0.12)
     static let surfaceStroke = Color.primary.opacity(0.08)
     static let surfaceStrokeStrong = Color.primary.opacity(0.10)
+    /// Disabled-selected chip stroke (stronger than `surfaceStroke`).
+    static let surfaceStrokeEmphasized = Color.primary.opacity(0.18)
+    /// Softened primary for idle-but-enabled label text.
+    static let primaryMuted = Color.primary.opacity(0.85)
+    /// Flat secondary action fill (Cancel, Generate All…, Add Instance…).
+    static let buttonSecondaryFill = Color.primary.opacity(0.12)
+    static let buttonSecondaryFillDisabled = Color.primary.opacity(0.05)
     /// App-computed totals (grid counts, group sizes) — accent, not axis-value orange.
     static let computedHighlight = Color.accentColor
     /// STAT elided fallback — name when all elidable segments drop (naming footer, instance list).
@@ -557,7 +592,7 @@ struct StudioElidableRadio: View {
     var body: some View {
         ZStack {
             Circle()
-                .strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1)
+                .strokeBorder(Color.secondary.opacity(0.5), lineWidth: StudioStroke.regular)
                 .frame(width: 14, height: 14)
             if isOn {
                 Circle()
@@ -567,6 +602,7 @@ struct StudioElidableRadio: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
+        .studioHoverFill(shape: .circle)
         .highPriorityGesture(
             TapGesture().onEnded { action() }
         )
@@ -775,7 +811,7 @@ enum SaveReviewLayout {
     static let gutterTrailingPadding: CGFloat = StudioSpace.x3 // 12
 
     /// Prototype `--bg` / row canvas — opaque so sticky headers don't show scroll-through.
-    static let canvasBackground = Color(red: 0.11, green: 0.11, blue: 0.118)
+    static let canvasBackground = StudioColors.canvasBackground
     /// Prototype `.phase` band — opaque sticky header fill.
     static let phaseHeaderBackground = Color(red: 0.133, green: 0.133, blue: 0.141)
 }
@@ -859,11 +895,11 @@ struct StudioFilterBadge: View {
             action(NSEvent.modifierFlags.contains(.command))
         } label: {
             Text("\(category.filterLabel.uppercased()) \(count)")
-                .font(.system(size: 8.5, weight: .bold))
+                .font(StudioTypography.filterBadgeLabel)
                 .tracking(0.3)
                 .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(category.pillStyle.foreground))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
+                .padding(.horizontal, StudioSpacing.pillHorizontalInset)
+                .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background {
                     ZStack {
                         if !isHidden {
@@ -906,12 +942,12 @@ struct StudioSaveReviewTabBar: View {
                         Text(tab.label)
                             .font(StudioTypography.bodyMedium.weight(isSelected ? .semibold : .regular))
                         Text("\(tab.changedCount) of \(tab.totalCount)")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(StudioTypography.columnLabel)
                             .monospacedDigit()
                             .foregroundStyle(hasChanges ? StudioColors.warningForeground : Color.secondary.opacity(0.7))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 1)
-                            .background(Color.primary.opacity(0.08), in: Capsule())
+                            .padding(.horizontal, StudioSpace.x1_5)
+                            .padding(.vertical, StudioSpacing.instanceRowGap)
+                            .background(StudioColors.selectionNeutralFill, in: Capsule())
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -945,7 +981,7 @@ struct StudioSaveReviewPhaseHeader: View {
 
     var body: some View {
         Text(title.uppercased())
-            .font(.system(size: 10, weight: .semibold))
+            .font(StudioTypography.sectionLabel)
             .tracking(0.5)
             .foregroundStyle(.tertiary)
             .fixedSize(horizontal: false, vertical: true)
@@ -967,11 +1003,11 @@ struct StudioSaveReviewCategoryTag: View {
 
     var body: some View {
         Text(category.filterLabel.uppercased())
-            .font(.system(size: 8.5, weight: .bold))
+            .font(StudioTypography.filterBadgeLabel)
             .tracking(0.3)
             .foregroundStyle(category.pillStyle.foreground)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
+            .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+            .padding(.vertical, StudioSpace.x0_5)
             .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 3))
     }
 }
@@ -1260,7 +1296,7 @@ struct StudioIncludeCheckbox: View {
                 RoundedRectangle(cornerRadius: StudioRadius.small)
                     .strokeBorder(
                         Color.secondary.opacity(isOn || isIndeterminate ? 0.55 : 0.35),
-                        lineWidth: 1
+                        lineWidth: StudioStroke.regular
                     )
                     .frame(width: Self.size, height: Self.size)
                 if isIndeterminate {
@@ -1269,7 +1305,7 @@ struct StudioIncludeCheckbox: View {
                         .frame(width: 6, height: 1.5)
                 } else if isOn {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(StudioTypography.iconGlyph.weight(.bold))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -1277,6 +1313,7 @@ struct StudioIncludeCheckbox: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.small))
         .help(helpText)
     }
 
@@ -1441,6 +1478,56 @@ struct StudioTextField: View {
 
     private var fieldBackground: Color {
         activeFocus.wrappedValue ? StudioColors.fieldFillFocused : StudioColors.fieldFill
+    }
+}
+
+/// Soft-wrapping text field — grows by wrapped lines; flat focused fill; no stroke.
+/// Return commits via `onSubmit`; Escape via `onCancel`. Lives in StudioDesign so
+/// call sites never use a raw `TextField`.
+struct StudioWrappingTextField: View {
+    let placeholder: String
+    @Binding var text: String
+    var font: Font = StudioTypography.monoValue
+    var lineSpacing: CGFloat = StudioSpace.x1
+    var lineLimit: ClosedRange<Int> = 1...12
+    var horizontalPadding: CGFloat = StudioFieldMetrics.horizontalPadding
+    var verticalPadding: CGFloat = StudioSpace.x1_5
+    var minHeight: CGFloat = StudioFieldMetrics.monoValueRowHeight
+    var onSubmit: (() -> Void)? = nil
+    var onCancel: (() -> Void)? = nil
+
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField(
+            "",
+            text: $text,
+            prompt: Text(placeholder)
+                .font(font)
+                .foregroundStyle(.tertiary),
+            axis: .vertical
+        )
+        .textFieldStyle(.plain)
+        .font(font)
+        .lineSpacing(lineSpacing)
+        .lineLimit(lineLimit)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, verticalPadding)
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: StudioRadius.control)
+                .fill(StudioColors.fieldFillFocused)
+        }
+        .modifier(StudioFocusRingSuppression())
+        .focused($focused)
+        .onAppear { focused = true }
+        .onSubmit { onSubmit?() }
+        .onKeyPress(.return) {
+            onSubmit?()
+            return .handled
+        }
+        .onExitCommand { onCancel?() }
     }
 }
 
@@ -2029,6 +2116,279 @@ extension View {
     ) -> some View {
         modifier(StudioHoverFillModifier(shape: shape, isEnabled: isEnabled, emphasized: emphasized))
     }
+
+    /// Dashed hover ring + open-hand cursor for press-drag reorder targets (no fill wash).
+    func studioDragAffordances(
+        isEnabled: Bool = true,
+        isDragging: Bool = false,
+        cornerRadius: CGFloat = StudioRadius.chip,
+        showsOutline: Bool = true,
+        showsCursor: Bool = true
+    ) -> some View {
+        modifier(
+            StudioDragAffordancesModifier(
+                isEnabled: isEnabled,
+                isDragging: isDragging,
+                cornerRadius: cornerRadius,
+                showsOutline: showsOutline,
+                showsCursor: showsCursor
+            )
+        )
+    }
+}
+
+private struct StudioDragAffordancesModifier: ViewModifier {
+    var isEnabled: Bool
+    var isDragging: Bool
+    var cornerRadius: CGFloat
+    var showsOutline: Bool
+    var showsCursor: Bool
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if isEnabled, !isDragging, showsOutline, isHovered {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .strokeBorder(
+                            Color.secondary.opacity(0.4),
+                            style: StrokeStyle(lineWidth: StudioStroke.regular, dash: StudioStroke.dragDash)
+                        )
+                }
+            }
+            .onHover { hovering in
+                updateHover(hovering)
+            }
+            .onDisappear {
+                clearHoverCursor()
+            }
+    }
+
+    private func updateHover(_ hovering: Bool) {
+        guard isEnabled, !isDragging else {
+            clearHoverCursor()
+            return
+        }
+        guard hovering != isHovered else { return }
+        isHovered = hovering
+        guard showsCursor else { return }
+        if hovering {
+            NSCursor.openHand.push()
+        } else {
+            NSCursor.pop()
+        }
+    }
+
+    private func clearHoverCursor() {
+        guard isHovered else { return }
+        isHovered = false
+        guard showsCursor else { return }
+        NSCursor.pop()
+    }
+}
+
+/// Flat menu picker — solid field fill + accent chevron badge. Replaces system `.pickerStyle(.menu)`.
+struct StudioMenuPicker<Value: Hashable>: View {
+    let title: String
+    @Binding var selection: Value
+    let options: [(value: Value, title: String)]
+    var showsTitle: Bool = true
+
+    private var selectedTitle: String {
+        options.first(where: { $0.value == selection })?.title ?? ""
+    }
+
+    var body: some View {
+        HStack(spacing: StudioSpacing.controlGap) {
+            if showsTitle, !title.isEmpty {
+                Text(title)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.primary)
+                    .fixedSize()
+            }
+
+            Menu {
+                ForEach(options, id: \.value) { option in
+                    Button {
+                        selection = option.value
+                    } label: {
+                        if option.value == selection {
+                            Label(option.title, systemImage: "checkmark")
+                        } else {
+                            Text(option.title)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: StudioSpacing.tightGap) {
+                    Text(selectedTitle.isEmpty ? "Select…" : selectedTitle)
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(selectedTitle.isEmpty ? .tertiary : .primary)
+                        .lineLimit(1)
+                    Spacer(minLength: StudioSpacing.tightGap)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(StudioTypography.iconGlyph)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 4)
+                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                }
+                .padding(.leading, StudioSpacing.panelHorizontal)
+                .padding(.trailing, StudioSpace.x1)
+                .padding(.vertical, StudioSpace.x1_5)
+                .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.bodyRowHeight, alignment: .leading)
+                .background(StudioColors.buttonSecondaryFill, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.control))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+            .accessibilityLabel(title.isEmpty ? selectedTitle : title)
+        }
+    }
+}
+
+/// Flat filled action — primary (accent) or secondary (gray). No border, no dashed chrome.
+struct StudioFlatButton: View {
+    enum Role {
+        case primary
+        case secondary
+        /// Tinted variant (e.g. Add Naming Axis registration indigo).
+        case tinted(foreground: Color, background: Color)
+    }
+
+    enum Size {
+        /// Sheet footers, Instancer Generate / Add Instance.
+        case regular
+        /// Compact toolbar actions (Add ID…, Resolve).
+        case compact
+        /// Full-width axis-tree action rows (Add Stop / Fill stops…).
+        case row
+    }
+
+    let title: String
+    var systemImage: String? = nil
+    var role: Role = .secondary
+    var size: Size = .regular
+    var isEnabled: Bool = true
+    var expands: Bool = false
+    var isDefaultAction: Bool = false
+    var help: String = ""
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            label
+                .frame(
+                    maxWidth: expands || size == .row ? .infinity : nil,
+                    minHeight: size == .row ? StudioFieldMetrics.listRowMinHeight : nil
+                )
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, verticalPadding)
+                .background(fill, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+                .overlay {
+                    if isEnabled, isHovered {
+                        RoundedRectangle(cornerRadius: StudioRadius.control)
+                            .fill(Color.primary.opacity(roleIsPrimary ? 0.10 : 0.06))
+                    }
+                }
+                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.control))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .onHover { hovering in
+            isHovered = isEnabled && hovering
+        }
+        .modifier(StudioDefaultActionModifier(isEnabled: isDefaultAction))
+        .help(help)
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        Group {
+            if let systemImage {
+                Label(title, systemImage: systemImage)
+                    .labelStyle(.titleAndIcon)
+            } else {
+                Text(title)
+            }
+        }
+        .font(font)
+        .foregroundStyle(foreground)
+        .lineLimit(1)
+    }
+
+    private var roleIsPrimary: Bool {
+        if case .primary = role { return true }
+        return false
+    }
+
+    private var font: Font {
+        switch size {
+        case .regular, .row: StudioTypography.caption
+        case .compact: StudioTypography.meta
+        }
+    }
+
+    private var horizontalPadding: CGFloat {
+        switch size {
+        case .regular: StudioSpacing.panelHorizontal + StudioSpace.x1
+        case .compact: StudioSpacing.panelHorizontal
+        case .row: StudioSpacing.panelHorizontal
+        }
+    }
+
+    private var verticalPadding: CGFloat {
+        switch size {
+        case .regular: StudioSpacing.tightGap + StudioSpace.x0_5
+        case .compact: StudioSpacing.tightGap
+        case .row: StudioSpacing.instanceRowVertical
+        }
+    }
+
+    private var foreground: Color {
+        guard isEnabled else {
+            switch role {
+            case .primary: return Color.primary.opacity(0.35)
+            case .secondary: return Color.secondary.opacity(0.55)
+            case .tinted(let foreground, _): return foreground.opacity(0.45)
+            }
+        }
+        switch role {
+        case .primary: return .white
+        case .secondary: return .primary
+        case .tinted(let foreground, _): return foreground
+        }
+    }
+
+    private var fill: Color {
+        guard isEnabled else {
+            switch role {
+            case .primary: return Color.accentColor.opacity(0.22)
+            case .secondary: return StudioColors.buttonSecondaryFillDisabled
+            case .tinted(_, let background): return background.opacity(0.45)
+            }
+        }
+        switch role {
+        case .primary: return Color.accentColor
+        case .secondary: return StudioColors.buttonSecondaryFill
+        case .tinted(_, let background): return background
+        }
+    }
+}
+
+private struct StudioDefaultActionModifier: ViewModifier {
+    var isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.keyboardShortcut(.defaultAction)
+        } else {
+            content
+        }
+    }
 }
 
 /// Plain text/icon action — accent, secondary, or quiet. Replaces one-off `.buttonStyle(.plain)` links.
@@ -2075,27 +2435,37 @@ struct StudioPlainLinkButton: View {
     }
 }
 
-/// Segmented scope control (Instances | Names, Project | Instance).
+/// Segmented scope control (Instances | Names, Project | Instance, footer mode).
+/// Selected = accent fill; no outline. Place inside a `surfaceInset` tray at the call site when needed.
 struct StudioSegmentButton: View {
     let title: String
     var isSelected: Bool = false
-    var font: Font = StudioTypography.caption
+    var expands: Bool = false
+    var font: Font = StudioTypography.meta
+    var help: String = ""
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(font.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .contentShape(Rectangle())
+                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                .frame(maxWidth: expands ? .infinity : nil)
+                .padding(.horizontal, expands ? 0 : StudioSpacing.panelHorizontal)
+                .padding(.vertical, expands ? StudioSpacing.panelVertical : StudioSpacing.tightGap)
+                .background {
+                    RoundedRectangle(cornerRadius: expands ? StudioRadius.row : StudioRadius.small)
+                        .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: expands ? StudioRadius.row : StudioRadius.small))
         }
         .buttonStyle(.plain)
         .studioHoverFill(
-            shape: .roundedRect(cornerRadius: StudioRadius.control),
-            isEnabled: !isSelected
+            shape: .roundedRect(cornerRadius: expands ? StudioRadius.row : StudioRadius.small),
+            isEnabled: !isSelected,
+            emphasized: isSelected
         )
+        .help(help)
     }
 }
 
@@ -2234,8 +2604,11 @@ struct StudioConflictAlert: View {
 
             Spacer(minLength: 0)
 
-            Button(actionTitle, action: action)
-                .studioCompactControl()
+            StudioFlatButton(
+                title: actionTitle,
+                size: .compact,
+                action: action
+            )
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

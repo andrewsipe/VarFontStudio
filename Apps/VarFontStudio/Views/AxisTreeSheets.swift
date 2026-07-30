@@ -39,12 +39,15 @@ struct AddAxisStopSheet: View {
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
 
-            Picker("STAT format", selection: $statFormat) {
-                Text("Format 1 — static").tag(1)
-                Text("Format 2 — range").tag(2)
-                Text("Format 3 — linked").tag(3)
-            }
-            .pickerStyle(.menu)
+            StudioMenuPicker(
+                title: "STAT format",
+                selection: $statFormat,
+                options: [
+                    (1, "Format 1 — static"),
+                    (2, "Format 2 — range"),
+                    (3, "Format 3 — linked"),
+                ]
+            )
             .onChange(of: statFormat) { _, _ in seedDefaults() }
 
             VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
@@ -79,17 +82,15 @@ struct AddAxisStopSheet: View {
                     .foregroundStyle(.red)
             }
 
-            HStack {
+            HStack(spacing: StudioSpacing.controlGap) {
                 Spacer()
-                Button("Cancel") {
+                StudioFlatButton(title: "Cancel") {
                     onComplete()
                     dismiss()
                 }
-                Button("Add Stop") {
+                StudioFlatButton(title: "Add Stop", role: .primary, isEnabled: canAdd, isDefaultAction: true) {
                     addStopIfValid()
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canAdd)
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)
@@ -159,14 +160,14 @@ struct AddAxisStopSheet: View {
             )
             .focused($focusedField, equals: .pin)
             .onChange(of: pinText) { _, _ in seedLinkTargetIfNeeded() }
-            Picker("Link to", selection: Binding(
-                get: { linkTargetID ?? linkCandidates.first?.id },
-                set: { linkTargetID = $0 }
-            )) {
-                ForEach(linkCandidates) { candidate in
-                    Text(candidate.label).tag(Optional(candidate.id))
-                }
-            }
+            StudioMenuPicker(
+                title: "Link to",
+                selection: Binding(
+                    get: { linkTargetID ?? linkCandidates.first?.id ?? "" },
+                    set: { linkTargetID = $0.isEmpty ? nil : $0 }
+                ),
+                options: linkCandidates.map { ($0.id, $0.label) }
+            )
         default:
             StudioTextField(
                 placeholder: "Static (Pin)",
@@ -366,21 +367,19 @@ struct FillAxisStopsSheet: View {
                 )
             }
 
-            HStack {
+            HStack(spacing: StudioSpacing.controlGap) {
                 Spacer()
-                Button("Cancel") {
+                StudioFlatButton(title: "Cancel") {
                     onComplete()
                     dismiss()
                 }
-                Button("Fill") {
+                StudioFlatButton(title: "Fill", role: .primary, isEnabled: canApply, isDefaultAction: true) {
                     if hasCustomNamedStops {
                         confirmingReplace = true
                     } else {
                         apply()
                     }
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canApply)
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)
@@ -450,35 +449,41 @@ struct ChangeAxisStopFormatSheet: View {
             Text("Format · \(stop.name)")
                 .font(StudioTypography.emphasis)
 
-            Picker("STAT format", selection: $statFormat) {
-                Text("Format 1 — static").tag(1)
-                Text("Format 2 — range").tag(2)
-                Text("Format 3 — linked").tag(3)
-            }
-            .pickerStyle(.menu)
+            StudioMenuPicker(
+                title: "STAT format",
+                selection: $statFormat,
+                options: [
+                    (1, "Format 1 — static"),
+                    (2, "Format 2 — range"),
+                    (3, "Format 3 — linked"),
+                ]
+            )
 
             if statFormat == 3 {
-                Picker("Link to", selection: Binding(
-                    get: { linkTargetID ?? linkCandidates.first?.id },
-                    set: { linkTargetID = $0 }
-                )) {
-                    ForEach(linkCandidates) { candidate in
-                        Text(candidate.label).tag(Optional(candidate.id))
-                    }
-                }
+                StudioMenuPicker(
+                    title: "Link to",
+                    selection: Binding(
+                        get: { linkTargetID ?? linkCandidates.first?.id ?? "" },
+                        set: { linkTargetID = $0.isEmpty ? nil : $0 }
+                    ),
+                    options: linkCandidates.map { ($0.id, $0.label) }
+                )
             }
 
-            HStack {
+            HStack(spacing: StudioSpacing.controlGap) {
                 Spacer()
-                Button("Cancel") {
+                StudioFlatButton(title: "Cancel") {
                     onComplete()
                     dismiss()
                 }
-                Button("Apply") {
+                StudioFlatButton(
+                    title: "Apply",
+                    role: .primary,
+                    isEnabled: !(statFormat == 3 && selectedLinkTarget == nil),
+                    isDefaultAction: true
+                ) {
                     apply()
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(statFormat == 3 && selectedLinkTarget == nil)
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)
@@ -725,17 +730,15 @@ struct AddFileAxisSheet: View {
                     .foregroundStyle(.red)
             }
 
-            HStack {
+            HStack(spacing: StudioSpacing.controlGap) {
                 Spacer()
-                Button("Cancel") {
+                StudioFlatButton(title: "Cancel") {
                     onComplete()
                     dismiss()
                 }
-                Button("Add Axis") {
+                StudioFlatButton(title: "Add Axis", role: .primary, isEnabled: canAdd, isDefaultAction: true) {
                     addIfValid()
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canAdd)
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)
@@ -759,7 +762,7 @@ struct AddFileAxisSheet: View {
                     HStack(spacing: StudioSpacing.tightGap) {
                         if !enabled {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 10))
+                                .font(StudioTypography.caption)
                         }
                         Text(option.title)
                     }
@@ -769,16 +772,9 @@ struct AddFileAxisSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, StudioSpace.x2)
                         .background(tabBackground(enabled: enabled, selected: selected), in: RoundedRectangle(cornerRadius: 6))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 6)
-                                .strokeBorder(
-                                    tabStroke(enabled: enabled, selected: selected),
-                                    lineWidth: selected ? 1 : 0.5
-                                )
-                        }
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: 6), isEnabled: !selected)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: 6), isEnabled: enabled && !selected)
                 .disabled(!enabled)
                 .help(enabled ? option.title : (option.template.flatMap { editor.namingAxisBlockReason(for: $0) } ?? ""))
             }
@@ -799,23 +795,15 @@ struct AddFileAxisSheet: View {
             return selected ? .secondary.opacity(0.7) : .secondary.opacity(0.45)
         }
         if selected { return StudioColors.registrationForeground }
-        return .primary.opacity(0.85)
+        return StudioColors.primaryMuted
     }
 
     private func tabBackground(enabled: Bool, selected: Bool) -> Color {
         if !enabled {
-            return selected ? Color.primary.opacity(0.08) : Color.primary.opacity(0.04)
+            return selected ? StudioColors.selectionNeutralFill : StudioColors.surfaceMuted
         }
         if selected { return StudioColors.registrationBackground }
-        return Color.primary.opacity(0.06)
-    }
-
-    private func tabStroke(enabled: Bool, selected: Bool) -> Color {
-        if !enabled {
-            return selected ? Color.primary.opacity(0.18) : Color.primary.opacity(0.08)
-        }
-        if selected { return StudioColors.registrationStroke }
-        return Color.primary.opacity(0.12)
+        return StudioColors.buttonSecondaryFill
     }
 
     @ViewBuilder
@@ -909,15 +897,15 @@ struct AddFileAxisSheet: View {
             Text("Roman / Italic")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 2) {
+            HStack(spacing: StudioSpace.x0_5) {
                 slopeOverrideOption(title: "Roman", isItalic: false)
                 slopeOverrideOption(title: "Italic", isItalic: true)
             }
-            .padding(2)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 7))
+            .padding(StudioSpace.x0_5)
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: 7))
             .overlay {
                 RoundedRectangle(cornerRadius: 7)
-                    .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+                    .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: StudioStroke.hairline)
             }
             if slopeOverrideIsItalic != nil {
                 StudioPlainLinkButton(
@@ -973,20 +961,20 @@ struct AddFileAxisSheet: View {
                     .font(StudioTypography.meta)
                     .foregroundStyle(StudioColors.registrationForeground.opacity(0.75))
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 2)
+                    .padding(.top, StudioSpace.x0_5)
             }
         }
         .padding(StudioSpacing.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            (kindEnabled ? StudioColors.registrationBackground : Color.primary.opacity(0.04)),
+            (kindEnabled ? StudioColors.registrationBackground : StudioColors.surfaceMuted),
             in: RoundedRectangle(cornerRadius: StudioRadius.row)
         )
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.row)
                 .strokeBorder(
-                    kindEnabled ? StudioColors.registrationStroke : Color.primary.opacity(0.1),
-                    lineWidth: 0.5
+                    kindEnabled ? StudioColors.registrationStroke : StudioColors.surfaceStrokeStrong,
+                    lineWidth: StudioStroke.hairline
                 )
         }
     }
@@ -1036,7 +1024,7 @@ struct AddFileAxisSheet: View {
                         Text("N")
                             .font(StudioTypography.tag)
                             .padding(.horizontal, StudioSpacing.tightGap)
-                            .padding(.vertical, 2)
+                            .padding(.vertical, StudioSpace.x0_5)
                             .foregroundStyle(StudioColors.registrationForeground)
                             .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.small))
                         Text(previewStopName)
@@ -1088,10 +1076,10 @@ struct AddFileAxisSheet: View {
             }
             .padding(StudioSpacing.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.row))
+            .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: StudioRadius.row))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.row)
-                    .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+                    .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: StudioStroke.hairline)
             }
         }
     }

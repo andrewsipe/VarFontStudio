@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VarFontCore
 
@@ -206,37 +207,22 @@ struct NamingOrderChainFooter: View {
     }
 
     private var footerModeSwitcher: some View {
-        HStack(spacing: 1) {
+        HStack(spacing: StudioSpacing.instanceRowGap) {
             ForEach(StudioFooterPanelMode.allCases) { mode in
-                Button {
+                StudioSegmentButton(
+                    title: mode.title,
+                    isSelected: editor.footerPanelMode == mode,
+                    help: modeHelp(mode)
+                ) {
                     editor.setFooterPanelMode(mode)
                     if !isExpanded {
                         isExpanded = true
                     }
-                } label: {
-                    Text(mode.title)
-                        .font(StudioTypography.meta)
-                        .fontWeight(editor.footerPanelMode == mode ? .semibold : .regular)
-                        .foregroundStyle(editor.footerPanelMode == mode ? Color.accentColor : .secondary)
-                        .padding(.horizontal, StudioSpacing.panelHorizontal)
-                        .padding(.vertical, StudioSpacing.tightGap)
-                        .background {
-                            RoundedRectangle(cornerRadius: StudioRadius.small)
-                                .fill(editor.footerPanelMode == mode ? Color.accentColor.opacity(0.12) : Color.clear)
-                        }
-                        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
                 }
-                .buttonStyle(.plain)
-                .studioHoverFill(
-                    shape: .roundedRect(cornerRadius: StudioRadius.small),
-                    isEnabled: editor.footerPanelMode != mode,
-                    emphasized: editor.footerPanelMode == mode
-                )
-                .help(modeHelp(mode))
             }
         }
-        .padding(2)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .padding(StudioSpace.x0_5)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
     }
 
     private func modeHelp(_ mode: StudioFooterPanelMode) -> String {
@@ -258,7 +244,7 @@ struct NamingOrderChainFooter: View {
 
     private var collapsedSummaryForeground: some ShapeStyle {
         if isPreviewMode && editor.isPreviewHoverPeeking {
-            return AnyShapeStyle(Color.accentColor)
+            return AnyShapeStyle(.secondary)
         }
         return AnyShapeStyle(.tertiary)
     }
@@ -382,7 +368,7 @@ struct NamingOrderChainFooter: View {
                 .lineLimit(1)
                 .textSelection(.enabled)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, 3)
+                .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background(.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
         }
     }
@@ -464,7 +450,7 @@ struct NamingOrderChainFooter: View {
             postScriptPrefixAnchor
 
             chainLink(isActive: true)
-                .padding(.horizontal, 2)
+                .padding(.horizontal, StudioSpace.x0_5)
 
             chainTrack
         }
@@ -482,7 +468,7 @@ struct NamingOrderChainFooter: View {
                     .font(StudioTypography.tag)
                     .foregroundStyle(Color.accentColor.opacity(0.85))
                     .padding(.horizontal, StudioSpacing.tightGap)
-                    .padding(.vertical, 1)
+                    .padding(.vertical, StudioSpacing.instanceRowGap)
                     .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 3))
 
                 Text(hasPrefix ? prefix : "Set prefix…")
@@ -494,15 +480,14 @@ struct NamingOrderChainFooter: View {
             .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
-                hasPrefix ? Color.accentColor.opacity(0.14) : Color.clear,
+                hasPrefix ? Color.accentColor.opacity(0.14) : StudioColors.buttonSecondaryFill,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(
-                        hasPrefix ? Color.accentColor.opacity(0.55) : Color.secondary.opacity(0.35),
-                        style: StrokeStyle(lineWidth: 1, dash: hasPrefix ? [] : [4, 3])
-                    )
+                if hasPrefix {
+                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        .strokeBorder(Color.accentColor.opacity(0.55), lineWidth: StudioStroke.regular)
+                }
             }
         }
         .buttonStyle(.plain)
@@ -543,7 +528,7 @@ struct NamingOrderChainFooter: View {
         .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: StudioRadius.row))
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.row)
-                .strokeBorder(.quaternary.opacity(0.55), lineWidth: 1)
+                .strokeBorder(.quaternary.opacity(0.55), lineWidth: StudioStroke.regular)
         }
         .overlay(alignment: .topLeading) {
             ghostOverlay
@@ -643,6 +628,14 @@ struct NamingOrderChainFooter: View {
                 StudioIncludeCheckbox(isOn: inGrid) {
                     editor.setAxisInstanceGridEnabled(tag: tag, enabled: !inGrid)
                 }
+                // Keep the arrow over the open-hand the chip pushes on hover.
+                .onHover { hovering in
+                    if hovering {
+                        NSCursor.arrow.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
 
                 chainChipBody(tag: tag, inGrid: inGrid)
             }
@@ -654,12 +647,16 @@ struct NamingOrderChainFooter: View {
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
             .overlay {
-                if !inGrid {
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .strokeBorder(.quaternary, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                }
+                // Solid state border — dashed is reserved for drag-hover affordance.
+                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    .strokeBorder(
+                        Color.secondary.opacity(inGrid ? 0.28 : 0.35),
+                        lineWidth: StudioStroke.regular
+                    )
             }
             .opacity(isDragging ? 0.3 : 1)
+            .contentShape(Rectangle())
+            .studioDragAffordances(isDragging: isDragging)
         )
     }
 
@@ -676,11 +673,12 @@ struct NamingOrderChainFooter: View {
             .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(Color.accentColor.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(Color.accentColor.opacity(0.55), lineWidth: StudioStroke.regular)
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
             .help("Drag to set where the PostScript hyphen splits the style segment (fvar postscriptNameID field).")
+            .studioDragAffordances(isDragging: isDragging)
             .gesture(dragGesture(for: tag))
     }
 
@@ -697,11 +695,12 @@ struct NamingOrderChainFooter: View {
             .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(StudioColors.codeStroke, lineWidth: 0.5)
+                    .strokeBorder(StudioColors.codeStroke, lineWidth: StudioStroke.regular)
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
             .help("Classification code — concatenated from Axis Tree stop codes in axis order. Drag to reorder.")
+            .studioDragAffordances(isDragging: isDragging)
             .gesture(dragGesture(for: tag))
     }
 
@@ -721,11 +720,12 @@ struct NamingOrderChainFooter: View {
             .background(StudioColors.clarifierBackground.opacity(0.5), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(StudioColors.clarifierStroke, lineWidth: 0.5)
+                    .strokeBorder(StudioColors.clarifierStroke, lineWidth: StudioStroke.regular)
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
             .help("Legacy clarifier token — prefer registration axes in the Axis Tree")
+            .studioDragAffordances(isDragging: isDragging)
             .gesture(dragGesture(for: tag))
     }
 
@@ -749,10 +749,11 @@ struct NamingOrderChainFooter: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.registrationStroke, lineWidth: 0.5)
+                .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.regular)
         }
         .opacity(isDragging ? 0.3 : 1)
         .contentShape(Rectangle())
+        .studioDragAffordances(isDragging: isDragging)
         .gesture(dragGesture(for: tag))
     }
 
@@ -838,7 +839,7 @@ struct NamingOrderChainFooter: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(Color.accentColor.opacity(0.5), style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
+                .strokeBorder(Color.accentColor.opacity(0.5), style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: [4, 3]))
         }
         .transition(.opacity)
     }
@@ -849,7 +850,7 @@ struct NamingOrderChainFooter: View {
                 ghostChip(for: tag)
                     .overlay {
                         RoundedRectangle(cornerRadius: StudioRadius.chip)
-                            .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 1)
+                            .strokeBorder(Color.secondary.opacity(0.35), lineWidth: StudioStroke.regular)
                     }
                     .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
                     .opacity(0.9)
@@ -934,14 +935,14 @@ struct NamingOrderChainFooter: View {
     private func chainLink(isActive: Bool) -> some View {
         HStack(spacing: 0) {
             Rectangle()
-                .fill(isActive ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.22))
+                .fill(Color.secondary.opacity(isActive ? 0.45 : 0.22))
                 .frame(width: 10, height: 2)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 7, weight: .light))
-                .foregroundStyle(isActive ? Color.accentColor.opacity(0.55) : Color.secondary.opacity(0.45))
+                .font(StudioTypography.linkChevronMicro)
+                .foregroundStyle(Color.secondary.opacity(isActive ? 0.55 : 0.45))
         }
-        .padding(.horizontal, 1)
+        .padding(.horizontal, StudioSpacing.instanceRowGap)
     }
 
     // MARK: - Drag gesture

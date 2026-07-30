@@ -30,30 +30,33 @@ struct ProjectTargetPickerSheet: View {
                         .font(StudioTypography.sectionLabel)
                         .foregroundStyle(.secondary)
 
-                    Picker("Project", selection: $selectedProjectID) {
-                        ForEach(candidateProjects) { openProject in
-                            Text(projectPickerLabel(for: openProject)).tag(openProject.id)
-                        }
-                    }
-                    .labelsHidden()
+                    StudioMenuPicker(
+                        title: "Project",
+                        selection: $selectedProjectID,
+                        options: candidateProjects.map { ($0.id, projectPickerLabel(for: $0)) },
+                        showsTitle: false
+                    )
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(StudioSpacing.cardPadding)
                 .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             }
 
-            HStack {
+            HStack(spacing: StudioSpacing.controlGap) {
                 Spacer()
-                Button("Cancel") {
+                StudioFlatButton(title: "Cancel") {
                     editor.cancelProjectTargetPicker()
                     dismiss()
                 }
-                Button(primaryActionTitle) {
+                StudioFlatButton(
+                    title: primaryActionTitle,
+                    role: .primary,
+                    isEnabled: !selectedProjectID.isEmpty,
+                    isDefaultAction: true
+                ) {
                     editor.completeProjectTargetPicker(selectedProjectID: selectedProjectID)
                     dismiss()
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(selectedProjectID.isEmpty)
             }
         }
         .padding(StudioSpacing.sheetOuterPadding)

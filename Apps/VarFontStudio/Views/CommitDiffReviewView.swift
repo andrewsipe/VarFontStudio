@@ -89,7 +89,7 @@ struct CommitDiffReviewView: View {
                 }
                 if !session.presentation.tabs.isEmpty {
                     filterBadges
-                        .padding(.bottom, 2)
+                        .padding(.bottom, StudioSpace.x0_5)
                 }
             }
             .padding(.horizontal, SaveReviewLayout.horizontalPadding)
@@ -160,7 +160,7 @@ struct CommitDiffReviewView: View {
                             }
                         }
                         .padding(.horizontal, StudioSpacing.rowHorizontal)
-                        .padding(.vertical, 2)
+                        .padding(.vertical, StudioSpace.x0_5)
                         .background(
                             StudioColors.registrationBackground,
                             in: RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -284,7 +284,7 @@ struct CommitDiffReviewView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize()
 
-            HStack(spacing: 1) {
+            HStack(spacing: StudioSpacing.instanceRowGap) {
                 nameidStrategySegment(
                     title: "Preserve",
                     isSelected: current == .preserve,
@@ -308,8 +308,8 @@ struct CommitDiffReviewView: View {
                     )
                 }
             }
-            .padding(2)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            .padding(StudioSpace.x0_5)
+            .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
             .fixedSize()
         }
         .layoutPriority(1)
@@ -487,7 +487,7 @@ struct CommitDiffReviewView: View {
         .padding(StudioSpacing.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.warningStroke, lineWidth: 1)
+                .strokeBorder(StudioColors.warningStroke, lineWidth: StudioStroke.regular)
         )
     }
 
@@ -506,7 +506,7 @@ struct CommitDiffReviewView: View {
         .padding(StudioSpacing.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.errorStroke, lineWidth: 1)
+                .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
         )
     }
 }

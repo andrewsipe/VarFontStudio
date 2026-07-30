@@ -25,7 +25,7 @@ struct ProjectToolbar: View {
                         ProjectTabChip(openProject: openProject)
                     }
                 }
-                .padding(.vertical, 2)
+                .padding(.vertical, StudioSpace.x0_5)
             }
             .scrollDisabled(workspaceDrag.isActive)
 
@@ -72,7 +72,7 @@ struct ProjectToolbar: View {
     private var newProjectAffordance: some View {
         HStack(spacing: StudioSpacing.tightGap) {
             Image(systemName: "folder.badge.plus")
-                .font(.system(size: 10, weight: .semibold))
+                .font(StudioTypography.sectionLabel)
             Text("New project")
                 .font(StudioTypography.meta)
                 .fontWeight(isNewProjectTarget ? .semibold : .regular)

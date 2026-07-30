@@ -23,7 +23,7 @@ struct AxisTreePanel: View {
             StudioPanelHeader(title: "Axis tree") {
                 HStack(spacing: StudioSpacing.controlGap) {
                     if let font = editor.selectedFont {
-                        HStack(spacing: 3) {
+                        HStack(spacing: StudioSpacing.instanceRowVertical) {
                             Text("\(font.axes.count)")
                                 .foregroundStyle(StudioColors.computedHighlight)
                             Text("axes")
@@ -272,7 +272,7 @@ struct AxisTreePanel: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(StudioTypography.meta)
                             .foregroundStyle(StudioColors.warningForeground)
-                            .padding(.top, 1)
+                            .padding(.top, StudioSpacing.warningGlyphTopNudge)
                         Text(warning.message)
                             .font(StudioTypography.caption)
                             .foregroundStyle(.primary)
@@ -385,20 +385,19 @@ struct AxisTreePanel: View {
                     .padding(.top, StudioSpacing.rowGap)
                 }
 
-                Button {
-                    addRegistrationRequest = AddRegistrationAxisRequest()
-                } label: {
-                    axisActionButtonLabel(
-                        title: "Add Naming Axis",
-                        systemImage: "plus",
+                StudioFlatButton(
+                    title: "Add Naming Axis",
+                    systemImage: "plus",
+                    role: .tinted(
                         foreground: StudioColors.registrationForeground,
-                        stroke: StudioColors.registrationStroke
-                    )
+                        background: StudioColors.registrationBackground
+                    ),
+                    size: .row,
+                    help: "Add a naming axis for family identity across files (no fvar scale)"
+                ) {
+                    addRegistrationRequest = AddRegistrationAxisRequest()
                 }
-                .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: 5))
                 .padding(.top, StudioSpacing.sectionGap)
-                .help("Add a naming axis for family identity across files (no fvar scale)")
 
                 if !font.compoundStatValues.isEmpty {
                     CombinationStylesSection(compounds: font.compoundStatValues, axes: font.axes)
@@ -451,11 +450,12 @@ struct AxisTreePanel: View {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(
                             Color.secondary.opacity(0.35),
-                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                            style: StrokeStyle(lineWidth: StudioStroke.regular, dash: [4, 3])
                         )
                 }
             }
             .contentShape(Rectangle())
+            .studioDragAffordances(isDragging: axisDragSession.draggingTag == axis.tag)
             .simultaneousGesture(axisReorderPressThenDragGesture(for: axis.tag))
             .help("Click to expand · click and hold to reorder")
             .background {
@@ -499,14 +499,14 @@ struct AxisTreePanel: View {
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .frame(width: width, alignment: .leading)
             .background(
-                Color.accentColor.opacity(0.16),
+                StudioColors.surfaceInset,
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
                     .strokeBorder(
-                        Color.accentColor.opacity(0.75),
-                        style: StrokeStyle(lineWidth: 1.5, dash: [5, 3])
+                        Color.secondary.opacity(0.45),
+                        style: StrokeStyle(lineWidth: StudioStroke.strong, dash: [5, 3])
                     )
             }
             .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
@@ -519,7 +519,7 @@ struct AxisTreePanel: View {
         RoundedRectangle(cornerRadius: StudioRadius.chip)
             .strokeBorder(
                 Color.secondary.opacity(0.45),
-                style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])
+                style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: [5, 4])
             )
             .background(
                 Color.secondary.opacity(0.06),
@@ -623,27 +623,6 @@ struct AxisTreePanel: View {
 
     // MARK: - Axis detail
 
-    /// Same total height as a stop row (`listRowMinHeight` + `instanceRowVertical` top/bottom)
-    /// so these dashed action buttons read as part of the same rhythm as the highlighted rows above.
-    private func axisActionButtonLabel(
-        title: String,
-        systemImage: String,
-        foreground: Color = .secondary,
-        stroke: Color = Color.secondary.opacity(0.5)
-    ) -> some View {
-        Label(title, systemImage: systemImage)
-            .font(StudioTypography.caption)
-            .foregroundStyle(foreground)
-            .labelStyle(.titleAndIcon)
-            .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight)
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, StudioSpacing.instanceRowVertical)
-            .overlay {
-                RoundedRectangle(cornerRadius: 5)
-                    .strokeBorder(stroke, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-            }
-    }
-
     @ViewBuilder
     private func axisDetail(_ axis: AxisDefinition) -> some View {
         let showElidable = axis.role == .instance || axis.lane == .registration
@@ -677,38 +656,33 @@ struct AxisTreePanel: View {
             if axis.role == .instance || axis.isDesignRecordOnly {
                 let showFill = axis.role == .instance && AxisStopFillPlanner.supportsFill(axis)
                 HStack(spacing: StudioSpacing.controlGap) {
-                    Button {
+                    StudioFlatButton(
+                        title: "Add Stop",
+                        systemImage: "plus",
+                        size: .row,
+                        expands: showFill
+                    ) {
                         addStopRequest = AddAxisStopRequest(axisTag: axis.tag)
-                    } label: {
-                        axisActionButtonLabel(title: "Add Stop", systemImage: "plus")
                     }
-                    .buttonStyle(.plain)
-                    .studioHoverFill(shape: .roundedRect(cornerRadius: 5))
-                    .frame(minWidth: 0, maxWidth: showFill ? .infinity : nil)
 
                     if showFill {
-                        Button {
-                            fillStopsRequest = FillStopsRequest(axisTag: axis.tag)
-                        } label: {
-                            axisActionButtonLabel(
-                                title: "Fill stops…",
-                                systemImage: "square.grid.3x1.folder.badge.plus"
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .studioHoverFill(shape: .roundedRect(cornerRadius: 5))
-                        .frame(minWidth: 0, maxWidth: .infinity)
-                        .help(
-                            axis.values.isEmpty
+                        StudioFlatButton(
+                            title: "Fill stops…",
+                            systemImage: "square.grid.3x1.folder.badge.plus",
+                            size: .row,
+                            expands: true,
+                            help: axis.values.isEmpty
                                 ? "Evenly space or interval-fill stops across this axis's range."
                                 : "Replace this axis's stops with an evenly spaced or interval fill. Reopen anytime to tweak."
-                        )
+                        ) {
+                            fillStopsRequest = FillStopsRequest(axisTag: axis.tag)
+                        }
                     }
                 }
                 .padding(.top, AxisDetailSpacing.lastStopToAddButtonGap)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, StudioSpace.x0_5)
     }
 
     // MARK: - Bindings

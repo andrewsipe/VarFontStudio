@@ -175,7 +175,7 @@ struct EmptyWorkspaceView: View {
     var body: some View {
         VStack(spacing: StudioSpace.x3) {
             Image(systemName: isDropTargeted ? "plus.circle.fill" : "arrow.down.doc")
-                .font(.system(size: 36))
+                .font(StudioTypography.dropHeroIcon)
                 .foregroundStyle(isDropTargeted ? Color.accentColor : .secondary)
                 .animation(.easeOut(duration: 0.12), value: isDropTargeted)
 

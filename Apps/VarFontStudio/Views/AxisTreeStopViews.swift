@@ -64,12 +64,12 @@ struct AxisStopTableHeader: View {
             }
         }
         .padding(.horizontal, AxisBlockLayout.rowHorizontalPadding)
-        .padding(.bottom, 2)
+        .padding(.bottom, StudioSpace.x0_5)
     }
 
     @ViewBuilder
     private var valueHeader: some View {
-        let label = HStack(spacing: 2) {
+        let label = HStack(spacing: StudioSpace.x0_5) {
             Text("Value")
                 .font(StudioTypography.columnLabel)
             Image(systemName: valueSortSymbol)
@@ -173,7 +173,7 @@ struct AxisTreeStopRow: View {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(StudioColors.registrationForeground.opacity(0.85))
                     .frame(width: 3)
-                    .padding(.leading, 2)
+                    .padding(.leading, StudioSpace.x0_5)
             }
         }
         .onHover { isHovered = $0 }
@@ -251,8 +251,8 @@ struct AxisTreeStopRow: View {
             Group {
                 if isFvarDefault {
                     Image(systemName: "d.square.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
+                        .font(StudioTypography.rowName.weight(.semibold))
+                        .foregroundStyle(StudioColors.registrationForeground)
                         .help("fvar default coordinate")
                         .accessibilityLabel("fvar default")
                 } else {
@@ -330,7 +330,7 @@ struct AxisTreeStopRow: View {
             sublineField(.max, value: stop.rangeMax, placeholder: "Max")
         }
         .padding(.leading, AxisBlockLayout.rangeSublineLeading(showDefaultMark: showDefaultMark))
-        .padding(.bottom, 3)
+        .padding(.bottom, StudioSpacing.instanceRowVertical)
     }
 
     private func sublineLabel(_ text: String) -> some View {
@@ -471,6 +471,7 @@ struct AxisTreeStopRow: View {
                             }
                             .menuStyle(.borderlessButton)
                             .controlSize(.small)
+                            .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
                         } else if let linkedTargetName {
                             Text(linkedTargetName)
                                 .font(StudioTypography.caption)
