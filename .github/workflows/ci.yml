@@ -30,6 +30,16 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Install ripgrep
+        run: |
+          set -euo pipefail
+          brew install ripgrep
+
+      - name: Verify UI tokens
+        run: |
+          set -euo pipefail
+          Apps/VarFontStudio/Scripts/verify-ui-tokens.sh
+
       - name: Swift tests
         run: |
           set -euo pipefail

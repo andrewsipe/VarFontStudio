@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# Regression grep for VarFontStudio Stable Chrome tokens (HIG polish + token propagation).
+# Regression grep for VarFontStudio Stable Chrome tokens (HIG polish  token propagation).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 FAIL=0
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "ERROR: ripgrep (rg) is not installed — every check below would silently report OK without checking anything." >&2
+  echo "Install it first (e.g. 'brew install ripgrep' on macOS, 'apt-get install ripgrep' on Ubuntu)." >&2
+  exit 2
+fi
 # Paths allowed to use raw system fonts / one-off literals (documented exceptions).
 ALLOW_FONTS=(
   --glob '!StudioDesign.swift'
