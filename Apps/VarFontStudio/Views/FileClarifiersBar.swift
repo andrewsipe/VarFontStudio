@@ -51,7 +51,7 @@ struct FileClarifierFields: View {
             StudioTextField(
                 placeholder: "FamilyVariable",
                 text: psPrefixBinding(for: fontID),
-                filledForeground: StudioColors.registrationForeground,
+                filledForeground: .primary,
                 focusBinding: $postScriptPrefixFocused
             )
             .help(psPrefixHelp(for: fontID))

@@ -209,13 +209,17 @@ struct SaveReviewWindow: View {
 
             if let error = editor.saveReview.persistentSaveError {
                 HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+                    Image(systemName: "xmark.octagon.fill")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(StudioColors.errorForeground)
+                        .padding(.top, StudioSpacing.warningGlyphTopNudge)
                     VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                         Text("Cannot export")
                             .font(StudioTypography.sectionLabel)
                             .foregroundStyle(.secondary)
                         Text(error)
                             .font(StudioTypography.caption)
-                            .foregroundStyle(StudioColors.errorForeground)
+                            .foregroundStyle(.primary)
                     }
                     Spacer(minLength: 0)
                     StudioDismissButton(scale: .toolbar, help: "Dismiss") {
@@ -365,9 +369,14 @@ struct SaveReviewWindow: View {
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
-                Text(error.message)
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(StudioColors.errorForeground)
+                HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+                    Image(systemName: "xmark.octagon.fill")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(StudioColors.errorForeground)
+                    Text(error.message)
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.primary)
+                }
             }
         }
         .padding(StudioSpacing.cardPadding)

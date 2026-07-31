@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Regression grep for VarFontStudio Stable Chrome tokens (HIG polish  token propagation).
+# Regression grep for VarFontStudio Stable Chrome tokens (HIG polish + token propagation).
+#
+# Color system guidance: StudioDesign.swift → "Color system (semantic marks)".
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -65,5 +67,17 @@ check "no primary.opacity surfaces outside allowlist" \
 
 check "no removed scrollGutter token" \
   rg -q 'scrollGutter' Views
+
+check "no axisValue text color outside StudioDesign" \
+  rg -q '\.foregroundStyle\(StudioColors\.axisValue\)' Views --glob '!StudioDesign.swift'
+
+check "no codeForeground text color outside StudioDesign" \
+  rg -q '\.foregroundStyle\(StudioColors\.codeForeground\)' Views --glob '!StudioDesign.swift'
+
+check "no clarifierForeground text color outside StudioDesign" \
+  rg -q '\.foregroundStyle\(StudioColors\.clarifierForeground\)' Views --glob '!StudioDesign.swift'
+
+check "no canvas tokens outside FontPreviewPanel" \
+  rg -q 'StudioColors\.canvas' Views --glob '!StudioDesign.swift' --glob '!FontPreviewPanel.swift'
 
 exit "$FAIL"

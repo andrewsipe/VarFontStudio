@@ -115,7 +115,7 @@ struct StudioPanelSplitView: View {
             if let meta = namesHeaderMeta {
                 HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("\(meta.populated)")
-                        .foregroundStyle(StudioColors.computedHighlight)
+                        .foregroundStyle(.primary)
                     Text("populated")
                         .foregroundStyle(.secondary)
                     if meta.missing > 0 {

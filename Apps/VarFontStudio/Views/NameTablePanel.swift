@@ -121,7 +121,7 @@ struct NameTablePanel: View {
                     HStack {
                         Text("\(nameID)")
                             .font(StudioTypography.monoMeta)
-                            .foregroundStyle(StudioColors.computedHighlight)
+                            .foregroundStyle(.primary)
                             .frame(width: NameTableLayout.nameIDColumnWidth, alignment: .trailing)
                         Text(OpenTypeNameTable.standardNameLabel(for: nameID) ?? "nameID \(nameID)")
                             .font(StudioTypography.caption)
@@ -145,7 +145,7 @@ struct NameTablePanel: View {
         let missing = missingIDs.count
         return HStack(spacing: StudioSpacing.instanceRowVertical) {
             Text("\(rows.count)")
-                .foregroundStyle(StudioColors.computedHighlight)
+                .foregroundStyle(.primary)
             Text("populated")
                 .foregroundStyle(.secondary)
             if missing > 0 {
@@ -173,7 +173,7 @@ struct NameTablePanel: View {
             HStack(spacing: StudioSpacing.rowGap) {
                 Text("\(row.nameID)")
                     .font(StudioTypography.rowNameMono)
-                    .foregroundStyle(StudioColors.computedHighlight)
+                    .foregroundStyle(.primary)
                 Text(row.label)
                     .font(StudioTypography.rowName)
                     .foregroundStyle(.secondary)
@@ -181,7 +181,10 @@ struct NameTablePanel: View {
                 if row.isLinkedToPSPrefix {
                     Text("≡ PS prefix")
                         .font(StudioTypography.rowName)
-                        .foregroundStyle(StudioColors.registrationForeground)
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, StudioSpacing.tightGap)
+                        .padding(.vertical, StudioSpacing.instanceRowGap)
+                        .background(StudioColors.registrationBackground, in: Capsule())
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)

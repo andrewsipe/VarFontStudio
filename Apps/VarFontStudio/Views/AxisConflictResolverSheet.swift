@@ -286,7 +286,7 @@ struct AxisConflictResolverSheet: View {
                     .foregroundStyle(.secondary)
                 Text(kindLabel)
                     .font(StudioTypography.meta.weight(.medium))
-                    .foregroundStyle(StudioColors.warningForeground)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(StudioColors.warningFill, in: Capsule())
@@ -384,9 +384,7 @@ struct AxisConflictResolverSheet: View {
 
     private func editableStopRow(_ stop: AxisValue, axis: AxisDefinition) -> some View {
         HStack(spacing: 0) {
-            Text(AxisStopSuggestions.formatValue(stop.value))
-                .font(StudioTypography.monoValue)
-                .foregroundStyle(StudioColors.axisValue)
+            StudioAxisValueLabel(text: AxisStopSuggestions.formatValue(stop.value))
                 .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
             StudioInlineTextField(
@@ -421,14 +419,16 @@ struct AxisConflictResolverSheet: View {
 
     private func editableValueRow(_ stop: AxisValue, axis: AxisDefinition) -> some View {
         HStack(spacing: 0) {
-            StudioInlineTextField(
-                placeholder: ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)[stop.id] ?? "",
-                text: bulkValueBinding(for: stop.id),
-                font: StudioTypography.monoValue,
-                foreground: StudioColors.axisValue,
-                rowHeight: StudioFieldMetrics.captionRowHeight,
-                alignment: .trailing
-            )
+            HStack(spacing: StudioSpace.x1) {
+                StudioSemanticDot(color: StudioColors.axisValue)
+                StudioInlineTextField(
+                    placeholder: ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)[stop.id] ?? "",
+                    text: bulkValueBinding(for: stop.id),
+                    font: StudioTypography.monoValue,
+                    rowHeight: StudioFieldMetrics.captionRowHeight,
+                    alignment: .trailing
+                )
+            }
             .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
             Text(stop.name)
@@ -459,9 +459,7 @@ struct AxisConflictResolverSheet: View {
                 StudioRadioMark(isOn: isSelected)
                     .frame(width: 20)
 
-                Text(AxisStopSuggestions.formatValue(stop.value))
-                    .font(StudioTypography.monoValue)
-                    .foregroundStyle(StudioColors.axisValue)
+                StudioAxisValueLabel(text: AxisStopSuggestions.formatValue(stop.value))
                     .frame(width: StopTableLayout.valueColumnWidth - 20, alignment: .trailing)
 
                 Text(stop.name)
@@ -497,9 +495,7 @@ struct AxisConflictResolverSheet: View {
             selectedStopID = stop.id
         } label: {
             HStack(spacing: 0) {
-                Text(AxisStopSuggestions.formatValue(stop.value))
-                    .font(StudioTypography.monoValue)
-                    .foregroundStyle(StudioColors.axisValue)
+                StudioAxisValueLabel(text: AxisStopSuggestions.formatValue(stop.value))
                     .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
                 Text(stop.name)
@@ -741,16 +737,21 @@ struct AxisConflictResolverSheet: View {
                         .font(StudioTypography.caption)
                         .foregroundStyle(.green)
                 } else if needsFollowUpPass {
-                    Label(
-                        "One step done — apply to continue with the remaining stops",
-                        systemImage: "arrow.triangle.2.circlepath"
-                    )
+                    HStack(spacing: StudioSpace.x1) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .foregroundStyle(StudioColors.warningForeground)
+                        Text("One step done — apply to continue with the remaining stops")
+                            .foregroundStyle(.primary)
+                    }
                     .font(StudioTypography.caption)
-                    .foregroundStyle(StudioColors.warningForeground)
                 } else {
-                    Label("Conflict may remain after this fix", systemImage: "exclamationmark.triangle.fill")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.warningForeground)
+                    HStack(spacing: StudioSpace.x1) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(StudioColors.warningForeground)
+                        Text("Conflict may remain after this fix")
+                            .foregroundStyle(.primary)
+                    }
+                    .font(StudioTypography.caption)
                 }
             }
         }
@@ -798,13 +799,12 @@ struct AxisConflictResolverSheet: View {
                 Text("→")
                     .foregroundStyle(.tertiary)
                 Text(AxisStopSuggestions.formatValue(after))
-                    .foregroundStyle(StudioColors.axisValue)
+                    .font(StudioTypography.monoValue)
+                    .foregroundStyle(.primary)
             }
             .font(StudioTypography.monoValue)
         } else {
-            Text(AxisStopSuggestions.formatValue(outcome.valueBefore))
-                .font(StudioTypography.monoValue)
-                .foregroundStyle(StudioColors.axisValue)
+            StudioAxisValueLabel(text: AxisStopSuggestions.formatValue(outcome.valueBefore))
         }
     }
 

@@ -371,13 +371,17 @@ struct MainEditorView: View {
         VStack(spacing: 0) {
             if let error = editor.saveReview.persistentSaveError {
                 HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+                    Image(systemName: "xmark.octagon.fill")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(StudioColors.errorForeground)
+                        .padding(.top, StudioSpacing.warningGlyphTopNudge)
                     VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                         Text("Cannot export")
                             .font(StudioTypography.sectionLabel)
                             .foregroundStyle(.secondary)
                         Text(error)
                             .font(StudioTypography.caption)
-                            .foregroundStyle(StudioColors.errorForeground)
+                            .foregroundStyle(.primary)
                     }
                     Spacer(minLength: 0)
                     StudioDismissButton(scale: .toolbar, help: "Dismiss") {

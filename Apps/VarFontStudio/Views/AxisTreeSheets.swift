@@ -68,7 +68,7 @@ struct AddAxisStopSheet: View {
                         text: $codeText,
                         font: StudioTypography.monoMeta,
                         rowHeight: StudioFieldMetrics.bodyRowHeight,
-                        filledForeground: StudioColors.codeForeground,
+                        filledForeground: .primary,
                         onSubmit: addStopIfValid
                     )
                     .focused($focusedField, equals: .code)
@@ -825,7 +825,7 @@ struct AddFileAxisSheet: View {
                     placeholder: "Display name",
                     text: $nameText,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    filledForeground: StudioColors.registrationForeground
+                    filledForeground: .primary
                 )
                 .focused($focusedField, equals: .name)
                 StudioTextField(
@@ -833,7 +833,7 @@ struct AddFileAxisSheet: View {
                     text: $valueText,
                     font: StudioTypography.monoMeta,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    filledForeground: StudioColors.axisValue
+                    filledForeground: .primary
                 )
                 .frame(width: RegistrationAxisFormLayout.valueFieldWidth)
                 .focused($focusedField, equals: .value)
@@ -843,7 +843,7 @@ struct AddFileAxisSheet: View {
                         text: $codeText,
                         font: StudioTypography.monoMeta,
                         rowHeight: StudioFieldMetrics.bodyRowHeight,
-                        filledForeground: StudioColors.codeForeground
+                        filledForeground: .primary
                     )
                     .frame(width: RegistrationAxisFormLayout.codeFieldWidth)
                     .focused($focusedField, equals: .code)
@@ -857,14 +857,14 @@ struct AddFileAxisSheet: View {
                     text: $tagText,
                     font: StudioTypography.monoMeta,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    filledForeground: StudioColors.registrationForeground
+                    filledForeground: .primary
                 )
                 .focused($focusedField, equals: .tag)
                 StudioTextField(
                     placeholder: "Display name",
                     text: $nameText,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    filledForeground: StudioColors.registrationForeground
+                    filledForeground: .primary
                 )
                 .focused($focusedField, equals: .name)
                 StudioTextField(
@@ -872,7 +872,7 @@ struct AddFileAxisSheet: View {
                     text: $valueText,
                     font: StudioTypography.monoMeta,
                     rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    filledForeground: StudioColors.axisValue
+                    filledForeground: .primary
                 )
                 .frame(width: RegistrationAxisFormLayout.valueFieldWidth)
                 .focused($focusedField, equals: .value)
@@ -882,7 +882,7 @@ struct AddFileAxisSheet: View {
                         text: $codeText,
                         font: StudioTypography.monoMeta,
                         rowHeight: StudioFieldMetrics.bodyRowHeight,
-                        filledForeground: StudioColors.codeForeground
+                        filledForeground: .primary
                     )
                     .frame(width: RegistrationAxisFormLayout.codeFieldWidth)
                     .focused($focusedField, equals: .code)
@@ -1025,7 +1025,7 @@ struct AddFileAxisSheet: View {
                             .font(StudioTypography.tag)
                             .padding(.horizontal, StudioSpacing.tightGap)
                             .padding(.vertical, StudioSpace.x0_5)
-                            .foregroundStyle(StudioColors.registrationForeground)
+                            .foregroundStyle(.primary)
                             .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.small))
                         Text(previewStopName)
                             .font(StudioTypography.bodyMedium)
@@ -1047,14 +1047,23 @@ struct AddFileAxisSheet: View {
                     }
 
                     HStack(spacing: StudioSpacing.controlGap) {
+                        let fmtColor = previewFmt == "F3" ? StudioColors.statFormat3 : StudioColors.statFormat1
                         Text(previewFmt)
                             .font(StudioTypography.tag.weight(.medium))
-                            .foregroundStyle(previewFmt == "F3" ? StudioColors.statFormat3 : StudioColors.statFormat1)
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(fmtColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .strokeBorder(fmtColor.opacity(0.35), lineWidth: 0.5)
+                            }
                             .frame(width: FillStopPreviewLayout.formatColumnWidth, alignment: .center)
-                        Text(previewValue)
-                            .font(StudioTypography.monoMeta)
-                            .foregroundStyle(StudioColors.axisValue)
-                            .frame(width: FillStopPreviewLayout.valueColumnWidth, alignment: .trailing)
+                        StudioAxisValueLabel(
+                            text: previewValue,
+                            font: StudioTypography.monoMeta
+                        )
+                        .frame(width: FillStopPreviewLayout.valueColumnWidth, alignment: .trailing)
                         HStack(spacing: StudioSpacing.tightGap) {
                             Text(previewStopName)
                                 .font(StudioTypography.caption)
@@ -1068,7 +1077,10 @@ struct AddFileAxisSheet: View {
                         if editor.isCodeNamingEnabled {
                             Text(previewCode)
                                 .font(StudioTypography.monoMeta)
-                                .foregroundStyle(StudioColors.codeForeground)
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 3))
                                 .frame(width: FillStopPreviewLayout.codeColumnWidth, alignment: .center)
                         }
                     }

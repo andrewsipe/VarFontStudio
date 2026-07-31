@@ -465,14 +465,14 @@ struct NamingOrderChainFooter: View {
             HStack(spacing: StudioSpacing.tightGap) {
                 Text("PS")
                     .font(StudioTypography.tag)
-                    .foregroundStyle(StudioColors.registrationForeground)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
                     .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: 3))
 
                 Text(hasPrefix ? prefix : "Set prefix…")
                     .font(StudioTypography.caption.weight(hasPrefix ? .semibold : .regular))
-                    .foregroundStyle(hasPrefix ? AnyShapeStyle(StudioColors.registrationForeground) : AnyShapeStyle(.tertiary))
+                    .foregroundStyle(hasPrefix ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.tertiary))
                     .lineLimit(1)
             }
             .fixedSize(horizontal: true, vertical: false)
@@ -659,7 +659,7 @@ struct NamingOrderChainFooter: View {
 
         return Text("[-] PS hyphen")
             .font(StudioTypography.caption.weight(.semibold))
-            .foregroundStyle(StudioColors.registrationForeground)
+            .foregroundStyle(.primary)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -684,7 +684,7 @@ struct NamingOrderChainFooter: View {
 
         return Text("Code")
             .font(StudioTypography.caption.weight(.semibold))
-            .foregroundStyle(StudioColors.codeForeground)
+            .foregroundStyle(.primary)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -712,7 +712,7 @@ struct NamingOrderChainFooter: View {
 
         return Text(label)
             .font(StudioTypography.caption)
-            .foregroundStyle(StudioColors.clarifierForeground)
+            .foregroundStyle(.primary)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -740,7 +740,7 @@ struct NamingOrderChainFooter: View {
 
             Text(editor.axisDisplayName(for: tag))
                 .font(StudioTypography.caption)
-                .foregroundStyle(StudioColors.registrationForeground)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
         }
         .fixedSize(horizontal: true, vertical: false)
@@ -798,21 +798,21 @@ struct NamingOrderChainFooter: View {
                 if editor.isPostscriptHyphenToken(tag) {
                     Text("[-] PS hyphen")
                         .font(StudioTypography.caption.weight(.semibold))
-                        .foregroundStyle(StudioColors.registrationForeground)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isCodeNamingToken(tag) {
                     Text("Code")
                         .font(StudioTypography.caption.weight(.semibold))
-                        .foregroundStyle(StudioColors.codeForeground)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 } else if editor.isClarifierNamingToken(tag) {
                     Text(chainChipLabel(for: tag))
                         .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.clarifierForeground)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                         .padding(.horizontal, StudioSpacing.panelHorizontal)
                         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
@@ -822,7 +822,7 @@ struct NamingOrderChainFooter: View {
 
                         Text(chainChipLabel(for: tag))
                             .font(StudioTypography.caption)
-                            .foregroundStyle(StudioColors.registrationForeground)
+                            .foregroundStyle(.primary)
                             .lineLimit(1)
                     }
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -870,7 +870,7 @@ struct NamingOrderChainFooter: View {
         if editor.isPostscriptHyphenToken(tag) {
             Text("[-] PS hyphen")
                 .font(StudioTypography.caption.weight(.semibold))
-                .foregroundStyle(StudioColors.registrationForeground)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
@@ -878,7 +878,7 @@ struct NamingOrderChainFooter: View {
         } else if editor.isCodeNamingToken(tag) {
             Text("Code")
                 .font(StudioTypography.caption.weight(.semibold))
-                .foregroundStyle(StudioColors.codeForeground)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
@@ -886,7 +886,7 @@ struct NamingOrderChainFooter: View {
         } else if editor.isClarifierNamingToken(tag) {
             Text(chainChipLabel(for: tag))
                 .font(StudioTypography.caption)
-                .foregroundStyle(StudioColors.clarifierForeground)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
@@ -900,7 +900,7 @@ struct NamingOrderChainFooter: View {
 
                 Text(chainChipLabel(for: tag))
                     .font(StudioTypography.caption)
-                    .foregroundStyle(StudioColors.registrationForeground)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
             }
             .padding(.horizontal, StudioSpacing.panelHorizontal)

@@ -280,35 +280,34 @@ struct AxisTreeStopRow: View {
     private var valueCell: some View {
         Group {
             if editingField == .pin, valueEditable {
-                StudioInlineTextField(
-                    placeholder: "Value",
-                    text: $editingPin,
-                    font: StudioTypography.monoValue,
-                    foreground: StudioColors.axisValue,
-                    rowHeight: StudioFieldMetrics.listRowMinHeight,
-                    alignment: .trailing,
-                    onSubmit: commitAndEndEdit,
-                    onCancel: cancelInlineEdit
-                )
-                .focused($focusedField, equals: .pin)
+                HStack(spacing: StudioSpace.x1) {
+                    StudioSemanticDot(color: StudioColors.axisValue)
+                    StudioInlineTextField(
+                        placeholder: "Value",
+                        text: $editingPin,
+                        font: StudioTypography.monoValue,
+                        rowHeight: StudioFieldMetrics.listRowMinHeight,
+                        alignment: .trailing,
+                        onSubmit: commitAndEndEdit,
+                        onCancel: cancelInlineEdit
+                    )
+                    .focused($focusedField, equals: .pin)
+                }
+                .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
             } else if valueEditable {
-                Text(StudioFormatting.axisValue(stop.value))
-                    .font(StudioTypography.monoValue)
-                    .foregroundStyle(StudioColors.axisValue)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
-                    .contentShape(Rectangle())
-                    .gesture(clickGesture(for: .pin))
+                StudioAxisValueLabel(
+                    text: StudioFormatting.axisValue(stop.value),
+                    minHeight: StudioFieldMetrics.listRowMinHeight
+                )
+                .contentShape(Rectangle())
+                .gesture(clickGesture(for: .pin))
             } else {
-                Text(StudioFormatting.axisValue(stop.value))
-                    .font(StudioTypography.monoValue)
-                    .foregroundStyle(StudioColors.axisValue)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .trailing)
-                    .contentShape(Rectangle())
-                    .gesture(selectOnlyGesture)
+                StudioAxisValueLabel(
+                    text: StudioFormatting.axisValue(stop.value),
+                    minHeight: StudioFieldMetrics.listRowMinHeight
+                )
+                .contentShape(Rectangle())
+                .gesture(selectOnlyGesture)
             }
         }
         .transaction { $0.animation = nil }
@@ -321,9 +320,12 @@ struct AxisTreeStopRow: View {
             sublineField(.min, value: stop.rangeMin, placeholder: "Min")
             sublineSeparator
             sublineLabel("nom")
-            Text(StudioFormatting.axisValue(stop.value))
-                .font(StudioTypography.monoMeta)
-                .foregroundStyle(StudioColors.axisValue)
+            StudioAxisValueLabel(
+                text: StudioFormatting.axisValue(stop.value),
+                font: StudioTypography.monoMeta,
+                showMark: false
+            )
+            .fixedSize()
             sublineSeparator
             sublineLabel("max")
             sublineField(.max, value: stop.rangeMax, placeholder: "Max")
@@ -347,31 +349,39 @@ struct AxisTreeStopRow: View {
     @ViewBuilder
     private func sublineField(_ field: StopEditField, value: Double?, placeholder: String) -> some View {
         if editingField == field, valueEditable {
-            StudioInlineTextField(
-                placeholder: placeholder,
-                text: binding(for: field),
-                font: StudioTypography.monoMeta,
-                foreground: StudioColors.axisValue,
-                rowHeight: StudioFieldMetrics.captionRowHeight,
-                alignment: .trailing,
-                onSubmit: commitAndEndEdit,
-                onCancel: cancelInlineEdit
-            )
+            HStack(spacing: StudioSpace.x1) {
+                StudioSemanticDot(color: StudioColors.axisValue)
+                StudioInlineTextField(
+                    placeholder: placeholder,
+                    text: binding(for: field),
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.captionRowHeight,
+                    alignment: .trailing,
+                    onSubmit: commitAndEndEdit,
+                    onCancel: cancelInlineEdit
+                )
+                .focused($focusedField, equals: field)
+            }
             .frame(width: AxisBlockLayout.inlineValueEditWidth)
-            .focused($focusedField, equals: field)
         } else if let value {
             if valueEditable {
-                Text(StudioFormatting.axisValue(value))
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(StudioColors.axisValue)
-                    .contentShape(Rectangle())
-                    .gesture(clickGesture(for: field))
+                StudioAxisValueLabel(
+                    text: StudioFormatting.axisValue(value),
+                    font: StudioTypography.monoMeta,
+                    showMark: false
+                )
+                .fixedSize()
+                .contentShape(Rectangle())
+                .gesture(clickGesture(for: field))
             } else {
-                Text(StudioFormatting.axisValue(value))
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(StudioColors.axisValue)
-                    .contentShape(Rectangle())
-                    .gesture(selectOnlyGesture)
+                StudioAxisValueLabel(
+                    text: StudioFormatting.axisValue(value),
+                    font: StudioTypography.monoMeta,
+                    showMark: false
+                )
+                .fixedSize()
+                .contentShape(Rectangle())
+                .gesture(selectOnlyGesture)
             }
         } else {
             Text("—")
@@ -407,7 +417,10 @@ struct AxisTreeStopRow: View {
             } else if let code = stop.code, !code.isEmpty {
                 Text(code)
                     .font(StudioTypography.monoMeta)
-                    .foregroundStyle(StudioColors.codeForeground)
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 3))
                     .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .center)
                     .contentShape(Rectangle())
                     .gesture(clickGesture(for: .code))

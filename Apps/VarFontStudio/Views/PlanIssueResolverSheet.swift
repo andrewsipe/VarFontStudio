@@ -185,7 +185,10 @@ struct PlanIssueResolverSheet: View {
                 if isRecommended {
                     Text("Recommended")
                         .font(StudioTypography.meta)
-                        .foregroundStyle(StudioColors.registrationForeground)
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, StudioSpacing.tightGap)
+                        .padding(.vertical, StudioSpacing.instanceRowGap)
+                        .background(StudioColors.registrationBackground, in: Capsule())
                 }
                 Spacer(minLength: 0)
             }
@@ -223,7 +226,10 @@ struct PlanIssueResolverSheet: View {
                         if proposal.isRecommended {
                             Text("Recommended")
                                 .font(StudioTypography.meta)
-                                .foregroundStyle(StudioColors.registrationForeground)
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, StudioSpacing.tightGap)
+                                .padding(.vertical, StudioSpacing.instanceRowGap)
+                                .background(StudioColors.registrationBackground, in: Capsule())
                         }
                     }
                     Text(proposal.detail)

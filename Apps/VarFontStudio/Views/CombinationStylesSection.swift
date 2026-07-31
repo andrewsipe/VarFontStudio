@@ -83,7 +83,7 @@ struct CombinationStylesSection: View {
             ),
             font: StudioTypography.bodyMedium,
             rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
-            filledForeground: StudioColors.registrationForeground
+            filledForeground: .primary
         )
     }
 
@@ -109,16 +109,18 @@ struct CombinationStylesSection: View {
         let isEditing = editingLeg?.compoundID == compound.id && editingLeg?.tag == tag
 
         if isEditing {
-            StudioInlineTextField(
-                placeholder: tag,
-                text: $legDraft,
-                font: StudioTypography.monoMeta,
-                foreground: missingAxis ? StudioColors.warningForeground : StudioColors.axisValue,
-                rowHeight: StudioFieldMetrics.monoValueRowHeight,
-                alignment: .leading,
-                onSubmit: { commitLegEdit(compoundID: compound.id, tag: tag) },
-                onCancel: { editingLeg = nil }
-            )
+            HStack(spacing: StudioSpace.x1) {
+                StudioSemanticDot(color: missingAxis ? StudioColors.warningForeground : StudioColors.axisValue)
+                StudioInlineTextField(
+                    placeholder: tag,
+                    text: $legDraft,
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                    alignment: .leading,
+                    onSubmit: { commitLegEdit(compoundID: compound.id, tag: tag) },
+                    onCancel: { editingLeg = nil }
+                )
+            }
             .onAppear { legDraft = StudioFormatting.axisValue(value) }
         } else {
             Button {
@@ -128,17 +130,24 @@ struct CombinationStylesSection: View {
                 HStack(spacing: StudioSpace.x0_5) {
                     Text(tag)
                         .font(StudioTypography.monoMeta)
-                        .foregroundStyle(
-                            missingAxis
-                                ? AnyShapeStyle(StudioColors.warningForeground)
-                                : AnyShapeStyle(.tertiary)
-                        )
+                        .foregroundStyle(missingAxis ? .primary : .tertiary)
+                        .padding(.horizontal, missingAxis ? 4 : 0)
+                        .padding(.vertical, missingAxis ? 1 : 0)
+                        .background {
+                            if missingAxis {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(StudioColors.warningFill)
+                            }
+                        }
                     Text("=")
                         .font(StudioTypography.monoMeta)
                         .foregroundStyle(.tertiary)
-                    Text(StudioFormatting.axisValue(value))
-                        .font(StudioTypography.monoMeta)
-                        .foregroundStyle(missingAxis ? StudioColors.warningForeground : StudioColors.axisValue)
+                    HStack(spacing: StudioSpace.x1) {
+                        StudioSemanticDot(color: missingAxis ? StudioColors.warningForeground : StudioColors.axisValue)
+                        Text(StudioFormatting.axisValue(value))
+                            .font(StudioTypography.monoMeta)
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
             .buttonStyle(.plain)

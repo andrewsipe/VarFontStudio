@@ -93,7 +93,7 @@ struct ProjectScopeHeader: View {
             HStack(spacing: 0) {
                 let fileCount = liveProject?.document.fonts.count ?? openProject.document.fonts.count
                 Text("\(fileCount)")
-                    .foregroundStyle(StudioColors.computedHighlight)
+                    .foregroundStyle(.primary)
                 Text(" file\(fileCount == 1 ? "" : "s") · \(editor.projectNamingSubtitle(for: liveProject ?? openProject))")
                     .foregroundStyle(.secondary)
             }

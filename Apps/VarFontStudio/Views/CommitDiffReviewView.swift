@@ -148,14 +148,17 @@ struct CommitDiffReviewView: View {
                         HStack(spacing: StudioSpacing.tightGap) {
                             Text(stop.tag)
                                 .font(StudioTypography.tag)
-                                .foregroundStyle(StudioColors.registrationForeground)
+                                .foregroundStyle(.primary)
                             Text(stop.name)
                                 .font(StudioTypography.meta)
-                                .foregroundStyle(StudioColors.registrationForeground)
+                                .foregroundStyle(.primary)
                             if let code = stop.code, !code.isEmpty {
                                 Text(code)
                                     .font(StudioTypography.monoMeta)
-                                    .foregroundStyle(StudioColors.codeForeground)
+                                    .foregroundStyle(.primary)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 3))
                             }
                         }
                         .padding(.horizontal, StudioSpacing.rowHorizontal)
@@ -496,9 +499,14 @@ struct CommitDiffReviewView: View {
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
-                Text(error.message)
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(StudioColors.errorForeground)
+                HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+                    Image(systemName: "xmark.octagon.fill")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(StudioColors.errorForeground)
+                    Text(error.message)
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.primary)
+                }
             }
         }
         .padding(StudioSpacing.cardPadding)

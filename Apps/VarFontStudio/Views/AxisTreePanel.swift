@@ -25,7 +25,7 @@ struct AxisTreePanel: View {
                     if let font = editor.selectedFont {
                         HStack(spacing: StudioSpacing.instanceRowVertical) {
                             Text("\(font.axes.count)")
-                                .foregroundStyle(StudioColors.computedHighlight)
+                                .foregroundStyle(.primary)
                             Text("axes")
                                 .foregroundStyle(.secondary)
                         }
@@ -237,7 +237,7 @@ struct AxisTreePanel: View {
             Spacer()
             Text(value)
                 .font(StudioTypography.emphasis)
-                .foregroundStyle(StudioColors.computedHighlight)
+                .foregroundStyle(.primary)
                 .monospacedDigit()
         }
     }

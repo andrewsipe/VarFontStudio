@@ -138,7 +138,7 @@ struct ProjectInspectorPanel: View {
 
             Text("\(openProject.document.fonts.count)")
                 .font(StudioTypography.meta)
-                .foregroundStyle(StudioColors.computedHighlight)
+                .foregroundStyle(.primary)
 
             Spacer(minLength: 0)
 

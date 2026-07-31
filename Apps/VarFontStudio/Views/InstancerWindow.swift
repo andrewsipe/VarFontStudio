@@ -216,7 +216,7 @@ private struct InstancerWindowContent: View {
             } else if session.isStudioExport {
                 Text("Studio export")
                     .font(StudioTypography.pillLabel)
-                    .foregroundStyle(StudioColors.editedForeground)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpacing.pillHorizontalInset)
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(
@@ -256,9 +256,12 @@ private struct InstancerWindowContent: View {
             }
             if let warning = session.composerWarning {
                 HStack(spacing: StudioSpace.x2) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(StudioColors.warningForeground)
                     Text(warning)
                         .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.warningForeground)
+                        .foregroundStyle(.primary)
                     Spacer(minLength: 0)
                     if session.composerForcePending {
                         StudioFlatButton(title: "Add anyway", size: .compact) {
@@ -938,11 +941,9 @@ private struct InstancerRowView: View {
         HStack(spacing: StudioSpacing.instanceRowVertical) {
             if row.origin == .custom {
                 if let collision {
-                    Text(collisionFlagLabel(collision))
-                        .foregroundStyle(collision == .collision ? StudioColors.collisionForeground : StudioColors.errorForeground)
+                    collisionFlagView(collision)
                 } else {
-                    Text("＋ custom")
-                        .foregroundStyle(StudioColors.customForeground)
+                    StudioFlagLabel(symbol: "＋", text: "custom", tint: StudioColors.customForeground)
                 }
                 Text("·").foregroundStyle(.tertiary)
                 StudioPlainLinkButton(title: "Remove", font: StudioTypography.meta) {
@@ -954,18 +955,15 @@ private struct InstancerRowView: View {
                     session.updateRow(row.id) { $0.nameOverride = nil }
                 }
             } else if let collision {
-                Text(collisionFlagLabel(collision))
-                    .foregroundStyle(collision == .collision ? StudioColors.collisionForeground : StudioColors.errorForeground)
+                collisionFlagView(collision)
             } else if willFail {
-                Text("✕ will fail")
-                    .foregroundStyle(StudioColors.errorForeground)
+                StudioFlagLabel(symbol: "✕", text: "will fail", tint: StudioColors.errorForeground)
                 Text("·").foregroundStyle(.tertiary)
                 StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta) {
                     editor.instancer.focusStudioForNaming(session: session)
                 }
             } else if fallback {
-                Text("⚠ fallback")
-                    .foregroundStyle(StudioColors.warningForeground)
+                StudioFlagLabel(symbol: "⚠", text: "fallback", tint: StudioColors.warningForeground)
                 Text("·").foregroundStyle(.tertiary)
                 StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta) {
                     editor.instancer.focusStudioForNaming(session: session)
@@ -975,12 +973,16 @@ private struct InstancerRowView: View {
         .font(StudioTypography.meta)
     }
 
-    private func collisionFlagLabel(_ kind: InstancerCollisionKind) -> String {
-        switch kind {
-        case .exact: return "◆ exact duplicate"
-        case .identical: return "◆ identical design"
-        case .collision: return "◆ collision"
-        }
+    private func collisionFlagView(_ kind: InstancerCollisionKind) -> some View {
+        let tint = kind == .collision ? StudioColors.collisionForeground : StudioColors.errorForeground
+        let label: String = {
+            switch kind {
+            case .exact: return "exact duplicate"
+            case .identical: return "identical design"
+            case .collision: return "collision"
+            }
+        }()
+        return StudioFlagLabel(symbol: "◆", text: label, tint: tint)
     }
 
     private var rowBackground: some View {

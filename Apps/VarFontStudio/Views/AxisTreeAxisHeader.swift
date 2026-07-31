@@ -240,7 +240,8 @@ struct AxisTreeAxisHeader: View {
                     Text(selectedRegistrationName)
                         .font(StudioTypography.meta)
                         .fontWeight(.medium)
-                        .foregroundStyle(StudioColors.registrationForeground)
+                        .foregroundStyle(.primary)
+                        .fontWeight(.medium)
                         .help(registrationStopHelp)
                 } else if let onSelectRegistrationStop {
                     Menu {
@@ -260,7 +261,8 @@ struct AxisTreeAxisHeader: View {
                             Text(selectedRegistrationName)
                                 .font(StudioTypography.meta)
                                 .fontWeight(.medium)
-                                .foregroundStyle(StudioColors.registrationForeground)
+                                .foregroundStyle(.primary)
+                                .fontWeight(.medium)
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(StudioTypography.iconGlyph)
                                 .foregroundStyle(.tertiary)

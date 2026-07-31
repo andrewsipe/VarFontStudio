@@ -153,6 +153,11 @@ enum StudioRadius {
 /// - Typography: `bodyMedium` (12pt) for compact UI rows; `body` (13pt) for axis stop names and inspector prose.
 /// - `StudioKeyValueRow` is for simple inspector key/value rows only — not axis coordinate tables.
 ///
+/// ## Color (semantic marks)
+/// Body text stays neutral (`.primary` / `.secondary` / `.tertiary`). Semantic hues
+/// belong on marks — gutters, fills, dots, icons, badge backgrounds. Full rules:
+/// **Color system (semantic marks)** in `StudioColors` below.
+///
 /// ## Shared chrome contract (one semantic → one primitive)
 /// - Dismiss / remove: `StudioDismissButton` only. `.outline` (`xmark.circle`) for
 ///   close/dismiss, `.fill` (`xmark.circle.fill`) for in-row / in-field remove.
@@ -302,18 +307,89 @@ private enum StudioIconForeground {
     }
 }
 
-private enum StudioReadableOrange {
-    /// System orange on dark surfaces; darker amber on light for WCAG contrast on white/gray.
-    static let foreground = Color(
-        nsColor: NSColor(name: NSColor.Name("StudioReadableOrange"), dynamicProvider: { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            if isDark {
-                return NSColor.systemOrange
-            }
-            return NSColor(calibratedHue: 0.07, saturation: 0.78, brightness: 0.42, alpha: 1.0)
-        })
-    )
-}
+// MARK: - Color system (semantic marks)
+//
+// Canonical guidance for semantic color usage. Phase 1 documents decisions; phase 2+
+// migrates call sites. See `verify-ui-tokens.sh` for planned regression checks.
+//
+// ## Principle
+// **Semantic hue = mark. Readable hue = text.**
+//
+// System semantic colors (orange, teal, indigo, …) are poor body-text choices on
+// adaptive neutral surfaces — they fail WCAG on white/gray chrome and read as
+// “brown” or “muddy” when darkened for contrast. Colorways stay; they move to
+// fills, strokes, gutters, dots, icons, and compact badges — the roles HIG
+// intends — while labels and values use `.primary` / `.secondary` / `.tertiary`
+// (or `primaryMuted` where softened idle copy is needed).
+//
+// Rejected alternative: per-hue custom light-mode text variants (custom readable
+// orange text and similar) — too finicky to maintain across every semantic and appearance.
+//
+// ## Token tiers
+// 1. **Brand** (`brand`, `selectionFill`, `computedHighlight`) — interaction,
+//    selection, app tint, computed totals. Never axis/file semantics.
+// 2. **Semantic marks** (`*Foreground` paired with `*Fill` / `*Stroke`) — hue
+//    carriers for marks only. Despite the `Foreground` suffix, these are **not**
+//    for body text after migration. Prefer the `*Fill` / `*Stroke` sibling at
+//    call sites; `*Foreground` remains the canonical hue for icons, gutters, dots,
+//    and badge strokes until a `StudioSemanticMark` helper exists.
+// 3. **Neutrals** (`surface*`, `fieldFill`, `hoverFill`, `tag*`, `primaryMuted`)
+//    — adaptive chrome via `StudioPrimaryWash` and system label colors.
+// 4. **Canvas** (`canvas*`) — font preview panel only. Fixed paper white + black
+//    ink. Never Review, Instancer, or inspector tables.
+//
+// ## Approved mark surfaces (use semantic hue here)
+// - Leading gutter bar — `StudioStreamlinedDiffRow` (Save Review)
+// - Leading edge bar — registration axis stops (3pt `registrationForeground`)
+// - Row wash — Instancer semantic `LinearGradient` from leading edge
+// - Fill / stroke on containers — `warningFill`, `customFill`, `*Stroke`, drop zones
+// - Status icons — `StudioWarningBadge`, collision ◆, checkbox success/warning
+// - Chain-rail dots — inspector axis coord rows (`registrationForeground` dot)
+// - Filter badge tint — `InstancerFilterBadgeButton` background wash
+// - Compact category pills — diff section counts, STAT `F1`/`F2`/`F3` badges
+//   (hue on fill/stroke; label text neutral — see Pills below)
+//
+// ## Text that must stay neutral (never semantic `*Foreground` on `Text`)
+// - Table cell values — axis digits, Save Review after-values, instancer coords
+// - Row / field labels — instance names, stop names, banner message body
+// - Inline prose — sheet copy, tooltips, empty states
+// - Flag strings — “custom”, “fallback”, “collision” (mark beside, neutral inside)
+//
+// ## Pills and compact badges
+// Hue lives in `*Background` and `*Stroke`; the label uses `.primary` or
+// `.secondary`. Small monospaced chips (axis tag, diff category, STAT format)
+// are marks, not paragraphs — they follow the same rule.
+//
+// ## Axis value mark (phase 2 — interim)
+// Orange dot beside value digits; revisit after full migration for a better column mark.
+//
+// ## Warnings and errors
+// Banner / sheet **message body** → `.primary`. **Icon or left accent** →
+// `warningForeground` / `errorForeground`. Row-level flags: tinted capsule or
+// leading symbol in semantic hue; label text neutral.
+//
+// ## Interaction and links
+// - Links and pressed controls → `brand` via `Studio*ButtonStyle` resolvers only.
+// - Caret / text selection → `brandNSColor` (`StudioTextInputAccentModifier`).
+// - Do not use `Color.accentColor` or `.preferredColorScheme` in Views.
+//
+// ## What we are not changing
+// - Adaptive neutral panel chrome (`.bar`, `surfaceMuted`, `StudioPrimaryWash`).
+// - Font preview fixed white/black canvas.
+// - Per-hue WCAG text variants (Option B).
+//
+// ## Brand hue (decided)
+// `brand` stays `Color.blue` for interaction, selection, and app tint.
+// Registration/file identity remains `registrationForeground` (indigo). Revisit a
+// blue ↔ indigo swap later only if screenshots show the distinction is too weak.
+//
+// ## Migration phases
+// - **Phase 1** (this document) — lock rules; no visual changes.
+// - **Phase 2** — high-traffic tables: Review values, axis value column, Instancer
+//   flags; `axisValue` / `diffRenamed` → `Color.orange` as mark hues only. **Done**.
+// - **Phase 3** — pills, naming footer, remaining sheets; extend
+//   `verify-ui-tokens.sh` to flag semantic `foregroundStyle` on `Text` outside
+//   approved badge components. **Done** (axis value dot retained for later review).
 
 /// `Color.primary` washes — slightly stronger in light mode for perceptual parity with dark.
 private enum StudioPrimaryWash {
@@ -325,23 +401,41 @@ private enum StudioPrimaryWash {
     }
 }
 
+/// Semantic color tokens. See **Color system (semantic marks)** above for usage rules.
+///
+/// Naming note: `*Foreground` tokens name the canonical **hue** for a semantic.
+/// After migration they are for marks (icons, gutters, dots, badge strokes) — not
+/// for `Text` body copy. Pair with `*Fill` / `*Stroke` at call sites.
 enum StudioColors {
+    // MARK: Brand & interaction
+
     /// Tier 1 — fixed brand for interactive/selected chrome (not system accent).
     static let brand = Color.blue
     /// AppKit bridge for caret/selection styling in `StudioTextField`.
     static var brandNSColor: NSColor { NSColor(brand) }
 
-    /// Neutral axis/key tags — brand is reserved for selection and interaction.
+    // MARK: Neutral tags
+
+    /// Instance axis tag pills — neutral text on neutral wash.
     static let tagForeground = Color.secondary
     static let tagBackground = Color.secondary.opacity(0.12)
-    /// Axis numeric values — readable on light panels and white canvas.
-    static let axisValue = StudioReadableOrange.foreground
+
+    // MARK: Semantic marks — axis & instancer
+
+    /// **Mark hue** — axis value column (dot / column accent). Not for value digits.
+    static let axisValue = Color.orange
+
+    // MARK: Selection & hover (brand + neutral washes)
+
     static let selectionFill = brand.opacity(0.10)
     static let selectionStroke = brand.opacity(0.20)
     /// Neutral (non-accent) selection / hover-over-selection fills — not for borders.
     static let selectionNeutralFill = StudioPrimaryWash.make(name: "selectionNeutralFill", light: 0.11, dark: 0.08)
     static let selectionNeutralFillStrong = StudioPrimaryWash.make(name: "selectionNeutralFillStrong", light: 0.15, dark: 0.12)
     static let hoverFill = StudioPrimaryWash.make(name: "hoverFill", light: 0.08, dark: 0.05)
+
+    // MARK: Canvas (font preview only — see color system guidance)
+
     /// Fixed paper-white glyph preview — font preview panel only (not Review/Instancer tables).
     static let canvasBackground = Color.white
     /// Ink on the font preview canvas — always black regardless of system appearance.
@@ -353,30 +447,44 @@ enum StudioColors {
     /// Status strip on the font preview panel.
     static let canvasPhaseHeader = Color(white: 0.96)
     static let canvasHoverFill = brand.opacity(0.08)
+
+    // MARK: Semantic marks — status (warning / success / error)
+
     static let warningFill = Color.orange.opacity(0.12)
     static let warningFillHover = Color.orange.opacity(0.18)
+    /// Mark hue — warning icons, gutter accents, flag symbols. Not banner body text.
     static let warningForeground = Color.orange
     static let warningStroke = Color.orange.opacity(0.45)
     static let successStroke = Color.green.opacity(0.45)
+    /// Mark hue — success icons and include-checkbox checkmark when on.
     static let successForeground = Color.green
+    /// Mark hue — error icons, severe collision flags, destructive emphasis.
     static let errorForeground = Color.red
     static let errorStroke = Color.red.opacity(0.5)
-    /// Instancer — name-only collision (distinct from amber fallback / red severe).
+
+    // MARK: Semantic marks — instancer row state
+
+    /// Mark hue — name-only collision (distinct from amber fallback / red severe).
     static let collisionForeground = Color.pink
     static let collisionFill = collisionForeground.opacity(0.16)
     static let collisionStroke = collisionForeground.opacity(0.45)
-    /// Instancer — user-added custom instance.
+    /// Mark hue — user-added custom instance row wash / flag symbol.
     static let customForeground = Color.teal
     static let customFill = customForeground.opacity(0.16)
-    /// Instancer / name overrides — edited-from-default.
+    /// Mark hue — edited-from-default name override (reserved; row wash if needed).
     static let editedForeground = Color.cyan
-    /// Save Review diff semantics.
+
+    // MARK: Semantic marks — Save Review diff
+
     static let diffRemoved = Color.red
     static let diffAdded = Color.green
     static let diffReflowed = Color.purple
     static let diffProtected = Color.blue
-    /// Renamed/changed rows — readable orange, distinct from warning banners.
-    static let diffRenamed = StudioReadableOrange.foreground
+    /// Mark hue — changed/renamed gutter and category pill.
+    static let diffRenamed = Color.orange
+
+    // MARK: Neutral surfaces & fields
+
     /// Neutral panel surfaces — light-mode opacities bumped for clearer hierarchy on pale chrome.
     static let surfaceSubtle = StudioPrimaryWash.make(name: "surfaceSubtle", light: 0.055, dark: 0.03)
     static let surfaceMuted = StudioPrimaryWash.make(name: "surfaceMuted", light: 0.07, dark: 0.04)
@@ -394,11 +502,14 @@ enum StudioColors {
     /// Flat secondary action fill (Cancel, Generate All…, Add Instance…).
     static let buttonSecondaryFill = StudioPrimaryWash.make(name: "buttonSecondaryFill", light: 0.15, dark: 0.12)
     static let buttonSecondaryFillDisabled = StudioPrimaryWash.make(name: "buttonSecondaryFillDisabled", light: 0.07, dark: 0.05)
-    /// App-computed totals (grid counts, group sizes) — brand, not axis-value orange.
+    /// Brand mark — computed totals in compact badges (`StudioCountBadge` when highlighted).
     static let computedHighlight = brand
-    /// STAT elided fallback — name when all elidable segments drop (naming footer, instance list).
+    /// Brand mark — elided STAT fallback segment in naming chains (phase 2: neutral text + brand dot).
     static let elidedFallbackForeground = brand
-    /// Registration / design-record axes — file identity (indigo).
+
+    // MARK: Semantic marks — registration & classification
+
+    /// Mark hue — registration leading bar, clarifier pill fill/stroke, drop-add-existing.
     static let registrationForeground = Color.indigo
     static let registrationBackground = Color.indigo.opacity(0.14)
     static let registrationStroke = Color.indigo.opacity(0.35)
@@ -406,14 +517,20 @@ enum StudioColors {
     static let clarifierForeground = registrationForeground
     static let clarifierBackground = registrationBackground
     static let clarifierStroke = registrationStroke
-    /// Classification code chip — brown, distinct from registration indigo.
+    /// Mark hue — OpenType classification code chip (brown, distinct from indigo).
     static let codeForeground = Color.brown
     static let codeBackground = Color.brown.opacity(0.14)
     static let codeStroke = Color.brown.opacity(0.40)
-    /// STAT format badges in the axis tree format grid.
+
+    // MARK: Semantic marks — STAT format badges
+
+    /// Mark hues for `StudioStatFormatBadge` fill/stroke (label text neutral in phase 2).
     static let statFormat1 = Color.green
     static let statFormat2 = Color.cyan
     static let statFormat3 = brand
+
+    // MARK: Drag & drop zones
+
     /// Drop zone half fills — 5% tint over the target region during drag.
     static let dropZoneFillOpacity: CGFloat = 0.05
     static let dropZoneAddFill = registrationForeground.opacity(dropZoneFillOpacity)
@@ -474,7 +591,7 @@ struct StudioTagPill: View {
     private var foreground: Color {
         switch role {
         case .instance: StudioColors.tagForeground
-        case .registration: StudioColors.registrationForeground
+        case .registration: .primary
         }
     }
 
@@ -502,7 +619,7 @@ struct StudioStatFormatBadge: View {
     let format: Int
     var action: (() -> Void)?
 
-  private var foreground: Color {
+  private var markColor: Color {
         switch format {
         case 2: StudioColors.statFormat2
         case 3: StudioColors.statFormat3
@@ -530,11 +647,11 @@ struct StudioStatFormatBadge: View {
             .font(.system(size: 9, weight: .bold, design: .monospaced))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .foregroundStyle(foreground)
-            .background(foreground.opacity(format == 2 ? 0.14 : 0.08), in: RoundedRectangle(cornerRadius: 3))
+            .foregroundStyle(.primary)
+            .background(markColor.opacity(format == 2 ? 0.14 : 0.08), in: RoundedRectangle(cornerRadius: 3))
             .overlay {
                 RoundedRectangle(cornerRadius: 3)
-                    .strokeBorder(foreground.opacity(0.35), lineWidth: 0.5)
+                    .strokeBorder(markColor.opacity(0.35), lineWidth: 0.5)
             }
     }
 }
@@ -549,7 +666,6 @@ struct StudioClarifierPill: View {
             if let showCategory {
                 Text(showCategory)
                     .font(StudioTypography.meta)
-                    .foregroundStyle(StudioColors.clarifierForeground)
             }
             Text(label)
                 .font(compact ? StudioTypography.caption : StudioTypography.bodyMedium)
@@ -557,7 +673,7 @@ struct StudioClarifierPill: View {
         }
         .padding(.horizontal, compact ? 8 : 10)
         .padding(.vertical, compact ? 3 : 4)
-        .foregroundStyle(StudioColors.clarifierForeground)
+        .foregroundStyle(.primary)
         .background(StudioColors.clarifierBackground, in: Capsule())
         .overlay {
             Capsule().strokeBorder(StudioColors.clarifierStroke, lineWidth: 0.5)
@@ -566,6 +682,8 @@ struct StudioClarifierPill: View {
 }
 
 // MARK: - Pills & badges
+//
+// Compact badges are marks: hue on `background` / `border`; label uses `.primary`.
 
 /// Capsule pill with semantic diff colors — Save Review section counts.
 enum StudioDiffPillStyle {
@@ -593,7 +711,7 @@ struct StudioSemanticPill: View {
     var body: some View {
         Text(text)
             .font(StudioTypography.pillLabel)
-            .foregroundStyle(style.foreground)
+            .foregroundStyle(style == .unchanged ? .secondary : .primary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(style.background, in: Capsule())
@@ -609,6 +727,63 @@ struct StudioDiffPillItem: Identifiable {
     init(_ text: String, style: StudioDiffPillStyle) {
         self.text = text
         self.style = style
+    }
+}
+
+// MARK: - Semantic mark views
+
+/// Filled circle for column-leading semantic marks (axis value, status dots).
+struct StudioSemanticDot: View {
+    var color: Color
+    var size: CGFloat = 4
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: size, height: size)
+    }
+}
+
+/// Axis value column — orange mark + neutral monospaced digits.
+struct StudioAxisValueLabel: View {
+    let text: String
+    var font: Font = StudioTypography.monoValue
+    var markColor: Color = StudioColors.axisValue
+    var muted: Bool = false
+    var showMark: Bool = true
+    var minHeight: CGFloat? = nil
+
+    var body: some View {
+        HStack(spacing: StudioSpace.x1) {
+            if showMark {
+                StudioSemanticDot(color: markColor)
+            }
+            Text(text)
+                .font(font)
+                .foregroundStyle(muted ? Color.secondary.opacity(0.55) : Color.primary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .trailing)
+    }
+}
+
+/// Instancer / table flag — tinted symbol + neutral label text.
+struct StudioFlagLabel: View {
+    let symbol: String
+    let text: String
+    let tint: Color
+    var font: Font = StudioTypography.meta
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Text(symbol)
+                .foregroundStyle(tint)
+            Text(text)
+                .foregroundStyle(.secondary)
+        }
+        .font(font)
     }
 }
 
@@ -630,13 +805,16 @@ struct StudioCountBadge: View {
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.75)
-            .foregroundStyle(highlighted ? AnyShapeStyle(StudioColors.computedHighlight) : AnyShapeStyle(.secondary))
+            .foregroundStyle(highlighted ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.secondary))
             .frame(width: fixedWidth)
             // Free (non-aligned) badges need breathing room; fixed-width column
             // badges (axis headers) keep their exact alignment slot.
             .padding(.horizontal, fixedWidth == nil ? 6 : 0)
             .padding(.vertical, 2)
-            .background(.quaternary.opacity(highlighted ? 1 : 0.6), in: Capsule())
+            .background(
+                highlighted ? StudioColors.selectionFill : StudioColors.surfaceSubtle,
+                in: Capsule()
+            )
             .help(help)
     }
 }
@@ -865,18 +1043,7 @@ struct StudioDiffRow: View {
         reflow: Bool = false,
         protected: Bool = false
     ) -> Color {
-        if protected { return StudioColors.diffProtected }
-        if reflow { return StudioColors.diffReflowed }
-        switch change {
-        case .added:
-            return side == .after ? StudioColors.diffAdded : .primary
-        case .removed:
-            return side == .before ? StudioColors.diffRemoved : .primary
-        case .changed:
-            return StudioColors.warningForeground
-        case .unchanged:
-            return .primary
-        }
+        .primary
     }
 }
 
@@ -989,7 +1156,7 @@ struct StudioFilterBadge: View {
             Text("\(category.filterLabel.uppercased()) \(count)")
                 .font(StudioTypography.filterBadgeLabel)
                 .tracking(0.3)
-                .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(category.pillStyle.foreground))
+                .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.primary))
                 .padding(.horizontal, StudioSpacing.pillHorizontalInset)
                 .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background {
@@ -1036,10 +1203,13 @@ struct StudioSaveReviewTabBar: View {
                         Text("\(tab.changedCount) of \(tab.totalCount)")
                             .font(StudioTypography.columnLabel)
                             .monospacedDigit()
-                            .foregroundStyle(hasChanges ? StudioColors.warningForeground : Color.secondary.opacity(0.7))
+                            .foregroundStyle(hasChanges ? Color.primary : Color.secondary.opacity(0.7))
                             .padding(.horizontal, StudioSpace.x1_5)
                             .padding(.vertical, StudioSpacing.instanceRowGap)
-                            .background(StudioColors.selectionNeutralFill, in: Capsule())
+                            .background(
+                                hasChanges ? StudioColors.warningFill : StudioColors.selectionNeutralFill,
+                                in: Capsule()
+                            )
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -1097,10 +1267,14 @@ struct StudioSaveReviewCategoryTag: View {
         Text(category.filterLabel.uppercased())
             .font(StudioTypography.filterBadgeLabel)
             .tracking(0.3)
-            .foregroundStyle(category.pillStyle.foreground)
+            .foregroundStyle(.primary)
             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
             .padding(.vertical, StudioSpace.x0_5)
             .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(category.pillStyle.border, lineWidth: 0.5)
+            }
     }
 }
 
@@ -1234,11 +1408,7 @@ struct StudioStreamlinedDiffRow: View {
     }
 
     private var valueColor: Color {
-        switch row.category {
-        case .same: .secondary
-        case .protected: StudioColors.diffProtected
-        default: row.category.pillStyle.foreground
-        }
+        row.category == .same ? .secondary : .primary
     }
 }
 
@@ -1429,7 +1599,7 @@ struct StudioGroupHeader: View {
             Text("·")
                 .foregroundStyle(.tertiary)
             Text("\(count)")
-                .foregroundStyle(StudioColors.computedHighlight)
+                .foregroundStyle(.primary)
         }
         .font(StudioTypography.columnLabel)
         .textCase(nil)
@@ -3358,7 +3528,7 @@ struct StudioInspectorConflictBadge: View {
     var body: some View {
         let label = Text("\(count) conflict\(count == 1 ? "" : "s")")
             .font(StudioTypography.meta.weight(.medium))
-            .foregroundStyle(StudioColors.warningForeground)
+            .foregroundStyle(.primary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(StudioColors.warningFill, in: Capsule())
@@ -3379,9 +3549,14 @@ struct StudioWarningMessage: View {
     let message: String
 
     var body: some View {
-        Text(message)
-            .font(StudioTypography.caption)
-            .foregroundStyle(StudioColors.warningForeground)
+        HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(StudioTypography.meta)
+                .foregroundStyle(StudioColors.warningForeground)
+            Text(message)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.primary)
+        }
     }
 }
 
@@ -3459,11 +3634,7 @@ struct StudioInstanceComposedName: View {
                     .foregroundStyle(included ? .primary : .secondary)
             } else if showsCollapsedElidedFallback {
                 Text(fallback)
-                    .foregroundStyle(
-                        included
-                            ? StudioColors.elidedFallbackForeground
-                            : StudioColors.elidedFallbackForeground.opacity(0.55)
-                    )
+                    .foregroundStyle(included ? .primary : .secondary)
             } else {
                 composedText(from: displayLinks)
             }
@@ -3490,26 +3661,8 @@ struct StudioInstanceComposedName: View {
     }
 
     private func segmentColor(for link: NamingChainLink) -> Color {
-        switch link.kind {
-        case .clarifier:
-            return included
-                ? StudioColors.clarifierForeground
-                : StudioColors.clarifierForeground.opacity(0.55)
-        case .code:
-            return included
-                ? StudioColors.codeForeground
-                : StudioColors.codeForeground.opacity(0.55)
-        case .registration:
-            if link.elided {
-                return StudioColors.registrationForeground.opacity(0.45)
-            }
-            return included
-                ? StudioColors.registrationForeground
-                : StudioColors.registrationForeground.opacity(0.55)
-        case .axis:
-            if link.elided { return Color.secondary.opacity(0.55) }
-            return included ? Color.primary : Color.secondary
-        }
+        if link.elided { return Color.secondary.opacity(0.55) }
+        return included ? Color.primary : Color.secondary
     }
 }
 
@@ -3563,7 +3716,7 @@ struct InspectorInstanceNamingChain: View {
             } else if link.kind == .code {
                 Text(link.name)
                     .font(StudioTypography.monoMeta.weight(.semibold))
-                    .foregroundStyle(StudioColors.codeForeground)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
@@ -3594,13 +3747,7 @@ struct InspectorInstanceNamingChain: View {
     }
 
     private func segmentForeground(for link: NamingChainLink) -> Color {
-        if link.elided { return Color.secondary.opacity(0.55) }
-        switch link.kind {
-        case .registration: return StudioColors.registrationForeground
-        case .axis: return Color.primary
-        case .clarifier: return StudioColors.clarifierForeground
-        case .code: return StudioColors.codeForeground
-        }
+        link.elided ? Color.secondary.opacity(0.55) : Color.primary
     }
 }
 
@@ -3680,12 +3827,11 @@ private struct InspectorAxisCoordRowView: View {
                     chainRail
                         .frame(width: InspectorAxisCoordLayout.chainWidth)
 
-                    Text(StudioFormatting.axisValue(row.value))
-                        .font(StudioTypography.monoValue)
-                        .foregroundStyle(StudioColors.axisValue)
-                        .opacity(row.participatesInNaming ? 1 : 0.55)
-                        .monospacedDigit()
-                        .frame(width: InspectorAxisCoordLayout.valueWidth, alignment: .trailing)
+                    StudioAxisValueLabel(
+                        text: StudioFormatting.axisValue(row.value),
+                        muted: !row.participatesInNaming
+                    )
+                    .frame(width: InspectorAxisCoordLayout.valueWidth, alignment: .trailing)
 
                     StudioTagPill(text: row.tag, compact: true)
                         .opacity(row.participatesInNaming ? 1 : 0.5)
