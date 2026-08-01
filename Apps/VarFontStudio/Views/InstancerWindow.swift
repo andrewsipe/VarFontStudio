@@ -220,7 +220,7 @@ private struct InstancerWindowContent: View {
                     .padding(.horizontal, StudioSpacing.pillHorizontalInset)
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(
-                        StudioColors.editedForeground.opacity(0.12),
+                        StudioColors.editedFill,
                         in: RoundedRectangle(cornerRadius: 3)
                     )
             }
@@ -1008,11 +1008,10 @@ private struct InstancerRowView: View {
                 )
             }
             if let tint {
-                LinearGradient(
-                    colors: [tint.opacity(0.14), .clear],
-                    startPoint: .leading,
-                    endPoint: UnitPoint(x: 0.4, y: 0.5)
-                )
+                HStack(spacing: 0) {
+                    StudioSemanticLeadingStripe(color: tint)
+                    Spacer(minLength: 0)
+                }
             }
         }
     }

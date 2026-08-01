@@ -80,7 +80,7 @@ struct InstanceListPanel: View {
         if !display.isEmpty {
             HStack(spacing: StudioSpacing.instanceRowVertical) {
                 Text("\(visible)")
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(StudioColors.metricForeground)
                 Text("shown")
                     .foregroundStyle(.secondary)
 
@@ -88,7 +88,7 @@ struct InstanceListPanel: View {
                     Text("·")
                         .foregroundStyle(.quaternary)
                     Text("\(plan.formula.totalIncluded)")
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(StudioColors.metricForeground)
                     Text("included")
                         .foregroundStyle(.secondary)
 

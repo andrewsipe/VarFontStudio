@@ -281,7 +281,6 @@ struct AxisTreeStopRow: View {
         Group {
             if editingField == .pin, valueEditable {
                 HStack(spacing: StudioSpace.x1) {
-                    StudioSemanticDot(color: StudioColors.axisValue)
                     StudioInlineTextField(
                         placeholder: "Value",
                         text: $editingPin,
@@ -350,7 +349,6 @@ struct AxisTreeStopRow: View {
     private func sublineField(_ field: StopEditField, value: Double?, placeholder: String) -> some View {
         if editingField == field, valueEditable {
             HStack(spacing: StudioSpace.x1) {
-                StudioSemanticDot(color: StudioColors.axisValue)
                 StudioInlineTextField(
                     placeholder: placeholder,
                     text: binding(for: field),

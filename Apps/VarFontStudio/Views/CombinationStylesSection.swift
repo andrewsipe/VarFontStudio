@@ -110,7 +110,9 @@ struct CombinationStylesSection: View {
 
         if isEditing {
             HStack(spacing: StudioSpace.x1) {
-                StudioSemanticDot(color: missingAxis ? StudioColors.warningForeground : StudioColors.axisValue)
+                if missingAxis {
+                    StudioSemanticDot(color: StudioColors.warningForeground)
+                }
                 StudioInlineTextField(
                     placeholder: tag,
                     text: $legDraft,
@@ -143,7 +145,9 @@ struct CombinationStylesSection: View {
                         .font(StudioTypography.monoMeta)
                         .foregroundStyle(.tertiary)
                     HStack(spacing: StudioSpace.x1) {
-                        StudioSemanticDot(color: missingAxis ? StudioColors.warningForeground : StudioColors.axisValue)
+                        if missingAxis {
+                            StudioSemanticDot(color: StudioColors.warningForeground)
+                        }
                         Text(StudioFormatting.axisValue(value))
                             .font(StudioTypography.monoMeta)
                             .foregroundStyle(.primary)

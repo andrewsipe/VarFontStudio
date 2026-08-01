@@ -279,7 +279,11 @@ private enum StudioLinkForeground {
     static func resolve(style: StudioHoverLinkStyle, state: StudioInteractionState) -> Color {
         switch style {
         case .accent:
-            return StudioInteractionRule.resolve(base: StudioColors.brand, state: state)
+            switch state {
+            case .idle: return .primary
+            case .hovered, .pressed:
+                return StudioInteractionRule.resolve(base: StudioColors.brand, state: state)
+            }
         case .secondary:
             switch state {
             case .idle: return .secondary
@@ -309,8 +313,8 @@ private enum StudioIconForeground {
 
 // MARK: - Color system (semantic marks)
 //
-// Canonical guidance for semantic color usage. Phase 1 documents decisions; phase 2+
-// migrates call sites. See `verify-ui-tokens.sh` for planned regression checks.
+// Canonical guidance for semantic color usage. See also `COLOR_OUTLINE.md` (swatches).
+// Phase 1 documents decisions; phase 2+ migrates call sites.
 //
 // ## Principle
 // **Semantic hue = mark. Readable hue = text.**
@@ -341,7 +345,7 @@ private enum StudioIconForeground {
 // ## Approved mark surfaces (use semantic hue here)
 // - Leading gutter bar — `StudioStreamlinedDiffRow` (Save Review)
 // - Leading edge bar — registration axis stops (3pt `registrationForeground`)
-// - Row wash — Instancer semantic `LinearGradient` from leading edge
+// - Row leading stripe — Instancer flagged rows (`StudioSemanticLeadingStripe`)
 // - Fill / stroke on containers — `warningFill`, `customFill`, `*Stroke`, drop zones
 // - Status icons — `StudioWarningBadge`, collision ◆, checkbox success/warning
 // - Chain-rail dots — inspector axis coord rows (`registrationForeground` dot)
@@ -379,19 +383,32 @@ private enum StudioIconForeground {
 // - Per-hue WCAG text variants (Option B).
 //
 // ## Brand hue (decided)
-// `brand` stays `Color.blue` for interaction, selection, and app tint.
-// Registration/file identity remains `registrationForeground` (indigo). Revisit a
-// blue ↔ indigo swap later only if screenshots show the distinction is too weak.
+// `brand` stays `Color.blue` for interaction, selection, and app tint only.
+//
+// ## Custom palette (decided)
+// System indigo reads too close to brand blue; system brown is poor on neutral chrome.
+// Fixed RGB tokens (like `statFormat*`) for registration, code, and metric digits.
+// See **Custom palette** in `COLOR_OUTLINE.md`.
 //
 // ## Migration phases
 // - **Phase 1** (this document) — lock rules; no visual changes.
 // - **Phase 2** — high-traffic tables: Review values, axis value column, Instancer
 //   flags; `axisValue` / `diffRenamed` → `Color.orange` as mark hues only. **Done**.
-// - **Phase 3** — pills, naming footer, remaining sheets; extend
-//   `verify-ui-tokens.sh` to flag semantic `foregroundStyle` on `Text` outside
-//   approved badge components. **Done** (axis value dot retained for later review).
-
-/// `Color.primary` washes — slightly stronger in light mode for perceptual parity with dark.
+// - **Phase 3** — pills, naming footer, remaining sheets; lint checks. **Done**.
+// - **Phase 4** — audit polish: no unconditional value dots; semantic fill scale;
+//   link idle neutral; Instancer leading stripe; token disambiguation. **Done**.
+//
+// ## Phase 4 punch list (post-audit)
+// 1. Axis value dot — conditional only (`showMark` default false); column TBD.
+// 2. Two opacity scales — chrome 0.03–0.16 vs semantic fills 0.20–0.30.
+// 3. Links — `.accent` idle `.primary`, brand on hover/press.
+// 4. Instancer — `StudioSemanticLeadingStripe`, not gradient fade.
+// 5. Tokens — `diffProtected` slate; `diffRenamed` yellow; STAT slate/mauve set.
+//
+// ## Token audit rule
+// Same hue = same meaning everywhere, or split the token. Category labels must not
+// borrow status hues (success green, edited cyan, brand blue, warning orange).
+//
 private enum StudioPrimaryWash {
     static func make(name: String, light: CGFloat, dark: CGFloat) -> Color {
         Color(nsColor: NSColor(name: NSColor.Name("Studio.PrimaryWash.\(name)"), dynamicProvider: { appearance in
@@ -449,9 +466,11 @@ enum StudioColors {
     static let canvasHoverFill = brand.opacity(0.08)
 
     // MARK: Semantic marks — status (warning / success / error)
+    //
+    // Opacity scale for status fills (0.20–0.30) — stronger than neutral chrome washes.
 
-    static let warningFill = Color.orange.opacity(0.12)
-    static let warningFillHover = Color.orange.opacity(0.18)
+    static let warningFill = Color.orange.opacity(0.22)
+    static let warningFillHover = Color.orange.opacity(0.30)
     /// Mark hue — warning icons, gutter accents, flag symbols. Not banner body text.
     static let warningForeground = Color.orange
     static let warningStroke = Color.orange.opacity(0.45)
@@ -466,22 +485,24 @@ enum StudioColors {
 
     /// Mark hue — name-only collision (distinct from amber fallback / red severe).
     static let collisionForeground = Color.pink
-    static let collisionFill = collisionForeground.opacity(0.16)
+    static let collisionFill = collisionForeground.opacity(0.24)
     static let collisionStroke = collisionForeground.opacity(0.45)
-    /// Mark hue — user-added custom instance row wash / flag symbol.
+    /// Mark hue — user-added custom instance row stripe / flag symbol.
     static let customForeground = Color.teal
-    static let customFill = customForeground.opacity(0.16)
-    /// Mark hue — edited-from-default name override (reserved; row wash if needed).
+    static let customFill = customForeground.opacity(0.24)
+    /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
     static let editedForeground = Color.cyan
+    static let editedFill = editedForeground.opacity(0.24)
 
     // MARK: Semantic marks — Save Review diff
 
     static let diffRemoved = Color.red
     static let diffAdded = Color.green
     static let diffReflowed = Color.purple
-    static let diffProtected = Color.blue
-    /// Mark hue — changed/renamed gutter and category pill.
-    static let diffRenamed = Color.orange
+    /// Protected/locked — slate, not brand (brand = interaction/selection).
+    static let diffProtected = Color.gray
+    /// Renamed/changed — informational yellow, not warning orange.
+    static let diffRenamed = Color.yellow
 
     // MARK: Neutral surfaces & fields
 
@@ -502,32 +523,39 @@ enum StudioColors {
     /// Flat secondary action fill (Cancel, Generate All…, Add Instance…).
     static let buttonSecondaryFill = StudioPrimaryWash.make(name: "buttonSecondaryFill", light: 0.15, dark: 0.12)
     static let buttonSecondaryFillDisabled = StudioPrimaryWash.make(name: "buttonSecondaryFillDisabled", light: 0.07, dark: 0.05)
-    /// Brand mark — computed totals in compact badges (`StudioCountBadge` when highlighted).
-    static let computedHighlight = brand
-    /// Brand mark — elided STAT fallback segment in naming chains (phase 2: neutral text + brand dot).
+    /// Readable placeholder in fields and search — stronger than `.tertiary`, softer than `.primary`.
+    static let textPlaceholder = StudioPrimaryWash.make(name: "textPlaceholder", light: 0.42, dark: 0.48)
+    /// Scannable metric digits — panel header counts, `StudioCountBadge`, summary cards.
+    /// Steel blue: related to brand but darker; not used for buttons or selection chrome.
+    static let metricForeground = Color(red: 0.082, green: 0.396, blue: 0.722)
+    /// Legacy alias — prefer `metricForeground` at new call sites.
+    static let computedHighlight = metricForeground
+    /// Brand mark — elided STAT fallback segment in naming chains (neutral text + brand dot).
     static let elidedFallbackForeground = brand
 
-    // MARK: Semantic marks — registration & classification
+    // MARK: Custom palette — registration & classification (fixed RGB)
 
-    /// Mark hue — registration leading bar, clarifier pill fill/stroke, drop-add-existing.
-    static let registrationForeground = Color.indigo
-    static let registrationBackground = Color.indigo.opacity(0.14)
-    static let registrationStroke = Color.indigo.opacity(0.35)
-    /// Legacy clarifier alias — same indigo as registration.
+    /// Mark hue — design-record / PS / clarifier. Plum violet — clearly not brand blue.
+    static let registrationForeground = Color(red: 0.557, green: 0.290, blue: 0.624)
+    static let registrationBackground = registrationForeground.opacity(0.22)
+    static let registrationStroke = registrationForeground.opacity(0.40)
+    /// Legacy clarifier alias — same plum as registration.
     static let clarifierForeground = registrationForeground
     static let clarifierBackground = registrationBackground
     static let clarifierStroke = registrationStroke
-    /// Mark hue — OpenType classification code chip (brown, distinct from indigo).
-    static let codeForeground = Color.brown
-    static let codeBackground = Color.brown.opacity(0.14)
-    static let codeStroke = Color.brown.opacity(0.40)
+    /// Mark hue — OpenType classification code chip. Cool graphite — not brown.
+    static let codeForeground = Color(red: 0.361, green: 0.396, blue: 0.439)
+    static let codeBackground = codeForeground.opacity(0.22)
+    static let codeStroke = codeForeground.opacity(0.45)
 
     // MARK: Semantic marks — STAT format badges
+    //
+    // Category distinguishers only — not success (green), edited (cyan), or brand.
 
-    /// Mark hues for `StudioStatFormatBadge` fill/stroke (label text neutral in phase 2).
-    static let statFormat1 = Color.green
-    static let statFormat2 = Color.cyan
-    static let statFormat3 = brand
+    /// Mark hues for `StudioStatFormatBadge` fill/stroke (label text neutral).
+    static let statFormat1 = Color(red: 0.50, green: 0.58, blue: 0.68)
+    static let statFormat2 = Color(red: 0.58, green: 0.50, blue: 0.72)
+    static let statFormat3 = Color(red: 0.48, green: 0.54, blue: 0.62)
 
     // MARK: Drag & drop zones
 
@@ -700,8 +728,8 @@ enum StudioDiffPillStyle {
         }
     }
 
-    var background: Color { foreground.opacity(0.12) }
-    var border: Color { foreground.opacity(0.22) }
+    var background: Color { foreground.opacity(0.20) }
+    var border: Color { foreground.opacity(0.35) }
 }
 
 struct StudioSemanticPill: View {
@@ -732,7 +760,7 @@ struct StudioDiffPillItem: Identifiable {
 
 // MARK: - Semantic mark views
 
-/// Filled circle for column-leading semantic marks (axis value, status dots).
+/// Filled circle for **conditional** semantic marks — only when state varies row-to-row.
 struct StudioSemanticDot: View {
     var color: Color
     var size: CGFloat = 4
@@ -744,13 +772,14 @@ struct StudioSemanticDot: View {
     }
 }
 
-/// Axis value column — orange mark + neutral monospaced digits.
+/// Axis value column — neutral monospaced digits. Pass `showMark: true` only when
+/// the dot encodes conditional state (not for every row in the value column).
 struct StudioAxisValueLabel: View {
     let text: String
     var font: Font = StudioTypography.monoValue
     var markColor: Color = StudioColors.axisValue
     var muted: Bool = false
-    var showMark: Bool = true
+    var showMark: Bool = false
     var minHeight: CGFloat? = nil
 
     var body: some View {
@@ -766,6 +795,18 @@ struct StudioAxisValueLabel: View {
                 .minimumScaleFactor(0.85)
         }
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .trailing)
+    }
+}
+
+/// Full-height leading-edge stripe for list-row semantic state (Instancer flags).
+struct StudioSemanticLeadingStripe: View {
+    let color: Color
+    var width: CGFloat = 3
+
+    var body: some View {
+        Rectangle()
+            .fill(color)
+            .frame(width: width)
     }
 }
 
@@ -805,7 +846,7 @@ struct StudioCountBadge: View {
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.75)
-            .foregroundStyle(highlighted ? AnyShapeStyle(Color.primary) : AnyShapeStyle(.secondary))
+            .foregroundStyle(highlighted ? AnyShapeStyle(StudioColors.metricForeground) : AnyShapeStyle(.secondary))
             .frame(width: fixedWidth)
             // Free (non-aligned) badges need breathing room; fixed-width column
             // badges (axis headers) keep their exact alignment slot.
@@ -1031,7 +1072,7 @@ struct StudioDiffRow: View {
         case .removed:
             return side == .before ? StudioColors.diffRemoved : .clear
         case .changed:
-            return StudioColors.warningForeground
+            return StudioColors.diffRenamed
         case .unchanged:
             return .clear
         }
@@ -1820,7 +1861,7 @@ struct StudioTextField: View {
             text: $text,
             prompt: Text(placeholder)
                 .font(font)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StudioColors.textPlaceholder)
         )
             .textFieldStyle(.plain)
             .font(font)
@@ -1888,7 +1929,7 @@ struct StudioWrappingTextField: View {
             text: $text,
             prompt: Text(placeholder)
                 .font(font)
-                .foregroundStyle(.tertiary),
+                .foregroundStyle(StudioColors.textPlaceholder),
             axis: .vertical
         )
         .textFieldStyle(.plain)
@@ -1936,7 +1977,7 @@ struct StudioSearchField: View {
         HStack(spacing: 4) {
             Image(systemName: "magnifyingglass")
                 .font(StudioTypography.meta)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StudioColors.textPlaceholder)
 
             StudioTextField(
                 placeholder: placeholder,
@@ -1978,7 +2019,7 @@ struct StudioNumberField: View {
             format: .number,
             prompt: Text(placeholder)
                 .font(font)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StudioColors.textPlaceholder)
         )
         .textFieldStyle(.plain)
         .font(font)
@@ -3352,7 +3393,7 @@ struct StudioSegmentButtonStyle: ButtonStyle {
 
     private func segmentBackground(state: StudioInteractionState) -> Color {
         if isSelected {
-            return StudioColors.brand.opacity(0.12)
+            return StudioColors.brand.opacity(0.16)
         }
         switch state {
         case .idle: return .clear
@@ -3428,7 +3469,7 @@ struct StudioSegmentButton: View {
         Button(action: action) {
             Text(title)
                 .font(font.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? StudioColors.brand : .secondary)
+                .foregroundStyle(isSelected ? StudioColors.brand : Color.primary.opacity(0.78))
                 .frame(maxWidth: expands ? .infinity : nil)
                 .padding(.horizontal, expands ? 0 : StudioSpacing.panelHorizontal)
                 .padding(.vertical, expands ? StudioSpacing.panelVertical : StudioSpacing.tightGap)
@@ -3470,7 +3511,7 @@ struct StudioMasterStar: View {
     var body: some View {
         Image(systemName: "star.fill")
             .font(.system(size: StudioFieldMetrics.masterStarPointSize))
-            .foregroundStyle(StudioColors.computedHighlight)
+            .foregroundStyle(StudioColors.brand)
             // `star.fill` sits optically low in its glyph box relative to a true
             // circle; nudge so it shares a visual center with StudioDirtyDot.
             .offset(y: -1)

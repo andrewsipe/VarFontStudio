@@ -419,16 +419,13 @@ struct AxisConflictResolverSheet: View {
 
     private func editableValueRow(_ stop: AxisValue, axis: AxisDefinition) -> some View {
         HStack(spacing: 0) {
-            HStack(spacing: StudioSpace.x1) {
-                StudioSemanticDot(color: StudioColors.axisValue)
-                StudioInlineTextField(
-                    placeholder: ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)[stop.id] ?? "",
-                    text: bulkValueBinding(for: stop.id),
-                    font: StudioTypography.monoValue,
-                    rowHeight: StudioFieldMetrics.captionRowHeight,
-                    alignment: .trailing
-                )
-            }
+            StudioInlineTextField(
+                placeholder: ConflictResolver.suggestedBulkRevalues(for: bundle, axis: axis)[stop.id] ?? "",
+                text: bulkValueBinding(for: stop.id),
+                font: StudioTypography.monoValue,
+                rowHeight: StudioFieldMetrics.captionRowHeight,
+                alignment: .trailing
+            )
             .frame(width: StopTableLayout.valueColumnWidth, alignment: .trailing)
 
             Text(stop.name)

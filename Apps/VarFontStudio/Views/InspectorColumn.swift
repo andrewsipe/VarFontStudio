@@ -48,7 +48,7 @@ struct InspectorColumn: View {
             if let project = editor.project {
                 HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("\(project.fonts.count)")
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(StudioColors.metricForeground)
                     Text(project.fonts.count == 1 ? "file" : "files")
                         .foregroundStyle(.secondary)
                 }
@@ -58,7 +58,7 @@ struct InspectorColumn: View {
             if editor.inspectorInspectableInstance != nil {
                 HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("1")
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(StudioColors.metricForeground)
                     Text("instance")
                         .foregroundStyle(.secondary)
                 }

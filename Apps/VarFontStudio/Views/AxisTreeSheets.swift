@@ -1047,13 +1047,19 @@ struct AddFileAxisSheet: View {
                     }
 
                     HStack(spacing: StudioSpacing.controlGap) {
-                        let fmtColor = previewFmt == "F3" ? StudioColors.statFormat3 : StudioColors.statFormat1
+                        let fmtColor: Color = {
+                            switch previewFmt {
+                            case "F2": StudioColors.statFormat2
+                            case "F3": StudioColors.statFormat3
+                            default: StudioColors.statFormat1
+                            }
+                        }()
                         Text(previewFmt)
                             .font(StudioTypography.tag.weight(.medium))
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(fmtColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                            .background(fmtColor.opacity(0.20), in: RoundedRectangle(cornerRadius: 3))
                             .overlay {
                                 RoundedRectangle(cornerRadius: 3)
                                     .strokeBorder(fmtColor.opacity(0.35), lineWidth: 0.5)
