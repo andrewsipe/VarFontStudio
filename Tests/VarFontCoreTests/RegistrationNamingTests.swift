@@ -11,7 +11,7 @@ final class RegistrationNamingTests: XCTestCase {
 
     func testImportSeedsFileStatRegistration() throws {
         let analysis = try FixtureLoader.decode(FontAnalysis.self, from: "playfair-roman-analysis.json")
-        let project = ProjectImporter.newProject(
+        let (project, _) = ProjectImporter.newProject(
             from: analysis,
             sourceURL: URL(fileURLWithPath: analysis.source.path)
         )

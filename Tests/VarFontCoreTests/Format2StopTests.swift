@@ -4,7 +4,7 @@ import XCTest
 final class Format2StopTests: XCTestCase {
     func testImportPreservesFormat2RangeFields() throws {
         let analysis = try FixtureLoader.decode(FontAnalysis.self, from: "melange-format2-analysis.json")
-        let project = ProjectImporter.newProject(
+        let (project, _) = ProjectImporter.newProject(
             from: analysis,
             sourceURL: URL(fileURLWithPath: analysis.source.path)
         )
@@ -18,7 +18,7 @@ final class Format2StopTests: XCTestCase {
 
     func testCommitDiffStatKeyIncludesRange() throws {
         let analysis = try FixtureLoader.decode(FontAnalysis.self, from: "melange-format2-analysis.json")
-        let project = ProjectImporter.newProject(
+        let (project, _) = ProjectImporter.newProject(
             from: analysis,
             sourceURL: URL(fileURLWithPath: analysis.source.path)
         )

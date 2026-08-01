@@ -17,14 +17,16 @@ public enum PostScriptNaming {
         axes: [AxisDefinition],
         naming: NamingPolicy,
         fileRole: FileRole? = nil,
-        fileStatRegistration: [String: Double] = [:]
+        fileStatRegistration: [String: Double] = [:],
+        compounds: [CompoundStatValue] = []
     ) -> String {
         let composed = NamingComposer.compose(
             coords: coords,
             axes: axes,
             naming: naming,
             fileRole: fileRole,
-            fileStatRegistration: fileStatRegistration
+            fileStatRegistration: fileStatRegistration,
+            compounds: compounds
         )
         let style = composeStyleSegment(
             coords: coords,
@@ -32,7 +34,8 @@ public enum PostScriptNaming {
             naming: naming,
             fileRole: fileRole,
             fileStatRegistration: fileStatRegistration,
-            elidedFallback: composed.name
+            elidedFallback: composed.name,
+            compounds: compounds
         )
         return composeFullName(familyPrefix: familyPrefix, styleSegment: style)
     }
@@ -43,7 +46,8 @@ public enum PostScriptNaming {
         naming: NamingPolicy,
         fileRole: FileRole? = nil,
         fileStatRegistration: [String: Double] = [:],
-        elidedFallback: String = "Regular"
+        elidedFallback: String = "Regular",
+        compounds: [CompoundStatValue] = []
     ) -> String {
         let order = NamingPolicy.mergedOrder(
             projectOrder: naming.order,
@@ -58,6 +62,8 @@ public enum PostScriptNaming {
             axes: axes,
             fileStatRegistration: fileStatRegistration
         )
+        let selected = CompoundStatNaming.selectedMatches(compounds: compounds, coords: coords)
+        let plan = CompoundStatNaming.emitPlan(selected: selected, namingOrder: order)
 
         for token in order {
             if NamingToken.isPostscriptHyphen(token) {
@@ -73,7 +79,8 @@ public enum PostScriptNaming {
                 fileRole: fileRole,
                 fileStatRegistration: fileStatRegistration,
                 coveredClarifiers: coveredClarifiers,
-                namingOrder: order
+                namingOrder: order,
+                emitPlan: plan
             ) else { continue }
 
             if pastHyphen {
@@ -153,7 +160,8 @@ public enum PostScriptNaming {
         fileRole: FileRole?,
         fileStatRegistration: [String: Double],
         coveredClarifiers: Set<FileClarifierCategory>,
-        namingOrder: [String]
+        namingOrder: [String],
+        emitPlan: (emitAtTag: [String: CompoundStatValue], claimedTags: Set<String>)
     ) -> String? {
         if NamingToken.isCode(token) {
             return InstanceCodeBuilder.compose(
@@ -171,6 +179,16 @@ public enum PostScriptNaming {
                   let label = fileRole?.label(for: category) else { return nil }
             let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
+        }
+
+        if let compound = emitPlan.emitAtTag[token] {
+            guard !compound.elidable else { return nil }
+            let name = compound.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? nil : name
+        }
+
+        if emitPlan.claimedTags.contains(token) {
+            return nil
         }
 
         if let axis = axisByTag[token], axis.isDesignRecordOnly {

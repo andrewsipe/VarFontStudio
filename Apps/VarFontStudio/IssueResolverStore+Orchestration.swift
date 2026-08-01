@@ -240,6 +240,43 @@ extension IssueResolverStore {
             }
         }
     }
+
+    func applyFvarStatConflictResolution(
+        _ resolution: FvarStopSeeder.Resolution,
+        andContinue: Bool
+    ) {
+        guard var session = fvarStatConflictRequest,
+              let conflict = session.current,
+              var project = requireHost.project,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == conflict.fontID })
+        else {
+            dismissFvarStatConflictResolver()
+            return
+        }
+
+        if resolution != .keepSTAT {
+            requireHost.pushUndoSnapshot()
+            FvarStopSeeder.apply(resolution: resolution, conflict: conflict, to: &project.fonts[fontIndex])
+            project.fonts[fontIndex].dirty = true
+            project.modified = Date()
+            requireHost.project = project
+            requireHost.canSave = true
+            requireHost.regeneratePlan()
+        }
+
+        let nextIndex = session.index + 1
+        if andContinue, nextIndex < session.conflicts.count {
+            session.index = nextIndex
+            fvarStatConflictRequest = session
+            let next = session.conflicts[nextIndex]
+            requireHost.inspectorFocus.focusedAxisTag = next.axisTag
+            requireHost.selectedAxisStopID = next.existingStopID
+            requireHost.inspectorFocus.requestAxisTreeFocus(axisTag: next.axisTag, stopID: next.existingStopID)
+        } else {
+            dismissFvarStatConflictResolver()
+        }
+    }
+
     private func focusConflictAxis(_ bundle: AxisConflictBundle) {
         requireHost.inspectorFocus.focusedAxisTag = bundle.axisTag
         guard let stopID = bundle.involvedStopIDs.first else { return }

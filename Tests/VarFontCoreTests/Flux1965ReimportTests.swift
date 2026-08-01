@@ -23,7 +23,7 @@ final class Flux1965ReimportTests: XCTestCase {
             [30.0, 73.0, 115.0, 158.0, 200.0]
         )
 
-        let project = try ProjectImporter.openFont(at: URL(fileURLWithPath: outputPath))
+        let (project, _) = try ProjectImporter.openFont(at: URL(fileURLWithPath: outputPath))
         let font = try XCTUnwrap(project.fonts.first)
         let wghtAxis = try XCTUnwrap(font.axes.first { $0.tag == "wght" })
         XCTAssertEqual(wghtAxis.role, .instance)

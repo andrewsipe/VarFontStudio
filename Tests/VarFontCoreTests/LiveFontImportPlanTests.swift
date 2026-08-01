@@ -6,7 +6,7 @@ final class LiveFontImportPlanTests: XCTestCase {
         guard let path = LiveFontFixture.playfairRomanPath else {
             throw XCTSkip("Playfair not found — see fixtures/fonts/README.md")
         }
-        let project = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
+        let (project, _) = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
         let font = try XCTUnwrap(project.fonts.first)
         dumpAxisGrid(font)
         let plan = try XCTUnwrap(InstancePlanner.plan(project: project, fontID: font.id))
@@ -19,7 +19,7 @@ final class LiveFontImportPlanTests: XCTestCase {
         guard let path = LiveFontFixture.robotoFlexPath else {
             throw XCTSkip("Roboto Flex not found — see fixtures/fonts/README.md")
         }
-        let project = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
+        let (project, _) = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
         let font = try XCTUnwrap(project.fonts.first)
         dumpAxisGrid(font)
         let plan = try XCTUnwrap(InstancePlanner.plan(project: project, fontID: font.id))

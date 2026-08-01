@@ -87,6 +87,8 @@
 		B2000066 /* ProjectWorkspaceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000066 /* ProjectWorkspaceStoreTests.swift */; };
 		B2000067 /* IssueResolverStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000067 /* IssueResolverStoreTests.swift */; };
 		B2000068 /* SaveReviewStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000068 /* SaveReviewStoreTests.swift */; };
+		B2000091 /* FvarStatConflictResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000091 /* FvarStatConflictResolverSheet.swift */; };
+		B2000092 /* AddCombinationStyleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000092 /* AddCombinationStyleSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -137,6 +139,8 @@
 		F2000021 /* WorkspaceDragSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceDragSession.swift; sourceTree = "<group>"; };
 		F2000022 /* InspectorSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorSupport.swift; sourceTree = "<group>"; };
 		F2000023 /* AxisConflictResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisConflictResolverSheet.swift; sourceTree = "<group>"; };
+		F2000091 /* FvarStatConflictResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FvarStatConflictResolverSheet.swift; sourceTree = "<group>"; };
+		F2000092 /* AddCombinationStyleSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCombinationStyleSheet.swift; sourceTree = "<group>"; };
 		F2000024 /* CommitDiffSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitDiffSheet.swift; sourceTree = "<group>"; };
 		F2000025 /* CommitPreflightSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSession.swift; sourceTree = "<group>"; };
 		F2000026 /* SourceFontAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontAccess.swift; sourceTree = "<group>"; };
@@ -285,6 +289,8 @@
 				F2000063 /* AxisTreeSheets.swift */,
 				F2000064 /* AxisTreeTabKeyMonitor.swift */,
 				F2000023 /* AxisConflictResolverSheet.swift */,
+				F2000091 /* FvarStatConflictResolverSheet.swift */,
+				F2000092 /* AddCombinationStyleSheet.swift */,
 				F2000030 /* PlanIssueResolverSheet.swift */,
 				F2000031 /* CombinationStylesSection.swift */,
 				F2000024 /* CommitDiffSheet.swift */,
@@ -528,6 +534,8 @@
 				B2000088 /* MainWindowLifecycle.swift in Sources */,
 				B2000089 /* EditorViewModel+ExportRefresh.swift in Sources */,
 				B2000090 /* EditorViewModel+PendingExport.swift in Sources */,
+				B2000091 /* FvarStatConflictResolverSheet.swift in Sources */,
+				B2000092 /* AddCombinationStyleSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

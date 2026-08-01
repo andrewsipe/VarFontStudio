@@ -41,7 +41,8 @@ public enum InstancePlanner {
                 axes: font.axes,
                 naming: naming,
                 fileRole: font.fileRole,
-                fileStatRegistration: font.fileStatRegistration
+                fileStatRegistration: font.fileStatRegistration,
+                compounds: font.compoundStatValues
             )
             let chain = composed.chain.map {
                 NamingChainLink(kind: $0.kind, tag: $0.tag, name: $0.name, elided: $0.elided)

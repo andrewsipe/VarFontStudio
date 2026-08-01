@@ -15,19 +15,23 @@ public enum NamingComposer {
         }
     }
 
-    /// Compose a style name from axis stops and per-file clarifiers using full naming order.
+    /// Compose a style name from axis stops, Format 4 compounds, and per-file clarifiers.
     public static func compose(
         coords: [String: Double],
         axes: [AxisDefinition],
         naming: NamingPolicy,
         fileRole: FileRole? = nil,
-        fileStatRegistration: [String: Double] = [:]
+        fileStatRegistration: [String: Double] = [:],
+        compounds: [CompoundStatValue] = []
     ) -> (name: String, chain: [Link]) {
         let axisByTag = Dictionary(uniqueKeysWithValues: axes.map { ($0.tag, $0) })
         let coveredClarifiers = RegistrationAxisSupport.clarifierCategoriesCoveredByRegistration(
             axes: axes,
             fileStatRegistration: fileStatRegistration
         )
+        let selected = CompoundStatNaming.selectedMatches(compounds: compounds, coords: coords)
+        let plan = CompoundStatNaming.emitPlan(selected: selected, namingOrder: naming.order)
+
         var chain: [Link] = []
         var parts: [String] = []
 
@@ -59,6 +63,27 @@ public enum NamingComposer {
                 }
                 chain.append(Link(kind: .clarifier, tag: token, name: label, elided: false))
                 parts.append(label)
+                continue
+            }
+
+            if let compound = plan.emitAtTag[token] {
+                let name = compound.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let elided = compound.elidable
+                chain.append(
+                    Link(
+                        kind: .compound,
+                        tag: CompoundStatNaming.chainTag(for: compound),
+                        name: name.isEmpty ? CompoundStatNaming.chainTag(for: compound) : name,
+                        elided: elided
+                    )
+                )
+                if !elided, !name.isEmpty {
+                    parts.append(name)
+                }
+                continue
+            }
+
+            if plan.claimedTags.contains(token) {
                 continue
             }
 

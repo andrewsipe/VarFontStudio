@@ -70,6 +70,118 @@ final class NamingComposerTests: XCTestCase {
         XCTAssertEqual(result.name, "Micro")
         XCTAssertEqual(result.chain.map(\.tag), ["opsz"])
     }
+
+    func testComposeUsesFormat4CompoundOverCoveredAxisStops() {
+        let wght = AxisDefinition(
+            tag: "wght",
+            role: .instance,
+            values: [
+                AxisValue(id: "w350", value: 350, name: "Medium", elidable: false),
+            ]
+        )
+        let ousd = AxisDefinition(
+            tag: "ousd",
+            min: 0,
+            default: 0,
+            max: 100,
+            role: .instance,
+            values: [
+                AxisValue(id: "o100", value: 100, name: "Rounded", elidable: false),
+            ]
+        )
+        let insd = AxisDefinition(
+            tag: "insd",
+            min: 0,
+            default: 0,
+            max: 100,
+            role: .instance,
+            values: [
+                AxisValue(id: "i100", value: 100, name: "Display", elidable: false),
+                AxisValue(id: "i70", value: 70, name: "70", elidable: false),
+            ]
+        )
+        let compounds = [
+            CompoundStatValue(
+                id: "c1",
+                coords: ["ousd": 100, "insd": 100],
+                axisIndices: [1, 2],
+                axisValues: [100, 100],
+                name: "FullRounded",
+                elidable: false
+            ),
+            CompoundStatValue(
+                id: "c2",
+                coords: ["ousd": 100, "insd": 70],
+                axisIndices: [1, 2],
+                axisValues: [100, 70],
+                name: "DoubleRounded",
+                elidable: false
+            ),
+        ]
+        let naming = NamingPolicy(order: ["wght", "ousd", "insd"], elidedFallback: "Regular")
+
+        let full = NamingComposer.compose(
+            coords: ["wght": 350, "ousd": 100, "insd": 100],
+            axes: [wght, ousd, insd],
+            naming: naming,
+            compounds: compounds
+        )
+        XCTAssertEqual(full.name, "Medium FullRounded")
+        XCTAssertEqual(full.chain.map(\.kind), [.axis, .compound])
+        XCTAssertEqual(full.chain.map(\.name), ["Medium", "FullRounded"])
+
+        let double = NamingComposer.compose(
+            coords: ["wght": 350, "ousd": 100, "insd": 70],
+            axes: [wght, ousd, insd],
+            naming: naming,
+            compounds: compounds
+        )
+        XCTAssertEqual(double.name, "Medium DoubleRounded")
+    }
+
+    func testComposeEmitsCompoundBeforeInBetweenAxis() {
+        let wght = AxisDefinition(
+            tag: "wght",
+            role: .instance,
+            values: [AxisValue(id: "w", value: 100, name: "Regular", elidable: true)]
+        )
+        let ousd = AxisDefinition(
+            tag: "ousd",
+            role: .instance,
+            values: [AxisValue(id: "o", value: 100, name: "Rounded", elidable: false)]
+        )
+        let opsz = AxisDefinition(
+            tag: "opsz",
+            role: .instance,
+            values: [AxisValue(id: "p", value: 14, name: "Text", elidable: false)]
+        )
+        let insd = AxisDefinition(
+            tag: "insd",
+            role: .instance,
+            values: [AxisValue(id: "i", value: 100, name: "Display", elidable: false)]
+        )
+        let compounds = [
+            CompoundStatValue(
+                id: "c1",
+                coords: ["ousd": 100, "insd": 100],
+                axisIndices: [1, 3],
+                axisValues: [100, 100],
+                name: "FullRounded",
+                elidable: false
+            ),
+        ]
+        let naming = NamingPolicy(order: ["wght", "ousd", "opsz", "insd"], elidedFallback: "Regular")
+
+        let result = NamingComposer.compose(
+            coords: ["wght": 100, "ousd": 100, "opsz": 14, "insd": 100],
+            axes: [wght, ousd, opsz, insd],
+            naming: naming,
+            compounds: compounds
+        )
+        XCTAssertEqual(result.name, "FullRounded Text")
+        XCTAssertEqual(result.chain.map(\.name), ["Regular", "FullRounded", "Text"])
+        XCTAssertTrue(result.chain[0].elided)
+    }
 }
 
 final class NamingOrderInferenceTests: XCTestCase {

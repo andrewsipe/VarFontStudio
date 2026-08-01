@@ -324,21 +324,36 @@ public enum InstancerSessionBuilder {
     }
 
     /// Compose non-elidable STAT Axis Value names at `coords` (DesignAxisRecord order).
+    /// Format 4 compounds replace covered axes and emit at the earliest covered tag.
     public static func composeSTATName(
         coords: [String: Double],
         analysis: FontAnalysis,
         axisTags: [String]
     ) -> String? {
-        // Format-4 compounds first when they fully match.
-        for compound in analysis.compoundStatValues where !compound.elidable {
-            if compoundMatches(compound, coords: coords) {
-                let name = compound.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !name.isEmpty { return name }
-            }
+        let compounds = analysis.compoundStatValues.map { record in
+            CompoundStatValue(
+                id: record.id,
+                coords: record.coords,
+                axisIndices: record.axisIndices,
+                axisValues: record.axisValues,
+                name: record.name,
+                elidable: record.elidable,
+                olderSibling: record.olderSibling
+            )
         }
+        let selected = CompoundStatNaming.selectedMatches(compounds: compounds, coords: coords)
+        let plan = CompoundStatNaming.emitPlan(selected: selected, namingOrder: axisTags)
 
         var parts: [String] = []
         for tag in axisTags {
+            if let compound = plan.emitAtTag[tag] {
+                guard !compound.elidable else { continue }
+                let name = compound.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty { parts.append(name) }
+                continue
+            }
+            if plan.claimedTags.contains(tag) { continue }
+
             guard let target = coords[tag] else { continue }
             guard let record = matchingStatRecord(
                 tag: tag,
@@ -352,19 +367,6 @@ public enum InstancerSessionBuilder {
         }
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: " ")
-    }
-
-    private static func compoundMatches(
-        _ compound: FontAnalysis.CompoundStatRecord,
-        coords: [String: Double]
-    ) -> Bool {
-        guard !compound.coords.isEmpty else { return false }
-        for (tag, value) in compound.coords {
-            guard let actual = coords[tag], AxisCoordinate.valuesEqual(actual, value) else {
-                return false
-            }
-        }
-        return true
     }
 
     private static func matchingStatRecord(

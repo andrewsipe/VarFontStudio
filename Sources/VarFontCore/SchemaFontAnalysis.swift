@@ -76,6 +76,8 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public var roleInferred: AxisRole
         public var variesInExistingInstances: Bool
         public var valuesExisting: [StatValueSnapshot]
+        /// Distinct fvar instance coordinates for this axis (full instance list, not the sample cap).
+        public var fvarValuesObserved: [Double]
         public var fvarHidden: Bool?
 
         public var id: String { tag }
@@ -87,7 +89,49 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
             case roleInferred = "role_inferred"
             case variesInExistingInstances = "varies_in_existing_instances"
             case valuesExisting = "values_existing"
+            case fvarValuesObserved = "fvar_values_observed"
             case fvarHidden = "fvar_hidden"
+        }
+
+        public init(
+            tag: String,
+            displayName: String,
+            min: Double,
+            default: Double,
+            max: Double,
+            ordering: Int? = nil,
+            roleInferred: AxisRole,
+            variesInExistingInstances: Bool,
+            valuesExisting: [StatValueSnapshot],
+            fvarValuesObserved: [Double] = [],
+            fvarHidden: Bool? = nil
+        ) {
+            self.tag = tag
+            self.displayName = displayName
+            self.min = min
+            self.default = `default`
+            self.max = max
+            self.ordering = ordering
+            self.roleInferred = roleInferred
+            self.variesInExistingInstances = variesInExistingInstances
+            self.valuesExisting = valuesExisting
+            self.fvarValuesObserved = fvarValuesObserved
+            self.fvarHidden = fvarHidden
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            tag = try c.decode(String.self, forKey: .tag)
+            displayName = try c.decode(String.self, forKey: .displayName)
+            min = try c.decode(Double.self, forKey: .min)
+            self.default = try c.decode(Double.self, forKey: .default)
+            max = try c.decode(Double.self, forKey: .max)
+            ordering = try c.decodeIfPresent(Int.self, forKey: .ordering)
+            roleInferred = try c.decode(AxisRole.self, forKey: .roleInferred)
+            variesInExistingInstances = try c.decode(Bool.self, forKey: .variesInExistingInstances)
+            valuesExisting = try c.decode([StatValueSnapshot].self, forKey: .valuesExisting)
+            fvarValuesObserved = try c.decodeIfPresent([Double].self, forKey: .fvarValuesObserved) ?? []
+            fvarHidden = try c.decodeIfPresent(Bool.self, forKey: .fvarHidden)
         }
     }
 

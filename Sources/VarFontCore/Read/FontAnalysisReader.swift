@@ -166,6 +166,7 @@ public enum FontAnalysisReader {
                 )
             }
 
+            let observed = (vary[axis.tag] ?? []).map(AxisCoordinateFormat.canonical).sorted()
             axes.append(
                 FontAnalysis.AnalyzedAxis(
                     tag: axis.tag,
@@ -177,6 +178,7 @@ public enum FontAnalysisReader {
                     roleInferred: role,
                     variesInExistingInstances: gridAxisTags.contains(axis.tag),
                     valuesExisting: valuesExisting,
+                    fvarValuesObserved: observed,
                     fvarHidden: axis.isHidden
                 )
             )

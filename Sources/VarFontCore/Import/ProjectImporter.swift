@@ -1,13 +1,13 @@
 import Foundation
 
 public enum ProjectImporter {
-  public static func openFont(at url: URL) throws -> ProjectDocument {
-    let analysis = try FontAnalysisReader.analyze(url: url)
+  public static func openFont(at url: URL) throws -> (ProjectDocument, FvarStopSeeder.Report) {
+    let analysis = try FontAnalysisReader.analyzeForCommitDiff(url: url)
     return newProject(from: analysis, sourceURL: url)
   }
 
-  public static func newProject(from analysis: FontAnalysis, sourceURL: URL) -> ProjectDocument {
-    let font = fontDocument(from: analysis, sourceURL: sourceURL, isMaster: true, masterFontID: nil)
+  public static func newProject(from analysis: FontAnalysis, sourceURL: URL) -> (ProjectDocument, FvarStopSeeder.Report) {
+    let (font, seedReport) = fontDocument(from: analysis, sourceURL: sourceURL, isMaster: true, masterFontID: nil)
     let familyLabel = analysis.source.familyName.isEmpty
       ? sourceURL.deletingPathExtension().lastPathComponent
       : analysis.source.familyName
@@ -20,7 +20,7 @@ public enum ProjectImporter {
       sourceElidedFallback: analysis.nameAudit.elidedFallbackName,
       fileRole: font.fileRole
     )
-    return ProjectDocument(
+    let project = ProjectDocument(
       schemaVersion: 1,
       created: Date(),
       modified: Date(),
@@ -33,11 +33,17 @@ public enum ProjectImporter {
       template: ProjectTemplate(syncRoles: true, axes: []),
       fonts: [font]
     )
+    return (project, seedReport)
   }
 
-  public static func addFont(_ analysis: FontAnalysis, sourceURL: URL, to project: inout ProjectDocument) {
+  @discardableResult
+  public static func addFont(
+    _ analysis: FontAnalysis,
+    sourceURL: URL,
+    to project: inout ProjectDocument
+  ) -> FvarStopSeeder.Report {
     let masterID = project.fonts.first { $0.fileRole?.kind == .master }?.id ?? project.fonts.first?.id
-    let font = fontDocument(
+    let (font, seedReport) = fontDocument(
       from: analysis,
       sourceURL: sourceURL,
       isMaster: project.fonts.isEmpty,
@@ -49,6 +55,7 @@ public enum ProjectImporter {
       project.naming.order = NamingPolicy.orderWithDefaultClarifiers(axisOrder: project.naming.order)
     }
     project.modified = Date()
+    return seedReport
   }
 
   // MARK: - Private
@@ -95,10 +102,10 @@ public enum ProjectImporter {
     sourceURL: URL,
     isMaster: Bool,
     masterFontID: String?
-  ) -> FontDocument {
+  ) -> (FontDocument, FvarStopSeeder.Report) {
     let axes = analysis.axes.map { axisDefinition(from: $0) }
 
-  let placeholder = FontDocument(
+    let placeholder = FontDocument(
       id: UUID().uuidString,
       sourcePath: sourceURL.path,
       dirty: false,
@@ -137,10 +144,11 @@ public enum ProjectImporter {
       compoundStatValues: compoundStatValues(from: analysis),
       statDesignAxisTags: analysis.designAxisTags
     )
+    let seedReport = FvarStopSeeder.seed(into: &font, analysis: analysis)
     // Import preserves STAT formats from source (including ital Format 3). Safe auto-fixes
     // never downgrade format; Format 1 → 3 upgrades surface as plan issues for user review.
     _ = PlanIssueResolver.applySafeAutoFixes(to: &font, analysis: analysis)
-    return font
+    return (font, seedReport)
   }
 
   private static func compoundStatValues(from analysis: FontAnalysis) -> [CompoundStatValue] {

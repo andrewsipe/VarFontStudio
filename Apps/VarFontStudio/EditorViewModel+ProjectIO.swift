@@ -348,9 +348,9 @@ extension EditorViewModel {
         isBusy = true
         defer { isBusy = false }
         do {
-            let analysis = try analyzeSourceFont(sourcePath: url.path)
+            let analysis = try analyzeSourceFont(sourcePath: url.path, includeAllInstances: true)
             try validateVariableFont(analysis)
-            var imported = ProjectImporter.newProject(from: analysis, sourceURL: url)
+            var (imported, seedReport) = ProjectImporter.newProject(from: analysis, sourceURL: url)
             applyDefaultNameIDStrategy(to: &imported)
             if let fontID = imported.fonts.first?.id {
                 registerSourceBookmark(url: url, fontID: fontID)
@@ -373,7 +373,8 @@ extension EditorViewModel {
                 markProjectDirtyIfChanged: true
             )
             regeneratePlan()
-            postStatusMessage("Opened \(url.lastPathComponent)")
+            postImportSeedStatus(seedReport, fileName: url.lastPathComponent, opened: true)
+            presentFvarStatConflicts(seedReport.conflicts)
             canSave = false
         } catch let error as FontImportError {
             postStatusMessage(error.localizedDescription)
@@ -408,10 +409,10 @@ extension EditorViewModel {
         isBusy = true
         defer { isBusy = false }
         do {
-            let analysis = try analyzeSourceFont(sourcePath: url.path)
+            let analysis = try analyzeSourceFont(sourcePath: url.path, includeAllInstances: true)
             try validateVariableFont(analysis)
             guard let idx = openProjects.firstIndex(where: { $0.id == targetID }) else { return }
-            ProjectImporter.addFont(analysis, sourceURL: url, to: &openProjects[idx].document)
+            let seedReport = ProjectImporter.addFont(analysis, sourceURL: url, to: &openProjects[idx].document)
             let newFontID = openProjects[idx].document.fonts.last?.id
             if let newFontID {
                 registerSourceBookmark(url: url, fontID: newFontID)
@@ -429,7 +430,8 @@ extension EditorViewModel {
             )
             publishOpenProjects()
             regeneratePlan()
-            postStatusMessage("Added \(url.lastPathComponent)")
+            postImportSeedStatus(seedReport, fileName: url.lastPathComponent, opened: false)
+            presentFvarStatConflicts(seedReport.conflicts)
         } catch let error as FontImportError {
             postStatusMessage(error.localizedDescription)
         } catch {
@@ -437,4 +439,17 @@ extension EditorViewModel {
         }
     }
 
+    private func postImportSeedStatus(
+        _ report: FvarStopSeeder.Report,
+        fileName: String,
+        opened: Bool
+    ) {
+        let verb = opened ? "Opened" : "Added"
+        if report.seededStopCount > 0 {
+            let stopWord = report.seededStopCount == 1 ? "stop" : "stops"
+            postStatusMessage("\(verb) \(fileName) — seeded \(report.seededStopCount) STAT \(stopWord) from fvar")
+        } else {
+            postStatusMessage("\(verb) \(fileName)")
+        }
+    }
 }

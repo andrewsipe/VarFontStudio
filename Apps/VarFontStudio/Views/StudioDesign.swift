@@ -3761,6 +3761,25 @@ struct InspectorInstanceNamingChain: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            } else if link.kind == .compound {
+                HStack(spacing: 5) {
+                    Text("F4")
+                        .font(StudioTypography.meta.weight(.semibold))
+                        .foregroundStyle(StudioColors.statFormat1)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(StudioColors.statFormat1.opacity(0.16), in: Capsule())
+                    Text(link.tag)
+                        .font(StudioTypography.monoMeta)
+                        .foregroundStyle(.secondary)
+                        .opacity(link.elided ? 0.55 : 1)
+                    Text(link.name)
+                        .font(StudioTypography.bodyMedium)
+                        .foregroundStyle(segmentForeground(for: link))
+                        .strikethrough(link.elided, color: Color.secondary.opacity(0.45))
+                }
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
             } else {
                 Button {
                     onLinkTap?(link.tag)

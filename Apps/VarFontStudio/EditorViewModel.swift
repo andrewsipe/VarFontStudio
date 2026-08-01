@@ -278,14 +278,19 @@ final class EditorViewModel: ObservableObject {
 
     func analyzeSourceFont(
         fontID: String? = nil,
-        sourcePath: String
+        sourcePath: String,
+        includeAllInstances: Bool = false
     ) throws -> FontAnalysis {
         let bookmark = fontID.flatMap { sourceBookmarks[$0] }
         return try SourceFontAccess.withReadableSourceURL(
             bookmark: bookmark,
             fallbackPath: sourcePath
         ) { sourceURL in
-            try FontAnalysisReader.analyze(url: sourceURL)
+            if includeAllInstances {
+                try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+            } else {
+                try FontAnalysisReader.analyze(url: sourceURL)
+            }
         }
     }
 

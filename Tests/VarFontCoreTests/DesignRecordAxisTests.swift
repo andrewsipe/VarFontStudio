@@ -11,7 +11,7 @@ final class DesignRecordAxisTests: XCTestCase {
         XCTAssertEqual(ital?.valuesExisting.count, 1)
         XCTAssertEqual(ital?.valuesExisting.first?.name, "Roman")
 
-        let project = ProjectImporter.newProject(
+        let (project, _) = ProjectImporter.newProject(
             from: analysis,
             sourceURL: URL(fileURLWithPath: analysis.source.path)
         )

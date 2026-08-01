@@ -69,13 +69,16 @@ def compound_stat_values_from_request(
     """Build preserved format 4 entries from CommitRequest.compound_stat_values."""
     result: List[CompoundStatValueDef] = []
     for item in values:
+        raw_coords = item.get("coords") or {}
+        coords = {str(tag): float(value) for tag, value in raw_coords.items()}
         axis_indices = [int(index) for index in (item.get("axis_indices") or [])]
         axis_values = [float(value) for value in (item.get("axis_values") or [])]
         if not axis_indices:
-            coords = item.get("coords") or {}
-            axis_indices = list(range(len(coords)))
-            axis_values = [float(coords[tag]) for tag in sorted(coords.keys())]
-        if not axis_indices:
+            if coords:
+                tags = sorted(coords.keys())
+                axis_indices = list(range(len(tags)))
+                axis_values = [coords[tag] for tag in tags]
+        if not axis_indices and not coords:
             continue
         result.append(
             CompoundStatValueDef(
@@ -85,6 +88,7 @@ def compound_stat_values_from_request(
                 name=str(item.get("name") or ""),
                 elidable=bool(item.get("elidable", False)),
                 older_sibling=bool(item.get("older_sibling", False)),
+                coords=coords,
             )
         )
     return result

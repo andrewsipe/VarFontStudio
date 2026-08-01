@@ -10,7 +10,8 @@ final class CommitRoundTripTests: XCTestCase {
 
     private func playfairProject() throws -> ProjectDocument {
         let path = try LiveFontFixture.requirePlayfairRoman()
-        return try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
+        let (project, _) = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
+        return project
     }
 
     private func playfairFontID(in project: ProjectDocument) throws -> String {
@@ -85,7 +86,7 @@ final class CommitRoundTripTests: XCTestCase {
             XCTAssertTrue(writtenNames.contains(sampleName), "Expected \(sampleName) in written fvar")
         }
 
-        let reimport = try ProjectImporter.openFont(at: outputURL)
+        let (reimport, _) = try ProjectImporter.openFont(at: outputURL)
         let reimportFontID = try XCTUnwrap(reimport.fonts.first?.id)
         let reimportPlan = try XCTUnwrap(InstancePlanner.plan(project: reimport, fontID: reimportFontID))
         XCTAssertEqual(reimportPlan.formula.totalGenerated, expectedIncluded)
@@ -236,7 +237,7 @@ final class CommitRoundTripTests: XCTestCase {
     func testRobotoFlexWriteRoundTrip() async throws {
         let path = try LiveFontFixture.requireRobotoFlex()
         let service = try commitService()
-        let project = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
+        let (project, _) = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
         let font = try XCTUnwrap(project.fonts.first)
         let plan = try XCTUnwrap(InstancePlanner.plan(project: project, fontID: font.id))
         XCTAssertEqual(plan.formula.parts, [9, 1])

@@ -164,6 +164,52 @@ def naming_order_with_defaults(naming: dict) -> List[str]:
     return ensure_postscript_hyphen(order)
 
 
+def _values_equal(lhs: float, rhs: float, tolerance: float = 0.001) -> bool:
+    return abs(lhs - rhs) < tolerance
+
+
+def _selected_compound_matches(
+    compounds: List[CompoundStatValueDef],
+    coords: Dict[str, float],
+) -> List[CompoundStatValueDef]:
+    """Non-overlapping Format 4 matches, most-specific first."""
+    matching = []
+    for compound in compounds:
+        if len(compound.coords) < 2:
+            continue
+        if all(
+            tag in coords and _values_equal(coords[tag], value)
+            for tag, value in compound.coords.items()
+        ):
+            matching.append(compound)
+    matching.sort(key=lambda c: len(c.coords), reverse=True)
+    claimed: set[str] = set()
+    selected: List[CompoundStatValueDef] = []
+    for compound in matching:
+        tags = set(compound.coords.keys())
+        if claimed & tags:
+            continue
+        claimed |= tags
+        selected.append(compound)
+    return selected
+
+
+def _compound_emit_plan(
+    selected: List[CompoundStatValueDef],
+    naming_order: List[str],
+) -> tuple[Dict[str, CompoundStatValueDef], set[str]]:
+    emit_at: Dict[str, CompoundStatValueDef] = {}
+    claimed: set[str] = set()
+    for compound in selected:
+        tags = set(compound.coords.keys())
+        claimed |= tags
+        for token in naming_order:
+            if token in tags:
+                emit_at[token] = compound
+                break
+    return emit_at, claimed
+
+
 def compose_name_from_order(
     naming_order: List[str],
     axis_values_by_tag: Dict[str, AxisValueDef],
@@ -173,11 +219,20 @@ def compose_name_from_order(
     axes_json: Optional[List[dict]] = None,
     file_stat_registration: Optional[Dict[str, float]] = None,
     file_role: Optional[dict] = None,
+    compounds: Optional[List[CompoundStatValueDef]] = None,
 ) -> str:
-    """Interleave axis stop names and per-file clarifier labels."""
+    """Interleave axis stop names, Format 4 compounds, and per-file clarifier labels."""
     axis_by_tag = {str(axis["tag"]): axis for axis in (axes_json or [])}
     registration = file_stat_registration or {}
     covered_clarifiers = clarifier_categories_covered_by_registration(axes_json, registration)
+    coords = {
+        tag: float(av.value)
+        for tag, av in axis_values_by_tag.items()
+    }
+    for tag, value in registration.items():
+        coords.setdefault(tag, float(value))
+    selected = _selected_compound_matches(compounds or [], coords)
+    emit_at, claimed = _compound_emit_plan(selected, naming_order)
     parts: List[str] = []
 
     for token in naming_order:
@@ -201,6 +256,14 @@ def compose_name_from_order(
             label = clarifiers.get(category)
             if label:
                 parts.append(label)
+            continue
+
+        if token in emit_at:
+            compound = emit_at[token]
+            if not compound.elidable and compound.name:
+                parts.append(compound.name)
+            continue
+        if token in claimed:
             continue
 
         axis_json = axis_by_tag.get(token)
@@ -229,11 +292,17 @@ def compose_postscript_style_from_order(
     axes_json: Optional[List[dict]] = None,
     file_stat_registration: Optional[Dict[str, float]] = None,
     file_role: Optional[dict] = None,
+    compounds: Optional[List[CompoundStatValueDef]] = None,
 ) -> str:
     """Build the style segment of an fvar PostScript name using `@pshyphen` splits."""
     axis_by_tag = {str(axis["tag"]): axis for axis in (axes_json or [])}
     registration = file_stat_registration or {}
     covered_clarifiers = clarifier_categories_covered_by_registration(axes_json, registration)
+    coords = {tag: float(av.value) for tag, av in axis_values_by_tag.items()}
+    for tag, value in registration.items():
+        coords.setdefault(tag, float(value))
+    selected = _selected_compound_matches(compounds or [], coords)
+    emit_at, claimed = _compound_emit_plan(selected, naming_order)
     before: List[str] = []
     after: List[str] = []
     past_hyphen = False
@@ -255,9 +324,13 @@ def compose_postscript_style_from_order(
         elif token in CLARIFIER_TOKEN_TO_CATEGORY:
             category = CLARIFIER_TOKEN_TO_CATEGORY[token]
             if category not in covered_clarifiers:
-                label = clarifiers.get(category)
-                if label:
-                    part = label
+                part = clarifiers.get(category)
+        elif token in emit_at:
+            compound = emit_at[token]
+            if not compound.elidable and compound.name:
+                part = compound.name
+        elif token in claimed:
+            part = None
         else:
             axis_json = axis_by_tag.get(token)
             if axis_json and str(axis_json.get("role")) == "design_record_only":
@@ -278,13 +351,13 @@ def compose_postscript_style_from_order(
         else:
             before.append(part)
 
-    before_text = sanitize_postscript("".join(before))
-    after_text = sanitize_postscript("".join(after))
-    if not before_text:
-        return after_text or sanitize_postscript(elided_fallback_name)
-    if not after_text:
-        return before_text
-    return f"{before_text}-{after_text}"
+    before_s = sanitize_postscript("".join(before))
+    after_s = sanitize_postscript("".join(after))
+    if not before_s:
+        return after_s if after_s else sanitize_postscript(elided_fallback_name)
+    if not after_s:
+        return before_s
+    return f"{before_s}-{after_s}"
 
 
 def _stop_for_axis_json(axis_json: dict, value: float) -> Optional[dict]:
@@ -319,6 +392,7 @@ class CompoundStatValueDef:
     name: str
     elidable: bool
     older_sibling: bool = False
+    coords: Dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -584,6 +658,7 @@ def compose_instance_name(
     axes_json: Optional[List[dict]] = None,
     file_stat_registration: Optional[Dict[str, float]] = None,
     file_role: Optional[dict] = None,
+    compounds: Optional[List[CompoundStatValueDef]] = None,
 ) -> str:
     """Build subfamily string from one axis-value combination (product tuple)."""
     if naming_order is not None and axis_tags is not None:
@@ -596,6 +671,7 @@ def compose_instance_name(
             axes_json=axes_json,
             file_stat_registration=file_stat_registration,
             file_role=file_role,
+            compounds=compounds,
         )
     parts = [av.name for av in axis_values if not av.elidable]
     return " ".join(parts) if parts else elided_fallback_name
@@ -612,6 +688,7 @@ def enumerate_instance_names(
     included_instance_keys: Optional[List[str]] = None,
     pinned_coords: Optional[Dict[str, float]] = None,
     file_role: Optional[dict] = None,
+    compounds: Optional[List[CompoundStatValueDef]] = None,
 ) -> List[str]:
     """Cartesian product of axis values into composed instance subfamily names."""
     return [
@@ -626,6 +703,7 @@ def enumerate_instance_names(
             included_instance_keys=included_instance_keys,
             pinned_coords=pinned_coords,
             file_role=file_role,
+            compounds=compounds,
         )
     ]
 
@@ -641,6 +719,7 @@ def iterate_instance_name_entries(
     included_instance_keys: Optional[List[str]] = None,
     pinned_coords: Optional[Dict[str, float]] = None,
     file_role: Optional[dict] = None,
+    compounds: Optional[List[CompoundStatValueDef]] = None,
 ):
     """Yield `(composed_name, combo_by_tag)` for each included instance row."""
     if not axis_defs:
@@ -663,6 +742,7 @@ def iterate_instance_name_entries(
             axes_json=axes_json,
             file_stat_registration=file_stat_registration,
             file_role=file_role,
+            compounds=compounds,
         )
         if composed in seen:
             return
@@ -871,6 +951,7 @@ def build_allocation_plan(
         included_instance_keys=included_instance_keys,
         pinned_coords=pinned_coords,
         file_role=role_payload,
+        compounds=preserved_compounds,
     ):
         if composed_name not in instance_ids:
             reuse_sf, _ = snapshot_fvar_instances.get(composed_name, (None, None))
@@ -887,6 +968,7 @@ def build_allocation_plan(
             axes_json=axes_payload,
             file_stat_registration=registration,
             file_role=role_payload,
+            compounds=preserved_compounds,
         )
         ps_name = compose_postscript_instance_name(family_prefix, ps_style)
         instance_postscript_names[composed_name] = ps_name

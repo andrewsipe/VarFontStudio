@@ -91,6 +91,17 @@ struct MainEditorView: View {
             // transition unless the view's identity actually changes.
             .id(session.id)
         }
+        .sheet(item: fvarStatConflictBinding) { session in
+            if let conflict = session.current {
+                FvarStatConflictResolverSheet(
+                    conflict: conflict,
+                    reviewPosition: session.reviewPosition,
+                    reviewTotal: session.reviewTotal
+                )
+                .environmentObject(editor)
+                .id("\(session.id)-\(conflict.id)")
+            }
+        }
         .background(AuxiliaryWindowOpenBridge())
         .sheet(isPresented: commitDiffSheetBinding) {
             if let projectID = editor.activeProjectID,
@@ -315,6 +326,13 @@ struct MainEditorView: View {
         Binding(
             get: { editor.issueResolvers.planIssueResolverRequest },
             set: { editor.issueResolvers.planIssueResolverRequest = $0 }
+        )
+    }
+
+    private var fvarStatConflictBinding: Binding<FvarStatConflictSession?> {
+        Binding(
+            get: { editor.issueResolvers.fvarStatConflictRequest },
+            set: { editor.issueResolvers.fvarStatConflictRequest = $0 }
         )
     }
 

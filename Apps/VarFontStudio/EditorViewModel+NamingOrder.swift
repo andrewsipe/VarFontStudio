@@ -130,7 +130,8 @@ extension EditorViewModel {
             axes: font.axes,
             naming: project.naming,
             fileRole: font.fileRole,
-            fileStatRegistration: font.fileStatRegistration
+            fileStatRegistration: font.fileStatRegistration,
+            compounds: font.compoundStatValues
         )
     }
 

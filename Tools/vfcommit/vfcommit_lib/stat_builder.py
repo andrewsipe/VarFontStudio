@@ -127,6 +127,7 @@ def apply_table_edits(
         elided_fallback_name,
         pinned_coords=pinned_coords,
         included_instance_keys=included_instance_keys,
+        compound_defs=compound_defs or [],
     )
     _write_stat(
         font,
@@ -236,6 +237,7 @@ def _write_fvar_instances(
     *,
     pinned_coords: dict[str, float] | None = None,
     included_instance_keys: List[str] | None = None,
+    compound_defs: List[CompoundStatValueDef] | None = None,
 ) -> None:
     from vfcommit_lib.request_bridge import parse_instance_key
 
@@ -285,6 +287,7 @@ def _write_fvar_instances(
             axis_tags=tag_list,
             axes_json=plan.axes_json,
             file_stat_registration=plan.file_stat_registration,
+            compounds=compound_defs,
         )
 
         inst = NamedInstance()

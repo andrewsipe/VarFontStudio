@@ -94,6 +94,21 @@ extension EditorViewModel {
         issueResolvers.applyConflictFix(action, axisTag: axisTag, andContinue: andContinue)
     }
 
+    func presentFvarStatConflicts(_ conflicts: [FvarStopSeeder.NameConflict]) {
+        issueResolvers.presentFvarStatConflicts(conflicts)
+    }
+
+    func dismissFvarStatConflictResolver() {
+        issueResolvers.dismissFvarStatConflictResolver()
+    }
+
+    func applyFvarStatConflictResolution(
+        _ resolution: FvarStopSeeder.Resolution,
+        andContinue: Bool = false
+    ) {
+        issueResolvers.applyFvarStatConflictResolution(resolution, andContinue: andContinue)
+    }
+
     // MARK: - Naming / compound helpers (remain on editor)
 
     func setElidedFallback(_ value: String) {
@@ -129,6 +144,78 @@ extension EditorViewModel {
             )
         }
     }
+
+    func addCompoundStatValue(name: String, coords: [String: Double]) {
+        guard coords.count >= 2 else { return }
+        mutateSelectedFont { font in
+            var compound = CompoundStatValue(
+                id: "compound-\(UUID().uuidString.prefix(8))",
+                coords: coords.mapValues(AxisCoordinateFormat.canonical),
+                axisIndices: [],
+                axisValues: [],
+                name: name,
+                elidable: false
+            )
+            CompoundStatCoordinateSync.syncIndicesAndValues(
+                compound: &compound,
+                designAxisOrder: font.axes
+            )
+            font.compoundStatValues.append(compound)
+        }
+    }
+
+    func removeCompoundStatValue(id: String) {
+        mutateSelectedFont { font in
+            font.compoundStatValues.removeAll { $0.id == id }
+        }
+    }
+
+    func addCompoundStatLeg(id: String, tag: String) {
+        mutateSelectedFont { font in
+            guard let index = font.compoundStatValues.firstIndex(where: { $0.id == id }),
+                  let axis = font.axes.first(where: { $0.tag == tag }),
+                  font.compoundStatValues[index].coords[tag] == nil else { return }
+            let value: Double
+            if let max = axis.max, let def = axis.default, !AxisCoordinate.valuesEqual(max, def) {
+                value = max
+            } else {
+                value = axis.default ?? axis.min ?? 0
+            }
+            font.compoundStatValues[index].coords[tag] = value
+            CompoundStatCoordinateSync.syncIndicesAndValues(
+                compound: &font.compoundStatValues[index],
+                designAxisOrder: font.axes
+            )
+        }
+    }
+
+    func replaceCompoundStatLeg(id: String, oldTag: String, newTag: String, value: Double) {
+        mutateSelectedFont { font in
+            guard let index = font.compoundStatValues.firstIndex(where: { $0.id == id }),
+                  font.compoundStatValues[index].coords[oldTag] != nil,
+                  font.compoundStatValues[index].coords[newTag] == nil,
+                  font.axes.contains(where: { $0.tag == newTag }) else { return }
+            font.compoundStatValues[index].coords.removeValue(forKey: oldTag)
+            font.compoundStatValues[index].coords[newTag] = AxisCoordinateFormat.canonical(value)
+            CompoundStatCoordinateSync.syncIndicesAndValues(
+                compound: &font.compoundStatValues[index],
+                designAxisOrder: font.axes
+            )
+        }
+    }
+
+    func removeCompoundStatLeg(id: String, tag: String) {
+        mutateSelectedFont { font in
+            guard let index = font.compoundStatValues.firstIndex(where: { $0.id == id }) else { return }
+            guard font.compoundStatValues[index].coords.count > 2 else { return }
+            font.compoundStatValues[index].coords.removeValue(forKey: tag)
+            CompoundStatCoordinateSync.syncIndicesAndValues(
+                compound: &font.compoundStatValues[index],
+                designAxisOrder: font.axes
+            )
+        }
+    }
+
     func axisStop(for instance: PlannedInstance, tag: String) -> (axisTag: String, stopID: String)? {
         guard let font = selectedFont,
               let coord = instance.coords[tag],

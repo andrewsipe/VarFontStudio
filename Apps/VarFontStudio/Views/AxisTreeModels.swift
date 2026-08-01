@@ -14,6 +14,10 @@ struct AddAxisStopRequest: Identifiable {
     var id: String { axisTag }
 }
 
+struct AddCombinationStyleRequest: Identifiable {
+    let id = UUID()
+}
+
 struct AddRegistrationAxisRequest: Identifiable {
     let id = UUID()
 }

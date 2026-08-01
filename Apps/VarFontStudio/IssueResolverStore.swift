@@ -16,6 +16,25 @@ struct PlanIssueResolverSession: Identifiable {
     let reviewTotal: Int?
 }
 
+struct FvarStatConflictSession: Identifiable {
+    let id = UUID()
+    var conflicts: [FvarStopSeeder.NameConflict]
+    var index: Int
+
+    var current: FvarStopSeeder.NameConflict? {
+        guard conflicts.indices.contains(index) else { return nil }
+        return conflicts[index]
+    }
+
+    var reviewPosition: Int? {
+        conflicts.isEmpty ? nil : index + 1
+    }
+
+    var reviewTotal: Int? {
+        conflicts.isEmpty ? nil : conflicts.count
+    }
+}
+
 struct AxisTreeReviewSession {
     var state: AxisTreeReviewSessionState
 }
@@ -35,6 +54,7 @@ final class IssueResolverStore: ObservableObject {
 
     @Published var conflictResolverRequest: AxisConflictResolverSession?
     @Published var planIssueResolverRequest: PlanIssueResolverSession?
+    @Published var fvarStatConflictRequest: FvarStatConflictSession?
 
     private(set) var reviewSession: AxisTreeReviewSession?
 
@@ -82,6 +102,11 @@ final class IssueResolverStore: ObservableObject {
         )
     }
 
+    func presentFvarStatConflicts(_ conflicts: [FvarStopSeeder.NameConflict]) {
+        guard !conflicts.isEmpty else { return }
+        fvarStatConflictRequest = FvarStatConflictSession(conflicts: conflicts, index: 0)
+    }
+
     func dismissConflictResolver(clearReviewSession: Bool) {
         conflictResolverRequest = nil
         if clearReviewSession {
@@ -96,9 +121,14 @@ final class IssueResolverStore: ObservableObject {
         }
     }
 
+    func dismissFvarStatConflictResolver() {
+        fvarStatConflictRequest = nil
+    }
+
     func clearBothResolvers() {
         planIssueResolverRequest = nil
         conflictResolverRequest = nil
+        fvarStatConflictRequest = nil
     }
 
     func clearBothResolversAndReviewSession() {

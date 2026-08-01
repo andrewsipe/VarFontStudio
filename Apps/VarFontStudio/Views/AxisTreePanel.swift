@@ -8,6 +8,7 @@ struct AxisTreePanel: View {
     @State private var expandedAxes: Set<String> = []
     @State private var editingStop: (id: String, field: StopEditField)?
     @State private var addStopRequest: AddAxisStopRequest?
+    @State private var addCombinationRequest: AddCombinationStyleRequest?
     @State private var addRegistrationRequest: AddRegistrationAxisRequest?
     @State private var fillStopsRequest: FillStopsRequest?
     @State private var formatChangeRequest: StopFormatChangeRequest?
@@ -128,6 +129,12 @@ struct AxisTreePanel: View {
                 }
                 .environmentObject(editor)
             }
+        }
+        .sheet(item: $addCombinationRequest) { _ in
+            AddCombinationStyleSheet {
+                addCombinationRequest = nil
+            }
+            .environmentObject(editor)
         }
         .sheet(item: $addRegistrationRequest) { _ in
             AddFileAxisSheet {
@@ -398,10 +405,12 @@ struct AxisTreePanel: View {
                 }
                 .padding(.top, StudioSpacing.sectionGap)
 
-                if !font.compoundStatValues.isEmpty {
-                    CombinationStylesSection(compounds: font.compoundStatValues, axes: font.axes)
-                        .padding(.top, StudioSpacing.sectionGap)
-                }
+                CombinationStylesSection(
+                    compounds: font.compoundStatValues,
+                    axes: font.axes,
+                    onAdd: { addCombinationRequest = AddCombinationStyleRequest() }
+                )
+                    .padding(.top, StudioSpacing.sectionGap)
             }
             .coordinateSpace(name: axisReorderCoordinateSpace)
             .overlay(alignment: .topLeading) {
