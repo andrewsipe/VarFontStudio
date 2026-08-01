@@ -75,6 +75,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/VarFontStudio.xcodeproj/xcshareddata/xcschemes/VarFontStudio.xcscheme
 
 # Apps/VarFontStudio/Views/
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AddCombinationStyleSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AuxiliaryWindowOpenBridge.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisConflictResolverSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/AxisStopFillControls.swift
@@ -89,6 +90,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStud
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/CommitDiffSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/FileClarifiersBar.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/FontPreviewPanel.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/FvarStatConflictResolverSheet.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/InspectorColumn.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/InspectorPanel.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/Views/InstanceInclusionCommands.swift
@@ -140,6 +142,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontC
 
 # Sources/VarFontCore/Import/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Import/FileClarifierInference.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Import/FvarStopSeeder.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Import/PostScriptPrefixInference.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Import/ProjectDocumentStore.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Import/ProjectImporter.swift
@@ -168,6 +171,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ClarifierSlotCoverage.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ComposedNameWarningRollup.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/CompoundStatCoordinateSync.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/CompoundStatNaming.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ConflictModels.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ConflictResolver+Strategies.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/ConflictResolver+Suggestions.swift
@@ -223,6 +227,8 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/Format2StopTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/Format3StopTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/FvarDesignSpaceAuditTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/FvarStopSeederLiveTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/FvarStopSeederTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/InstanceCodeNamingTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/InstanceExportPendingTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/InstanceKeyBuilderTests.swift
