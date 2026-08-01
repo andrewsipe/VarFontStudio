@@ -8,6 +8,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/.github/workflow
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/.github/workflows/release.yml
 
 # Apps/VarFontStudio/
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/COLOR_OUTLINE.md
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/CommitPreflightSession.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorLayoutPreferences.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Apps/VarFontStudio/EditorViewModel+AxisOrder.swift
