@@ -163,9 +163,7 @@ struct StudioPanelSplitView: View {
     private var axisTreeColumn: some View {
         if layout.axisTreeCollapsed {
             AxisTreeRail {
-                withAnimation(.easeOut(duration: 0.18)) {
-                    layout.axisTreeCollapsed = false
-                }
+                layout.axisTreeCollapsed = false
             }
             .frame(width: StudioPanelMetrics.axisTreeRailWidth)
             .frame(maxHeight: .infinity)

@@ -190,7 +190,7 @@ struct CombinationStylesSection: View {
             HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
                 Text(suggestion.name)
                     .font(StudioTypography.caption.weight(.semibold))
-                    .foregroundStyle(StudioColors.registrationForeground)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                 Spacer(minLength: 0)
                 Text("covers \(suggestion.coveredInstanceCount) fvar")
@@ -262,14 +262,12 @@ struct CombinationStylesSection: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.easeOut(duration: 0.12)) {
-                    if isExpanded {
-                        expandedCompoundID = nil
-                        openPicker = nil
-                    } else {
-                        expandedCompoundID = compound.id
-                        openPicker = nil
-                    }
+                if isExpanded {
+                    expandedCompoundID = nil
+                    openPicker = nil
+                } else {
+                    expandedCompoundID = compound.id
+                    openPicker = nil
                 }
             } label: {
                 HStack(spacing: StudioSpace.x1_5) {

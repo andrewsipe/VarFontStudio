@@ -95,7 +95,12 @@ struct NamingOrderChainFooter: View {
                 .onPreferenceChange(FooterBodyHeightKey.self) { height in
                     guard height > 1 else { return }
                     if abs(footerBodyHeight - height) > 0.5 {
-                        footerBodyHeight = height
+                        // Don't interpolate measured footer height — reads as a choppy resize.
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            footerBodyHeight = height
+                        }
                     }
                 }
             }

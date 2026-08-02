@@ -16,6 +16,8 @@ struct AxisTreePanel: View {
     @State private var activeTabStopID: String?
     @State private var axisDragSession = AxisTreeAxisDragSession()
     @State private var axisHeaderFrames: [String: CGRect] = [:]
+    @State private var axisTreePanelHeight: CGFloat = 0
+    @State private var combinationDrawerContentHeight: CGFloat = 0
     private let axisReorderCoordinateSpace = "axisTreeAxisReorder"
 
     var body: some View {
@@ -36,9 +38,7 @@ struct AxisTreePanel: View {
                         systemName: "sidebar.left",
                         help: "Collapse axis tree"
                     ) {
-                        withAnimation(.easeOut(duration: 0.18)) {
-                            layout.axisTreeCollapsed = true
-                        }
+                        layout.axisTreeCollapsed = true
                     }
                 }
             }
@@ -106,9 +106,18 @@ struct AxisTreePanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipped()
+        .background {
+            GeometryReader { geo in
+                Color.clear.preference(key: AxisTreePanelHeightKey.self, value: geo.size.height)
+            }
+        }
+        .onPreferenceChange(AxisTreePanelHeightKey.self) { height in
+            axisTreePanelHeight = height
+        }
         .onChange(of: editor.selectedFontID) {
             editingStop = nil
             resetExpansion()
+            combinationDrawerContentHeight = 0
         }
         .onChange(of: editingStop?.id) { _, stopID in
             if stopID == nil {
@@ -358,9 +367,8 @@ struct AxisTreePanel: View {
             Divider()
 
             Button {
-                withAnimation(.easeOut(duration: 0.15)) {
-                    layout.combinationStylesDrawerExpanded.toggle()
-                }
+                // Instant open/close — animating measured body height looks like a genie resize.
+                layout.combinationStylesDrawerExpanded.toggle()
             } label: {
                 HStack(spacing: StudioSpacing.controlGap) {
                     Image(systemName: "chevron.right")
@@ -406,9 +414,31 @@ struct AxisTreePanel: View {
                         compounds: font.compoundStatValues,
                         axes: font.axes
                     )
+                    // Ideal height, not the ScrollView viewport — keeps the drawer snug.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background {
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: CombinationDrawerContentHeightKey.self,
+                                value: geo.size.height
+                            )
+                        }
+                    }
                 }
-                .frame(maxHeight: 320)
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(height: combinationDrawerBodyHeight, alignment: .top)
+                .clipped()
                 .background(StudioColors.surfaceMuted.opacity(0.55))
+                .onPreferenceChange(CombinationDrawerContentHeightKey.self) { height in
+                    guard height > 0, abs(height - combinationDrawerContentHeight) > 0.5 else { return }
+                    // Height tracking must not inherit drawer open/close animations —
+                    // interpolating measured height reads as a choppy "genie" resize.
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        combinationDrawerContentHeight = height
+                    }
+                }
             }
         }
         .onChange(of: suggestionCount) { _, count in
@@ -416,6 +446,23 @@ struct AxisTreePanel: View {
                 layout.combinationStylesDrawerExpanded = true
             }
         }
+        .onChange(of: layout.combinationStylesDrawerExpanded) { _, expanded in
+            if !expanded {
+                combinationDrawerContentHeight = 0
+            }
+        }
+    }
+
+    /// Fit content when short; scroll once content needs more than ~60% of the Axis Tree.
+    private var combinationDrawerBodyHeight: CGFloat {
+        let maxBody: CGFloat = {
+            guard axisTreePanelHeight > 0 else { return 400 }
+            return min(560, max(280, axisTreePanelHeight * 0.62))
+        }()
+        guard combinationDrawerContentHeight > 0 else {
+            return min(120, maxBody)
+        }
+        return min(combinationDrawerContentHeight.rounded(.up), maxBody)
     }
 
     @ViewBuilder
