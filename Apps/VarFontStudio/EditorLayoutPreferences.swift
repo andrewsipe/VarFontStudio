@@ -30,6 +30,11 @@ final class EditorLayoutPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(axisTreeCollapsed, forKey: Keys.axisTreeCollapsed) }
     }
 
+    /// Combination styles drawer at the bottom of the Axis Tree panel.
+    @Published var combinationStylesDrawerExpanded: Bool {
+        didSet { UserDefaults.standard.set(combinationStylesDrawerExpanded, forKey: Keys.combinationStylesDrawerExpanded) }
+    }
+
     @Published var axisTreeWidth: CGFloat {
         didSet { UserDefaults.standard.set(axisTreeWidth, forKey: Keys.axisTreeWidth) }
     }
@@ -52,6 +57,10 @@ final class EditorLayoutPreferences: ObservableObject {
         showInstances = Self.storedBool(forKey: Keys.instances, default: true)
         showInspector = Self.storedBool(forKey: Keys.inspector, default: true)
         axisTreeCollapsed = Self.storedBool(forKey: Keys.axisTreeCollapsed, default: false)
+        combinationStylesDrawerExpanded = Self.storedBool(
+            forKey: Keys.combinationStylesDrawerExpanded,
+            default: true
+        )
         axisTreeWidth = Self.storedCGFloat(forKey: Keys.axisTreeWidth, default: StudioPanelMetrics.axisTreeDefault)
         inspectorWidth = Self.storedCGFloat(forKey: Keys.inspectorWidth, default: StudioPanelMetrics.inspectorDefault)
         defaultNameIDStrategy = StudioAppPreferences.defaultNameIDStrategy
@@ -71,6 +80,7 @@ final class EditorLayoutPreferences: ObservableObject {
         static let instances = "studio.showInstances"
         static let inspector = "studio.showInspector"
         static let axisTreeCollapsed = "studio.axisTreeCollapsed"
+        static let combinationStylesDrawerExpanded = "studio.combinationStylesDrawerExpanded"
         static let axisTreeWidth = "studio.axisTreeWidth"
         static let inspectorWidth = "studio.inspectorWidth"
     }

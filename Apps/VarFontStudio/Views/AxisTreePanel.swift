@@ -56,39 +56,41 @@ struct AxisTreePanel: View {
                 .overlay(alignment: .bottom) { Divider() }
 
             if editor.selectedFont != nil {
-            ScrollViewReader { scrollProxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        axesContent(scrollProxy: scrollProxy)
+                ScrollViewReader { scrollProxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            axesContent(scrollProxy: scrollProxy)
+                        }
+                        .padding(.horizontal, StudioSpacing.panelHorizontal)
+                        .padding(.top, StudioSpacing.panelContentTop)
+                        .padding(.bottom, StudioSpacing.panelVertical)
                     }
-                    .padding(.horizontal, StudioSpacing.panelHorizontal)
-                    .padding(.top, StudioSpacing.panelContentTop)
-                    .padding(.bottom, StudioSpacing.panelVertical)
-                }
-                .transaction { $0.animation = nil }
-                .onChange(of: editor.inspectorFocus.axisTreeFocusRequest) { _, request in
-                    guard let request else { return }
-                    scrollToAxisStop(
-                        scrollProxy: scrollProxy,
-                        axisTag: request.axisTag,
-                        stopID: request.stopID
-                    )
-                }
-                .onChange(of: editor.inspectorFocus.focusedAxisTag) { _, tag in
-                    if let tag {
-                        expandedAxes.insert(tag)
+                    .transaction { $0.animation = nil }
+                    .onChange(of: editor.inspectorFocus.axisTreeFocusRequest) { _, request in
+                        guard let request else { return }
+                        scrollToAxisStop(
+                            scrollProxy: scrollProxy,
+                            axisTag: request.axisTag,
+                            stopID: request.stopID
+                        )
                     }
-                }
-                .onChange(of: editor.selectedAxisStopID) { _, stopID in
-                    guard let stopID, editor.inspectorFocus.axisTreeFocusRequest == nil else { return }
-                    expandAxisContaining(stopID: stopID)
-                    DispatchQueue.main.async {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            scrollProxy.scrollTo(stopID, anchor: .center)
+                    .onChange(of: editor.inspectorFocus.focusedAxisTag) { _, tag in
+                        if let tag {
+                            expandedAxes.insert(tag)
+                        }
+                    }
+                    .onChange(of: editor.selectedAxisStopID) { _, stopID in
+                        guard let stopID, editor.inspectorFocus.axisTreeFocusRequest == nil else { return }
+                        expandAxisContaining(stopID: stopID)
+                        DispatchQueue.main.async {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                scrollProxy.scrollTo(stopID, anchor: .center)
+                            }
                         }
                     }
                 }
-            }
+
+                combinationStylesDrawer
             } else {
                 ContentUnavailableView(
                     "No Axis Tree",
@@ -347,6 +349,75 @@ struct AxisTreePanel: View {
         }
     }
 
+    private var combinationStylesDrawer: some View {
+        let compounds = editor.selectedFont?.compoundStatValues ?? []
+        let suggestionCount = editor.compoundSuggestionsForSelectedFont.count
+        let isExpanded = layout.combinationStylesDrawerExpanded
+
+        return VStack(spacing: 0) {
+            Divider()
+
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    layout.combinationStylesDrawerExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .frame(width: 12)
+
+                    Text("Combination styles")
+                        .font(StudioTypography.emphasis)
+                        .foregroundStyle(.primary)
+
+                    Text("\(compounds.count) preset\(compounds.count == 1 ? "" : "s") · format 4")
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(.tertiary)
+
+                    if suggestionCount > 0 {
+                        Text("\(suggestionCount)")
+                            .font(StudioTypography.meta.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(StudioColors.warningFill, in: Capsule())
+                            .help("\(suggestionCount) Format 4 suggestion\(suggestionCount == 1 ? "" : "s") from fvar")
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .frame(height: StudioChromeBand.header)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .background(StudioColors.surfaceMuted)
+            .overlay(alignment: .bottom) {
+                if isExpanded { Divider() }
+            }
+            .help("Named multi-axis STAT points. They do not multiply the instance grid.")
+
+            if isExpanded, let font = editor.selectedFont {
+                ScrollView {
+                    CombinationStylesSection(
+                        compounds: font.compoundStatValues,
+                        axes: font.axes
+                    )
+                }
+                .frame(maxHeight: 320)
+                .background(StudioColors.surfaceMuted.opacity(0.55))
+            }
+        }
+        .onChange(of: suggestionCount) { _, count in
+            if count > 0, !layout.combinationStylesDrawerExpanded {
+                layout.combinationStylesDrawerExpanded = true
+            }
+        }
+    }
+
     @ViewBuilder
     private func axesContent(scrollProxy: ScrollViewProxy) -> some View {
         planWarningsBand(scrollProxy: scrollProxy)
@@ -397,12 +468,6 @@ struct AxisTreePanel: View {
                     addRegistrationRequest = AddRegistrationAxisRequest()
                 }
                 .padding(.top, StudioSpacing.sectionGap)
-
-                CombinationStylesSection(
-                    compounds: font.compoundStatValues,
-                    axes: font.axes
-                )
-                    .padding(.top, StudioSpacing.sectionGap)
             }
             .coordinateSpace(name: axisReorderCoordinateSpace)
             .overlay(alignment: .topLeading) {
