@@ -63,6 +63,91 @@ final class FvarStopSeederTests: XCTestCase {
         XCTAssertTrue(ousd.values.first { AxisCoordinate.valuesEqual($0.value, 0) }?.elidable == true)
         XCTAssertGreaterThan(report.seededStopCount, 0)
         XCTAssertTrue(report.conflicts.isEmpty)
+
+        let byName = Dictionary(uniqueKeysWithValues: report.compoundSuggestions.map { ($0.name.lowercased(), $0) })
+        let doubleRounded = try! XCTUnwrap(byName["doublerounded"])
+        XCTAssertEqual(Set(doubleRounded.coords.keys), Set(["ousd", "insd"]))
+        XCTAssertEqual(doubleRounded.coords["ousd"], 100)
+        XCTAssertEqual(doubleRounded.coords["insd"], 70)
+        XCTAssertEqual(doubleRounded.coveredInstanceCount, 1)
+
+        let fullRounded = try! XCTUnwrap(byName["fullrounded"])
+        XCTAssertEqual(Set(fullRounded.coords.keys), Set(["ousd", "insd"]))
+        XCTAssertEqual(fullRounded.coords["ousd"], 100)
+        XCTAssertEqual(fullRounded.coords["insd"], 100)
+        // Weight must not appear — it varies across FullRounded in real fonts; here only one sample.
+        XCTAssertNil(fullRounded.coords["wght"])
+    }
+
+    func testCompoundSuggestionsGroupConstantAxesAcrossWeights() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: [
+                    AxisValue(id: "w100", value: 100, name: "Regular", elidable: true),
+                    AxisValue(id: "w350", value: 350, name: "Medium", elidable: false),
+                ]),
+                AxisDefinition(
+                    tag: "ousd",
+                    displayName: "Outside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+                AxisDefinition(
+                    tag: "insd",
+                    displayName: "Inside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [100, 350], observed: [100, 350]),
+                analyzed(tag: "ousd", displayName: "Outside Corners", values: [], observed: [0, 100]),
+                analyzed(tag: "insd", displayName: "Inside Corners", values: [], observed: [0, 70, 100]),
+            ],
+            instances: [
+                instance("Regular", ["wght": 100, "ousd": 0, "insd": 0]),
+                instance("Medium", ["wght": 350, "ousd": 0, "insd": 0]),
+                instance("Rounded Regular", ["wght": 100, "ousd": 100, "insd": 0]),
+                instance("Rounded Medium", ["wght": 350, "ousd": 100, "insd": 0]),
+                instance("Display Regular", ["wght": 100, "ousd": 0, "insd": 100]),
+                instance("Display Medium", ["wght": 350, "ousd": 0, "insd": 100]),
+                instance("DoubleRounded Regular", ["wght": 100, "ousd": 100, "insd": 70]),
+                instance("DoubleRounded Medium", ["wght": 350, "ousd": 100, "insd": 70]),
+                instance("FullRounded Regular", ["wght": 100, "ousd": 100, "insd": 100]),
+                instance("FullRounded Medium", ["wght": 350, "ousd": 100, "insd": 100]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        let byName = Dictionary(uniqueKeysWithValues: report.compoundSuggestions.map { ($0.name.lowercased(), $0) })
+
+        let doubleRounded = try! XCTUnwrap(byName["doublerounded"])
+        XCTAssertEqual(doubleRounded.coords["ousd"], 100)
+        XCTAssertEqual(doubleRounded.coords["insd"], 70)
+        XCTAssertNil(doubleRounded.coords["wght"])
+        XCTAssertEqual(doubleRounded.coveredInstanceCount, 2)
+        XCTAssertEqual(doubleRounded.legLabels["ousd"], "Rounded")
+        XCTAssertEqual(doubleRounded.legLabels["insd"], "70")
+
+        let fullRounded = try! XCTUnwrap(byName["fullrounded"])
+        XCTAssertEqual(fullRounded.coords["ousd"], 100)
+        XCTAssertEqual(fullRounded.coords["insd"], 100)
+        XCTAssertNil(fullRounded.coords["wght"])
+        XCTAssertEqual(fullRounded.coveredInstanceCount, 2)
+        XCTAssertEqual(fullRounded.legLabels["ousd"], "Rounded")
+        XCTAssertEqual(fullRounded.legLabels["insd"], "Display")
+
+        // Univariate styles must not become Format 4 suggestions.
+        XCTAssertNil(byName["rounded"])
+        XCTAssertNil(byName["display"])
     }
 
     func testReportsNameConflictWhenFvarResidueDisagreesWithSTAT() {

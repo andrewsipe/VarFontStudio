@@ -31,5 +31,15 @@ final class FvarStopSeederLiveTests: XCTestCase {
         XCTAssertEqual(ousd.values.first { AxisCoordinate.valuesEqual($0.value, 100) }?.name, "Rounded")
         XCTAssertEqual(insd.values.first { AxisCoordinate.valuesEqual($0.value, 50) }?.name, "SemiDisplay")
         XCTAssertEqual(insd.values.first { AxisCoordinate.valuesEqual($0.value, 100) }?.name, "Display")
+
+        let byName = Dictionary(uniqueKeysWithValues: report.compoundSuggestions.map { ($0.name.lowercased(), $0) })
+        XCTAssertNotNil(byName["doublerounded"])
+        XCTAssertNotNil(byName["fullrounded"])
+        XCTAssertEqual(byName["doublerounded"]?.coords["ousd"], 100)
+        XCTAssertEqual(byName["doublerounded"]?.coords["insd"], 70)
+        XCTAssertEqual(byName["fullrounded"]?.coords["ousd"], 100)
+        XCTAssertEqual(byName["fullrounded"]?.coords["insd"], 100)
+        XCTAssertNil(byName["doublerounded"]?.coords["wght"])
+        XCTAssertNil(byName["fullrounded"]?.coords["wght"])
     }
 }

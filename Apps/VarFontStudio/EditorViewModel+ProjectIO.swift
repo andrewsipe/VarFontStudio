@@ -373,6 +373,7 @@ extension EditorViewModel {
                 markProjectDirtyIfChanged: true
             )
             regeneratePlan()
+            compoundSuggestions = seedReport.compoundSuggestions
             postImportSeedStatus(seedReport, fileName: url.lastPathComponent, opened: true)
             presentFvarStatConflicts(seedReport.conflicts)
             canSave = false
@@ -430,6 +431,7 @@ extension EditorViewModel {
             )
             publishOpenProjects()
             regeneratePlan()
+            compoundSuggestions.append(contentsOf: seedReport.compoundSuggestions)
             postImportSeedStatus(seedReport, fileName: url.lastPathComponent, opened: false)
             presentFvarStatConflicts(seedReport.conflicts)
         } catch let error as FontImportError {
@@ -445,11 +447,19 @@ extension EditorViewModel {
         opened: Bool
     ) {
         let verb = opened ? "Opened" : "Added"
+        var parts: [String] = []
         if report.seededStopCount > 0 {
             let stopWord = report.seededStopCount == 1 ? "stop" : "stops"
-            postStatusMessage("\(verb) \(fileName) — seeded \(report.seededStopCount) STAT \(stopWord) from fvar")
-        } else {
+            parts.append("seeded \(report.seededStopCount) STAT \(stopWord) from fvar")
+        }
+        if !report.compoundSuggestions.isEmpty {
+            let n = report.compoundSuggestions.count
+            parts.append("\(n) combination suggestion\(n == 1 ? "" : "s")")
+        }
+        if parts.isEmpty {
             postStatusMessage("\(verb) \(fileName)")
+        } else {
+            postStatusMessage("\(verb) \(fileName) — \(parts.joined(separator: "; "))")
         }
     }
 }

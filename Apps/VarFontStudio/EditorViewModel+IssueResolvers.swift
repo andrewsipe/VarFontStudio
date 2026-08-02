@@ -162,12 +162,35 @@ extension EditorViewModel {
             )
             font.compoundStatValues.append(compound)
         }
+        let canonical = coords.mapValues(AxisCoordinateFormat.canonical)
+        compoundSuggestions.removeAll { suggestion in
+            suggestion.fontID == selectedFontID
+                && suggestion.coords.count == canonical.count
+                && suggestion.coords.allSatisfy { tag, value in
+                    guard let other = canonical[tag] else { return false }
+                    return AxisCoordinate.valuesEqual(value, other)
+                }
+        }
     }
 
     func removeCompoundStatValue(id: String) {
         mutateSelectedFont { font in
             font.compoundStatValues.removeAll { $0.id == id }
         }
+    }
+
+    func acceptCompoundSuggestion(_ suggestion: FvarStopSeeder.CompoundSuggestion) {
+        addCompoundStatValue(name: suggestion.name, coords: suggestion.coords)
+        compoundSuggestions.removeAll { $0.id == suggestion.id }
+    }
+
+    func dismissCompoundSuggestion(id: String) {
+        compoundSuggestions.removeAll { $0.id == id }
+    }
+
+    var compoundSuggestionsForSelectedFont: [FvarStopSeeder.CompoundSuggestion] {
+        guard let fontID = selectedFontID else { return [] }
+        return compoundSuggestions.filter { $0.fontID == fontID }
     }
 
     func addCompoundStatLeg(id: String, tag: String) {

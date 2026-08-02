@@ -8,13 +8,50 @@ public enum FvarStopSeeder {
     public struct Report: Equatable, Sendable {
         public var seededStopCount: Int
         public var conflicts: [NameConflict]
+        public var compoundSuggestions: [CompoundSuggestion]
 
-        public init(seededStopCount: Int = 0, conflicts: [NameConflict] = []) {
+        public init(
+            seededStopCount: Int = 0,
+            conflicts: [NameConflict] = [],
+            compoundSuggestions: [CompoundSuggestion] = []
+        ) {
             self.seededStopCount = seededStopCount
             self.conflicts = conflicts
+            self.compoundSuggestions = compoundSuggestions
         }
 
-        public var isEmpty: Bool { seededStopCount == 0 && conflicts.isEmpty }
+        public var isEmpty: Bool {
+            seededStopCount == 0 && conflicts.isEmpty && compoundSuggestions.isEmpty
+        }
+    }
+
+    public struct CompoundSuggestion: Equatable, Sendable, Identifiable {
+        public var id: String
+        public var fontID: String
+        public var name: String
+        public var coords: [String: Double]
+        /// Display labels per axis tag (stop name at that coordinate).
+        public var legLabels: [String: String]
+        public var coveredInstanceCount: Int
+        public var sampleInstanceNames: [String]
+
+        public init(
+            id: String = UUID().uuidString,
+            fontID: String,
+            name: String,
+            coords: [String: Double],
+            legLabels: [String: String],
+            coveredInstanceCount: Int,
+            sampleInstanceNames: [String] = []
+        ) {
+            self.id = id
+            self.fontID = fontID
+            self.name = name
+            self.coords = coords
+            self.legLabels = legLabels
+            self.coveredInstanceCount = coveredInstanceCount
+            self.sampleInstanceNames = sampleInstanceNames
+        }
     }
 
     public struct NameConflict: Equatable, Sendable, Identifiable {
@@ -129,7 +166,16 @@ public enum FvarStopSeeder {
             font.axes[axisIndex].values.sort { $0.value < $1.value }
         }
 
-        return Report(seededStopCount: seededStopCount, conflicts: conflicts)
+        let suggestions = suggestCompounds(
+            font: font,
+            analysis: analysis,
+            instanceTags: instanceTags
+        )
+        return Report(
+            seededStopCount: seededStopCount,
+            conflicts: conflicts,
+            compoundSuggestions: suggestions
+        )
     }
 
     public static func apply(
@@ -247,5 +293,137 @@ public enum FvarStopSeeder {
     private static func namesEqual(_ lhs: String, _ rhs: String) -> Bool {
         lhs.trimmingCharacters(in: .whitespacesAndNewlines)
             .caseInsensitiveCompare(rhs.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+    }
+
+    // MARK: - Format 4 suggestions
+
+    /// After Format 1 seeding: find fvar names that only make sense as multi-axis combinations.
+    /// Groups by residual name; compound legs are axes whose off-default values stay constant
+    /// across that group (so weight drops out of DoubleRounded / FullRounded).
+    private static func suggestCompounds(
+        font: FontDocument,
+        analysis: FontAnalysis,
+        instanceTags: [String]
+    ) -> [CompoundSuggestion] {
+        let axisByTag = Dictionary(uniqueKeysWithValues: font.axes.map { ($0.tag, $0) })
+
+        struct Candidate {
+            var residue: String
+            var offDefault: [String: Double]
+            var sample: String
+        }
+
+        var candidates: [Candidate] = []
+        for instance in analysis.instancesExisting {
+            let composed = instance.composedName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !composed.isEmpty else { continue }
+
+            var tokens = composed.split(separator: " ").map(String.init)
+            var offDefault: [String: Double] = [:]
+
+            for tag in instanceTags {
+                guard let axis = axisByTag[tag] else { continue }
+                let actual = instance.coords[tag] ?? axis.default ?? 0
+                let atDefault = axis.default.map { AxisCoordinate.valuesEqual(actual, $0) } ?? false
+                if !atDefault {
+                    offDefault[tag] = AxisCoordinateFormat.canonical(actual)
+                }
+                if let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: actual) {
+                    let stopName = stop.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !stopName.isEmpty {
+                        tokens.removeAll { namesEqual($0, stopName) }
+                    }
+                }
+            }
+
+            let residue = tokens.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !residue.isEmpty, offDefault.count >= 2 else { continue }
+            candidates.append(Candidate(residue: residue, offDefault: offDefault, sample: composed))
+        }
+
+        var groups: [String: [Candidate]] = [:]
+        for candidate in candidates {
+            groups[candidate.residue.lowercased(), default: []].append(candidate)
+        }
+
+        var suggestions: [CompoundSuggestion] = []
+        for group in groups.values {
+            guard let head = group.first else { continue }
+            let constantCoords = constantOffDefaultCoords(across: group.map(\.offDefault))
+            guard constantCoords.count >= 2 else { continue }
+            if font.compoundStatValues.contains(where: { coordsEqual($0.coords, constantCoords) }) {
+                continue
+            }
+            if suggestions.contains(where: { coordsEqual($0.coords, constantCoords) }) {
+                continue
+            }
+
+            var legLabels: [String: String] = [:]
+            for (tag, value) in constantCoords {
+                if let axis = axisByTag[tag],
+                   let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: value) {
+                    let label = stop.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    legLabels[tag] = label.isEmpty ? AxisCoordinateFormat.format(value) : label
+                } else {
+                    legLabels[tag] = AxisCoordinateFormat.format(value)
+                }
+            }
+
+            var samples: [String] = []
+            for candidate in group {
+                if samples.count >= 3 { break }
+                if !samples.contains(where: { namesEqual($0, candidate.sample) }) {
+                    samples.append(candidate.sample)
+                }
+            }
+
+            suggestions.append(
+                CompoundSuggestion(
+                    fontID: font.id,
+                    name: head.residue,
+                    coords: constantCoords,
+                    legLabels: legLabels,
+                    coveredInstanceCount: group.count,
+                    sampleInstanceNames: samples
+                )
+            )
+        }
+
+        return suggestions.sorted {
+            if $0.coveredInstanceCount != $1.coveredInstanceCount {
+                return $0.coveredInstanceCount > $1.coveredInstanceCount
+            }
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
+    private static func constantOffDefaultCoords(across locations: [[String: Double]]) -> [String: Double] {
+        guard let first = locations.first else { return [:] }
+        let tags = Set(locations.flatMap(\.keys))
+        var constant: [String: Double] = [:]
+        for tag in tags {
+            let values = locations.compactMap { $0[tag] }
+            guard values.count == locations.count,
+                  let head = values.first,
+                  values.allSatisfy({ AxisCoordinate.valuesEqual($0, head) })
+            else { continue }
+            constant[tag] = head
+        }
+        // Preserve axis-tree-ish order: first location's key order, then leftovers.
+        let preferred = first.keys.filter { constant[$0] != nil }
+        let leftovers = constant.keys.filter { !preferred.contains($0) }.sorted()
+        var ordered: [String: Double] = [:]
+        for tag in preferred + leftovers {
+            ordered[tag] = constant[tag]
+        }
+        return ordered
+    }
+
+    private static func coordsEqual(_ lhs: [String: Double], _ rhs: [String: Double]) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        for (tag, value) in lhs {
+            guard let other = rhs[tag], AxisCoordinate.valuesEqual(value, other) else { return false }
+        }
+        return true
     }
 }

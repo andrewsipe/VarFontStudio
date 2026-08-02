@@ -118,6 +118,8 @@ final class EditorViewModel: ObservableObject {
     @Published var instanceListDisplay = InstanceListDisplay.empty
     @Published var pendingExportInstanceKeys: Set<String> = []
     @Published var canSave = false
+    /// Format 4 candidates from fvar seeding — propose, don't auto-create.
+    @Published var compoundSuggestions: [FvarStopSeeder.CompoundSuggestion] = []
 
     /// Workspace confirmations / missing-fonts / target picker (Track B4).
     

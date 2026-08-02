@@ -525,6 +525,7 @@ extension EditorViewModel {
             instancePlan = nil
             instanceListDisplay = .empty
             canSave = false
+            compoundSuggestions = []
             return
         }
 
