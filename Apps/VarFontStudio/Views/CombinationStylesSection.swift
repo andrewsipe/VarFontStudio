@@ -193,12 +193,14 @@ struct CombinationStylesSection: View {
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                 Spacer(minLength: 0)
-                Text("covers \(suggestion.coveredInstanceCount) fvar")
+                Text(suggestion.coveredInstanceCount == 1
+                      ? "covers 1 of the original instances"
+                      : "covers \(suggestion.coveredInstanceCount) of the original instances")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.secondary)
             }
 
-            valueForwardChain(coords: suggestion.coords)
+            valueForwardChain(coords: suggestion.coords, legLabels: suggestion.legLabels)
 
             HStack(spacing: StudioSpacing.controlGap) {
                 Spacer(minLength: 0)
@@ -218,7 +220,10 @@ struct CombinationStylesSection: View {
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: StudioRadius.control))
     }
 
-    private func valueForwardChain(coords: [String: Double]) -> some View {
+    private func valueForwardChain(
+        coords: [String: Double],
+        legLabels: [String: String] = [:]
+    ) -> some View {
         let tags = orderedTags(Set(coords.keys))
         return HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
             ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
@@ -227,15 +232,29 @@ struct CombinationStylesSection: View {
                         .font(StudioTypography.meta)
                         .foregroundStyle(.tertiary)
                 }
-                valueForwardChip(tag: tag, value: coords[tag] ?? 0)
+                valueForwardChip(
+                    tag: tag,
+                    value: coords[tag] ?? 0,
+                    stopName: legLabels[tag]
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func valueForwardChip(tag: String, value: Double) -> some View {
-        HStack(spacing: 4) {
-            Text(StudioFormatting.axisValue(value))
+    private func valueForwardChip(tag: String, value: Double, stopName: String? = nil) -> some View {
+        let formatted = StudioFormatting.axisValue(value)
+        let helpText: String = {
+            guard let stopName else { return "\(formatted) on \(axisLabel(for: tag))" }
+            let trimmed = stopName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || trimmed == formatted {
+                return "\(formatted) on \(axisLabel(for: tag))"
+            }
+            return "\(formatted) on \(axisLabel(for: tag)) · \(trimmed)"
+        }()
+
+        return HStack(spacing: 4) {
+            Text(formatted)
                 .font(StudioTypography.caption.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(.primary)
@@ -252,6 +271,7 @@ struct CombinationStylesSection: View {
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         }
         .fixedSize(horizontal: true, vertical: false)
+        .help(helpText)
     }
 
     // MARK: - Compound cards (collapsed summary / expanded editor)
@@ -387,12 +407,8 @@ struct CombinationStylesSection: View {
                 }
                 .buttonStyle(.plain)
 
-                Menu {
-                    ForEach(swappableAxes(for: compound, currentTag: tag), id: \.tag) { axis in
-                        Button(axis.displayName ?? axis.tag) {
-                            replaceLeg(compoundID: compound.id, from: tag, to: axis.tag)
-                        }
-                    }
+                Button {
+                    togglePicker(LegPicker(compoundID: compound.id, tag: tag, kind: .axis))
                 } label: {
                     HStack(spacing: 3) {
                         Text(axisLabel(for: tag))
@@ -408,8 +424,7 @@ struct CombinationStylesSection: View {
                             .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
                     }
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
+                .buttonStyle(.plain)
 
                 if compound.coords.count > 2 {
                     StudioDismissButton(scale: .chip, style: .fill, help: "Remove axis") {
@@ -419,19 +434,14 @@ struct CombinationStylesSection: View {
             }
 
             if !addableAxes(for: compound).isEmpty {
-                Menu {
-                    ForEach(addableAxes(for: compound), id: \.tag) { axis in
-                        Button(axis.displayName ?? axis.tag) {
-                            editor.addCompoundStatLeg(id: compound.id, tag: axis.tag)
-                        }
-                    }
+                Button {
+                    togglePicker(LegPicker(compoundID: compound.id, tag: nil, kind: .addAxis))
                 } label: {
                     Text("+ axis")
                         .font(StudioTypography.meta)
                         .foregroundStyle(StudioColors.brand)
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
+                .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -439,32 +449,84 @@ struct CombinationStylesSection: View {
 
     private func inlinePicker(for compound: CompoundStatValue, picker: LegPicker) -> some View {
         Group {
-            if picker.kind == .value, let tag = picker.tag, let axis = axisByTag[tag] {
-                VStack(alignment: .leading, spacing: StudioSpace.x1) {
-                    Text("\(axisLabel(for: tag)) stops")
-                        .font(StudioTypography.columnLabel)
-                        .foregroundStyle(.tertiary)
-
-                    HStack(spacing: StudioSpace.x1) {
-                        ForEach(axis.values) { stop in
-                            let selected = AxisCoordinate.valuesEqual(stop.value, compound.coords[tag] ?? 0)
-                            Button {
-                                editor.updateCompoundStatCoordinate(id: compound.id, tag: tag, value: stop.value)
-                                openPicker = nil
-                            } label: {
-                                stopOptionChip(stop: stop, selected: selected)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+            switch picker.kind {
+            case .value:
+                if let tag = picker.tag, let axis = axisByTag[tag] {
+                    valueStopPicker(compound: compound, tag: tag, axis: axis)
                 }
-                .padding(StudioSpace.x2)
-                .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.control))
-                .overlay {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
-                        .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+            case .axis:
+                if let tag = picker.tag {
+                    axisSwapPicker(compound: compound, currentTag: tag)
+                }
+            case .addAxis:
+                addAxisPicker(compound: compound)
+            }
+        }
+    }
+
+    private func valueStopPicker(compound: CompoundStatValue, tag: String, axis: AxisDefinition) -> some View {
+        inlinePickerChrome(title: "\(axisLabel(for: tag)) stops") {
+            HStack(spacing: StudioSpace.x1) {
+                ForEach(axis.values) { stop in
+                    let selected = AxisCoordinate.valuesEqual(stop.value, compound.coords[tag] ?? 0)
+                    Button {
+                        editor.updateCompoundStatCoordinate(id: compound.id, tag: tag, value: stop.value)
+                        openPicker = nil
+                    } label: {
+                        stopOptionChip(stop: stop, selected: selected)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    private func axisSwapPicker(compound: CompoundStatValue, currentTag: String) -> some View {
+        inlinePickerChrome(title: "Swap axis") {
+            HStack(spacing: StudioSpace.x1) {
+                ForEach(swappableAxes(for: compound, currentTag: currentTag), id: \.tag) { axis in
+                    Button {
+                        replaceLeg(compoundID: compound.id, from: currentTag, to: axis.tag)
+                    } label: {
+                        axisOptionChip(axis: axis, isCurrent: axis.tag == currentTag)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func addAxisPicker(compound: CompoundStatValue) -> some View {
+        inlinePickerChrome(title: "Add axis") {
+            HStack(spacing: StudioSpace.x1) {
+                ForEach(addableAxes(for: compound), id: \.tag) { axis in
+                    Button {
+                        editor.addCompoundStatLeg(id: compound.id, tag: axis.tag)
+                        openPicker = nil
+                    } label: {
+                        axisOptionChip(axis: axis, isCurrent: false)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func inlinePickerChrome<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: StudioSpace.x1) {
+            Text(title)
+                .font(StudioTypography.columnLabel)
+                .foregroundStyle(.tertiary)
+            content()
+        }
+        .padding(StudioSpace.x2)
+        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .overlay {
+            RoundedRectangle(cornerRadius: StudioRadius.control)
+                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
         }
     }
 
@@ -494,6 +556,25 @@ struct CombinationStylesSection: View {
                     lineWidth: 1
                 )
         }
+    }
+
+    private func axisOptionChip(axis: AxisDefinition, isCurrent: Bool) -> some View {
+        Text(axis.displayName ?? axis.tag)
+            .font(StudioTypography.caption.weight(isCurrent ? .semibold : .regular))
+            .foregroundStyle(isCurrent ? .primary : .secondary)
+            .padding(.horizontal, StudioSpace.x2)
+            .padding(.vertical, StudioSpace.x1)
+            .background {
+                RoundedRectangle(cornerRadius: StudioRadius.control)
+                    .fill(isCurrent ? StudioColors.selectionFill : Color.primary.opacity(0.02))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: StudioRadius.control)
+                    .strokeBorder(
+                        isCurrent ? StudioColors.brand.opacity(0.45) : Color.primary.opacity(0.12),
+                        lineWidth: 1
+                    )
+            }
     }
 
     private func togglePicker(_ picker: LegPicker) {
@@ -608,7 +689,9 @@ struct CombinationStylesSection: View {
             )
 
             if pickedStops.count >= 2 {
-                Text("Covers \(coveredInstanceCount) generated instance\(coveredInstanceCount == 1 ? "" : "s") — doesn’t grow the grid.")
+                Text(coveredInstanceCount == 1
+                      ? "Would cover 1 instance in the current grid — doesn’t grow the grid."
+                      : "Would cover \(coveredInstanceCount) instances in the current grid — doesn’t grow the grid.")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)

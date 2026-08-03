@@ -303,10 +303,13 @@ struct AxisTreePanel: View {
                             }
                         }
                         if PlanIssueCodes.resolvable.contains(warning.code), issueCount > 0 {
-                            StudioPlainLinkButton(
+                            StudioFlatButton(
                                 title: "Review…",
-                                role: .secondary,
-                                font: StudioTypography.meta
+                                role: .tinted(
+                                    foreground: StudioColors.warningForeground,
+                                    background: StudioColors.warningFillHover
+                                ),
+                                size: .compact
                             ) {
                                 editor.startReviewSession(jumpingTo: warning)
                                 if let axis = warning.axis {
@@ -386,12 +389,18 @@ struct AxisTreePanel: View {
                         .foregroundStyle(.tertiary)
 
                     if suggestionCount > 0 {
-                        Text("\(suggestionCount)")
-                            .font(StudioTypography.meta.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
+                        Text(suggestionCount == 1
+                              ? "1 Combination"
+                              : "\(suggestionCount) Combinations")
+                            .font(StudioTypography.meta.weight(.semibold))
+                            .foregroundStyle(StudioColors.warningForeground)
+                            .padding(.horizontal, StudioSpace.x2)
+                            .padding(.vertical, StudioSpace.x1)
                             .background(StudioColors.warningFill, in: Capsule())
+                            .overlay {
+                                Capsule()
+                                    .strokeBorder(StudioColors.warningForeground.opacity(0.35), lineWidth: 1)
+                            }
                             .help("\(suggestionCount) Format 4 suggestion\(suggestionCount == 1 ? "" : "s") from fvar")
                     }
 

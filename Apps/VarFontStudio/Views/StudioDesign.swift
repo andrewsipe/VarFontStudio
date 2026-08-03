@@ -3621,6 +3621,10 @@ struct StudioConflictAlert: View {
 
             StudioFlatButton(
                 title: actionTitle,
+                role: .tinted(
+                    foreground: StudioColors.warningForeground,
+                    background: StudioColors.warningFillHover
+                ),
                 size: .compact,
                 action: action
             )
