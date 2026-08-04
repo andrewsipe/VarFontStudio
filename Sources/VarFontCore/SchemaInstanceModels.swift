@@ -9,6 +9,8 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
     public var outputDir: String
     public var dryRun: Bool
     public var psPrefix: String?
+    /// Typographic family for statics (name IDs 1 / 16 / 4). When nil, vfinstance strips Variable/VF from the VF family.
+    public var familyName: String?
     public var keepStat: Bool
     public var overwrite: Bool
     public var instances: [InstanceSpec]
@@ -20,6 +22,7 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
         case outputDir = "output_dir"
         case dryRun = "dry_run"
         case psPrefix = "ps_prefix"
+        case familyName = "family_name"
         case keepStat = "keep_stat"
         case overwrite
         case instances
@@ -32,6 +35,7 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
         outputDir: String,
         dryRun: Bool = false,
         psPrefix: String? = nil,
+        familyName: String? = nil,
         keepStat: Bool = false,
         overwrite: Bool = false,
         instances: [InstanceSpec]
@@ -42,6 +46,7 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
         self.outputDir = outputDir
         self.dryRun = dryRun
         self.psPrefix = psPrefix
+        self.familyName = familyName
         self.keepStat = keepStat
         self.overwrite = overwrite
         self.instances = instances

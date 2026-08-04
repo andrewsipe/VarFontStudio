@@ -187,36 +187,61 @@ public enum InstancerNaming {
     }
 
     /// Worst collision kind per row id among the given rows.
+    /// Groups by coordinate fingerprint and resolved name (near-linear; not pairwise n²).
     public static func classifyCollisions(rows: [InstancerRow], axisTags: [String]) -> [String: InstancerCollisionKind] {
         var result: [String: InstancerCollisionKind] = [:]
         guard rows.count > 1 else { return result }
-        for i in 0..<rows.count {
-            for j in (i + 1)..<rows.count {
-                let a = rows[i], b = rows[j]
-                let sameCoords = coordsKey(a.coords, axisTags: axisTags) == coordsKey(b.coords, axisTags: axisTags)
-                let nameA = resolvedName(for: a)
-                let nameB = resolvedName(for: b)
-                let sameName = nameA != nil && nameA == nameB
-                let kind: InstancerCollisionKind?
-                if sameCoords && sameName {
-                    kind = .exact
-                } else if sameCoords {
-                    kind = .identical
-                } else if sameName {
-                    kind = .collision
-                } else {
-                    kind = nil
-                }
-                guard let kind else { continue }
-                for id in [a.id, b.id] {
-                    if let existing = result[id] {
-                        result[id] = max(existing, kind)
-                    } else {
-                        result[id] = kind
-                    }
+
+        func raise(_ id: String, _ kind: InstancerCollisionKind) {
+            if let existing = result[id] {
+                result[id] = max(existing, kind)
+            } else {
+                result[id] = kind
+            }
+        }
+
+        var byCoords: [String: [InstancerRow]] = [:]
+        var byName: [String: [InstancerRow]] = [:]
+        byCoords.reserveCapacity(rows.count)
+        byName.reserveCapacity(rows.count)
+
+        for row in rows {
+            let coords = coordsKey(row.coords, axisTags: axisTags)
+            byCoords[coords, default: []].append(row)
+            if let name = resolvedName(for: row) {
+                byName[name, default: []].append(row)
+            }
+        }
+
+        for group in byCoords.values where group.count > 1 {
+            for i in 0..<group.count {
+                for j in (i + 1)..<group.count {
+                    let a = group[i], b = group[j]
+                    let nameA = resolvedName(for: a)
+                    let nameB = resolvedName(for: b)
+                    let kind: InstancerCollisionKind =
+                        (nameA != nil && nameA == nameB) ? .exact : .identical
+                    raise(a.id, kind)
+                    raise(b.id, kind)
                 }
             }
         }
+
+        for group in byName.values where group.count > 1 {
+            var distinctCoords = Set<String>()
+            distinctCoords.reserveCapacity(group.count)
+            for row in group {
+                distinctCoords.insert(coordsKey(row.coords, axisTags: axisTags))
+                if distinctCoords.count > 1 { break }
+            }
+            // Same name across different coordinates → filename overwrite risk.
+            if distinctCoords.count > 1 {
+                for row in group {
+                    raise(row.id, .collision)
+                }
+            }
+        }
+
         return result
     }
 
@@ -250,6 +275,8 @@ public enum InstancerSessionBuilder {
         public var axisTags: [String]
         public var rows: [InstancerRow]
         public var inferredPSPrefix: String
+        /// Typographic family for static name IDs 1/16/4 (Variable/VF tokens stripped).
+        public var inferredFamilyName: String
         public var sourceDisplayName: String
         /// Format 3 weight-link target used for Bold RIBBI (nil when the font has no bold style link).
         public var boldLinkedWght: Double?
@@ -300,9 +327,29 @@ public enum InstancerSessionBuilder {
             axisTags: axisTags,
             rows: rows,
             inferredPSPrefix: inferredPS,
+            inferredFamilyName: inferredFamilyName(from: analysis),
             sourceDisplayName: displayName.isEmpty ? analysis.source.path : displayName,
             boldLinkedWght: boldLinkedWght
         )
+    }
+
+    /// Prefer name ID 16, else ID 1; strip Variable/VF/GX/Flex tokens for static family names.
+    public static func inferredFamilyName(from analysis: FontAnalysis) -> String {
+        let typo = analysis.windowsNameTable
+            .first(where: { $0.nameID == 16 })?
+            .string
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let family1 = analysis.source.familyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let raw: String = {
+            if let typo, !typo.isEmpty { return typo }
+            return family1
+        }()
+        guard !raw.isEmpty else { return "Font" }
+        let stripped = PostScriptNaming.stripVariableTokens(raw) ?? raw
+        let collapsed = stripped
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        return collapsed.isEmpty ? raw : collapsed
     }
 
     public static func filledCoordinates(

@@ -217,6 +217,7 @@ System `Color.indigo` and `Color.brown` are retired for file semantics — indig
 | Orange | `warningForeground`, `warningFill`, `axisValue`† | **Caution / attention** | Warning icons, fallback flags, axis-header ⚠, conditional dots |
 | Red | `errorForeground`, `diffRemoved` | **Failure / removed / severe** | Error banner icons, exact-duplicate stripes, diff gutters |
 | Green | `successForeground`, `diffAdded`, `dropNewProject` | **Success / addition** | Checkbox ✓, diff “added”, new-project drop |
+| Blue | `brand`, `dropAddExisting` | **Interaction / add-to-project** | Selection, links, add-font drop |
 | Pink | `collisionForeground` | **Soft collision** | Instancer stripe, ◆ symbol |
 | Teal | `customForeground` | **User custom instance** | Instancer stripe, ＋ symbol |
 | Cyan | `editedForeground` | **Studio-origin** | “Studio export” badge fill |
@@ -248,7 +249,7 @@ System `Color.indigo` and `Color.brown` are retired for file semantics — indig
 
 | Hue | Tokens | Means | Mark surfaces |
 |-----|--------|-------|----------------|
-| Plum violet | `registrationForeground`, `registrationBackground`, `clarifier*` | Design-record / PS / clarifier | 3pt leading bar (registration stops), naming-chain chip fills, drop-add-existing |
+| Plum violet | `registrationForeground`, `registrationBackground`, `clarifier*` | Design-record / PS / clarifier | 3pt leading bar (registration stops), naming-chain chip fills |
 | Graphite | `codeForeground`, `codeBackground` | OpenType classification code | Code column pill (axis tree, naming) |
 
 Clarifier aliases share plum (`clarifierForeground` = `registrationForeground`). Custom fixed RGB — not `Color.indigo` / `Color.brown`.
@@ -400,8 +401,8 @@ Never used in Review, Instancer, or inspector tables. Preview panel forces light
 
 - **Green** = creation (`diffAdded`, `dropNewProject`, `successForeground`)
 - **Red** = harm / removal / severe (`diffRemoved`, `errorForeground`)
-- **Indigo** = file identity (registration, clarifier, PS, drop-add-existing)
-- **Brand blue** = interaction only (selection, link hover, caret)
+- **Indigo** = file identity (registration, clarifier, PS)
+- **Brand blue** = interaction + add-to-project drop (`brand`, `dropAddExisting`)
 - **Text** = neutral ladder everywhere
 
 ### Watch list
@@ -598,7 +599,7 @@ Reserved or pending wiring — safe palette slots, not dead code to delete witho
 | `collisionFill`, `collisionStroke` | pink | Row/badge fill — stripes use `collisionForeground` directly today |
 | `customFill` | teal | Same pattern as collision |
 | `codeForeground`, `clarifierForeground` | graphite / plum | Mark hue; call sites use `*Background` + neutral text |
-| `dropZoneAddFill` | indigo @ 5% | Drag overlay (pair with `dropAddExisting` border) |
+| `dropZoneAddFill` | brand @ 5% | Drag overlay (pair with `dropAddExisting` border) |
 | `surfaceStrokeEmphasized` | primary wash | Disabled-selected chip stroke |
 
 ---

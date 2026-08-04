@@ -25,6 +25,15 @@ final class InstancerWorkspace: ObservableObject {
     var hasTabs: Bool { !tabKeys.isEmpty }
 }
 
+/// Badge totals for Instancer filter chips (cached with collisions / visible rows).
+struct InstancerFilterCounts: Equatable {
+    var all: Int = 0
+    var clean: Int = 0
+    var custom: Int = 0
+    var collision: Int = 0
+    var attention: Int = 0
+}
+
 enum InstancerFilterKind: String, Equatable, CaseIterable, Identifiable {
     case all
     case clean
@@ -69,14 +78,26 @@ final class InstancerSessionState: ObservableObject {
     /// Cache key for `SourceFontAccess.helperSourcePath` (font id or synthetic).
     var sourceAccessID: String = ""
     @Published var isStudioExport: Bool = false
-    @Published var axisTags: [String] = []
-    @Published var rows: [InstancerRow] = []
+    @Published var axisTags: [String] = [] {
+        didSet { rebuildDerivedStateIfNeeded() }
+    }
+    @Published var rows: [InstancerRow] = [] {
+        didSet { rebuildDerivedStateIfNeeded() }
+    }
     @Published var selectedIDs: Set<String> = []
-    @Published var psPrefix: String = ""
+    @Published var psPrefix: String = "" {
+        didSet { rebuildDerivedStateIfNeeded() }
+    }
     @Published var psInferred: String = ""
     @Published var psSourceLabel: String = "inferred"
-    @Published var filterKind: InstancerFilterKind = .all
-    @Published var filterText: String = ""
+    @Published var familyName: String = ""
+    @Published var familyInferred: String = ""
+    @Published var filterKind: InstancerFilterKind = .all {
+        didSet { rebuildDerivedStateIfNeeded() }
+    }
+    @Published var filterText: String = "" {
+        didSet { rebuildDerivedStateIfNeeded() }
+    }
     @Published var isLoading = false
     /// Short progressive status shown while `isLoading` (and in the status bar).
     @Published var loadStatus: String = ""
@@ -97,6 +118,14 @@ final class InstancerSessionState: ObservableObject {
     @Published var generateStatus: String = ""
     @Published var lastOutputDir: String?
 
+    /// Cached collision map — refreshed when rows / axis tags change.
+    @Published private(set) var collisions: [String: InstancerCollisionKind] = [:]
+    /// Cached filtered + sorted rows for the list.
+    @Published private(set) var visibleRows: [InstancerRow] = []
+    @Published private(set) var filterCounts = InstancerFilterCounts()
+
+    private var suppressDerivedRebuild = false
+
     init(sessionKey: String, projectID: String? = nil, fontID: String? = nil) {
         self.sessionKey = sessionKey
         self.projectID = projectID
@@ -105,40 +134,6 @@ final class InstancerSessionState: ObservableObject {
     }
 
     var hasSource: Bool { !sourcePath.isEmpty }
-
-    var collisions: [String: InstancerCollisionKind] {
-        InstancerNaming.classifyCollisions(rows: rows, axisTags: axisTags)
-    }
-
-    var visibleRows: [InstancerRow] {
-        let q = filterText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let collisions = self.collisions
-        return rows.filter { row in
-            let isCollision = collisions[row.id] != nil
-            let isFallback = InstancerNaming.usesSTATFallback(row) || InstancerNaming.willFail(row)
-            switch filterKind {
-            case .all: break
-            case .clean:
-                if isCollision || isFallback { return false }
-            case .custom:
-                if row.origin != .custom { return false }
-            case .collision:
-                if !isCollision { return false }
-            case .attention:
-                if !isFallback { return false }
-            }
-            if q.isEmpty { return true }
-            let blob = [
-                InstancerNaming.resolvedName(for: row) ?? "",
-                row.fvarName ?? "",
-                row.statName ?? "",
-                axisTags.map { "\($0) \(InstancerNaming.formatCoord(row.coords[$0] ?? InstancerAxisDefaults.value(for: $0)))" }.joined(separator: " "),
-                InstancerNaming.outputFileName(psPrefix: psPrefix, row: row) ?? "",
-            ].joined(separator: " ").lowercased()
-            return blob.contains(q)
-        }
-        .sorted { InstancerNaming.compareRows($0, $1, axisTags: axisTags) }
-    }
 
     var selectedCount: Int { selectedIDs.count }
 
@@ -152,7 +147,6 @@ final class InstancerSessionState: ObservableObject {
         if !hasSource { return "Open a variable font first" }
         if isLoading { return "Still reading the font…" }
         if selectedIDs.isEmpty { return "Select at least one instance" }
-        let collisions = self.collisions
         for id in selectedIDs {
             guard let row = rows.first(where: { $0.id == id }) else { continue }
             if InstancerNaming.willFail(row) {
@@ -168,6 +162,11 @@ final class InstancerSessionState: ObservableObject {
     var canGenerate: Bool { generateBlockedReason == nil }
 
     func applyBuilt(_ built: InstancerSessionBuilder.BuiltSession, sourcePath: String, isStudioExport: Bool) {
+        suppressDerivedRebuild = true
+        defer {
+            suppressDerivedRebuild = false
+            rebuildDerivedState()
+        }
         self.sourceDisplayName = built.sourceDisplayName
         self.sourcePath = sourcePath
         self.isStudioExport = isStudioExport
@@ -177,6 +176,8 @@ final class InstancerSessionState: ObservableObject {
         self.psInferred = built.inferredPSPrefix
         self.psPrefix = built.inferredPSPrefix
         self.psSourceLabel = isStudioExport ? "nameID 25 / inferred" : "inferred"
+        self.familyInferred = built.inferredFamilyName
+        self.familyName = built.inferredFamilyName
         self.selectedIDs = InstancerNaming.defaultSelectedIDs(rows: built.rows, axisTags: built.axisTags)
         self.filterKind = .all
         self.filterText = ""
@@ -227,8 +228,28 @@ final class InstancerSessionState: ObservableObject {
         }
     }
 
-    func filterCounts() -> (all: Int, clean: Int, custom: Int, collision: Int, attention: Int) {
-        let collisions = self.collisions
+    func appendCustomRow(_ row: InstancerRow) {
+        rows.append(row)
+        selectedIDs.insert(row.id)
+    }
+
+    func removeRow(id: String) {
+        rows.removeAll { $0.id == id }
+        selectedIDs.remove(id)
+        if editingRowID == id {
+            editingRowID = nil
+        }
+    }
+
+    private func rebuildDerivedStateIfNeeded() {
+        guard !suppressDerivedRebuild else { return }
+        rebuildDerivedState()
+    }
+
+    private func rebuildDerivedState() {
+        let collisions = InstancerNaming.classifyCollisions(rows: rows, axisTags: axisTags)
+        self.collisions = collisions
+
         var clean = 0, custom = 0, collision = 0, attention = 0
         for row in rows {
             let isCollision = collisions[row.id] != nil
@@ -238,7 +259,40 @@ final class InstancerSessionState: ObservableObject {
             if isFallback { attention += 1 }
             if !isCollision && !isFallback { clean += 1 }
         }
-        return (rows.count, clean, custom, collision, attention)
+        filterCounts = InstancerFilterCounts(
+            all: rows.count,
+            clean: clean,
+            custom: custom,
+            collision: collision,
+            attention: attention
+        )
+
+        let q = filterText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        visibleRows = rows.filter { row in
+            let isCollision = collisions[row.id] != nil
+            let isFallback = InstancerNaming.usesSTATFallback(row) || InstancerNaming.willFail(row)
+            switch filterKind {
+            case .all: break
+            case .clean:
+                if isCollision || isFallback { return false }
+            case .custom:
+                if row.origin != .custom { return false }
+            case .collision:
+                if !isCollision { return false }
+            case .attention:
+                if !isFallback { return false }
+            }
+            if q.isEmpty { return true }
+            let blob = [
+                InstancerNaming.resolvedName(for: row) ?? "",
+                row.fvarName ?? "",
+                row.statName ?? "",
+                axisTags.map { "\($0) \(InstancerNaming.formatCoord(row.coords[$0] ?? InstancerAxisDefaults.value(for: $0)))" }.joined(separator: " "),
+                InstancerNaming.outputFileName(psPrefix: psPrefix, row: row) ?? "",
+            ].joined(separator: " ").lowercased()
+            return blob.contains(q)
+        }
+        .sorted { InstancerNaming.compareRows($0, $1, axisTags: axisTags) }
     }
 }
 
@@ -357,6 +411,48 @@ final class InstancerStore: ObservableObject {
         guard workspace.tabKeys.contains(sessionKey) else { return }
         workspace.selectedTabKey = sessionKey
         objectWillChange.send()
+        ensureSessionLoaded(sessionKey: sessionKey)
+    }
+
+    /// Load a tab if it has a source path but no rows yet (lazy / on-demand).
+    func ensureSessionLoaded(sessionKey: String) {
+        guard let host,
+              let state = sessions[sessionKey],
+              let projectID = state.projectID,
+              let fontID = state.fontID,
+              let font = host.font(forProjectID: projectID, fontID: fontID) else {
+            return
+        }
+        loadSessionAsync(
+            state,
+            path: font.sourcePath,
+            bookmark: state.sourceBookmark ?? host.sourceBookmarks[fontID],
+            isStudioExport: font.outputPath != nil,
+            psOverride: font.options.familyPSPrefix
+        )
+    }
+
+    /// After the selected tab finishes, warm remaining tabs one at a time (avoids open-time CPU spike).
+    private func scheduleSequentialPrefetch(windowKey: String, after preferredKey: String) {
+        Task { @MainActor in
+            await waitUntilLoadSettled(sessionKey: preferredKey)
+            guard let workspace = workspaces[windowKey] else { return }
+            for key in workspace.tabKeys where key != preferredKey {
+                guard sessions[key] != nil else { continue }
+                ensureSessionLoaded(sessionKey: key)
+                await waitUntilLoadSettled(sessionKey: key)
+                await Task.yield()
+            }
+        }
+    }
+
+    private func waitUntilLoadSettled(sessionKey: String) async {
+        // Cap wait so a stuck load doesn't block the prefetch chain forever.
+        for _ in 0..<600 {
+            guard let state = sessions[sessionKey] else { return }
+            if !state.isLoading { return }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
     }
 
     func closeTab(sessionKey: String, windowKey: String) {
@@ -373,7 +469,7 @@ final class InstancerStore: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Open Instancer for a Studio project — all project fonts as tabs, analysis after paint.
+    /// Open Instancer for a Studio project — tabs for every font; analyze selected first.
     func presentInstancerWindow(projectID: String? = nil, fontID: String? = nil) {
         guard let host else { return }
         let projectID = projectID ?? host.activeProjectID
@@ -421,17 +517,10 @@ final class InstancerStore: ObservableObject {
 
         requestOpen(windowKey: windowKey)
 
-        // Load every project font so switching tabs is already warm.
-        for font in fonts {
-            let key = Self.sessionKey(projectID: projectID, fontID: font.id)
-            guard let state = sessions[key] else { continue }
-            loadSessionAsync(
-                state,
-                path: font.sourcePath,
-                bookmark: state.sourceBookmark,
-                isStudioExport: font.outputPath != nil,
-                psOverride: font.options.familyPSPrefix
-            )
+        // Analyze the visible tab first; remaining tabs load on select / sequential prefetch.
+        if let selectedKey = workspace.selectedTabKey {
+            ensureSessionLoaded(sessionKey: selectedKey)
+            scheduleSequentialPrefetch(windowKey: windowKey, after: selectedKey)
         }
     }
 
@@ -536,7 +625,7 @@ final class InstancerStore: ObservableObject {
                         bookmark: bookmark,
                         fallbackPath: path
                     ) { url in
-                        try FontAnalysisReader.analyzeForCommitDiff(url: url)
+                        try FontAnalysisReader.analyzeForInstancer(url: url)
                     }
                     var session = InstancerSessionBuilder.build(from: analysis)
                     if let override = psOverride?
@@ -579,7 +668,7 @@ final class InstancerStore: ObservableObject {
                 bookmark: bookmark,
                 fallbackPath: path
             ) { url in
-                try FontAnalysisReader.analyzeForCommitDiff(url: url)
+                try FontAnalysisReader.analyzeForInstancer(url: url)
             }
             var built = InstancerSessionBuilder.build(from: analysis)
             if let override = font.options.familyPSPrefix?
@@ -876,6 +965,7 @@ final class InstancerStore: ObservableObject {
 
         let axisTags = session.axisTags
         let psPrefix = session.psPrefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        let familyName = session.familyName.trimmingCharacters(in: .whitespacesAndNewlines)
         let specs: [InstanceSpec] = selected.compactMap { row in
             guard let name = InstancerNaming.resolvedName(for: row) else { return nil }
             var coords: [String: Double] = [:]
@@ -903,6 +993,7 @@ final class InstancerStore: ObservableObject {
                 outputDir: outputDir.path,
                 dryRun: false,
                 psPrefix: psPrefix.isEmpty ? nil : psPrefix,
+                familyName: familyName.isEmpty ? nil : familyName,
                 keepStat: false,
                 overwrite: overwrite,
                 instances: specs

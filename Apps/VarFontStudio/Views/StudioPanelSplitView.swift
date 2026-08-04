@@ -9,30 +9,13 @@ struct StudioPanelSplitView: View {
 
     var body: some View {
         HSplitView {
-            if layout.showAxisTree {
-                axisTreeColumn
-                    .registerPanelFrame(AxisTreePanelFrameKey.self) { frame in
-                        editor.workspaceDrag.setAxisTreeFrame(frame)
-                    }
+            if showsMainWorkspace {
+                mainWorkspaceColumns
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    // One green wash across Axis Tree + Instances (incl. the divider) so the
+                    // group can't desync when Axis Tree remounts on drop / import.
                     .workspaceDropZoneHighlight(
-                        isActive: workspaceDrag.shouldHighlightAxisTreePanel,
-                        tint: StudioColors.dropNewProject
-                    )
-            }
-
-            if layout.showInstances {
-                middleColumn
-                    .frame(
-                        minWidth: StudioPanelMetrics.instancesMin,
-                        maxWidth: .infinity,
-                        maxHeight: .infinity,
-                        alignment: .topLeading
-                    )
-                    .registerPanelFrame(InstancesPanelFrameKey.self) { frame in
-                        editor.workspaceDrag.setInstancesFrame(frame)
-                    }
-                    .workspaceDropZoneHighlight(
-                        isActive: workspaceDrag.shouldHighlightInstancesPanel,
+                        isActive: workspaceDrag.shouldHighlightNewProjectWorkspace,
                         tint: StudioColors.dropNewProject
                     )
             }
@@ -65,6 +48,30 @@ struct StudioPanelSplitView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .id(layout.panelVisibilityToken)
+    }
+
+    private var showsMainWorkspace: Bool {
+        layout.showAxisTree || layout.showInstances
+    }
+
+    /// Axis Tree + Instances share an inner split so new-project drop chrome is one overlay.
+    @ViewBuilder
+    private var mainWorkspaceColumns: some View {
+        HSplitView {
+            if layout.showAxisTree {
+                axisTreeColumn
+            }
+
+            if layout.showInstances {
+                middleColumn
+                    .frame(
+                        minWidth: StudioPanelMetrics.instancesMin,
+                        maxWidth: .infinity,
+                        maxHeight: .infinity,
+                        alignment: .topLeading
+                    )
+            }
+        }
     }
 
     // MARK: - Middle column (Instances | Names)

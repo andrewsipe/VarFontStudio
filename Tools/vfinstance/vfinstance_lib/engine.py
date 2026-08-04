@@ -22,6 +22,13 @@ NAME_ID_TYPO_FAMILY = 16
 NAME_ID_TYPO_SUBFAMILY = 17
 NAME_ID_VARIATIONS_PS_PREFIX = 25
 
+RIBBI_STYLES = frozenset({"Regular", "Italic", "Bold", "Bold Italic"})
+
+# Mirrors PostScriptNaming.stripVariableTokens / vfcommit name_policies.
+_RE_VARIABLE_TOKENS = re.compile(r"\b(Variable|VF|GX|Flex)\b", re.I)
+_RE_VARIABLE_BOUNDARY = re.compile(r"(?i)(?:^|[-_\s])Variable(?:Italic)?(?=$|[-_\s])")
+_RE_VF_GX_FLEX_BOUNDARY = re.compile(r"(?i)(?:^|[-_\s])(VF|GX|Flex)(?=$|[-_\s])")
+
 
 def run_instance(request: dict[str, Any]) -> dict[str, Any]:
     request_id = str(request.get("request_id") or "")
@@ -29,6 +36,7 @@ def run_instance(request: dict[str, Any]) -> dict[str, Any]:
     source_path = Path(str(request.get("source_path") or "")).expanduser()
     output_dir = Path(str(request.get("output_dir") or "")).expanduser()
     ps_prefix = (request.get("ps_prefix") or "").strip() or None
+    family_name = (request.get("family_name") or "").strip() or None
     keep_stat = bool(request.get("keep_stat", False))
     overwrite = bool(request.get("overwrite", False))
     instances = request.get("instances") or []
@@ -266,13 +274,13 @@ def run_instance(request: dict[str, Any]) -> dict[str, Any]:
             if not keep_stat and "STAT" in instance_font:
                 del instance_font["STAT"]
 
-            if display_name or postscript_name:
-                _apply_name_overrides(
-                    instance_font,
-                    display_name=display_name,
-                    postscript_name=postscript_name,
-                    ps_prefix=ps_prefix,
-                )
+            _apply_name_overrides(
+                instance_font,
+                display_name=display_name,
+                postscript_name=postscript_name,
+                ps_prefix=ps_prefix,
+                family_name=family_name,
+            )
 
             if not postscript_name and not display_name:
                 final_ps = _get_name_id(instance_font, NAME_ID_POSTSCRIPT)
@@ -408,21 +416,72 @@ def _get_name_id(font: TTFont, name_id: int) -> str | None:
         return None
 
 
+def _strip_variable_tokens(text: str | None) -> str | None:
+    if not text:
+        return None
+    s, _ = _RE_VARIABLE_TOKENS.subn("", text)
+    s = _RE_VARIABLE_BOUNDARY.sub(" ", s)
+    s = _RE_VF_GX_FLEX_BOUNDARY.sub(" ", s)
+    collapsed = " ".join(s.split())
+    return collapsed or None
+
+
+def _resolve_family_name(font: TTFont, explicit: str | None) -> str | None:
+    """Prefer an explicit override; otherwise strip Variable/VF tokens from ID 16/1."""
+    if explicit:
+        return explicit
+    raw = _get_name_id(font, NAME_ID_TYPO_FAMILY) or _get_name_id(font, NAME_ID_FAMILY)
+    if not raw:
+        return None
+    return _strip_variable_tokens(raw) or raw
+
+
 def _apply_name_overrides(
     font: TTFont,
     *,
     display_name: str | None,
     postscript_name: str | None,
     ps_prefix: str | None,
+    family_name: str | None = None,
 ) -> None:
+    family = _resolve_family_name(font, family_name)
+
+    if family:
+        _set_name_id(font, NAME_ID_TYPO_FAMILY, family)
+
     if display_name:
-        ribbi = {"Regular", "Italic", "Bold", "Bold Italic"}
         _set_name_id(font, NAME_ID_TYPO_SUBFAMILY, display_name)
-        if display_name in ribbi:
+        if display_name in RIBBI_STYLES:
             _set_name_id(font, NAME_ID_SUBFAMILY, display_name)
-        family = _get_name_id(font, NAME_ID_TYPO_FAMILY) or _get_name_id(font, NAME_ID_FAMILY)
-        if family:
+            if family:
+                _set_name_id(font, NAME_ID_FAMILY, family)
+                _set_name_id(font, NAME_ID_FULL, f"{family} {display_name}")
+        elif family:
+            # Non-RIBBI: Windows family carries the style; ID 2 stays RIBBI from fontTools.
+            _set_name_id(font, NAME_ID_FAMILY, f"{family} {display_name}")
             _set_name_id(font, NAME_ID_FULL, f"{family} {display_name}")
+        else:
+            inherited = _get_name_id(font, NAME_ID_TYPO_FAMILY) or _get_name_id(
+                font, NAME_ID_FAMILY
+            )
+            if inherited:
+                _set_name_id(font, NAME_ID_FULL, f"{inherited} {display_name}")
+    elif family:
+        style = _get_name_id(font, NAME_ID_TYPO_SUBFAMILY) or _get_name_id(
+            font, NAME_ID_SUBFAMILY
+        )
+        subfamily = _get_name_id(font, NAME_ID_SUBFAMILY)
+        if style and style not in RIBBI_STYLES:
+            _set_name_id(font, NAME_ID_FAMILY, f"{family} {style}")
+            _set_name_id(font, NAME_ID_FULL, f"{family} {style}")
+        else:
+            _set_name_id(font, NAME_ID_FAMILY, family)
+            if style:
+                _set_name_id(font, NAME_ID_FULL, f"{family} {style}")
+            elif subfamily:
+                _set_name_id(font, NAME_ID_FULL, f"{family} {subfamily}")
+            else:
+                _set_name_id(font, NAME_ID_FULL, family)
 
     if postscript_name:
         _set_name_id(font, NAME_ID_POSTSCRIPT, _sanitize_ps(postscript_name))

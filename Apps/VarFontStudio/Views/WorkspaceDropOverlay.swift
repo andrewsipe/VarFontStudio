@@ -200,23 +200,25 @@ struct EmptyWorkspaceView: View {
     }
 }
 
-// MARK: - Drop zone highlight (5% fill + 1px bottom edge)
-
+/// Drop zone highlight (5% fill + 1px bottom edge).
+/// Fill is an overlay so opaque panel chrome / `ContentUnavailableView` cannot hide it.
 struct WorkspaceDropZoneHighlight: ViewModifier {
     let isActive: Bool
     let tint: Color
 
     func body(content: Content) -> some View {
         content
-            .background {
+            .overlay {
                 if isActive {
                     tint.opacity(StudioColors.dropZoneFillOpacity)
+                        .allowsHitTesting(false)
                 }
             }
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(isActive ? tint : .clear)
                     .frame(height: 1)
+                    .allowsHitTesting(false)
             }
             .animation(.easeOut(duration: 0.12), value: isActive)
     }

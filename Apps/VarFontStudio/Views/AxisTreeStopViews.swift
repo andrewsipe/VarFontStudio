@@ -384,7 +384,7 @@ struct AxisTreeStopRow: View {
         } else {
             Text("—")
                 .font(StudioTypography.monoMeta)
-                .foregroundStyle(.tertiary.opacity(0.45))
+                .foregroundStyle(.tertiary)
         }
     }
 
@@ -425,7 +425,7 @@ struct AxisTreeStopRow: View {
             } else {
                 Text("—")
                     .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.tertiary.opacity(0.45))
+                    .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .center)
                     .contentShape(Rectangle())
                     .gesture(clickGesture(for: .code))

@@ -72,28 +72,6 @@ struct InspectorPanelFrameKey: PreferenceKey {
     }
 }
 
-struct AxisTreePanelFrameKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        let next = nextValue()
-        if next != .zero {
-            value = next
-        }
-    }
-}
-
-struct InstancesPanelFrameKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        let next = nextValue()
-        if next != .zero {
-            value = next
-        }
-    }
-}
-
 /// Inspector FILES list — kept for fine-grained hit testing within the inspector.
 struct InspectorFilesDropFrameKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
@@ -229,8 +207,6 @@ final class WorkspaceDragCoordinator {
     private var toolbarFrame: CGRect = .zero
     private var fileSubBarFrame: CGRect = .zero
     private var inspectorPanelFrame: CGRect = .zero
-    private var axisTreeFrame: CGRect = .zero
-    private var instancesFrame: CGRect = .zero
 
     private var dragTabFrames: [String: CGRect] = [:]
     private var dragFileSubBarChipFrames: [String: CGRect] = [:]
@@ -280,16 +256,6 @@ final class WorkspaceDragCoordinator {
     func setInspectorPanelFrame(_ frame: CGRect) {
         guard frame != .zero, frame != inspectorPanelFrame else { return }
         inspectorPanelFrame = frame
-    }
-
-    func setAxisTreeFrame(_ frame: CGRect) {
-        guard frame != .zero, frame != axisTreeFrame else { return }
-        axisTreeFrame = frame
-    }
-
-    func setInstancesFrame(_ frame: CGRect) {
-        guard frame != .zero, frame != instancesFrame else { return }
-        instancesFrame = frame
     }
 
     // MARK: - Internal workspace drag
@@ -387,43 +353,21 @@ final class WorkspaceDragCoordinator {
 
     // MARK: - External drop zone highlights
 
-    private var isOverAxisTreePanel: Bool {
-        axisTreeFrame != .zero && axisTreeFrame.contains(externalDropLocation)
-    }
-
-    private var isOverInstancesPanel: Bool {
-        instancesFrame != .zero && instancesFrame.contains(externalDropLocation)
-    }
-
     private var isOverInspectorPanel: Bool {
         inspectorPanelFrame != .zero && inspectorPanelFrame.contains(externalDropLocation)
-    }
-
-    private var isOverProjectToolbar: Bool {
-        toolbarFrame != .zero && toolbarFrame.contains(externalDropLocation)
     }
 
     private var isOverFileSubBar: Bool {
         fileSubBarFrame != .zero && fileSubBarFrame.contains(externalDropLocation)
     }
 
-    private var isOverMainWorkspace: Bool {
-        isOverAxisTreePanel || isOverInstancesPanel
-    }
-
-    var shouldHighlightAxisTreePanel: Bool {
-        guard isExternalFileDropActive, hoveredTarget == .newProject else { return false }
-        return isOverMainWorkspace
-    }
-
-    var shouldHighlightInstancesPanel: Bool {
-        guard isExternalFileDropActive, hoveredTarget == .newProject else { return false }
-        return isOverMainWorkspace
+    /// New-project affordance — Axis Tree + Instances + toolbar light as one group.
+    var shouldHighlightNewProjectWorkspace: Bool {
+        isExternalFileDropActive && hoveredTarget == .newProject
     }
 
     var shouldHighlightProjectToolbarRow: Bool {
-        guard isExternalFileDropActive, hoveredTarget == .newProject else { return false }
-        return isOverMainWorkspace || isOverProjectToolbar
+        shouldHighlightNewProjectWorkspace
     }
 
     func shouldHighlightInspectorPanel(activeProjectID: String?) -> Bool {

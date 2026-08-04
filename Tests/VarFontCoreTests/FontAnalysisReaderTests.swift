@@ -41,4 +41,24 @@ final class FontAnalysisReaderTests: XCTestCase {
         XCTAssertGreaterThan(analysis.nameAudit.freeStart, 256)
         XCTAssertTrue(analysis.readiness.writable)
     }
+
+    func testAnalyzeForInstancerSkipsNameAuditWhenAvailable() throws {
+        let path = robotoPath
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw XCTSkip("Roboto Flex fixture font not in ~/Downloads")
+        }
+
+        let url = URL(fileURLWithPath: path)
+        let full = try FontAnalysisReader.analyzeForCommitDiff(url: url)
+        let light = try FontAnalysisReader.analyzeForInstancer(url: url)
+
+        XCTAssertEqual(light.instancesExisting.count, full.instancesExisting.count)
+        XCTAssertEqual(light.instancesExistingMeta?.total, full.instancesExistingMeta?.total)
+        XCTAssertTrue(light.nameAudit.used.isEmpty)
+        XCTAssertFalse(full.nameAudit.used.isEmpty)
+
+        let built = InstancerSessionBuilder.build(from: light)
+        XCTAssertFalse(built.rows.isEmpty)
+        XCTAssertEqual(built.rows.count, light.instancesExisting.count)
+    }
 }

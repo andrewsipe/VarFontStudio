@@ -6,6 +6,16 @@ public enum FontAnalysisReaderError: Error, Sendable {
     case missingFvar
 }
 
+/// How much of the font to parse — heavier scopes feed Save Review; Instancer skips the name audit.
+public enum FontAnalysisScope: Sendable {
+    /// Import / browse: capped instance sample + full name audit.
+    case sample
+    /// Save Review / commit diff: all fvar instances + full name audit.
+    case commitDiff
+    /// Instancer list: all fvar instances + STAT naming, no name-table audit.
+    case instancer
+}
+
 public enum FontAnalysisReader {
     private static let parametricTags: Set<String> = [
         "XOPQ", "YOPQ", "XTRA", "YTUC", "YTLC", "YTAS", "YTDE", "YTFI",
@@ -16,15 +26,22 @@ public enum FontAnalysisReader {
     private static let postTag = OpenTypeBinary.tag("post")
 
     public static func analyze(url: URL) throws -> FontAnalysis {
-        try analyze(url: url, includeAllInstances: false)
+        try analyze(url: url, scope: .sample)
     }
 
     /// Full fvar instance list for save-time diff (no 5-instance sample cap).
     public static func analyzeForCommitDiff(url: URL) throws -> FontAnalysis {
-        try analyze(url: url, includeAllInstances: true)
+        try analyze(url: url, scope: .commitDiff)
     }
 
-    private static func analyze(url: URL, includeAllInstances: Bool) throws -> FontAnalysis {
+    /// Instancer-only parse: all named instances and STAT labels, without the name-table audit.
+    public static func analyzeForInstancer(url: URL) throws -> FontAnalysis {
+        try analyze(url: url, scope: .instancer)
+    }
+
+    private static func analyze(url: URL, scope: FontAnalysisScope) throws -> FontAnalysis {
+        let includeAllInstances = scope != .sample
+        let lightweight = scope == .instancer
         guard let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor],
               let descriptor = descriptors.first else {
             throw FontAnalysisReaderError.unreadableFont(url)
@@ -152,25 +169,37 @@ public enum FontAnalysisReader {
                 role = .statOnly
             }
 
-            let valuesExisting = (statByTag[axis.tag] ?? []).map { statValue in
-                FontAnalysis.StatValueSnapshot(
-                    format: statValue.format,
-                    value: statValue.value,
-                    name: statValue.name,
-                    elidable: statValue.elidable,
-                    olderSibling: statValue.olderSibling,
-                    linkedValue: statValue.linkedValue,
-                    rangeMin: statValue.rangeMin,
-                    rangeMax: statValue.rangeMax,
-                    nominal: statValue.nominal
-                )
+            let valuesExisting: [FontAnalysis.StatValueSnapshot]
+            if lightweight {
+                valuesExisting = []
+            } else {
+                valuesExisting = (statByTag[axis.tag] ?? []).map { statValue in
+                    FontAnalysis.StatValueSnapshot(
+                        format: statValue.format,
+                        value: statValue.value,
+                        name: statValue.name,
+                        elidable: statValue.elidable,
+                        olderSibling: statValue.olderSibling,
+                        linkedValue: statValue.linkedValue,
+                        rangeMin: statValue.rangeMin,
+                        rangeMax: statValue.rangeMax,
+                        nominal: statValue.nominal
+                    )
+                }
             }
 
-            let observed = (vary[axis.tag] ?? []).map(AxisCoordinateFormat.canonical).sorted()
+            let observed: [Double]
+            if lightweight {
+                observed = []
+            } else {
+                observed = (vary[axis.tag] ?? []).map(AxisCoordinateFormat.canonical).sorted()
+            }
             axes.append(
                 FontAnalysis.AnalyzedAxis(
                     tag: axis.tag,
-                    displayName: OpenTypeNameTable.name(id: axis.nameID, from: font) ?? axis.tag,
+                    displayName: lightweight
+                        ? axis.tag
+                        : (OpenTypeNameTable.name(id: axis.nameID, from: font) ?? axis.tag),
                     min: axis.min,
                     default: axis.defaultValue,
                     max: axis.max,
@@ -184,34 +213,37 @@ public enum FontAnalysisReader {
             )
         }
 
-        let fvarTags = Set(fvar.axes.map(\.tag))
-        for designAxis in stat?.designAxes ?? [] where !fvarTags.contains(designAxis.tag) {
-            let valuesExisting = (statByTag[designAxis.tag] ?? []).map { statValue in
-                FontAnalysis.StatValueSnapshot(
-                    format: statValue.format,
-                    value: statValue.value,
-                    name: statValue.name,
-                    elidable: statValue.elidable,
-                    linkedValue: statValue.linkedValue,
-                    rangeMin: statValue.rangeMin,
-                    rangeMax: statValue.rangeMax,
-                    nominal: statValue.nominal
+        // Design-record-only axes are unused by InstancerSessionBuilder (filtered out).
+        if !lightweight {
+            let fvarTags = Set(fvar.axes.map(\.tag))
+            for designAxis in stat?.designAxes ?? [] where !fvarTags.contains(designAxis.tag) {
+                let valuesExisting = (statByTag[designAxis.tag] ?? []).map { statValue in
+                    FontAnalysis.StatValueSnapshot(
+                        format: statValue.format,
+                        value: statValue.value,
+                        name: statValue.name,
+                        elidable: statValue.elidable,
+                        linkedValue: statValue.linkedValue,
+                        rangeMin: statValue.rangeMin,
+                        rangeMax: statValue.rangeMax,
+                        nominal: statValue.nominal
+                    )
+                }
+
+                axes.append(
+                    FontAnalysis.AnalyzedAxis(
+                        tag: designAxis.tag,
+                        displayName: OpenTypeNameTable.name(id: designAxis.nameID, from: font) ?? designAxis.tag,
+                        min: 0,
+                        default: 0,
+                        max: 0,
+                        ordering: orderMap[designAxis.tag],
+                        roleInferred: .designRecordOnly,
+                        variesInExistingInstances: false,
+                        valuesExisting: valuesExisting
+                    )
                 )
             }
-
-            axes.append(
-                FontAnalysis.AnalyzedAxis(
-                    tag: designAxis.tag,
-                    displayName: OpenTypeNameTable.name(id: designAxis.nameID, from: font) ?? designAxis.tag,
-                    min: 0,
-                    default: 0,
-                    max: 0,
-                    ordering: orderMap[designAxis.tag],
-                    roleInferred: .designRecordOnly,
-                    variesInExistingInstances: false,
-                    valuesExisting: valuesExisting
-                )
-            )
         }
 
         axes.sort { lhs, rhs in
@@ -234,21 +266,39 @@ public enum FontAnalysisReader {
         }
 
         let elidedFallbackID = stat?.elidedFallbackNameID
-        let elidedFallbackName = elidedFallbackID.flatMap { OpenTypeNameTable.name(id: $0, from: font) }
+        let elidedFallbackName = lightweight
+            ? nil
+            : elidedFallbackID.flatMap { OpenTypeNameTable.name(id: $0, from: font) }
 
-        let namingOrderSuggested = NamingOrderInference.suggest(
-            designAxes: stat?.designAxes ?? [],
-            fvarAxisTags: fvar.axes.map(\.tag)
-        )
+        let namingOrderSuggested: [String]
+        if lightweight {
+            namingOrderSuggested = NamingOrderInference.canonicalAxisOrder
+        } else {
+            namingOrderSuggested = NamingOrderInference.suggest(
+                designAxes: stat?.designAxes ?? [],
+                fvarAxisTags: fvar.axes.map(\.tag)
+            )
+        }
 
-        let nameAudit = buildNameAudit(
-            font: font,
-            fvar: fvar,
-            designAxes: stat?.designAxes ?? [],
-            statValues: statValues,
-            elidedFallbackID: elidedFallbackID,
-            elidedFallbackName: elidedFallbackName
-        )
+        let nameAudit: FontAnalysis.NameAudit
+        if lightweight {
+            nameAudit = FontAnalysis.NameAudit(
+                freeStart: 256,
+                used: [],
+                elidedFallbackID: elidedFallbackID,
+                elidedFallbackName: nil
+            )
+        } else {
+            nameAudit = buildNameAudit(
+                font: font,
+                fvar: fvar,
+                designAxes: stat?.designAxes ?? [],
+                statValues: statValues,
+                elidedFallbackID: elidedFallbackID,
+                elidedFallbackName: elidedFallbackName
+            )
+        }
+        // Instancer only needs name ID 16 (typographic family); low Windows names are cheap.
         let windowsNameTable = OpenTypeNameTable.windowsEnglishLowNames(from: font)
 
         return FontAnalysis(

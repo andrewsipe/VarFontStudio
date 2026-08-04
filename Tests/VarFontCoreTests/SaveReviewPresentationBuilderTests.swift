@@ -195,6 +195,64 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(otRow?.category, .reflow)
     }
 
+    func testDuplicateSourceStatValuesAtSameTagValueDoNotTrap() {
+        // BlackPack-Variable ships two STAT records at wght:400 (format 2 + format 3).
+        // Review must not trap on Dictionary(uniqueKeysWithValues:).
+        var analysis = makeAnalysis()
+        analysis.statValues = [
+            .init(
+                format: 2,
+                tag: "wght",
+                name: "Not for desktop use",
+                elidable: true,
+                nameID: 256,
+                value: 400,
+                rangeMin: 250,
+                rangeMax: 550,
+                nominal: 400
+            ),
+            .init(
+                format: 3,
+                tag: "wght",
+                name: "Not for desktop use",
+                elidable: true,
+                nameID: 257,
+                value: 400,
+                linkedValue: 700
+            ),
+        ]
+        let report = CommitDiffReport(
+            statRows: [
+                CommitDiffStatRow(
+                    tag: "wght",
+                    value: 400,
+                    beforeName: "Not for desktop use",
+                    afterName: "Regular",
+                    beforeNameID: 256,
+                    afterNameID: 256,
+                    afterStatFormat: 2,
+                    afterLinkedValue: nil,
+                    change: .changed
+                ),
+            ],
+            instanceRows: [],
+            nameIDRows: []
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: analysis,
+            font: makeFont(),
+            plan: makePlan(),
+            report: report,
+            diff: nil,
+            naming: makeNaming()
+        )
+        let weightSection = presentation.tabs.first { $0.id == .stat }?
+            .sections.first { $0.title == "Weight" || $0.title == "wght" }
+        XCTAssertEqual(weightSection?.rows.count, 1)
+        XCTAssertEqual(weightSection?.rows.first?.fieldTitle, "wght = 400")
+        XCTAssertEqual(weightSection?.rows.first?.wasLine, "was \"Not for desktop use\"")
+    }
+
     func testFvarInstanceRowsIncludePostscriptName() {
         let analysis = makeAnalysis()
         let font = makeFont()

@@ -62,6 +62,22 @@ final class InstancerNamingTests: XCTestCase {
         XCTAssertEqual(kinds["c"], .identical)
     }
 
+    func testClassifyCollisionsScalesPastPairwisePathologicalCase() {
+        // Many unique rows should stay cheap; still detects a single name collision.
+        var rows: [InstancerRow] = (0..<400).map { i in
+            row(
+                id: "r\(i)",
+                fvar: "Style\(i)",
+                coords: ["wght": Double(100 + i), "wdth": 100, "ital": 0]
+            )
+        }
+        rows.append(row(id: "dup", fvar: "Style0", coords: ["wght": 900, "wdth": 100, "ital": 0]))
+        let kinds = InstancerNaming.classifyCollisions(rows: rows, axisTags: axes)
+        XCTAssertEqual(kinds["r0"], .collision)
+        XCTAssertEqual(kinds["dup"], .collision)
+        XCTAssertNil(kinds["r1"])
+    }
+
     func testCoordsKeyUsesDefaultsForMissingAxes() {
         let sparse: [String: Double] = ["wght": 400]
         let key = InstancerNaming.coordsKey(sparse, axisTags: axes)
@@ -140,5 +156,71 @@ final class InstancerNamingTests: XCTestCase {
         ]
         let sorted = rows.sorted { InstancerNaming.compareRows($0, $1, axisTags: axes) }
         XCTAssertEqual(sorted.map(\.id), ["a", "ai", "b"])
+    }
+
+    func testInferredFamilyNameStripsVariablePreferringNameID16() {
+        let analysis = FontAnalysis(
+            schemaVersion: 1,
+            source: .init(
+                path: "/BlackPack-Variable.ttf",
+                format: "ttf",
+                familyName: "Black Pack Niu Variable Expanded",
+                fullName: "Black Pack Niu Variable",
+                isVariable: true
+            ),
+            readiness: .init(
+                hasFvar: true,
+                hasStat: true,
+                hasDesignAxisRecord: true,
+                writable: true,
+                blockers: []
+            ),
+            axes: [],
+            statValues: [],
+            instancesExisting: [],
+            nameAudit: .init(freeStart: 256, used: [], elidedFallbackID: nil, elidedFallbackName: nil),
+            windowsNameTable: [
+                WindowsNameRecord(nameID: 1, string: "Black Pack Niu Variable Expanded"),
+                WindowsNameRecord(nameID: 16, string: "Black Pack Niu Variable"),
+            ],
+            inferred: .init(isItalicFont: false, gridAxisTags: [], namingOrderSuggested: []),
+            designAxisTags: []
+        )
+        XCTAssertEqual(
+            InstancerSessionBuilder.inferredFamilyName(from: analysis),
+            "Black Pack Niu"
+        )
+        XCTAssertEqual(
+            InstancerSessionBuilder.build(from: analysis).inferredFamilyName,
+            "Black Pack Niu"
+        )
+    }
+
+    func testInferredFamilyNameFallsBackToNameID1() {
+        let analysis = FontAnalysis(
+            schemaVersion: 1,
+            source: .init(
+                path: "/t.ttf",
+                format: "ttf",
+                familyName: "Playfair VF",
+                fullName: "Playfair VF",
+                isVariable: true
+            ),
+            readiness: .init(
+                hasFvar: true,
+                hasStat: true,
+                hasDesignAxisRecord: true,
+                writable: true,
+                blockers: []
+            ),
+            axes: [],
+            statValues: [],
+            instancesExisting: [],
+            nameAudit: .init(freeStart: 256, used: [], elidedFallbackID: nil, elidedFallbackName: nil),
+            windowsNameTable: [],
+            inferred: .init(isItalicFont: false, gridAxisTags: [], namingOrderSuggested: []),
+            designAxisTags: []
+        )
+        XCTAssertEqual(InstancerSessionBuilder.inferredFamilyName(from: analysis), "Playfair")
     }
 }

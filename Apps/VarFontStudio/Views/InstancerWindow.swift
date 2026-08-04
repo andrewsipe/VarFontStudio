@@ -377,7 +377,7 @@ private struct InstancerWindowContent: View {
     }
 
     private var filterBadges: some View {
-        let counts = session.filterCounts()
+        let counts = session.filterCounts
         return HStack(spacing: InstancerLayout.filterBadgeGap) {
             filterBadge(.all, count: counts.all)
             filterBadge(.clean, count: counts.clean)
@@ -471,6 +471,7 @@ private struct InstancerWindowContent: View {
 
             Spacer(minLength: StudioSpace.x3)
 
+            familyNameControls
             psPrefixControls
         }
         .padding(.horizontal, InstancerLayout.horizontalPadding)
@@ -483,6 +484,30 @@ private struct InstancerWindowContent: View {
         .overlay(alignment: .top) {
             Rectangle().fill(StudioColors.surfaceStroke).frame(height: 0.5)
         }
+    }
+
+    private var familyNameControls: some View {
+        HStack(spacing: StudioSpace.x2) {
+            Text("Family")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize()
+            StudioTextField(
+                placeholder: "Family name",
+                text: $session.familyName,
+                font: StudioTypography.monoMeta,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight
+            )
+            .frame(width: 180, alignment: .leading)
+            .disabled(!session.hasSource || session.isLoading)
+            .help("Typographic family for static name IDs 1, 16, and 4. Defaults to the VF family with Variable/VF stripped.")
+            if session.familyName != session.familyInferred {
+                StudioPlainLinkButton(title: "Reset") {
+                    session.familyName = session.familyInferred
+                }
+            }
+        }
+        .layoutPriority(1)
     }
 
     private var psPrefixControls: some View {
@@ -619,7 +644,40 @@ private struct InstancerWindowContent: View {
                         ScrollView {
                             LazyVStack(spacing: 0) {
                                 ForEach(session.visibleRows) { row in
-                                    InstancerRowView(row: row, session: session, columns: columns)
+                                    InstancerRowView(
+                                        row: row,
+                                        axisTags: session.axisTags,
+                                        columns: columns,
+                                        psPrefix: session.psPrefix,
+                                        selected: session.selectedIDs.contains(row.id),
+                                        collision: session.collisions[row.id],
+                                        isActivelyGenerating: session.generatingRowID == row.id,
+                                        sessionIsGenerating: session.isGenerating,
+                                        isEditing: session.editingRowID == row.id,
+                                        onToggleSelect: {
+                                            if session.selectedIDs.contains(row.id) {
+                                                session.selectedIDs.remove(row.id)
+                                            } else {
+                                                session.selectedIDs.insert(row.id)
+                                            }
+                                        },
+                                        onBeginEdit: { session.editingRowID = row.id },
+                                        onEndEdit: { session.editingRowID = nil },
+                                        onUpdateName: { newValue in
+                                            session.updateRow(row.id) { $0.nameOverride = newValue }
+                                        },
+                                        onUpdateCoord: { tag, value in
+                                            session.updateRowCoords(row.id, tag: tag, value: value)
+                                        },
+                                        onRemove: { session.removeRow(id: row.id) },
+                                        onRevertName: {
+                                            session.updateRow(row.id) { $0.nameOverride = nil }
+                                        },
+                                        onFixInStudio: {
+                                            editor.instancer.focusStudioForNaming(session: session)
+                                        }
+                                    )
+                                    .equatable()
                                 }
                             }
                         }
@@ -761,8 +819,7 @@ private struct InstancerWindowContent: View {
             isBold: bits.bold,
             isItalic: bits.italic
         )
-        session.rows.append(row)
-        session.selectedIDs.insert(nextID)
+        session.appendCustomRow(row)
         session.showComposer = false
         session.resetComposer()
     }
@@ -770,19 +827,43 @@ private struct InstancerWindowContent: View {
 
 // MARK: - Row
 
-private struct InstancerRowView: View {
+/// Row inputs compared by `.equatable()` so selection/composer churn doesn't re-body every row.
+private struct InstancerRowView: View, Equatable {
     let row: InstancerRow
-    @ObservedObject var session: InstancerSessionState
+    let axisTags: [String]
     let columns: InstancerLayout.ColumnWidths
-    @EnvironmentObject private var editor: EditorViewModel
+    let psPrefix: String
+    let selected: Bool
+    let collision: InstancerCollisionKind?
+    let isActivelyGenerating: Bool
+    let sessionIsGenerating: Bool
+    let isEditing: Bool
+    let onToggleSelect: () -> Void
+    let onBeginEdit: () -> Void
+    let onEndEdit: () -> Void
+    let onUpdateName: (String) -> Void
+    let onUpdateCoord: (String, Double?) -> Void
+    let onRemove: () -> Void
+    let onRevertName: () -> Void
+    let onFixInStudio: () -> Void
+
     @State private var isHovered = false
 
-    private var selected: Bool { session.selectedIDs.contains(row.id) }
-    private var isActivelyGenerating: Bool { session.generatingRowID == row.id }
-    private var collision: InstancerCollisionKind? { session.collisions[row.id] }
     private var willFail: Bool { InstancerNaming.willFail(row) }
     private var fallback: Bool { InstancerNaming.usesSTATFallback(row) }
     private var overridden: Bool { row.nameOverride != nil }
+
+    static func == (lhs: InstancerRowView, rhs: InstancerRowView) -> Bool {
+        lhs.row == rhs.row
+            && lhs.axisTags == rhs.axisTags
+            && lhs.columns == rhs.columns
+            && lhs.psPrefix == rhs.psPrefix
+            && lhs.selected == rhs.selected
+            && lhs.collision == rhs.collision
+            && lhs.isActivelyGenerating == rhs.isActivelyGenerating
+            && lhs.sessionIsGenerating == rhs.sessionIsGenerating
+            && lhs.isEditing == rhs.isEditing
+    }
 
     var body: some View {
         HStack(spacing: InstancerLayout.columnGap) {
@@ -792,10 +873,8 @@ private struct InstancerRowView: View {
                         .controlSize(.small)
                         .frame(width: InstancerLayout.selectColumnWidth, height: InstancerLayout.selectColumnWidth)
                 } else {
-                    StudioIncludeCheckbox(isOn: selected) {
-                        toggleSelection()
-                    }
-                    .disabled(session.isGenerating)
+                    StudioIncludeCheckbox(isOn: selected, action: onToggleSelect)
+                        .disabled(sessionIsGenerating)
                 }
             }
             .frame(width: InstancerLayout.selectColumnWidth)
@@ -803,7 +882,7 @@ private struct InstancerRowView: View {
             nameCell
                 .frame(width: columns.name, alignment: .leading)
 
-            ForEach(session.axisTags, id: \.self) { tag in
+            ForEach(axisTags, id: \.self) { tag in
                 coordCell(tag: tag)
                     .frame(width: InstancerLayout.axisColumnWidth, alignment: .trailing)
             }
@@ -815,14 +894,14 @@ private struct InstancerRowView: View {
                 .frame(width: InstancerLayout.styleColumnWidth, alignment: .leading)
                 .padding(.leading, InstancerLayout.textColumnLeadingGap)
 
-            Text(InstancerNaming.outputFileName(psPrefix: session.psPrefix, row: row) ?? "—")
+            Text(InstancerNaming.outputFileName(psPrefix: psPrefix, row: row) ?? "—")
                 .font(StudioTypography.monoMeta)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(width: columns.output, alignment: .leading)
                 .padding(.leading, InstancerLayout.textColumnLeadingGap)
-                .help(InstancerNaming.outputFileName(psPrefix: session.psPrefix, row: row) ?? "")
+                .help(InstancerNaming.outputFileName(psPrefix: psPrefix, row: row) ?? "")
 
             flagCell
                 .frame(width: InstancerLayout.flagColumnWidth, alignment: .leading)
@@ -834,37 +913,30 @@ private struct InstancerRowView: View {
             Divider()
                 .opacity(0.55)
         }
-        .opacity(session.isGenerating && !selected && !isActivelyGenerating ? 0.55 : 1)
+        .opacity(sessionIsGenerating && !selected && !isActivelyGenerating ? 0.55 : 1)
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
         .onTapGesture {
-            guard !session.isGenerating else { return }
-            toggleSelection()
+            guard !sessionIsGenerating else { return }
+            onToggleSelect()
         }
-    }
-
-    private func toggleSelection() {
-        if selected { session.selectedIDs.remove(row.id) }
-        else { session.selectedIDs.insert(row.id) }
     }
 
     @ViewBuilder
     private var nameCell: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.instanceRowGap) {
             HStack(spacing: StudioSpacing.tagHorizontalInset) {
-                if session.editingRowID == row.id {
+                if isEditing {
                     StudioTextField(
                         placeholder: "Name",
                         text: Binding(
                             get: { row.nameOverride ?? InstancerNaming.resolvedName(for: row) ?? "" },
-                            set: { newValue in
-                                session.updateRow(row.id) { $0.nameOverride = newValue }
-                            }
+                            set: { onUpdateName($0) }
                         ),
                         font: StudioTypography.bodyMedium,
                         rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
-                        onSubmit: { session.editingRowID = nil },
-                        onCancel: { session.editingRowID = nil }
+                        onSubmit: onEndEdit,
+                        onCancel: onEndEdit
                     )
                 } else {
                     Text(InstancerNaming.resolvedName(for: row) ?? "—")
@@ -878,10 +950,9 @@ private struct InstancerRowView: View {
                     }
                     StudioToolbarIconButton(
                         systemName: StudioSymbols.edit,
-                        help: "Edit instance name for this session"
-                    ) {
-                        session.editingRowID = row.id
-                    }
+                        help: "Edit instance name for this session",
+                        action: onBeginEdit
+                    )
                 }
             }
             if let note = subtitle {
@@ -920,10 +991,8 @@ private struct InstancerRowView: View {
         if row.origin == .custom {
             StudioBoundNumberField(
                 value: Binding(
-                    get: { session.rows.first(where: { $0.id == row.id })?.coords[tag] ?? value },
-                    set: { newValue in
-                        session.updateRowCoords(row.id, tag: tag, value: newValue)
-                    }
+                    get: { row.coords[tag] ?? value },
+                    set: { onUpdateCoord(tag, $0) }
                 ),
                 font: StudioTypography.monoMeta,
                 rowHeight: StudioFieldMetrics.monoValueRowHeight,
@@ -946,28 +1015,19 @@ private struct InstancerRowView: View {
                     StudioFlagLabel(symbol: "＋", text: "custom", tint: StudioColors.customForeground)
                 }
                 Text("·").foregroundStyle(.tertiary)
-                StudioPlainLinkButton(title: "Remove", font: StudioTypography.meta) {
-                    session.rows.removeAll { $0.id == row.id }
-                    session.selectedIDs.remove(row.id)
-                }
+                StudioPlainLinkButton(title: "Remove", font: StudioTypography.meta, action: onRemove)
             } else if overridden {
-                StudioPlainLinkButton(title: "Revert", font: StudioTypography.meta) {
-                    session.updateRow(row.id) { $0.nameOverride = nil }
-                }
+                StudioPlainLinkButton(title: "Revert", font: StudioTypography.meta, action: onRevertName)
             } else if let collision {
                 collisionFlagView(collision)
             } else if willFail {
                 StudioFlagLabel(symbol: "✕", text: "will fail", tint: StudioColors.errorForeground)
                 Text("·").foregroundStyle(.tertiary)
-                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta) {
-                    editor.instancer.focusStudioForNaming(session: session)
-                }
+                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta, action: onFixInStudio)
             } else if fallback {
                 StudioFlagLabel(symbol: "⚠", text: "fallback", tint: StudioColors.warningForeground)
                 Text("·").foregroundStyle(.tertiary)
-                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta) {
-                    editor.instancer.focusStudioForNaming(session: session)
-                }
+                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta, action: onFixInStudio)
             }
         }
         .font(StudioTypography.meta)

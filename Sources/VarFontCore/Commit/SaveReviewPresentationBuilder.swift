@@ -62,10 +62,14 @@ public enum SaveReviewPresentationBuilder {
       sections.append(SaveReviewSectionPresentation(title: "Axis records", rows: axisRows))
     }
 
+    // Source STAT tables may list multiple axis values at the same tag/value
+    // (e.g. format 2 range + format 3 linked both at wght:400). Last wins —
+    // same overwrite policy as CommitDiffBuilder.buildStatRows.
     let beforeFormatByKey = Dictionary(
-      uniqueKeysWithValues: analysis.statValues.map {
+      analysis.statValues.map {
         (statValueKey(tag: $0.tag, value: $0.value ?? $0.nominal ?? 0), $0.format)
-      }
+      },
+      uniquingKeysWith: { _, latest in latest }
     )
 
     for tag in font.axes.map(\.tag) {

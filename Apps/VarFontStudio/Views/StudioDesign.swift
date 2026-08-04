@@ -418,6 +418,24 @@ private enum StudioPrimaryWash {
     }
 }
 
+/// Dynamic color built from two independently-authored sRGB stops rather than one fixed
+/// RGB value + system opacity. Use for any custom (non-system) semantic hue that appears
+/// as `Text` foreground, where light/dark need separately verified contrast — not just for
+/// marks, which can tolerate a single value under `StudioPrimaryWash`-style opacity.
+private enum StudioHuedToken {
+    static func make(
+        name: String,
+        light: (r: Double, g: Double, b: Double),
+        dark: (r: Double, g: Double, b: Double)
+    ) -> Color {
+        Color(nsColor: NSColor(name: NSColor.Name("Studio.Hued.\(name)"), dynamicProvider: { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let stop = isDark ? dark : light
+            return NSColor(srgbRed: stop.r, green: stop.g, blue: stop.b, alpha: 1)
+        }))
+    }
+}
+
 /// Semantic color tokens. See **Color system (semantic marks)** above for usage rules.
 ///
 /// Naming note: `*Foreground` tokens name the canonical **hue** for a semantic.
@@ -488,7 +506,11 @@ enum StudioColors {
     static let collisionFill = collisionForeground.opacity(0.24)
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
-    static let customForeground = Color.teal
+    /// Was `.teal` (189°) — only 9.9° from `editedForeground`'s cyan (199°), and the two
+    /// co-occur in the same Instancer rows. Moved to system indigo (~245°): ~34° from brand
+    /// blue (comparable to the accepted error/warning gap) and ~46° from edited-cyan, while
+    /// staying an Apple system dynamic color so light/dark adaptiveness comes for free.
+    static let customForeground = Color(nsColor: .systemIndigo)
     static let customFill = customForeground.opacity(0.24)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
     static let editedForeground = Color.cyan
@@ -525,46 +547,77 @@ enum StudioColors {
     static let buttonSecondaryFillDisabled = StudioPrimaryWash.make(name: "buttonSecondaryFillDisabled", light: 0.07, dark: 0.05)
     /// Readable placeholder in fields and search — stronger than `.tertiary`, softer than `.primary`.
     static let textPlaceholder = StudioPrimaryWash.make(name: "textPlaceholder", light: 0.42, dark: 0.48)
+    /// Muted-but-legible informational text (elided naming-chain links, non-participating axis
+    /// coordinate rows, muted axis-value digits). ~3.5–4:1 against panel in both appearances —
+    /// tuned as its own token rather than stacking `.opacity()` on system `.secondary`/`.tertiary`,
+    /// which compounds their own built-in translucency into ~2:1 and washes out.
+    static let mutedForeground = StudioPrimaryWash.make(name: "mutedForeground", light: 0.50, dark: 0.40)
     /// Scannable metric digits — panel header counts, `StudioCountBadge`, summary cards.
     /// Steel blue: related to brand but darker; not used for buttons or selection chrome.
-    static let metricForeground = Color(red: 0.082, green: 0.396, blue: 0.722)
+    /// Dual-tone: dark-mode stop verified independently (was fixed RGB, ~2.4:1 in dark mode).
+    static let metricForeground = StudioHuedToken.make(
+        name: "metricForeground",
+        light: (0.082, 0.396, 0.722),
+        dark: (0.353, 0.663, 0.941)
+    )
     /// Legacy alias — prefer `metricForeground` at new call sites.
     static let computedHighlight = metricForeground
     /// Brand mark — elided STAT fallback segment in naming chains (neutral text + brand dot).
     static let elidedFallbackForeground = brand
 
-    // MARK: Custom palette — registration & classification (fixed RGB)
+    // MARK: Custom palette — registration & classification (dual-tone)
 
     /// Mark hue — design-record / PS / clarifier. Plum violet — clearly not brand blue.
-    static let registrationForeground = Color(red: 0.557, green: 0.290, blue: 0.624)
+    /// Dual-tone: dark-mode stop verified independently (was fixed RGB, ~2.4:1 in dark mode).
+    static let registrationForeground = StudioHuedToken.make(
+        name: "registrationForeground",
+        light: (0.557, 0.290, 0.624),
+        dark: (0.780, 0.498, 0.855)
+    )
     static let registrationBackground = registrationForeground.opacity(0.22)
     static let registrationStroke = registrationForeground.opacity(0.40)
     /// Legacy clarifier alias — same plum as registration.
     static let clarifierForeground = registrationForeground
     static let clarifierBackground = registrationBackground
     static let clarifierStroke = registrationStroke
-    /// Mark hue — OpenType classification code chip. Cool graphite — not brown.
-    static let codeForeground = Color(red: 0.361, green: 0.396, blue: 0.439)
+    /// Mark hue — OpenType classification code chip.
+    /// Retuned off near-neutral graphite (~8% saturation, indistinguishable from plain gray
+    /// chrome at the standard 22% wash) onto a genuinely saturated teal-mint (~80%+ saturation)
+    /// so the rare "Code" category actually reads as a color, not a slightly-different gray box.
+    /// Dual-tone, verified independently in both appearances.
+    static let codeForeground = StudioHuedToken.make(
+        name: "codeForeground",
+        light: (0.043, 0.494, 0.443),
+        dark: (0.243, 0.851, 0.769)
+    )
     static let codeBackground = codeForeground.opacity(0.22)
     static let codeStroke = codeForeground.opacity(0.45)
 
     // MARK: Semantic marks — STAT format badges
     //
-    // Category distinguishers only — not success (green), edited (cyan), or brand.
+    // Category distinguishers only — not success (green), edited (cyan), or brand. Dual-tone —
+    // verified independently in both appearances rather than one fixed RGB reused as-is.
 
     /// Mark hues for `StudioStatFormatBadge` fill/stroke (label text neutral).
-    static let statFormat1 = Color(red: 0.50, green: 0.58, blue: 0.68)
-    static let statFormat2 = Color(red: 0.58, green: 0.50, blue: 0.72)
-    static let statFormat3 = Color(red: 0.48, green: 0.54, blue: 0.62)
+    static let statFormat1 = StudioHuedToken.make(
+        name: "statFormat1", light: (0.361, 0.494, 0.600), dark: (0.561, 0.706, 0.808)
+    )
+    static let statFormat2 = StudioHuedToken.make(
+        name: "statFormat2", light: (0.502, 0.392, 0.722), dark: (0.718, 0.620, 0.878)
+    )
+    static let statFormat3 = StudioHuedToken.make(
+        name: "statFormat3", light: (0.298, 0.443, 0.522), dark: (0.498, 0.651, 0.737)
+    )
 
     // MARK: Drag & drop zones
 
     /// Drop zone half fills — 5% tint over the target region during drag.
     static let dropZoneFillOpacity: CGFloat = 0.05
-    static let dropZoneAddFill = registrationForeground.opacity(dropZoneFillOpacity)
+    /// Add-to-existing project — brand blue (pairs with selection / interaction, not registration plum).
+    static let dropZoneAddFill = brand.opacity(dropZoneFillOpacity)
     static let dropZoneNewFill = Color.green.opacity(dropZoneFillOpacity)
     /// Drop zone borders when the cursor is over a half.
-    static let dropAddExisting = registrationForeground
+    static let dropAddExisting = brand
     static let dropNewProject = Color.green
 }
 
@@ -728,8 +781,20 @@ enum StudioDiffPillStyle {
         }
     }
 
-    var background: Color { foreground.opacity(0.20) }
-    var border: Color { foreground.opacity(0.35) }
+    var background: Color {
+        // System yellow measures far lower luminance-contrast against a light panel than the
+        // other diff hues at the same opacity, so it needs a stronger wash to register at all.
+        switch self {
+        case .changed: foreground.opacity(0.34)
+        default: foreground.opacity(0.20)
+        }
+    }
+    var border: Color {
+        switch self {
+        case .changed: foreground.opacity(0.55)
+        default: foreground.opacity(0.35)
+        }
+    }
 }
 
 struct StudioSemanticPill: View {
@@ -789,7 +854,7 @@ struct StudioAxisValueLabel: View {
             }
             Text(text)
                 .font(font)
-                .foregroundStyle(muted ? Color.secondary.opacity(0.55) : Color.primary)
+                .foregroundStyle(muted ? StudioColors.mutedForeground : Color.primary)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -3255,14 +3320,17 @@ private enum StudioFlatButtonChrome {
         guard isEnabled else {
             switch role {
             case .primary: return Color.primary.opacity(0.35)
-            case .secondary: return Color.secondary.opacity(0.55)
-            case .tinted(let foreground, _): return foreground.opacity(0.45)
+            case .secondary, .tinted: return Color.secondary.opacity(0.55)
             }
         }
         switch role {
         case .primary: return .white
-        case .secondary: return .primary
-        case .tinted(let foreground, _): return foreground
+        // Label stays neutral even for .tinted — the hue lives in the fill/stroke only.
+        // (Previously duplicated the fill's own hue as full-strength text, which is both a
+        // self-referential contrast problem — the fill IS the text color at 22% opacity, so
+        // they can't be tuned independently — and a direct violation of this file's own rule
+        // that semantic *Foreground hues are marks, not Text.)
+        case .secondary, .tinted: return .primary
         }
     }
 
@@ -3706,7 +3774,7 @@ struct StudioInstanceComposedName: View {
     }
 
     private func segmentColor(for link: NamingChainLink) -> Color {
-        if link.elided { return Color.secondary.opacity(0.55) }
+        if link.elided { return StudioColors.mutedForeground }
         return included ? Color.primary : Color.secondary
     }
 }
@@ -3811,7 +3879,7 @@ struct InspectorInstanceNamingChain: View {
     }
 
     private func segmentForeground(for link: NamingChainLink) -> Color {
-        link.elided ? Color.secondary.opacity(0.55) : Color.primary
+        link.elided ? StudioColors.mutedForeground : Color.primary
     }
 }
 
@@ -3940,7 +4008,7 @@ private struct InspectorAxisCoordRowView: View {
 
     private var nameColor: Color {
         if !row.participatesInNaming { return Color.secondary }
-        if row.isElided { return Color.secondary.opacity(0.55) }
+        if row.isElided { return StudioColors.mutedForeground }
         return Color.primary
     }
 
@@ -4021,7 +4089,11 @@ struct InspectorOpenTypeTable: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(row.content)
                             .font(row.isDerived ? StudioTypography.caption : StudioTypography.body)
-                            .foregroundStyle(row.isDerived ? .tertiary : .primary)
+                            // Was `.tertiary` — that tier is reserved for chrome (chevrons,
+                            // separators, disabled-adjacent) elsewhere in this file. This is the
+                            // actual OpenType field value the panel exists to show, so it needs
+                            // to stay at a readable tier even when de-emphasized as "derived."
+                            .foregroundStyle(row.isDerived ? .secondary : .primary)
                             .fixedSize(horizontal: false, vertical: true)
                         if !row.sources.isEmpty {
                             HStack(spacing: 3) {
