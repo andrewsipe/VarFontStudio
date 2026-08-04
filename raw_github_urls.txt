@@ -298,6 +298,9 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfcommit/v
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfinstance/requirements.txt
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfinstance/vfinstance.py
 
+# Tools/vfinstance/tests/
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfinstance/tests/test_family_name_overrides.py
+
 # Tools/vfinstance/vfinstance_lib/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfinstance/vfinstance_lib/__init__.py
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/vfinstance/vfinstance_lib/engine.py
