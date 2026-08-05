@@ -147,7 +147,7 @@ private struct InstancerWindowContent: View {
         VStack(alignment: .leading, spacing: InstancerLayout.chromeSectionGap) {
             HStack(alignment: .top, spacing: StudioSpace.x4) {
                 VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                    Text("Instance")
+                    Text("Static Instancer")
                         .font(StudioTypography.emphasis)
                     Text("Generate static fonts from named instances — names follow fvar, with STAT as a fallback.")
                         .font(StudioTypography.caption)
@@ -500,7 +500,7 @@ private struct InstancerWindowContent: View {
             )
             .frame(width: 180, alignment: .leading)
             .disabled(!session.hasSource || session.isLoading)
-            .help("Typographic family for static name IDs 1, 16, and 4. Defaults to the VF family with Variable/VF stripped.")
+            .help("Typographic family for static name IDs 1, 4, and 16. Defaults to the VF family with Variable/VF stripped.")
             if session.familyName != session.familyInferred {
                 StudioPlainLinkButton(title: "Reset") {
                     session.familyName = session.familyInferred
@@ -512,7 +512,7 @@ private struct InstancerWindowContent: View {
 
     private var psPrefixControls: some View {
         HStack(spacing: StudioSpace.x2) {
-            Text("PS prefix")
+            Text("PostScript prefix")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize()

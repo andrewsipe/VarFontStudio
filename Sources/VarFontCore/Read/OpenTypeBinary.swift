@@ -34,6 +34,12 @@ enum OpenTypeBinary {
         Int32(bitPattern: readUInt32(data, offset))
     }
 
+    static func readUInt64(_ data: Data, _ offset: Int) -> UInt64 {
+        guard offset + 8 <= data.count else { return 0 }
+        return UInt64(readUInt32(data, offset)) << 32
+            | UInt64(readUInt32(data, offset + 4))
+    }
+
     static func readFixed(_ data: Data, _ offset: Int) -> Double {
         Double(readInt32(data, offset)) / 65536.0
     }

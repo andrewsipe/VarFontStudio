@@ -24,6 +24,8 @@ public enum FontAnalysisReader {
     private static let fvarTag = OpenTypeBinary.tag("fvar")
     private static let statTag = OpenTypeBinary.tag("STAT")
     private static let postTag = OpenTypeBinary.tag("post")
+    private static let headTag = OpenTypeBinary.tag("head")
+    private static let os2Tag = OpenTypeBinary.tag("OS/2")
 
     public static func analyze(url: URL) throws -> FontAnalysis {
         try analyze(url: url, scope: .sample)
@@ -64,6 +66,31 @@ public enum FontAnalysisReader {
         let fvarData = CTFontCopyTable(font, fvarTag, []) as Data?
         let statData = CTFontCopyTable(font, statTag, []) as Data?
         let postData = CTFontCopyTable(font, postTag, []) as Data?
+        let headData = CTFontCopyTable(font, headTag, []) as Data?
+        let os2Data = CTFontCopyTable(font, os2Tag, []) as Data?
+
+        let fontRevision = headData.flatMap { data in
+            data.count >= 8 ? OpenTypeBinary.readFixed(data, 4) : nil
+        }
+        let headCreatedYear = headData.flatMap { data in
+            data.count >= 28 ? calendarYear(macEpochSeconds: OpenTypeBinary.readUInt64(data, 20)) : nil
+        }
+        let headMacStyle = headData.flatMap { data in
+            data.count >= 46 ? OpenTypeBinary.readUInt16(data, 44) : nil
+        }
+        let usWeightClass = os2Data.flatMap { data in
+            data.count >= 6 ? OpenTypeBinary.readUInt16(data, 4) : nil
+        }
+        let vendorID = os2Data.flatMap { data -> String? in
+            guard data.count >= 62 else { return nil }
+            let value = OpenTypeBinary.readTag(data, 58)
+                .replacingOccurrences(of: "\0", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
+        }
+        let fsSelection = os2Data.flatMap { data in
+            data.count >= 64 ? OpenTypeBinary.readUInt16(data, 62) : nil
+        }
 
         var isItalicFont = false
         var postItalicAngle: Double?
@@ -72,6 +99,9 @@ public enum FontAnalysisReader {
             postItalicAngle = angle
             isItalicFont = abs(angle) > 0.5
         }
+        isItalicFont = isItalicFont
+            || ((fsSelection ?? 0) & 0x0001) != 0
+            || ((headMacStyle ?? 0) & 0x0002) != 0
 
         var blockers: [String] = []
         let hasFvar = fvarData != nil
@@ -86,6 +116,13 @@ public enum FontAnalysisReader {
                 familyName: familyName,
                 fullName: fullName,
                 isItalicFont: isItalicFont,
+                postItalicAngle: postItalicAngle,
+                fontRevision: fontRevision,
+                headCreatedYear: headCreatedYear,
+                vendorID: vendorID,
+                fsSelection: fsSelection,
+                usWeightClass: usWeightClass,
+                headMacStyle: headMacStyle,
                 blockers: blockers + ["No fvar table"]
             )
         }
@@ -333,7 +370,13 @@ public enum FontAnalysisReader {
                 isItalicFont: isItalicFont,
                 gridAxisTags: gridAxisTags,
                 namingOrderSuggested: namingOrderSuggested,
-                postItalicAngle: postItalicAngle
+                postItalicAngle: postItalicAngle,
+                fontRevision: fontRevision,
+                headCreatedYear: headCreatedYear,
+                vendorID: vendorID,
+                fsSelection: fsSelection,
+                usWeightClass: usWeightClass,
+                headMacStyle: headMacStyle
             ),
             designAxisTags: (stat?.designAxes ?? []).map(\.tag)
         )
@@ -401,6 +444,13 @@ public enum FontAnalysisReader {
         familyName: String,
         fullName: String,
         isItalicFont: Bool,
+        postItalicAngle: Double?,
+        fontRevision: Double?,
+        headCreatedYear: Int?,
+        vendorID: String?,
+        fsSelection: UInt16?,
+        usWeightClass: UInt16?,
+        headMacStyle: UInt16?,
         blockers: [String]
     ) -> FontAnalysis {
         FontAnalysis(
@@ -428,8 +478,25 @@ public enum FontAnalysisReader {
             inferred: FontAnalysis.InferredAnalysis(
                 isItalicFont: isItalicFont,
                 gridAxisTags: [],
-                namingOrderSuggested: NamingOrderInference.canonicalAxisOrder
+                namingOrderSuggested: NamingOrderInference.canonicalAxisOrder,
+                postItalicAngle: postItalicAngle,
+                fontRevision: fontRevision,
+                headCreatedYear: headCreatedYear,
+                vendorID: vendorID,
+                fsSelection: fsSelection,
+                usWeightClass: usWeightClass,
+                headMacStyle: headMacStyle
             )
         )
+    }
+
+    private static func calendarYear(macEpochSeconds: UInt64) -> Int? {
+        guard macEpochSeconds > 0 else { return nil }
+        let unixSeconds = Double(macEpochSeconds) - 2_082_844_800
+        let date = Date(timeIntervalSince1970: unixSeconds)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let year = calendar.component(.year, from: date)
+        return year >= 1904 ? year : nil
     }
 }

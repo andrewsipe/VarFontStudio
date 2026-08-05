@@ -11,6 +11,7 @@ from typing import Any
 
 from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
+from fontTools.varLib.instancer import names as instancer_names
 
 
 SCHEMA_VERSION = 1
@@ -271,8 +272,7 @@ def run_instance(request: dict[str, Any]) -> dict[str, Any]:
                     static=True,
                 )
 
-            if not keep_stat and "STAT" in instance_font:
-                del instance_font["STAT"]
+            _finalize_static_tables(instance_font, keep_stat=keep_stat)
 
             _apply_name_overrides(
                 instance_font,
@@ -387,6 +387,23 @@ def _emit_progress(payload: dict[str, Any]) -> None:
     sys.stderr.flush()
 
 
+def _finalize_static_tables(font: TTFont, *, keep_stat: bool) -> None:
+    """Drop static-only variation metadata and its now-unused name records."""
+    if not keep_stat and "STAT" in font:
+        # Instancer prunes names while it trims STAT/fvar. Since we remove STAT
+        # afterward, run the same reference-aware pruning around that removal.
+        with instancer_names.pruningUnusedNames(font):
+            del font["STAT"]
+
+    # Name ID 25 is the Variations PostScript Name Prefix and has no meaning
+    # once fvar is gone. It is intentionally outside FontTools' >255 pruning.
+    if "fvar" not in font and "name" in font:
+        font["name"].removeNames(nameID=NAME_ID_VARIATIONS_PS_PREFIX)
+        font["name"].names[:] = [
+            record for record in font["name"].names if record.platformID != 1
+        ]
+
+
 def _style_token(name: str) -> str:
     return re.sub(r"\s+", "", name.strip())
 
@@ -399,10 +416,6 @@ def _sanitize_ps(value: str) -> str:
 def _set_name_id(font: TTFont, name_id: int, string: str) -> None:
     name = font["name"]
     name.setName(string, name_id, 3, 1, 0x409)
-    try:
-        name.setName(string, name_id, 1, 0, 0)
-    except Exception:  # noqa: BLE001 — Mac platform optional
-        pass
 
 
 def _get_name_id(font: TTFont, name_id: int) -> str | None:

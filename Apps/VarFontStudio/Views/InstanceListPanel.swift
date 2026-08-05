@@ -230,16 +230,21 @@ struct InstanceListPanel: View {
                     .font(StudioTypography.meta)
                     .foregroundStyle(editor.filteredInstances.isEmpty ? .tertiary : .secondary)
                     .lineLimit(1)
+                
+                Rectangle()
+                    .fill(.quaternary)
+                    .frame(width: 1, height: 14)
+                
+                Toggle("Hide elided", isOn: $hideElidedNames)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .labelsHidden()
+                    .studioBrandTint()
 
-                Toggle(isOn: $hideElidedNames) {
-                    Text("Hide elided")
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(.secondary)
-                }
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .studioBrandTint()
-                .disabled(editor.filteredInstances.isEmpty)
+                Text("Hide elided")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+                    .disabled(editor.filteredInstances.isEmpty)
 
                 Spacer(minLength: StudioSpacing.controlGap)
 

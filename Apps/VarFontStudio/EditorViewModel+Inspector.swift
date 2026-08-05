@@ -127,7 +127,7 @@ extension EditorViewModel {
         if let summary = instancePlan?.namePlanSummary {
             var parts: [String] = []
             if let prefix = summary.familyPSPrefix {
-                parts.append("PS prefix: \(prefix)")
+                parts.append("PostScript prefix: \(prefix)")
             }
             if let range = summary.newIDRange, range.count == 2 {
                 parts.append("IDs \(range[0])–\(range[1])")

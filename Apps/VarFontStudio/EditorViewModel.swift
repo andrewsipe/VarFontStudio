@@ -33,7 +33,7 @@ enum StudioFooterPanelMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .namingOrder: "Naming order"
+        case .namingOrder: "Naming Order"
         case .preview: "Preview"
         }
     }

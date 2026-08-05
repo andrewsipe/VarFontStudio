@@ -135,6 +135,92 @@ final class NamePoliciesTests: XCTestCase {
         )
         XCTAssertEqual(NamePolicies.buildID2(context), "Regular")
     }
+
+    func testID2BoldItalicFromFontMetrics() {
+        let context = NamePolicies.FillContext(
+            sourcePath: "/fonts/Family-BoldItalic.ttf",
+            isVariable: true,
+            familyName: "Family",
+            fsSelection: 0x0001,
+            usWeightClass: 700
+        )
+        XCTAssertEqual(NamePolicies.buildID2(context), "Bold Italic")
+    }
+
+    func testID3AndID5PreferHeadRevisionAndOS2Vendor() {
+        let context = NamePolicies.FillContext(
+            sourcePath: "/fonts/Rocket-Variable.ttf",
+            isVariable: true,
+            familyName: "Rocket",
+            versionString: "Version 9.999",
+            uniqueID: "9.999;OLDV;OldName",
+            vendorID: "HLDN",
+            fontRevision: 1.25
+        )
+        XCTAssertEqual(
+            NamePolicies.suggestion(nameID: 3, context: context)?.value,
+            "1.250;HLDN;Rocket-Variable"
+        )
+        XCTAssertEqual(
+            NamePolicies.suggestion(nameID: 5, context: context)?.value,
+            "Version 1.250"
+        )
+    }
+
+    func testID0UsesHeadYearAndDistinctRightsHolders() {
+        let context = NamePolicies.FillContext(
+            sourcePath: "/fonts/Rocket-Variable.ttf",
+            isVariable: true,
+            familyName: "Rocket",
+            manufacturer: "Holdon Typefoundry",
+            designer: "Fadhl Haqq",
+            headCreatedYear: 2026
+        )
+        XCTAssertEqual(
+            NamePolicies.buildID0(context),
+            "Copyright © 2026 by Holdon Typefoundry & Fadhl Haqq. All rights reserved."
+        )
+    }
+
+    func testID0FallsBackToExistingCopyrightYearAndDeduplicatesHolder() {
+        let context = NamePolicies.FillContext(
+            sourcePath: "/fonts/Rocket-Variable.ttf",
+            isVariable: true,
+            familyName: "Rocket",
+            copyright: "Copyright 2024 Holdon Typefoundry.",
+            manufacturer: "Holdon Typefoundry",
+            designer: "holdon typefoundry"
+        )
+        XCTAssertEqual(
+            NamePolicies.buildID0(context),
+            "Copyright © 2024 by Holdon Typefoundry. All rights reserved."
+        )
+    }
+
+    func testID7UsesTypographicFamilyAndRightsHolders() {
+        let context = NamePolicies.FillContext(
+            sourcePath: "/fonts/Rocket-Variable.ttf",
+            isVariable: true,
+            familyName: "Rocket Variable",
+            typographicFamily: "Rocket Variable",
+            manufacturer: "Holdon Typefoundry"
+        )
+        XCTAssertEqual(
+            NamePolicies.buildID7(context),
+            "Rocket is a trademark of Holdon Typefoundry."
+        )
+    }
+
+    func testManualLowIDsHaveNoPolicySuggestions() {
+        let context = NamePolicies.FillContext(
+            sourcePath: "/fonts/Rocket-Variable.ttf",
+            isVariable: true,
+            familyName: "Rocket"
+        )
+        for nameID in [8, 9, 10, 11, 12, 13, 14, 18, 19, 20, 21, 22, 23, 24] {
+            XCTAssertNil(NamePolicies.suggestion(nameID: nameID, context: context))
+        }
+    }
 }
 
 final class WindowsNameTableEditingTests: XCTestCase {
@@ -179,6 +265,46 @@ final class WindowsNameTableEditingTests: XCTestCase {
             overrides: ["16": ""]
         )
         XCTAssertEqual(patches, [WindowsNameRecord(nameID: 16, string: "")])
+    }
+
+    func testCanRevertOnlyWhenOverrideDivergesFromFile() {
+        let analysis = [WindowsNameRecord(nameID: 1, string: "Family")]
+        let overrides = ["1": "Edited Family", "2": "Family", "13": ""]
+
+        XCTAssertTrue(WindowsNameTableEditing.canRevert(
+            nameID: 1,
+            windowsNameTable: analysis,
+            overrides: overrides
+        ))
+        // Added draft row that the file never had.
+        XCTAssertTrue(WindowsNameTableEditing.canRevert(
+            nameID: 13,
+            windowsNameTable: analysis,
+            overrides: overrides
+        ))
+        // No override recorded at all.
+        XCTAssertFalse(WindowsNameTableEditing.canRevert(
+            nameID: 6,
+            windowsNameTable: analysis,
+            overrides: overrides
+        ))
+    }
+
+    func testCanRevertIsFalseWhenOverrideMatchesFileOrIsPSPrefix() {
+        let analysis = [
+            WindowsNameRecord(nameID: 1, string: "Family"),
+            WindowsNameRecord(nameID: 25, string: "Family"),
+        ]
+        XCTAssertFalse(WindowsNameTableEditing.canRevert(
+            nameID: 1,
+            windowsNameTable: analysis,
+            overrides: ["1": "Family"]
+        ))
+        XCTAssertFalse(WindowsNameTableEditing.canRevert(
+            nameID: 25,
+            windowsNameTable: analysis,
+            overrides: ["25": "Other"]
+        ))
     }
 
     func testMissingIDsExcludePresent() {

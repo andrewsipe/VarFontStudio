@@ -549,7 +549,7 @@ const NAME_SPEC = [
 
 const SPEC_BY_ID = Object.fromEntries(NAME_SPEC.map(s => [s.id, s]));
 
-/** document.badge.plus — SF Symbol–style */
+/** wand.and.sparkles.inverse — SF Symbol–style */
 const POLICY_ICON = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
   <path d="M9.5 1H3.75A1.75 1.75 0 0 0 2 2.75v10.5C2 14.216 2.784 15 3.75 15H8.1a4.5 4.5 0 0 1-.6-1.5H3.75a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25H9v2.5A1.75 1.75 0 0 0 10.75 6.75H13v1.1c.54.1 1.05.3 1.5.56V5.5L9.5 1z"/>
   <path d="M11.5 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm.75 1.75v1.25H13.5a.75.75 0 0 1 0 1.5h-1.25V14a.75.75 0 0 1-1.5 0v-1.25H9.5a.75.75 0 0 1 0-1.5h1.25V10.25a.75.75 0 0 1 1.5 0z"/>
@@ -676,7 +676,7 @@ function syncPSPrefixField() {
 function currentValue(id) {
   if (id === 25) return getPSPrefix();
   const d = state.dirty[state.file];
-  if (d && Object.prototype.hasOwnProperty.call(d, id)) return d[id];
+  if (d && Object.hasOwn(d, id)) return d[id];
   return FILES[state.file].values[id] ?? '';
 }
 
@@ -689,9 +689,9 @@ function isDirty(id) {
   if (id === 25) {
     return getPSPrefix() !== (state.baseline[state.file].__psPrefix ?? '');
   }
-  const hasBase = Object.prototype.hasOwnProperty.call(state.baseline[state.file], id);
-  const hasCur = Object.prototype.hasOwnProperty.call(FILES[state.file].values, id)
-    || (state.dirty[state.file] && Object.prototype.hasOwnProperty.call(state.dirty[state.file], id));
+  const hasBase = Object.hasOwn(state.baseline[state.file], id);
+  const hasCur = Object.hasOwn(FILES[state.file].values, id)
+    || (state.dirty[state.file] && Object.hasOwn(state.dirty[state.file], id));
   if (!hasBase && hasCur) return true;
   return currentValue(id) !== baselineValue(id);
 }
@@ -701,7 +701,7 @@ function isPresent(id) {
     return isDirty(25) || getPSPrefix().trim() !== '';
   }
   if (isDirty(id)) return true;
-  return Object.prototype.hasOwnProperty.call(FILES[state.file].values, id)
+  return  Object.hasOwn(FILES[state.file].values, id)
     && String(FILES[state.file].values[id]).trim() !== '';
 }
 
@@ -730,7 +730,7 @@ function setDirty(id, value) {
     setPSPrefix(value);
     return;
   }
-  const baseHas = Object.prototype.hasOwnProperty.call(state.baseline[state.file], id);
+  const baseHas = Object.hasOwn(state.baseline[state.file], id);
   const base = baseHas ? state.baseline[state.file][id] : undefined;
   if (baseHas && value === base) delete state.dirty[state.file][id];
   else state.dirty[state.file][id] = value;

@@ -79,7 +79,7 @@ struct NameTablePanel: View {
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioSpacing.tightGap)
 
-                Text("Windows English only (3 · 1 · 0x409). ID 25 ≡ File naming PS prefix.")
+                Text("Windows English only (3 · 1 · 0x409). ID 25 = File Naming > PostScript prefix.")
                     .font(StudioTypography.meta)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -179,7 +179,7 @@ struct NameTablePanel: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 if row.isLinkedToPSPrefix {
-                    Text("≡ PS prefix")
+                    Text("= PostScript prefix")
                         .font(StudioTypography.rowName)
                         .foregroundStyle(.primary)
                         .padding(.horizontal, StudioSpacing.tightGap)
@@ -188,11 +188,25 @@ struct NameTablePanel: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                if editor.canRevertWindowsName(nameID: row.nameID, analysis: analysis) {
+                    Button {
+                        if expandedNameID == row.nameID { collapseEditor() }
+                        editor.revertWindowsName(nameID: row.nameID)
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(StudioTypography.columnLabel)
+                            .frame(width: Self.nameLabelRowHeight, height: Self.nameLabelRowHeight)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .studioHoverIcon(tint: StudioColors.brand)
+                    .help(revertHelp(for: row.nameID))
+                }
                 if showFill, let suggestion {
                     Button {
                         editor.applyWindowsNamePolicy(nameID: row.nameID, value: suggestion.value)
                     } label: {
-                        Image(systemName: "doc.badge.plus")
+                        Image(systemName: "wand.and.sparkles.inverse")
                             .font(StudioTypography.columnLabel)
                             .frame(width: Self.nameLabelRowHeight, height: Self.nameLabelRowHeight)
                             .contentShape(Rectangle())
@@ -220,7 +234,7 @@ struct NameTablePanel: View {
         if isExpanded {
             wrappingValueEditor(
                 binding: binding,
-                placeholder: row.isLinkedToPSPrefix ? "Family PS prefix" : "Name string"
+                placeholder: row.isLinkedToPSPrefix ? "Family PostScript prefix" : "Name string"
             )
         } else {
             Button {
@@ -246,7 +260,7 @@ struct NameTablePanel: View {
             .accessibilityValue(binding.wrappedValue)
             .overlay(alignment: .leading) {
                 if binding.wrappedValue.isEmpty {
-                    Text(row.isLinkedToPSPrefix ? "Family PS prefix" : "Name string")
+                    Text(row.isLinkedToPSPrefix ? "Family PostScript prefix" : "Name string")
                         .font(StudioTypography.monoValue)
                         .foregroundStyle(.tertiary)
                         .padding(.horizontal, StudioFieldMetrics.horizontalPadding)
@@ -309,6 +323,17 @@ struct NameTablePanel: View {
                 || $0.label.lowercased().contains(query)
                 || $0.value.lowercased().contains(query)
         }
+    }
+
+    private func revertHelp(for nameID: Int) -> String {
+        let fileValue = WindowsNameTableEditing.analysisString(
+            nameID: nameID,
+            windowsNameTable: analysis?.windowsNameTable ?? []
+        )
+        guard let fileValue else {
+            return "Discard edit · nameID \(nameID) is not in the file"
+        }
+        return "Revert to file\n→ \(fileValue)"
     }
 
     private func policySuggestion(for nameID: Int) -> NamePolicies.Suggestion? {

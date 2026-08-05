@@ -4,8 +4,9 @@ import Foundation
 ///
 /// - **1 / 4 / 16 / 17:** FontCore variable-filename slot builders
 /// - **3 / 6:** FontNameID defaults (sanitized on-disk filename stem)
-/// - **2:** RIBBI-lite — `Regular`, or `Italic` from ital registration / italicAngle / slope clarifier
-/// - **5:** `Version x.xxx` (from ID5 / ID3 / analysis)
+/// - **2:** RIBBI from OS/2, head, post, and registration cues
+/// - **5:** `Version x.xxx` from head.fontRevision (with name-table fallbacks)
+/// - **0 / 7:** Attribution derived from IDs 8/9 and family metadata
 /// - **25:** Studio `familyPSPrefix` (FontNameID has no ID25 replacer)
 public enum NamePolicies {
     public struct FillContext: Equatable, Sendable {
@@ -19,6 +20,14 @@ public enum NamePolicies {
         public var versionString: String?
         public var uniqueID: String?
         public var vendorID: String
+        public var copyright: String?
+        public var manufacturer: String?
+        public var designer: String?
+        public var fontRevision: Double?
+        public var headCreatedYear: Int?
+        public var fsSelection: UInt16?
+        public var usWeightClass: UInt16?
+        public var headMacStyle: UInt16?
         public var slots: VariableFilenameSlots?
         /// `file_stat_registration["ital"]` when ital is a registration axis for this file.
         public var italRegistrationValue: Double?
@@ -38,6 +47,14 @@ public enum NamePolicies {
             versionString: String? = nil,
             uniqueID: String? = nil,
             vendorID: String = "UKWN",
+            copyright: String? = nil,
+            manufacturer: String? = nil,
+            designer: String? = nil,
+            fontRevision: Double? = nil,
+            headCreatedYear: Int? = nil,
+            fsSelection: UInt16? = nil,
+            usWeightClass: UInt16? = nil,
+            headMacStyle: UInt16? = nil,
             slots: VariableFilenameSlots? = nil,
             italRegistrationValue: Double? = nil,
             postItalicAngle: Double? = nil,
@@ -53,6 +70,14 @@ public enum NamePolicies {
             self.versionString = versionString
             self.uniqueID = uniqueID
             self.vendorID = vendorID
+            self.copyright = copyright
+            self.manufacturer = manufacturer
+            self.designer = designer
+            self.fontRevision = fontRevision
+            self.headCreatedYear = headCreatedYear
+            self.fsSelection = fsSelection
+            self.usWeightClass = usWeightClass
+            self.headMacStyle = headMacStyle
             self.slots = slots ?? VariableFilenameSlots.parse(filenameOrPath: sourcePath)
             self.italRegistrationValue = italRegistrationValue
             self.postItalicAngle = postItalicAngle
@@ -66,6 +91,14 @@ public enum NamePolicies {
             let byID = Dictionary(
                 uniqueKeysWithValues: analysis.windowsNameTable.map { ($0.nameID, $0.string) }
             )
+            func effectiveName(_ nameID: Int) -> String? {
+                let key = WindowsNameTableEditing.overrideKey(nameID)
+                if let override = font.windowsNameOverrides[key] {
+                    let value = override.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return value.isEmpty ? nil : value
+                }
+                return byID[nameID]
+            }
             let hasItalRegistrationAxis = font.axes.contains {
                 $0.tag == "ital" && $0.isDesignRecordOnly
             }
@@ -87,13 +120,23 @@ public enum NamePolicies {
                 sourcePath: analysis.source.path,
                 isVariable: analysis.source.isVariable,
                 isItalic: analysis.inferred.isItalicFont,
-                familyName: analysis.source.familyName,
-                typographicFamily: byID[16],
+                familyName: effectiveName(1) ?? analysis.source.familyName,
+                typographicFamily: effectiveName(16),
                 familyPSPrefix: font.options.familyPSPrefix ?? analysis.source.familyPSPrefix,
-                postscriptName: analysis.source.postscriptName ?? byID[6],
-                versionString: byID[5],
-                uniqueID: byID[3],
-                vendorID: vendorFromUniqueID(byID[3]) ?? "UKWN",
+                postscriptName: effectiveName(6) ?? analysis.source.postscriptName,
+                versionString: effectiveName(5),
+                uniqueID: effectiveName(3),
+                vendorID: analysis.inferred.vendorID
+                    ?? vendorFromUniqueID(effectiveName(3))
+                    ?? "UKWN",
+                copyright: effectiveName(0),
+                manufacturer: effectiveName(8),
+                designer: effectiveName(9),
+                fontRevision: analysis.inferred.fontRevision,
+                headCreatedYear: analysis.inferred.headCreatedYear,
+                fsSelection: analysis.inferred.fsSelection,
+                usWeightClass: analysis.inferred.usWeightClass,
+                headMacStyle: analysis.inferred.headMacStyle,
                 italRegistrationValue: italReg,
                 postItalicAngle: analysis.inferred.postItalicAngle,
                 hasSlopeClarifier: slopeFromRegistration
@@ -118,7 +161,15 @@ public enum NamePolicies {
                 postscriptName: analysis.source.postscriptName ?? byID[6],
                 versionString: byID[5],
                 uniqueID: byID[3],
-                vendorID: vendorFromUniqueID(byID[3]) ?? "UKWN",
+                vendorID: analysis.inferred.vendorID ?? vendorFromUniqueID(byID[3]) ?? "UKWN",
+                copyright: byID[0],
+                manufacturer: byID[8],
+                designer: byID[9],
+                fontRevision: analysis.inferred.fontRevision,
+                headCreatedYear: analysis.inferred.headCreatedYear,
+                fsSelection: analysis.inferred.fsSelection,
+                usWeightClass: analysis.inferred.usWeightClass,
+                headMacStyle: analysis.inferred.headMacStyle,
                 postItalicAngle: analysis.inferred.postItalicAngle
             )
         }
@@ -132,6 +183,12 @@ public enum NamePolicies {
 
     public static func suggestions(for context: FillContext) -> [Suggestion] {
         var out: [Suggestion] = []
+
+        out.append(Suggestion(
+            nameID: 0,
+            value: buildID0(context),
+            source: "ID0: head.created + name IDs 8/9"
+        ))
 
         out.append(Suggestion(
             nameID: 2,
@@ -181,6 +238,14 @@ public enum NamePolicies {
             ))
         }
 
+        if let id7 = buildID7(context), !id7.isEmpty {
+            out.append(Suggestion(
+                nameID: 7,
+                value: id7,
+                source: "ID7: family + name IDs 8/9"
+            ))
+        }
+
         if let prefix = inferredPSPrefix(context), !prefix.isEmpty {
             out.append(Suggestion(
                 nameID: 25,
@@ -198,9 +263,23 @@ public enum NamePolicies {
 
     // MARK: - Builders
 
-    /// FontNameID ID2 simplified: Regular, or Italic for fixed-italic VFs.
+    public static func buildID0(_ context: FillContext) -> String {
+        let year = context.headCreatedYear
+            ?? copyrightYear(in: context.copyright)
+            ?? Calendar.current.component(.year, from: Date())
+        return "Copyright © \(year) by \(rightsHolder(context)). All rights reserved."
+    }
+
+    /// FontNameID ID2 RIBBI mapping from binary metrics and registration cues.
     public static func buildID2(_ context: FillContext) -> String {
-        isFixedItalicFile(context) ? "Italic" : "Regular"
+        let bold = context.usWeightClass == 700
+        let italic = isFixedItalicFile(context)
+        switch (bold, italic) {
+        case (true, true): return "Bold Italic"
+        case (true, false): return "Bold"
+        case (false, true): return "Italic"
+        case (false, false): return "Regular"
+        }
     }
 
     /// `build_id1_from_variable_slots`: root + optical + width (no Variable).
@@ -246,12 +325,29 @@ public enum NamePolicies {
         return stem.isEmpty ? nil : stem
     }
 
+    public static func buildID7(_ context: FillContext) -> String? {
+        let family = displayRootFamily(context)
+        let fallback = URL(fileURLWithPath: context.sourcePath)
+            .deletingPathExtension().lastPathComponent
+        let resolved = family.isEmpty
+            ? (PostScriptNaming.stripVariableTokens(fallback) ?? fallback)
+            : family
+        guard !resolved.isEmpty else { return nil }
+        return "\(resolved) is a trademark of \(rightsHolder(context))."
+    }
+
     // MARK: - Italic detection (ID2)
 
     /// Fixed-italic VF / file cues used for ID2 (and fallbacks for 4/17 without slots).
     public static func isFixedItalicFile(_ context: FillContext) -> Bool {
         if let ital = context.italRegistrationValue {
             return AxisCoordinate.valuesEqual(ital, 1)
+        }
+        if ((context.fsSelection ?? 0) & 0x0001) != 0 {
+            return true
+        }
+        if ((context.headMacStyle ?? 0) & 0x0002) != 0 {
+            return true
         }
         if let angle = context.postItalicAngle, abs(angle) > 0.01 {
             return true
@@ -263,8 +359,20 @@ public enum NamePolicies {
     }
 
     private static func id2Source(_ context: FillContext) -> String {
+        if context.usWeightClass == 700, isFixedItalicFile(context) {
+            return "ID2: OS/2 weight 700 + italic metrics → Bold Italic"
+        }
+        if context.usWeightClass == 700 {
+            return "ID2: OS/2 weight 700 → Bold"
+        }
         if let ital = context.italRegistrationValue, AxisCoordinate.valuesEqual(ital, 1) {
             return "ID2: ital registration = 1 → Italic"
+        }
+        if ((context.fsSelection ?? 0) & 0x0001) != 0 {
+            return "ID2: OS/2.fsSelection italic → Italic"
+        }
+        if ((context.headMacStyle ?? 0) & 0x0002) != 0 {
+            return "ID2: head.macStyle italic → Italic"
         }
         if context.italRegistrationValue == nil,
            let angle = context.postItalicAngle, abs(angle) > 0.01 {
@@ -306,6 +414,9 @@ public enum NamePolicies {
     }
 
     private static func formattedVersion(from context: FillContext) -> String? {
+        if let revision = context.fontRevision {
+            return "Version \(String(format: "%.3f", revision))"
+        }
         if let raw = context.versionString?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
             if raw.lowercased().hasPrefix("version") {
                 return raw
@@ -341,6 +452,36 @@ public enum NamePolicies {
         guard let parts = unique?.split(separator: ";"), parts.count >= 2 else { return nil }
         let vendor = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
         return vendor.isEmpty ? nil : vendor
+    }
+
+    private static func rightsHolder(_ context: FillContext) -> String {
+        let manufacturer = context.manufacturer?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let designer = context.designer?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !manufacturer.isEmpty, !designer.isEmpty {
+            return manufacturer.caseInsensitiveCompare(designer) == .orderedSame
+                ? manufacturer
+                : "\(manufacturer) & \(designer)"
+        }
+        if !manufacturer.isEmpty { return manufacturer }
+        if !designer.isEmpty { return designer }
+        return "designer"
+    }
+
+    private static func copyrightYear(in value: String?) -> Int? {
+        guard let value,
+              let regex = try? NSRegularExpression(
+                pattern: "(?i)(?:©|\\(c\\)|copyright)\\s*(?:\\([^)]*\\)\\s*)?(\\d{4})"
+              ) else {
+            return nil
+        }
+        let range = NSRange(value.startIndex..., in: value)
+        guard let match = regex.firstMatch(in: value, range: range),
+              let yearRange = Range(match.range(at: 1), in: value) else {
+            return nil
+        }
+        return Int(value[yearRange])
     }
 
     private static func joinNonEmpty(_ parts: String?...) -> String {

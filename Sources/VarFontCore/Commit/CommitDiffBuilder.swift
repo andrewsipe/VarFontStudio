@@ -47,16 +47,18 @@ public enum CommitDiffBuilder {
         }
 
         let plannedByKey = Dictionary(
-            uniqueKeysWithValues: (diff?.statValuesPlanned ?? []).map { item in
+            (diff?.statValuesPlanned ?? []).map { item in
                 (statKey(tag: item.tag, planned: item), item)
-            }
+            },
+            uniquingKeysWith: { _, latest in latest }
         )
 
         let plannedNameIDs = Dictionary(
-            uniqueKeysWithValues: (diff?.statValuesPlanned ?? []).compactMap { item -> (String, Int)? in
+            (diff?.statValuesPlanned ?? []).compactMap { item -> (String, Int)? in
                 guard let nameID = item.nameID else { return nil }
                 return (statKey(tag: item.tag, planned: item), nameID)
-            }
+            },
+            uniquingKeysWith: { _, latest in latest }
         )
 
         var keys = Set(afterStops.map { statKey(tag: $0.tag, stop: $0.stop) })
@@ -124,20 +126,25 @@ public enum CommitDiffBuilder {
         plan: InstancePlan,
         diff: CommitDiff?
     ) -> [CommitDiffInstanceRow] {
+        // fvar can list multiple named instances at the same coords (same key).
         let beforeByKey = Dictionary(
-            uniqueKeysWithValues: analysis.instancesExisting.map { ($0.key, $0) }
+            analysis.instancesExisting.map { ($0.key, $0) },
+            uniquingKeysWith: { _, latest in latest }
         )
         let afterByKey = Dictionary(
-            uniqueKeysWithValues: plan.instances.filter(\.included).map { ($0.key, $0) }
+            plan.instances.filter(\.included).map { ($0.key, $0) },
+            uniquingKeysWith: { _, latest in latest }
         )
         let plannedByComposed = Dictionary(
-            uniqueKeysWithValues: (diff?.instancesPlanned ?? []).map { ($0.composedName, $0) }
+            (diff?.instancesPlanned ?? []).map { ($0.composedName, $0) },
+            uniquingKeysWith: { _, latest in latest }
         )
         let nameStringByID = Dictionary(
-            uniqueKeysWithValues: analysis.nameAudit.used.compactMap { use -> (Int, String)? in
+            analysis.nameAudit.used.compactMap { use -> (Int, String)? in
                 guard let string = use.string else { return nil }
                 return (use.id, string)
-            }
+            },
+            uniquingKeysWith: { _, latest in latest }
         )
 
         var orderedKeys: [String] = []
@@ -219,12 +226,14 @@ public enum CommitDiffBuilder {
         protectedNameIDs: Set<Int> = []
     ) -> [CommitDiffNameIDRow] {
         let beforeByID = Dictionary(
-            uniqueKeysWithValues: analysis.nameAudit.used
+            analysis.nameAudit.used
                 .filter { $0.id >= 256 }
-                .map { ($0.id, $0) }
+                .map { ($0.id, $0) },
+            uniquingKeysWith: { _, latest in latest }
         )
         let afterByID = Dictionary(
-            uniqueKeysWithValues: (diff?.nameRecordsPlanned ?? []).map { ($0.id, $0) }
+            (diff?.nameRecordsPlanned ?? []).map { ($0.id, $0) },
+            uniquingKeysWith: { _, latest in latest }
         )
 
         let allIDs = Set(beforeByID.keys).union(afterByID.keys).sorted()

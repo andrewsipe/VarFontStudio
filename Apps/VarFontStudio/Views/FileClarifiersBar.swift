@@ -3,7 +3,7 @@ import VarFontCore
 
 /// File naming form label column (on-lattice).
 enum FileNamingLayout {
-    static let labelWidth: CGFloat = StudioSpace.unit * 18 // 72
+    static let labelWidth: CGFloat = StudioSpace.unit * 21 // 72
 }
 
 /// File naming fields — PostScript prefix only (file identity lives on registration axes).
@@ -16,7 +16,6 @@ struct FileClarifierFields: View {
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             postscriptPrefixRow(fontID: font.id)
-            Text("Slope, width, and optical file identity use naming axes in the Axis Tree.")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

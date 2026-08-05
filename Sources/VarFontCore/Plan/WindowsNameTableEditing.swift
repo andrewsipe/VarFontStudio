@@ -89,6 +89,17 @@ public enum WindowsNameTableEditing {
         return OpenTypeNameTable.editableLowNameIDs.filter { !present.contains($0) }
     }
 
+    /// True when a row holds a pending edit that can be discarded in favor of the font file.
+    /// ID 25 is excluded: its value is owned by the project PS prefix, not a name override.
+    public static func canRevert(
+        nameID: Int,
+        windowsNameTable: [WindowsNameRecord],
+        overrides: [String: String]
+    ) -> Bool {
+        guard nameID != 25, let override = overrides[overrideKey(nameID)] else { return false }
+        return override != analysisString(nameID: nameID, windowsNameTable: windowsNameTable)
+    }
+
     /// Patches for commit: IDs 0–24 that differ from analysis (including deletes as empty string).
     public static func commitPatches(
         windowsNameTable: [WindowsNameRecord],

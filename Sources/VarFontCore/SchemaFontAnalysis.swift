@@ -322,12 +322,65 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         public var namingOrderSuggested: [String]
         /// post.italicAngle when present (counter-clockwise degrees; matches slnt scale).
         public var postItalicAngle: Double?
+        /// head.fontRevision (16.16 fixed).
+        public var fontRevision: Double?
+        /// Calendar year decoded from head.created.
+        public var headCreatedYear: Int?
+        /// OS/2.achVendID with NUL padding removed.
+        public var vendorID: String?
+        public var fsSelection: UInt16?
+        public var usWeightClass: UInt16?
+        public var headMacStyle: UInt16?
 
         enum CodingKeys: String, CodingKey {
             case isItalicFont = "is_italic_font"
             case gridAxisTags = "grid_axis_tags"
             case namingOrderSuggested = "naming_order_suggested"
             case postItalicAngle = "post_italic_angle"
+            case fontRevision = "font_revision"
+            case headCreatedYear = "head_created_year"
+            case vendorID = "vendor_id"
+            case fsSelection = "fs_selection"
+            case usWeightClass = "us_weight_class"
+            case headMacStyle = "head_mac_style"
+        }
+
+        public init(
+            isItalicFont: Bool,
+            gridAxisTags: [String],
+            namingOrderSuggested: [String],
+            postItalicAngle: Double? = nil,
+            fontRevision: Double? = nil,
+            headCreatedYear: Int? = nil,
+            vendorID: String? = nil,
+            fsSelection: UInt16? = nil,
+            usWeightClass: UInt16? = nil,
+            headMacStyle: UInt16? = nil
+        ) {
+            self.isItalicFont = isItalicFont
+            self.gridAxisTags = gridAxisTags
+            self.namingOrderSuggested = namingOrderSuggested
+            self.postItalicAngle = postItalicAngle
+            self.fontRevision = fontRevision
+            self.headCreatedYear = headCreatedYear
+            self.vendorID = vendorID
+            self.fsSelection = fsSelection
+            self.usWeightClass = usWeightClass
+            self.headMacStyle = headMacStyle
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            isItalicFont = try c.decode(Bool.self, forKey: .isItalicFont)
+            gridAxisTags = try c.decode([String].self, forKey: .gridAxisTags)
+            namingOrderSuggested = try c.decode([String].self, forKey: .namingOrderSuggested)
+            postItalicAngle = try c.decodeIfPresent(Double.self, forKey: .postItalicAngle)
+            fontRevision = try c.decodeIfPresent(Double.self, forKey: .fontRevision)
+            headCreatedYear = try c.decodeIfPresent(Int.self, forKey: .headCreatedYear)
+            vendorID = try c.decodeIfPresent(String.self, forKey: .vendorID)
+            fsSelection = try c.decodeIfPresent(UInt16.self, forKey: .fsSelection)
+            usWeightClass = try c.decodeIfPresent(UInt16.self, forKey: .usWeightClass)
+            headMacStyle = try c.decodeIfPresent(UInt16.self, forKey: .headMacStyle)
         }
     }
 

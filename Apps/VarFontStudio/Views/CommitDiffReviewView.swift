@@ -134,7 +134,7 @@ struct CommitDiffReviewView: View {
         if !psPrefix.isEmpty || !registrationStops.isEmpty || !clarifiers.isEmpty {
             HStack(spacing: StudioSpacing.rowGap) {
                 if !psPrefix.isEmpty {
-                    Text("PS prefix")
+                    Text("PostScript prefix")
                         .font(StudioTypography.meta)
                         .foregroundStyle(.secondary)
                     Text(psPrefix)

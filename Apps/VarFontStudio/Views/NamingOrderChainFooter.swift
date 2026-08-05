@@ -342,11 +342,11 @@ struct NamingOrderChainFooter: View {
     private var exampleRow: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             namingExampleLine(
-                label: "Name",
+                label: "Name Preview",
                 value: editor.namingChainPreviewName,
                 accentValue: editor.namingChainPreviewIsElidedFallback
             )
-            namingExampleLine(label: "PostScript", value: editor.namingChainPreviewPostScript)
+            namingExampleLine(label: "PostScript Preview", value: editor.namingChainPreviewPostScript)
 
             if editor.selectedInstance != nil {
                 Text("from selection")
@@ -383,9 +383,10 @@ struct NamingOrderChainFooter: View {
         let display = editor.effectiveElidedFallbackDisplay
         let stored = editor.project?.naming.elidedFallback ?? display.value
         return HStack(spacing: StudioSpacing.rowGap) {
-            Text("Elided fallback")
+            Text("Elided Fallback")
                 .font(StudioTypography.meta)
                 .foregroundStyle(.tertiary)
+                .frame(width: 68, alignment: .leading)
 
             Group {
                 if isEditingElidedFallback {

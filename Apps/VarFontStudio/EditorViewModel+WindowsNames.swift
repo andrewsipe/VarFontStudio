@@ -40,4 +40,22 @@ extension EditorViewModel {
     func applyWindowsNamePolicy(nameID: Int, value: String) {
         setWindowsNameValue(nameID: nameID, value: value)
     }
+
+    func canRevertWindowsName(nameID: Int, analysis: FontAnalysis?) -> Bool {
+        guard let font = selectedFont else { return false }
+        return WindowsNameTableEditing.canRevert(
+            nameID: nameID,
+            windowsNameTable: analysis?.windowsNameTable ?? [],
+            overrides: font.windowsNameOverrides
+        )
+    }
+
+    /// Discard the pending edit so the row shows the record currently in the font file.
+    func revertWindowsName(nameID: Int) {
+        guard let fontID = selectedFontID, nameID != 25 else { return }
+        let key = WindowsNameTableEditing.overrideKey(nameID)
+        mutateFont(id: fontID) { font in
+            font.windowsNameOverrides.removeValue(forKey: key)
+        }
+    }
 }
