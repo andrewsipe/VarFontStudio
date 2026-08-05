@@ -80,14 +80,18 @@ struct MissingFontsSheet: View {
 
     @ViewBuilder
     private func statusPill(for entry: MissingFontEntry) -> some View {
-        Text(entry.isResolved ? "Found" : "Missing")
-            .font(StudioTypography.monoMeta)
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, StudioSpacing.instanceRowVertical)
-            .background(
-                (entry.isResolved ? Color.green.opacity(0.2) : Color.orange.opacity(0.25)),
-                in: Capsule()
-            )
-            .foregroundStyle(entry.isResolved ? Color.green : Color.orange)
+        HStack(spacing: StudioSpace.x0_5) {
+            Image(systemName: entry.isResolved ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(entry.isResolved ? StudioColors.successForeground : StudioColors.warningForeground)
+            Text(entry.isResolved ? "Found" : "Missing")
+                .foregroundStyle(.primary)
+        }
+        .font(StudioTypography.monoMeta)
+        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.vertical, StudioSpacing.instanceRowVertical)
+        .background(
+            (entry.isResolved ? StudioColors.successFill : StudioColors.warningFill),
+            in: Capsule()
+        )
     }
 }

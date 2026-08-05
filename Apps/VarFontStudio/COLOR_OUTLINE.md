@@ -53,9 +53,10 @@ System `Color.indigo` and `Color.brown` are retired for file semantics — indig
 | Tier | Token / API | Use |
 |------|-------------|-----|
 | Body | `.primary` | Labels, values, enabled buttons (`StudioFlatButton` secondary) |
+| Heading | `sectionHeading` | Section titles (`StudioSectionLabel`), phase headers, column headers — verified ~4.8–5.2:1 in both appearances |
 | Supporting | `.secondary` | Unit words (“shown”, “files”), meta labels |
 | Placeholder | `textPlaceholder` | Search and field prompts only |
-| Muted | `.tertiary` / `.quaternary` | **Intentionally** de-emphasized: chevrons, separators, disabled-adjacent chrome |
+| Muted | `.tertiary` / `.quaternary` | **Intentionally** de-emphasized: chevrons, separators, disabled-adjacent chrome — never readable headers or column labels |
 | Metric | `metricForeground` | Header counts and numeric badges — not interaction |
 
 ### Contrast reference (keep)
@@ -64,8 +65,6 @@ System `Color.indigo` and `Color.brown` are retired for file semantics — indig
 - **Secondary buttons** — `.primary` on gray fill ✓
 - **Scope tabs** — selected: `brand` on `brand` @ 16%; unselected: ~78% primary (not `.secondary`)
 - **Search** — `textPlaceholder` for icon + prompt (not `.tertiary`)
-
-`computedHighlight` is a legacy alias of `metricForeground`.
 
 ---
 
@@ -134,22 +133,25 @@ System `Color.indigo` and `Color.brown` are retired for file semantics — indig
 <div class="swatch-grid">
   <div class="swatch">
     <div class="swatch-row">
-      <div class="swatch-mini" style="background:#007AFF" title="Hue"></div>
-      <div class="swatch-mini" style="background:rgba(0,122,255,.10)" title="Fill"></div>
+      <div class="swatch-mini" style="background:#0858F7" title="Hue (light)"></div>
+      <div class="swatch-mini" style="background:rgba(8,88,247,.16)" title="Fill"></div>
     </div>
     <div class="swatch-label">brand</div>
-    <div class="swatch-meta">`Color.blue`</div>
-    <div class="swatch-meta">#007AFF ≈</div>
+    <div class="swatch-meta">Bespoke `royal-blue` (dual-tone)</div>
+    <div class="swatch-meta">light #0858F7 / dark #5686E6</div>
   </div>
 </div>
+
+Moved off system `Color.blue` (Phase C) — sat too close to `metricForeground`'s steel blue to read
+as its own hue once diluted through `selectionFill`/`selectionStroke`. `royal-blue` verified
+≥4.5:1 in both appearances.
 
 | Token | Role | Mark surfaces |
 |-------|------|----------------|
 | `brand` | Interaction, focus, selection | Link **hover/press**, caret, checkbox on, dirty dot, row `selectionFill` |
-| `selectionFill` | Selected row | `brand` @ 10% |
-| `selectionStroke` | Rare focus ring | `brand` @ 20% |
+| `selectionFill` | Selected row | `brand` @ 16% (was 10% — raised Phase C) |
+| `selectionStroke` | Rare focus ring | `brand` @ 30% (was 20% — raised Phase C) |
 | `metricForeground` | Scannable digits | Panel header counts, `StudioCountBadge`, summary card values |
-| `computedHighlight` | Alias of `metricForeground` | Legacy name — prefer `metricForeground` |
 
 **Not for:** file registration, diff categories, axis semantics.
 
@@ -216,7 +218,7 @@ System `Color.indigo` and `Color.brown` are retired for file semantics — indig
 |-----|--------|-------|-------|
 | Orange | `warningForeground`, `warningFill`, `axisValue`† | **Caution / attention** | Warning icons, fallback flags, axis-header ⚠, conditional dots |
 | Red | `errorForeground`, `diffRemoved` | **Failure / removed / severe** | Error banner icons, exact-duplicate stripes, diff gutters |
-| Green | `successForeground`, `diffAdded`, `dropNewProject` | **Success / addition** | Checkbox ✓, diff “added”, new-project drop |
+| Green | `successForeground`, `successFill`, `diffAdded`, `dropNewProject` | **Success / addition** | Checkbox ✓, diff “added”, new-project drop, status pill fill |
 | Blue | `brand`, `dropAddExisting` | **Interaction / add-to-project** | Selection, links, add-font drop |
 | Pink | `collisionForeground` | **Soft collision** | Instancer stripe, ◆ symbol |
 | Teal | `customForeground` | **User custom instance** | Instancer stripe, ＋ symbol |
@@ -258,28 +260,36 @@ Clarifier aliases share plum (`clarifierForeground` = `registrationForeground`).
 
 ## Tier 4 — Save Review diff
 
+`diffRemoved`/`diffAdded`/`diffReflowed` moved off system red/green/purple to the bespoke accent
+palette (Phase C) — Save Review's diff gutters are the highest-traffic large-scale color-coding
+in the app, distinct from the small system-color indicators that are fine left alone.
+`diffProtected` (gray) and `diffRenamed` (yellow) stay system — deliberately neutral slate for
+the former, and no yellow family exists in the extracted palette for the latter.
+
 <div class="swatch-grid">
   <div class="swatch">
     <div class="swatch-row">
-      <div class="swatch-mini" style="background:#FF3B30"></div>
-      <div class="swatch-mini" style="background:rgba(255,59,48,.20)"></div>
+      <div class="swatch-mini" style="background:#D2271E" title="light"></div>
+      <div class="swatch-mini" style="background:#E5A8A4" title="dark"></div>
     </div>
     <div class="swatch-label">diffRemoved</div>
+    <div class="swatch-meta">bespoke red</div>
   </div>
   <div class="swatch">
     <div class="swatch-row">
-      <div class="swatch-mini" style="background:#34C759"></div>
-      <div class="swatch-mini" style="background:rgba(52,199,89,.20)"></div>
+      <div class="swatch-mini" style="background:#3A6F20" title="light"></div>
+      <div class="swatch-mini" style="background:#4B9D4B" title="dark"></div>
     </div>
     <div class="swatch-label">diffAdded</div>
+    <div class="swatch-meta">bespoke green</div>
   </div>
   <div class="swatch">
     <div class="swatch-row">
-      <div class="swatch-mini" style="background:#AF52DE"></div>
-      <div class="swatch-mini" style="background:rgba(175,82,222,.20)"></div>
+      <div class="swatch-mini" style="background:#9F2EDC" title="light"></div>
+      <div class="swatch-mini" style="background:#CCACDC" title="dark"></div>
     </div>
     <div class="swatch-label">diffReflowed</div>
-    <div class="swatch-meta">purple</div>
+    <div class="swatch-meta">bespoke purple</div>
   </div>
   <div class="swatch">
     <div class="swatch-row">
@@ -301,9 +311,9 @@ Clarifier aliases share plum (`clarifierForeground` = `registrationForeground`).
 
 | Token | Hue | Meaning | Deliberate split |
 |-------|-----|---------|------------------|
-| `diffRemoved` | Red | Row removed | Shares error vocabulary |
-| `diffAdded` | Green | Row added | Shares success / `dropNewProject` |
-| `diffReflowed` | Purple | Layout-only change | Diff-only |
+| `diffRemoved` | Red (bespoke) | Row removed | Shares error vocabulary |
+| `diffAdded` | Green (bespoke) | Row added | Shares success / `dropNewProject` (hue diverges from Phase C on) |
+| `diffReflowed` | Purple (bespoke) | Layout-only change | Diff-only |
 | `diffProtected` | Gray | Locked / non-editable | **Not** brand blue |
 | `diffRenamed` | Yellow | Name/value changed | **Not** warning orange |
 
@@ -311,36 +321,54 @@ Clarifier aliases share plum (`clarifierForeground` = `registrationForeground`).
 
 ---
 
-## Tier 5 — STAT format (category only)
+## Tier 5 — STAT format (category)
+
+Moved off three blue-gray/violet tones that sat within ~15-20° of each other and of
+`brand`/`metricForeground` (Phase C) — swapped for bespoke `brown`/`violet`/`magenta`, spread
+across the wheel.
+
+**Mode-dependent treatment** — the two appearances need opposite text/fill strategies:
+
+- **Light:** hue-colored label on a 20% translucent tint of the same hue (exception to the
+  "mark hue on fill/border, label stays `.primary`" rule — with only 3 short glyphs shown
+  side-by-side and no icon to anchor on, a neutral label meant the badges were distinguishable
+  only by reading text). Light-mode stops are deep/saturated enough that text-vs-fill
+  separation holds at 20%.
+- **Dark:** the dark-mode stops are intentionally pale (that's what clears 4.5:1 as *text*
+  against a near-black panel) — reusing that same pale hue for a 20% fill collapsed text and
+  fill into one low-contrast blob. Dark mode instead uses a near-solid (92%) fill of the pale
+  hue with near-black label text (`Color.black.opacity(0.82)`) — the pale color's luminance
+  guarantees strong contrast against dark text while the fill itself stays a fully legible hue.
 
 <div class="swatch-grid">
   <div class="swatch">
     <div class="swatch-row">
-      <div class="swatch-mini" style="background:#7F94AD"></div>
-      <div class="swatch-mini" style="background:rgba(127,148,173,.20)"></div>
+      <div class="swatch-mini" style="background:#A05D2C" title="light"></div>
+      <div class="swatch-mini" style="background:#B78562" title="dark"></div>
     </div>
     <div class="swatch-label">statFormat1</div>
-    <div class="swatch-meta">F1 slate</div>
+    <div class="swatch-meta">F1 brown</div>
   </div>
   <div class="swatch">
     <div class="swatch-row">
-      <div class="swatch-mini" style="background:#9480B8"></div>
-      <div class="swatch-mini" style="background:rgba(148,128,184,.20)"></div>
+      <div class="swatch-mini" style="background:#7347EB" title="light"></div>
+      <div class="swatch-mini" style="background:#9D85E0" title="dark"></div>
     </div>
     <div class="swatch-label">statFormat2</div>
-    <div class="swatch-meta">F2 mauve</div>
+    <div class="swatch-meta">F2 violet</div>
   </div>
   <div class="swatch">
     <div class="swatch-row">
-      <div class="swatch-mini" style="background:#7A8A9E"></div>
-      <div class="swatch-mini" style="background:rgba(122,138,158,.20)"></div>
+      <div class="swatch-mini" style="background:#AB2AAC" title="light"></div>
+      <div class="swatch-mini" style="background:#BD64BE" title="dark"></div>
     </div>
     <div class="swatch-label">statFormat3</div>
-    <div class="swatch-meta">F3 blue-gray</div>
+    <div class="swatch-meta">F3 magenta</div>
   </div>
 </div>
 
-Fixed RGB in code — **not** success green, edited cyan, or brand blue. Distinguish F1/F2/F3 only; label text stays `.primary`.
+Dual-tone, verified ≥4.5:1 in both appearances — **not** success green, edited cyan, or brand
+blue. Distinguish F1/F2/F3 by hue at a glance, not just by reading the label.
 
 ---
 
@@ -578,7 +606,7 @@ Each hue below appears in `StudioColors` (or canvas/drop tokens). Left swatch = 
 
 | API | Status | Notes |
 |-----|--------|-------|
-| **`Color.accentColor`** | **Excluded** | App uses fixed `brand` (`Color.blue`) instead of system accent. `verify-ui-tokens.sh` fails if `Color.accentColor` appears outside `StudioDesign.swift`. Caret/selection use `brandNSColor`. |
+| **`Color.accentColor`** | **Excluded** | App uses fixed `brand` (bespoke `royal-blue`, Phase C) instead of system accent. `verify-ui-tokens.sh` fails if `Color.accentColor` appears outside `StudioDesign.swift`. Caret/selection use `brandNSColor`. |
 
 ### Raw `Color.*` outside `StudioColors`
 
@@ -586,7 +614,6 @@ These appear at call sites without a token wrapper — allowed patterns only:
 
 | Occurrence | Files | Notes |
 |------------|-------|-------|
-| `Color.green` / `Color.orange` | `MissingFontsSheet.swift` | **Gap** — should migrate to `successForeground` / `warningForeground` for consistency |
 | `Color.black` | `CommitDiffSheet`, `MainEditorView` | Shadows/overlays — not semantic |
 | `Color.primary` / `.secondary` | Various | Text hierarchy (preferred over fixed hues) |
 
@@ -611,7 +638,7 @@ Reserved or pending wiring — safe palette slots, not dead code to delete witho
 | Chrome wash | 0.03–0.16 | `surface*`, `hoverFill`, `fieldFill` |
 | Semantic fill | 0.20–0.30 | `warningFill`, `*Fill`, `*Background`, diff pill fills |
 | Drop drag | 0.05 | `dropZone*` overlays only |
-| Selection | 0.10–0.20 | `selectionFill`, `selectionStroke` (brand) |
+| Selection | 0.16–0.30 | `selectionFill`, `selectionStroke` (brand) |
 
 ---
 

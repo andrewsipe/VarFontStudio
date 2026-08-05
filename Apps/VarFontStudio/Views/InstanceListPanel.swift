@@ -238,6 +238,7 @@ struct InstanceListPanel: View {
                 }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
+                .studioBrandTint()
                 .disabled(editor.filteredInstances.isEmpty)
 
                 Spacer(minLength: StudioSpacing.controlGap)
@@ -465,7 +466,7 @@ private struct InstanceRowView: View {
 
             Text(coordsCaption)
                 .font(StudioTypography.monoMeta)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StudioColors.sectionHeading)
                 .lineLimit(1)
                 .frame(maxWidth: 140, alignment: .trailing)
         }

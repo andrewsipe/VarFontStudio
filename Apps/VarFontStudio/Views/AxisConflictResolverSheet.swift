@@ -377,7 +377,7 @@ struct AxisConflictResolverSheet: View {
                 .frame(width: StopTableLayout.elidableWidth, alignment: .center)
         }
         .font(StudioTypography.columnLabel)
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(StudioColors.sectionHeading)
         .padding(.horizontal, StopTableLayout.rowHorizontalPadding)
         .padding(.bottom, StudioSpace.x0_5)
     }
@@ -573,9 +573,7 @@ struct AxisConflictResolverSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                     if let validationMessage {
-                        Text(validationMessage)
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.red)
+                        StudioErrorMessage(message: validationMessage)
                     }
                 } else if selectedStrategy == .keepOneStop, let axis {
                     Text(ConflictResolver.strategyDetail(
@@ -589,9 +587,7 @@ struct AxisConflictResolverSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                     if let validationMessage {
-                        Text(validationMessage)
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.red)
+                        StudioErrorMessage(message: validationMessage)
                     }
                 } else if !selectedStrategyIsPredefinedBulk, let stop = selectedStop, let axis {
                     Text(ConflictResolver.strategyDetail(
@@ -630,9 +626,7 @@ struct AxisConflictResolverSheet: View {
         }
 
         if let validationMessage {
-            Text(validationMessage)
-                .font(StudioTypography.caption)
-                .foregroundStyle(.red)
+            StudioErrorMessage(message: validationMessage)
         }
     }
 
@@ -730,9 +724,7 @@ struct AxisConflictResolverSheet: View {
                 }
 
                 if resolvesConflict {
-                    Label("This fix clears the axis conflict", systemImage: "checkmark.circle.fill")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.green)
+                    StudioSuccessMessage(message: "This fix clears the axis conflict")
                 } else if needsFollowUpPass {
                     HStack(spacing: StudioSpace.x1) {
                         Image(systemName: "arrow.triangle.2.circlepath")

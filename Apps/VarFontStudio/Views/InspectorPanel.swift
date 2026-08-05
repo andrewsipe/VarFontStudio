@@ -142,7 +142,7 @@ struct InstanceInspectorContent: View {
                         Spacer(minLength: 0)
                         Text("Elidable")
                             .font(StudioTypography.columnLabel)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(StudioColors.sectionHeading)
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                             .frame(width: InspectorAxisCoordLayout.elisionWidth, alignment: .center)

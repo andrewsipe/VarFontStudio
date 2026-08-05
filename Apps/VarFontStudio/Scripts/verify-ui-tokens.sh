@@ -80,4 +80,17 @@ check "no clarifierForeground text color outside StudioDesign" \
 check "no canvas tokens outside FontPreviewPanel" \
   rg -q 'StudioColors\.canvas' Views --glob '!StudioDesign.swift' --glob '!FontPreviewPanel.swift'
 
+check "no raw Color.red/green/orange/yellow text or fills outside StudioDesign" \
+  rg -q '\b(?:foregroundStyle|foregroundColor|background)\(\s*Color\.(red|green|orange|yellow)\b' Views --glob '!StudioDesign.swift'
+
+# --- Advisory: .tertiary/.quaternary foregroundStyle outside StudioDesign (Phase B backlog tracker) ---
+# Not yet a hard gate. The contrast/hierarchy audit found ~30 pre-existing instances of
+# .tertiary/.quaternary sitting on readable (non-decorative) Text — column headers, row
+# captions, status chrome — pending the Phase B contrast pass. This regex is a coarse proxy
+# (it can't distinguish Text from other views), so it stays informational until that pass
+# lands. Once it does, convert this to a `check` gate with a small decorative allowlist
+# (chevrons, separators, disabled-adjacent chrome — see COLOR_OUTLINE.md "Muted" row).
+TERTIARY_COUNT="$(rg -c '\.foregroundStyle\(\.(tertiary|quaternary)\)' Views --glob '!StudioDesign.swift' 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}')"
+echo "INFO: ${TERTIARY_COUNT} occurrence(s) of .tertiary/.quaternary foregroundStyle outside StudioDesign.swift (Phase B backlog tracker — not gated yet)"
+
 exit "$FAIL"

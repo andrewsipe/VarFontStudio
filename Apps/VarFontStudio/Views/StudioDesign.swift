@@ -330,7 +330,7 @@ private enum StudioIconForeground {
 // orange text and similar) — too finicky to maintain across every semantic and appearance.
 //
 // ## Token tiers
-// 1. **Brand** (`brand`, `selectionFill`, `computedHighlight`) — interaction,
+// 1. **Brand** (`brand`, `selectionFill`, `metricForeground`) — interaction,
 //    selection, app tint, computed totals. Never axis/file semantics.
 // 2. **Semantic marks** (`*Foreground` paired with `*Fill` / `*Stroke`) — hue
 //    carriers for marks only. Despite the `Foreground` suffix, these are **not**
@@ -445,7 +445,13 @@ enum StudioColors {
     // MARK: Brand & interaction
 
     /// Tier 1 — fixed brand for interactive/selected chrome (not system accent).
-    static let brand = Color.blue
+    /// Bespoke `royal-blue` (accent palette review) rather than system `Color.blue` — sits
+    /// far enough from `metricForeground`'s steel blue to stop the app from reading as "one
+    /// blue, diluted everywhere," and holds its saturation at the depth most call sites
+    /// actually render it at (`selectionFill`/`selectionStroke` opacity, not full strength).
+    static let brand = StudioHuedToken.make(
+        name: "brand", light: (0.031, 0.345, 0.969), dark: (0.047, 0.549, 0.914)
+    )
     /// AppKit bridge for caret/selection styling in `StudioTextField`.
     static var brandNSColor: NSColor { NSColor(brand) }
 
@@ -462,8 +468,12 @@ enum StudioColors {
 
     // MARK: Selection & hover (brand + neutral washes)
 
-    static let selectionFill = brand.opacity(0.10)
-    static let selectionStroke = brand.opacity(0.20)
+    /// Raised from 0.10/0.20 — at the old floor, brand-tinted selection read as barely-there
+    /// gray next to the app's neutral chrome washes (same complaint as the diluted STAT
+    /// badges). Now roughly matches the status-fill convention (`warningFill`, `successFill`
+    /// use 0.20-0.30) so selection state is legible without a focus ring doing all the work.
+    static let selectionFill = brand.opacity(0.16)
+    static let selectionStroke = brand.opacity(0.30)
     /// Neutral (non-accent) selection / hover-over-selection fills — not for borders.
     static let selectionNeutralFill = StudioPrimaryWash.make(name: "selectionNeutralFill", light: 0.11, dark: 0.08)
     static let selectionNeutralFillStrong = StudioPrimaryWash.make(name: "selectionNeutralFillStrong", light: 0.15, dark: 0.12)
@@ -492,10 +502,14 @@ enum StudioColors {
     /// Mark hue — warning icons, gutter accents, flag symbols. Not banner body text.
     static let warningForeground = Color.orange
     static let warningStroke = Color.orange.opacity(0.45)
+    static let successFill = Color.green.opacity(0.22)
     static let successStroke = Color.green.opacity(0.45)
-    /// Mark hue — success icons and include-checkbox checkmark when on.
+    /// Mark hue — success icons and include-checkbox checkmark when on. Do not use as
+    /// standalone text/foreground color on a matching-hue fill — pair with `.primary`/
+    /// `.secondary` text and reserve the hue for the icon/mark/stroke.
     static let successForeground = Color.green
-    /// Mark hue — error icons, severe collision flags, destructive emphasis.
+    /// Mark hue — error icons, severe collision flags, destructive emphasis. Same pairing
+    /// rule as `successForeground`: text stays neutral, hue lives on the mark.
     static let errorForeground = Color.red
     static let errorStroke = Color.red.opacity(0.5)
 
@@ -517,10 +531,22 @@ enum StudioColors {
     static let editedFill = editedForeground.opacity(0.24)
 
     // MARK: Semantic marks — Save Review diff
+    //
+    // `diffRemoved`/`diffAdded`/`diffReflowed` moved to the bespoke accent palette — these are
+    // the highest-traffic large-scale color-coding in Save Review, distinct from the small
+    // system-color indicators (checkmarks, etc.) that are fine left as-is. `diffProtected`
+    // stays system gray (deliberately neutral slate) and `diffRenamed` stays system yellow —
+    // the extracted palette has no yellow family, so there's no bespoke swap available yet.
 
-    static let diffRemoved = Color.red
-    static let diffAdded = Color.green
-    static let diffReflowed = Color.purple
+    static let diffRemoved = StudioHuedToken.make(
+        name: "diffRemoved", light: (0.824, 0.153, 0.118), dark: (0.898, 0.659, 0.643)
+    )
+    static let diffAdded = StudioHuedToken.make(
+        name: "diffAdded", light: (0.227, 0.435, 0.125), dark: (0.294, 0.616, 0.294)
+    )
+    static let diffReflowed = StudioHuedToken.make(
+        name: "diffReflowed", light: (0.624, 0.180, 0.863), dark: (0.800, 0.675, 0.863)
+    )
     /// Protected/locked — slate, not brand (brand = interaction/selection).
     static let diffProtected = Color.gray
     /// Renamed/changed — informational yellow, not warning orange.
@@ -552,6 +578,11 @@ enum StudioColors {
     /// tuned as its own token rather than stacking `.opacity()` on system `.secondary`/`.tertiary`,
     /// which compounds their own built-in translucency into ~2:1 and washes out.
     static let mutedForeground = StudioPrimaryWash.make(name: "mutedForeground", light: 0.50, dark: 0.40)
+    /// Section titles, phase headers, and column headers — readable at a glance without
+    /// matching `.primary`'s weight. Verified ~4.8–5.2:1 against representative panel
+    /// backgrounds in both appearances (plain system `.secondary` only clears ~3.95:1 in
+    /// light mode, below the 4.5:1 AA floor this tier exists to guarantee).
+    static let sectionHeading = StudioPrimaryWash.make(name: "sectionHeading", light: 0.58, dark: 0.50)
     /// Scannable metric digits — panel header counts, `StudioCountBadge`, summary cards.
     /// Steel blue: related to brand but darker; not used for buttons or selection chrome.
     /// Dual-tone: dark-mode stop verified independently (was fixed RGB, ~2.4:1 in dark mode).
@@ -560,8 +591,6 @@ enum StudioColors {
         light: (0.082, 0.396, 0.722),
         dark: (0.353, 0.663, 0.941)
     )
-    /// Legacy alias — prefer `metricForeground` at new call sites.
-    static let computedHighlight = metricForeground
     /// Brand mark — elided STAT fallback segment in naming chains (neutral text + brand dot).
     static let elidedFallbackForeground = brand
 
@@ -594,19 +623,22 @@ enum StudioColors {
     static let codeStroke = codeForeground.opacity(0.45)
 
     // MARK: Semantic marks — STAT format badges
-    //
-    // Category distinguishers only — not success (green), edited (cyan), or brand. Dual-tone —
-    // verified independently in both appearances rather than one fixed RGB reused as-is.
 
-    /// Mark hues for `StudioStatFormatBadge` fill/stroke (label text neutral).
+    /// Mark hues for `StudioStatFormatBadge` fill/stroke/label. Sourced from the bespoke
+    /// accent palette review (brown/violet/magenta families) rather than three
+    /// blue-gray/violet tones that sat too close to each other and to `brand`/
+    /// `metricForeground` — the previous set only differed by ~15-20° of hue and read as
+    /// "the same badge with a different tint" until you read the label. These three are
+    /// spread across the wheel and verified independently in both appearances (>=4.5:1
+    /// against a representative panel) so the label itself can now carry the hue.
     static let statFormat1 = StudioHuedToken.make(
-        name: "statFormat1", light: (0.361, 0.494, 0.600), dark: (0.561, 0.706, 0.808)
+        name: "statFormat1", light: (0.627, 0.365, 0.173), dark: (0.718, 0.522, 0.384)
     )
     static let statFormat2 = StudioHuedToken.make(
-        name: "statFormat2", light: (0.502, 0.392, 0.722), dark: (0.718, 0.620, 0.878)
+        name: "statFormat2", light: (0.451, 0.278, 0.922), dark: (0.616, 0.522, 0.878)
     )
     static let statFormat3 = StudioHuedToken.make(
-        name: "statFormat3", light: (0.298, 0.443, 0.522), dark: (0.498, 0.651, 0.737)
+        name: "statFormat3", light: (0.671, 0.165, 0.675), dark: (0.741, 0.392, 0.745)
     )
 
     // MARK: Drag & drop zones
@@ -700,6 +732,8 @@ struct StudioStatFormatBadge: View {
     let format: Int
     var action: (() -> Void)?
 
+    @Environment(\.colorScheme) private var colorScheme
+
   private var markColor: Color {
         switch format {
         case 2: StudioColors.statFormat2
@@ -723,16 +757,25 @@ struct StudioStatFormatBadge: View {
         }
     }
 
+    // Light mode: hue-colored text on a translucent tint of the same hue — the light-mode
+    // stops are deep/saturated enough that text-vs-fill separation holds. Dark mode: the
+    // dark-mode stops are intentionally pale/light (that's what clears 4.5:1 as *text* on a
+    // near-black panel), so reusing that same pale hue for the fill made text and fill
+    // collapse into one low-contrast blob. Flip to a near-solid fill of that pale hue with
+    // near-black text instead — the pale color's high luminance guarantees strong contrast
+    // against dark text, and the fill itself stays fully saturated/legible as a hue.
+    private var isDark: Bool { colorScheme == .dark }
+
     private var badgeLabel: some View {
         Text("F\(format)")
             .font(.system(size: 9, weight: .bold, design: .monospaced))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .foregroundStyle(.primary)
-            .background(markColor.opacity(format == 2 ? 0.14 : 0.08), in: RoundedRectangle(cornerRadius: 3))
+            .foregroundStyle(isDark ? Color.black.opacity(0.82) : markColor)
+            .background(markColor.opacity(isDark ? 0.92 : 0.20), in: RoundedRectangle(cornerRadius: 3))
             .overlay {
                 RoundedRectangle(cornerRadius: 3)
-                    .strokeBorder(markColor.opacity(0.35), lineWidth: 0.5)
+                    .strokeBorder(markColor.opacity(isDark ? 1.0 : 0.45), lineWidth: 0.5)
             }
     }
 }
@@ -765,6 +808,9 @@ struct StudioClarifierPill: View {
 // MARK: - Pills & badges
 //
 // Compact badges are marks: hue on `background` / `border`; label uses `.primary`.
+// Exception: `StudioStatFormatBadge` colors its label too — with only 3 short-lived
+// glyphs ("F1"/"F2"/"F3") shown side-by-side and no icon to anchor on, a neutral label
+// left the badges distinguishable only by reading text, not by glancing at hue.
 
 /// Capsule pill with semantic diff colors — Save Review section counts.
 enum StudioDiffPillStyle {
@@ -1003,6 +1049,7 @@ struct StudioElidableSwitch: View {
             .toggleStyle(.switch)
             .controlSize(.mini)
             .labelsHidden()
+            .studioBrandTint()
             .help(helpText)
     }
 
@@ -1044,7 +1091,7 @@ struct StudioMetricCard: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
-                .foregroundStyle(accentValue ? StudioColors.computedHighlight : .primary)
+                .foregroundStyle(accentValue ? StudioColors.metricForeground : .primary)
             Text(label)
                 .font(prominent ? .system(size: 10, weight: .medium) : StudioTypography.gridSummaryValue)
                 .textCase(.uppercase)
@@ -1351,7 +1398,7 @@ struct StudioSaveReviewPhaseHeader: View {
         Text(title.uppercased())
             .font(StudioTypography.sectionLabel)
             .tracking(0.5)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(StudioColors.sectionHeading)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, SaveReviewLayout.horizontalPadding)
             .padding(.vertical, 8)
@@ -1520,13 +1567,15 @@ struct StudioStreamlinedDiffRow: View {
 
 struct StudioSectionLabel: View {
     let title: String
-    /// When `false` (floating menus/popovers), uses `.secondary` for readable contrast on material surfaces.
+    /// When `false` (floating menus/popovers, empty-state placeholders with no sibling
+    /// title to out-rank), uses `.primary` for maximum contrast. Default uses
+    /// `sectionHeading` — readable at a glance, still one weight below `.primary`.
     var muted: Bool = true
 
     var body: some View {
         Text(title.uppercased())
             .font(StudioTypography.sectionLabel)
-            .foregroundStyle(muted ? .tertiary : .secondary)
+            .foregroundStyle(muted ? StudioColors.sectionHeading : Color.primary)
             .tracking(0.4)
     }
 }
@@ -3669,6 +3718,41 @@ struct StudioWarningMessage: View {
     }
 }
 
+/// Inline validation/error caption — mirrors `StudioWarningMessage`. The error hue lives
+/// on the icon; message text stays `.primary` so it clears text-contrast minimums on the
+/// tinted fills this typically sits over.
+struct StudioErrorMessage: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+            Image(systemName: "xmark.circle.fill")
+                .font(StudioTypography.meta)
+                .foregroundStyle(StudioColors.errorForeground)
+            Text(message)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.primary)
+        }
+    }
+}
+
+/// Inline success caption — mirrors `StudioWarningMessage`/`StudioErrorMessage`. The success
+/// hue lives on the icon only; message text stays `.primary`.
+struct StudioSuccessMessage: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(StudioTypography.meta)
+                .foregroundStyle(StudioColors.successForeground)
+            Text(message)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.primary)
+        }
+    }
+}
+
 struct StudioConflictAlert: View {
     let message: String
     var actionTitle: String = "Resolve…"
@@ -4074,7 +4158,7 @@ struct InspectorOpenTypeTable: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .font(StudioTypography.columnLabel)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(StudioColors.sectionHeading)
             .padding(.bottom, 4)
 
             ForEach(rows) { row in

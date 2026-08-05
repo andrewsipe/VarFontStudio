@@ -290,6 +290,7 @@ struct NamingOrderChainFooter: View {
             .toggleStyle(.switch)
             .controlSize(.mini)
             .labelsHidden()
+            .studioBrandTint()
 
             Text("Code")
                 .font(StudioTypography.meta)
@@ -307,6 +308,7 @@ struct NamingOrderChainFooter: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .labelsHidden()
+                .studioBrandTint()
 
             Text("Hide pinned axes")
                 .font(StudioTypography.meta)

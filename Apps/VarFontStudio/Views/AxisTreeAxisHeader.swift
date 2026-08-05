@@ -206,6 +206,7 @@ struct AxisTreeAxisHeader: View {
                         .toggleStyle(.switch)
                         .controlSize(.mini)
                         .labelsHidden()
+                        .studioBrandTint()
                         .help(
                             "When on, stops on this axis generate named instances. "
                                 + "When off, the axis stays at its default for every instance. "

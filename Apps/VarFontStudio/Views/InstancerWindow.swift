@@ -332,7 +332,7 @@ private struct InstancerWindowContent: View {
 
             Text(draftOutput)
                 .font(StudioTypography.monoMeta)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(minWidth: 120, maxWidth: 220, alignment: .leading)
@@ -709,7 +709,7 @@ private struct InstancerWindowContent: View {
                 .frame(width: InstancerLayout.flagColumnWidth, height: 1)
         }
         .font(StudioTypography.columnLabel)
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(StudioColors.sectionHeading)
         .textCase(.uppercase)
         .padding(.horizontal, InstancerLayout.horizontalPadding)
         .padding(.vertical, StudioSpace.x1) // 4
