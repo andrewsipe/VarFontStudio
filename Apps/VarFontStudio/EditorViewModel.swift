@@ -46,6 +46,15 @@ struct InstanceGroup: Identifiable, Equatable {
     var id: String { label }
 }
 
+/// One axis coordinate chip for the Instances list strip / group header.
+struct InstanceCoordPill: Equatable, Identifiable {
+    var tag: String
+    var value: Double
+    var formatted: String
+
+    var id: String { tag }
+}
+
 struct InstanceListDisplay: Equatable {
     static let empty = InstanceListDisplay()
 
@@ -53,10 +62,21 @@ struct InstanceListDisplay: Equatable {
     var isEmpty: Bool = true
     var summary: String?
     var axisStopFilterLabel: String?
+    /// Full `tag=value` captions (no truncation) for accessibility / search fallback.
     var coordCaptions: [String: String] = [:]
     var includedByKey: [String: Bool] = [:]
     var pendingExportByKey: [String: Bool] = [:]
     var pendingExportCount: Int = 0
+    /// Naming-order tags currently enabled for the coord strip (after drawer + hide-pinned).
+    var enabledAxisTags: [String] = []
+    /// Axis-set search focus, when the query is `wdth+wght`-style.
+    var searchAxisFocus: [String]?
+    /// Group id → pills shared across every instance in that group.
+    var groupSharedPills: [String: [InstanceCoordPill]] = [:]
+    /// Instance key → pills that vary within the group (enabled − shared, search-narrowed).
+    var rowPills: [String: [InstanceCoordPill]] = [:]
+    /// Widest formatted value length among visible pills — sizes fixed mono chips.
+    var coordValueMaxCharacters: Int = 3
 }
 
 struct AxisTreeFocusRequest: Equatable {
@@ -116,6 +136,10 @@ final class EditorViewModel: ObservableObject {
     @Published var busyProgress: Double?
     @Published var busyStatus: String?
     @Published var instanceListDisplay = InstanceListDisplay.empty
+    /// Synced from Instances panel AppStorage — tags turned off in the Axes drawer.
+    var instanceListDisabledAxisTags: Set<String> = []
+    /// Synced from Naming Order “Hide pinned” (`namingChainHideStatOnly`).
+    var instanceListHidePinnedAxes: Bool = true
     @Published var pendingExportInstanceKeys: Set<String> = []
     @Published var canSave = false
     /// Format 4 candidates from fvar seeding — propose, don't auto-create.

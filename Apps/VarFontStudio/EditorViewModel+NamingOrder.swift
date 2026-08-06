@@ -310,14 +310,74 @@ extension EditorViewModel {
         pendingExportByKey.reserveCapacity(instancePlan.instances.count)
         for instance in instancePlan.instances {
             let pairs = coordCaptionPairs(for: instance)
-            captions[instance.key] = StudioFormatting.truncatingCoordCaption(pairs: pairs)
+            captions[instance.key] = pairs.joined(separator: " ")
             includedByKey[instance.key] = instance.included
             pendingExportByKey[instance.key] = pendingExportInstanceKeys.contains(instance.key)
         }
 
-        let rows = computeFilteredInstances(from: instancePlan.instances, coordCaptions: captions)
+        let displayNameByTag = Dictionary(
+            uniqueKeysWithValues: (selectedFont?.axes ?? []).compactMap { axis -> (String, String)? in
+                guard let name = axis.displayName, !name.isEmpty else { return nil }
+                return (axis.tag, name)
+            }
+        )
+        let parsedQuery = InstanceListSearch.parse(searchText, displayNameByTag: displayNameByTag)
+        let searchFocus = InstanceListSearch.axisFocus(for: parsedQuery)
+
+        let rows = computeFilteredInstances(
+            from: instancePlan.instances,
+            coordCaptions: captions,
+            parsedQuery: parsedQuery
+        )
         let shouldGroup = instancePlan.instances.count > 24
         let groups = computeGroupedInstances(from: rows, shouldGroup: shouldGroup)
+
+        let enabledTags = computeInstanceListEnabledAxisTags()
+        var groupSharedPills: [String: [InstanceCoordPill]] = [:]
+        var rowPills: [String: [InstanceCoordPill]] = [:]
+        var maxValueChars = 1
+
+        for group in groups {
+            // Shared-axis lift only applies when a section header is visible.
+            let sharedTags: [String]
+            if group.label.isEmpty {
+                sharedTags = []
+            } else {
+                sharedTags = InstanceCoordPresentation.groupSharedAxes(
+                    instances: group.instances,
+                    enabledTags: enabledTags
+                )
+            }
+            let focusedShared = searchFocus.map { focus in
+                let focusSet = Set(focus)
+                return sharedTags.filter { focusSet.contains($0) }
+            } ?? sharedTags
+
+            if !sharedTags.isEmpty, let sample = group.instances.first {
+                let shared = focusedShared.compactMap { tag -> InstanceCoordPill? in
+                    guard let value = sample.coords[tag] else { return nil }
+                    let formatted = Self.formatCoordValue(value)
+                    maxValueChars = max(maxValueChars, formatted.count)
+                    return InstanceCoordPill(tag: tag, value: value, formatted: formatted)
+                }
+                groupSharedPills[group.id] = shared
+            }
+
+            let tagsForRow = InstanceCoordPresentation.rowAxisTags(
+                enabledTags: enabledTags,
+                sharedTags: sharedTags,
+                searchFocus: searchFocus
+            )
+            for instance in group.instances {
+                let pills = tagsForRow.compactMap { tag -> InstanceCoordPill? in
+                    guard let value = instance.coords[tag] else { return nil }
+                    let formatted = Self.formatCoordValue(value)
+                    maxValueChars = max(maxValueChars, formatted.count)
+                    return InstanceCoordPill(tag: tag, value: value, formatted: formatted)
+                }
+                rowPills[instance.key] = pills
+            }
+        }
 
         instanceListDisplay = InstanceListDisplay(
             groups: groups,
@@ -332,13 +392,45 @@ extension EditorViewModel {
             coordCaptions: captions,
             includedByKey: includedByKey,
             pendingExportByKey: pendingExportByKey,
-            pendingExportCount: pendingExportInstanceKeys.count
+            pendingExportCount: pendingExportInstanceKeys.count,
+            enabledAxisTags: enabledTags,
+            searchAxisFocus: searchFocus,
+            groupSharedPills: groupSharedPills,
+            rowPills: rowPills,
+            coordValueMaxCharacters: maxValueChars
         )
+    }
+
+    /// Naming-order axes shown on the coord strip after drawer disables + hide-pinned.
+    func computeInstanceListEnabledAxisTags() -> [String] {
+        guard let font = selectedFont else { return [] }
+        let order = project?.naming.order ?? font.axes.map(\.tag)
+        let axisByTag = Dictionary(uniqueKeysWithValues: font.axes.map { ($0.tag, $0) })
+        let disabled = instanceListDisabledAxisTags
+        let hidePinned = instanceListHidePinnedAxes
+        return order.filter { tag in
+            guard let axis = axisByTag[tag] else { return false }
+            if disabled.contains(tag) { return false }
+            if hidePinned, axis.isDesignRecordOnly { return false }
+            return true
+        }
+    }
+
+    /// Apply Instances-panel axis presentation prefs and rebuild the list display.
+    func setInstanceListAxisPresentation(disabledTags: Set<String>, hidePinnedAxes: Bool) {
+        let normalizedDisabled = disabledTags
+        let hidePinned = hidePinnedAxes
+        guard normalizedDisabled != instanceListDisabledAxisTags
+            || hidePinned != instanceListHidePinnedAxes else { return }
+        instanceListDisabledAxisTags = normalizedDisabled
+        instanceListHidePinnedAxes = hidePinned
+        refreshInstanceListDisplay()
     }
 
     private func computeFilteredInstances(
         from rows: [PlannedInstance],
-        coordCaptions: [String: String]
+        coordCaptions: [String: String],
+        parsedQuery: InstanceListSearch.Query?
     ) -> [PlannedInstance] {
         var filtered = rows
 
@@ -361,12 +453,13 @@ extension EditorViewModel {
             }
         }
 
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !query.isEmpty {
+        if let parsedQuery {
             filtered = filtered.filter { instance in
-                instance.composedName.localizedCaseInsensitiveContains(query)
-                    || instance.key.localizedCaseInsensitiveContains(query)
-                    || (coordCaptions[instance.key]?.localizedCaseInsensitiveContains(query) ?? false)
+                InstanceListSearch.matches(
+                    instance,
+                    query: parsedQuery,
+                    coordCaption: coordCaptions[instance.key]
+                )
             }
         }
         return filtered
