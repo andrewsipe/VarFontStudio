@@ -191,6 +191,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontC
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/StatFormat3Pairing.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/VariableFilenameSlots.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/WindowsNameTableEditing.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Plan/WindowsNameValidation.swift
 
 # Sources/VarFontCore/Read/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Sources/VarFontCore/Read/FontAnalysisReader.swift
@@ -251,6 +252,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCor
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/RegistrationNamingTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/SaveReviewPresentationBuilderTests.swift
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/SchemaDecodeTests.swift
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tests/VarFontCoreTests/WindowsNameValidationTests.swift
 
 # Tools/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/Tools/reference_mapping_audit.py
