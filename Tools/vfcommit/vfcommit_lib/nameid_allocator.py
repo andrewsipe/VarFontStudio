@@ -434,7 +434,7 @@ class NameIDPlan:
     nameid_strategy: str = "preserve"
     ot_reflow_end: int = 255
     # Windows English (3,1,0x0409) low-ID patches. Empty string deletes that record.
-    # ID 25 is written via family_ps_prefix.
+    # ID 25 is written via family_ps_prefix unless windows_name_patches omits it.
     windows_name_patches: List[Dict[str, Any]] = field(default_factory=list)
 
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import VarFontCore
 
 /// Three-column workspace with native split dividers.
 struct StudioPanelSplitView: View {
@@ -6,6 +7,7 @@ struct StudioPanelSplitView: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @State private var namesHeaderMeta: NameTableHeaderMeta?
+    @State private var namesAnalysis: FontAnalysis?
 
     var body: some View {
         HSplitView {
@@ -104,6 +106,37 @@ struct StudioPanelSplitView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // The Names tab badge has to be right even while the Instances tab is showing,
+        // so the column reads the name table itself rather than waiting on the panel.
+        .task(id: editor.selectedFontID) { reloadNamesAnalysis() }
+        .onChange(of: editor.selectedFont?.sourcePath) { _, _ in reloadNamesAnalysis() }
+    }
+
+    private func reloadNamesAnalysis() {
+        guard let font = editor.selectedFont else {
+            namesAnalysis = nil
+            return
+        }
+        namesAnalysis = try? editor.analyzeSourceFont(fontID: font.id, sourcePath: font.sourcePath)
+    }
+
+    private var nameIssues: [WindowsNameValidation.Issue] {
+        guard let font = editor.selectedFont, let namesAnalysis else { return [] }
+        return WindowsNameValidation.issues(
+            windowsNameTable: namesAnalysis.windowsNameTable,
+            overrides: font.windowsNameOverrides,
+            removals: font.windowsNameRemovals,
+            familyPSPrefix: font.options.familyPSPrefix
+        )
+    }
+
+    private var namesTabHelp: String {
+        let issues = nameIssues
+        guard !issues.isEmpty else { return "Windows name table (IDs 0–25)" }
+        let required = issues.filter(\.isRequired).count
+        let noun = issues.count == 1 ? "name issue" : "name issues"
+        guard required > 0 else { return "\(issues.count) \(noun) to review" }
+        return "\(issues.count) \(noun) to review · \(required) required"
     }
 
     private var middlePanelTitle: String {
@@ -155,7 +188,9 @@ struct StudioPanelSplitView: View {
             StudioSegmentButton(
                 title: "Names",
                 isSelected: editor.inspectorFocus.middlePanelScope == .names,
-                expands: true
+                expands: true,
+                help: namesTabHelp,
+                showsWarning: !nameIssues.isEmpty
             ) {
                 editor.inspectorFocus.showNamesPanel()
             }

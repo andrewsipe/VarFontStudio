@@ -179,25 +179,34 @@ def _repoint_fvar_axis_names(font: TTFont, axis_name_ids: dict[str, int]) -> Non
 
 def _write_name_records(font: TTFont, axis_defs: List[AxisDef], plan: NameIDPlan) -> None:
     name_table = font["name"]
+    omit_name_id_25 = False
 
     for patch in plan.windows_name_patches or []:
         try:
             name_id = int(patch.get("name_id"))
         except (TypeError, ValueError):
             continue
-        if name_id < 0 or name_id > 25 or name_id == 15 or name_id == 25:
+        if name_id < 0 or name_id > 25 or name_id == 15:
             continue
         text = patch.get("string")
         if text is None:
             continue
         value = str(text)
+        if name_id == 25:
+            # Empty ID 25 patch means omit from export; family_ps_prefix stays for naming.
+            if value == "":
+                omit_name_id_25 = True
+                name_table.removeNames(
+                    nameID=25, platformID=3, platEncID=1, langID=0x0409
+                )
+            continue
         if value == "":
             name_table.removeNames(nameID=name_id, platformID=3, platEncID=1, langID=0x0409)
         else:
             name_table.setName(value, name_id, 3, 1, 0x0409)
 
     prefix = (plan.family_ps_prefix or "").strip()
-    if prefix:
+    if prefix and not omit_name_id_25:
         name_table.setName(prefix, 25, 3, 1, 0x0409)
 
     # Order matches allocation: DesignAxis → AxisValues → compounds → EFB → fvar (+ PS).

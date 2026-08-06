@@ -151,9 +151,13 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     public var compoundStatValues: [CompoundStatValue]
     /// STAT DesignAxisRecord tags captured at import (fvar parity checks).
     public var statDesignAxisTags: [String]
-    /// Windows (3,1,0x0409) edits for name IDs 0–24. Keys are decimal name IDs.
-    /// Empty string means delete that Windows record on save. ID 25 uses `options.familyPSPrefix`.
+    /// Windows (3,1,0x0409) edits for name IDs 0–25. Keys are decimal name IDs.
+    /// An empty value keeps the row on screen but writes no record on save.
     public var windowsNameOverrides: [String: String]
+    /// Name IDs the user removed outright. Distinct from an empty override so that
+    /// clearing a field to retype it does not make the row disappear.
+    /// ID 25 here omits the Variations PS Prefix from export without clearing `options.familyPSPrefix`.
+    public var windowsNameRemovals: [Int]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -173,6 +177,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         case compoundStatValues = "compound_stat_values"
         case statDesignAxisTags = "stat_design_axis_tags"
         case windowsNameOverrides = "windows_name_overrides"
+        case windowsNameRemovals = "windows_name_removals"
     }
 
     public init(
@@ -193,7 +198,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         dismissedPlanIssues: [String] = [],
         compoundStatValues: [CompoundStatValue] = [],
         statDesignAxisTags: [String] = [],
-        windowsNameOverrides: [String: String] = [:]
+        windowsNameOverrides: [String: String] = [:],
+        windowsNameRemovals: [Int] = []
     ) {
         self.id = id
         self.sourcePath = sourcePath
@@ -213,6 +219,7 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         self.compoundStatValues = compoundStatValues
         self.statDesignAxisTags = statDesignAxisTags
         self.windowsNameOverrides = windowsNameOverrides
+        self.windowsNameRemovals = windowsNameRemovals
     }
 
     public init(from decoder: Decoder) throws {
@@ -235,6 +242,15 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         compoundStatValues = try c.decodeIfPresent([CompoundStatValue].self, forKey: .compoundStatValues) ?? []
         statDesignAxisTags = try c.decodeIfPresent([String].self, forKey: .statDesignAxisTags) ?? []
         windowsNameOverrides = try c.decodeIfPresent([String: String].self, forKey: .windowsNameOverrides) ?? [:]
+        if let removals = try c.decodeIfPresent([Int].self, forKey: .windowsNameRemovals) {
+            windowsNameRemovals = removals
+        } else {
+            // Documents written before removals were tracked encoded "remove this ID"
+            // as an empty override; keep those rows removed rather than resurrecting them.
+            windowsNameRemovals = windowsNameOverrides
+                .compactMap { $1.isEmpty ? Int($0) : nil }
+                .sorted()
+        }
     }
 }
 

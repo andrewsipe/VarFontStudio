@@ -232,6 +232,7 @@ final class WindowsNameTableEditingTests: XCTestCase {
         let rows = WindowsNameTableEditing.populatedRows(
             windowsNameTable: analysis,
             overrides: ["1": "New Family"],
+            removals: [],
             familyPSPrefix: "NewPrefix"
         )
         XCTAssertEqual(rows.first(where: { $0.nameID == 1 })?.value, "New Family")
@@ -251,7 +252,8 @@ final class WindowsNameTableEditingTests: XCTestCase {
                 "6": "Family-VariableVF",
                 "16": "",
                 "4": "Family Variable",
-            ]
+            ],
+            removals: []
         )
         XCTAssertEqual(patches.map(\.nameID), [4, 6])
         XCTAssertEqual(patches.first(where: { $0.nameID == 6 })?.string, "Family-VariableVF")
@@ -262,7 +264,8 @@ final class WindowsNameTableEditingTests: XCTestCase {
         let analysis = [WindowsNameRecord(nameID: 16, string: "Family Variable")]
         let patches = WindowsNameTableEditing.commitPatches(
             windowsNameTable: analysis,
-            overrides: ["16": ""]
+            overrides: ["16": ""],
+            removals: []
         )
         XCTAssertEqual(patches, [WindowsNameRecord(nameID: 16, string: "")])
     }
@@ -274,23 +277,126 @@ final class WindowsNameTableEditingTests: XCTestCase {
         XCTAssertTrue(WindowsNameTableEditing.canRevert(
             nameID: 1,
             windowsNameTable: analysis,
-            overrides: overrides
+            overrides: overrides,
+            removals: []
         ))
         // Added draft row that the file never had.
         XCTAssertTrue(WindowsNameTableEditing.canRevert(
             nameID: 13,
             windowsNameTable: analysis,
-            overrides: overrides
+            overrides: overrides,
+            removals: []
         ))
         // No override recorded at all.
         XCTAssertFalse(WindowsNameTableEditing.canRevert(
             nameID: 6,
             windowsNameTable: analysis,
-            overrides: overrides
+            overrides: overrides,
+            removals: []
         ))
     }
 
-    func testCanRevertIsFalseWhenOverrideMatchesFileOrIsPSPrefix() {
+    func testRemovalHidesRowButKeepsDeletePatch() {
+        let analysis = [
+            WindowsNameRecord(nameID: 16, string: "Family Variable"),
+            WindowsNameRecord(nameID: 25, string: "Family"),
+        ]
+        let removals = [16, 25]
+        let rows = WindowsNameTableEditing.populatedRows(
+            windowsNameTable: analysis,
+            overrides: [:],
+            removals: removals,
+            familyPSPrefix: "Family"
+        )
+        XCTAssertNil(rows.first(where: { $0.nameID == 16 }))
+        XCTAssertNil(rows.first(where: { $0.nameID == 25 }))
+
+        let missing = WindowsNameTableEditing.missingNameIDs(
+            windowsNameTable: analysis,
+            overrides: [:],
+            removals: removals,
+            familyPSPrefix: "Family"
+        )
+        XCTAssertTrue(missing.contains(16))
+        XCTAssertTrue(missing.contains(25))
+
+        let patches = WindowsNameTableEditing.commitPatches(
+            windowsNameTable: analysis,
+            overrides: [:],
+            removals: removals
+        )
+        XCTAssertEqual(patches, [
+            WindowsNameRecord(nameID: 16, string: ""),
+            WindowsNameRecord(nameID: 25, string: ""),
+        ])
+    }
+
+    /// Clearing a field is an edit, not a removal: the row has to stay so the user can
+    /// retype, even though an empty value still writes no record.
+    func testClearedValueKeepsRowAndStillDeletesOnSave() {
+        let analysis = [WindowsNameRecord(nameID: 16, string: "Family Variable")]
+        let rows = WindowsNameTableEditing.populatedRows(
+            windowsNameTable: analysis,
+            overrides: ["16": ""],
+            removals: [],
+            familyPSPrefix: nil
+        )
+        XCTAssertEqual(rows.first(where: { $0.nameID == 16 })?.value, "")
+        XCTAssertFalse(WindowsNameTableEditing.isPendingRemoval(nameID: 16, removals: []))
+        XCTAssertTrue(WindowsNameTableEditing.canRevert(
+            nameID: 16,
+            windowsNameTable: analysis,
+            overrides: ["16": ""],
+            removals: []
+        ))
+        XCTAssertEqual(
+            WindowsNameTableEditing.commitPatches(
+                windowsNameTable: analysis,
+                overrides: ["16": ""],
+                removals: []
+            ),
+            [WindowsNameRecord(nameID: 16, string: "")]
+        )
+    }
+
+    /// A removal wins over whatever draft text was in the field, and only emits one patch.
+    func testRemovalSupersedesLeftoverOverride() {
+        let analysis = [WindowsNameRecord(nameID: 16, string: "Family Variable")]
+        let patches = WindowsNameTableEditing.commitPatches(
+            windowsNameTable: analysis,
+            overrides: ["16": "Draft"],
+            removals: [16]
+        )
+        XCTAssertEqual(patches, [WindowsNameRecord(nameID: 16, string: "")])
+    }
+
+    /// Removing an ID the file never had leaves nothing to delete.
+    func testRemovingDraftOnlyIDEmitsNoPatch() {
+        let patches = WindowsNameTableEditing.commitPatches(
+            windowsNameTable: [WindowsNameRecord(nameID: 1, string: "Family")],
+            overrides: [:],
+            removals: [13]
+        )
+        XCTAssertTrue(patches.isEmpty)
+    }
+
+    func testProtectedIDsCannotBeRemoved() {
+        for nameID in [1, 2, 4, 6] {
+            XCTAssertFalse(WindowsNameTableEditing.canRemove(nameID: nameID))
+        }
+        XCTAssertTrue(WindowsNameTableEditing.canRemove(nameID: 3))
+        XCTAssertTrue(WindowsNameTableEditing.canRemove(nameID: 25))
+        XCTAssertTrue(WindowsNameTableEditing.isRemovalDiscouraged(nameID: 16))
+        XCTAssertFalse(WindowsNameTableEditing.isRemovalDiscouraged(nameID: 8))
+        XCTAssertTrue(
+            WindowsNameTableEditing.removeHelp(nameID: 3).contains("Not recommended")
+        )
+        XCTAssertTrue(
+            WindowsNameTableEditing.removeHelp(nameID: 25).contains("PostScript prefix")
+        )
+    }
+
+    func testCanRevertIsFalseWhenOverrideMatchesFile() {
         let analysis = [
             WindowsNameRecord(nameID: 1, string: "Family"),
             WindowsNameRecord(nameID: 25, string: "Family"),
@@ -298,12 +404,15 @@ final class WindowsNameTableEditingTests: XCTestCase {
         XCTAssertFalse(WindowsNameTableEditing.canRevert(
             nameID: 1,
             windowsNameTable: analysis,
-            overrides: ["1": "Family"]
+            overrides: ["1": "Family"],
+            removals: []
         ))
+        // Removed rows are off the list entirely — Add ID restores them, not revert.
         XCTAssertFalse(WindowsNameTableEditing.canRevert(
             nameID: 25,
             windowsNameTable: analysis,
-            overrides: ["25": "Other"]
+            overrides: [:],
+            removals: [25]
         ))
     }
 
@@ -311,6 +420,7 @@ final class WindowsNameTableEditingTests: XCTestCase {
         let missing = WindowsNameTableEditing.missingNameIDs(
             windowsNameTable: [WindowsNameRecord(nameID: 1, string: "A")],
             overrides: ["6": "A-Variable"],
+            removals: [],
             familyPSPrefix: "A"
         )
         XCTAssertFalse(missing.contains(1))

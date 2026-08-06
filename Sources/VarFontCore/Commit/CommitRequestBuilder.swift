@@ -27,7 +27,8 @@ public enum CommitRequestBuilder {
             statDesignAxisTags: resolvedDesignAxisTags(for: font),
             windowsNamePatches: WindowsNameTableEditing.commitPatches(
                 windowsNameTable: windowsNameTable,
-                overrides: font.windowsNameOverrides
+                overrides: font.windowsNameOverrides,
+                removals: font.windowsNameRemovals
             )
         )
     }

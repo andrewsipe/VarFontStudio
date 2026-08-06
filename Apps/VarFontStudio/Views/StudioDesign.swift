@@ -3580,16 +3580,26 @@ struct StudioSegmentButton: View {
     var expands: Bool = false
     var font: Font = StudioTypography.meta
     var help: String = ""
+    /// Marks the segment when its panel holds unresolved issues, so the user does not
+    /// have to open the tab to find out.
+    var showsWarning: Bool = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(font.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? StudioColors.brand : Color.primary.opacity(0.78))
-                .frame(maxWidth: expands ? .infinity : nil)
-                .padding(.horizontal, expands ? 0 : StudioSpacing.panelHorizontal)
-                .padding(.vertical, expands ? StudioSpacing.panelVertical : StudioSpacing.tightGap)
+            HStack(spacing: StudioSpace.x1) {
+                Text(title)
+                    .font(font.weight(isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? StudioColors.brand : Color.primary.opacity(0.78))
+                if showsWarning {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(StudioColors.warningForeground)
+                }
+            }
+            .frame(maxWidth: expands ? .infinity : nil)
+            .padding(.horizontal, expands ? 0 : StudioSpacing.panelHorizontal)
+            .padding(.vertical, expands ? StudioSpacing.panelVertical : StudioSpacing.tightGap)
         }
         .buttonStyle(StudioSegmentButtonStyle(isSelected: isSelected, expands: expands))
         .help(help)

@@ -513,55 +513,98 @@ public enum SaveReviewPresentationBuilder {
     let populated = WindowsNameTableEditing.populatedRows(
       windowsNameTable: analysis.windowsNameTable,
       overrides: font.windowsNameOverrides,
+      removals: font.windowsNameRemovals,
       familyPSPrefix: font.options.familyPSPrefix
     )
+    let patches = WindowsNameTableEditing.commitPatches(
+      windowsNameTable: analysis.windowsNameTable,
+      overrides: font.windowsNameOverrides,
+      removals: font.windowsNameRemovals
+    )
 
-    return populated.map { row in
-      let before = analysisByID[row.nameID]
-      let after = row.value
-      let category: SaveReviewDisplayCategory
-      if after.isEmpty {
-        category = before == nil ? .same : .removed
-      } else if before == nil {
-        category = .added
-      } else if before != after {
-        category = .renamed
-      } else {
-        category = .same
-      }
-      let afterValue: String? = after.isEmpty ? nil : SaveReviewRowFormatter.quoted(after)
-      let wasLine: String? = {
-        if category == .removed, let before {
-          return "was \(SaveReviewRowFormatter.quoted(before))"
-        }
-        if category == .renamed, let before {
-          return "was \(SaveReviewRowFormatter.quoted(before))"
-        }
-        return nil
-      }()
-      let fieldTitle = row.label
-      let fieldSubtitle = ""
-      return SaveReviewRowPresentation(
-        id: "name:windows:\(row.nameID)",
+    var presentations: [SaveReviewRowPresentation] = populated.map { row in
+      makeWindowsNameRow(
         nameID: row.nameID,
-        fieldTitle: fieldTitle,
-        fieldSubtitle: fieldSubtitle,
-        afterValue: afterValue,
-        wasLine: wasLine,
-        noteLine: row.nameID == 25 ? "≡ File naming PS prefix" : nil,
-        roleLabel: "windows_name",
-        category: category,
-        searchText: SaveReviewRowFormatter.searchText(
-          nameID: row.nameID,
-          fieldTitle: fieldTitle,
-          fieldSubtitle: fieldSubtitle,
-          afterValue: afterValue,
-          wasLine: wasLine,
-          noteLine: row.nameID == 25 ? "PS prefix" : nil,
-          roleLabel: "windows_name"
+        label: row.label,
+        before: analysisByID[row.nameID],
+        after: row.value,
+        linkedToPSPrefix: row.nameID == 25
+      )
+    }
+
+    // Pending removals are hidden from the Names panel but still need a save-review row.
+    let populatedIDs = Set(populated.map(\.nameID))
+    for patch in patches where patch.string.isEmpty && !populatedIDs.contains(patch.nameID) {
+      let before = analysisByID[patch.nameID]
+      // ID 25 may be omitted even when analysis lacked it (prefix-only write would have added it).
+      if before == nil, patch.nameID != 25 { continue }
+      presentations.append(
+        makeWindowsNameRow(
+          nameID: patch.nameID,
+          label: OpenTypeNameTable.standardNameLabel(for: patch.nameID) ?? "nameID \(patch.nameID)",
+          before: before ?? (patch.nameID == 25 ? font.options.familyPSPrefix : nil),
+          after: "",
+          linkedToPSPrefix: patch.nameID == 25
         )
       )
     }
+
+    return presentations.sorted { $0.nameID ?? 0 < $1.nameID ?? 0 }
+  }
+
+  private static func makeWindowsNameRow(
+    nameID: Int,
+    label: String,
+    before: String?,
+    after: String,
+    linkedToPSPrefix: Bool
+  ) -> SaveReviewRowPresentation {
+    let category: SaveReviewDisplayCategory
+    if after.isEmpty {
+      category = before == nil ? .same : .removed
+    } else if before == nil {
+      category = .added
+    } else if before != after {
+      category = .renamed
+    } else {
+      category = .same
+    }
+    let afterValue: String? = after.isEmpty ? nil : SaveReviewRowFormatter.quoted(after)
+    let wasLine: String? = {
+      if category == .removed, let before {
+        return "was \(SaveReviewRowFormatter.quoted(before))"
+      }
+      if category == .renamed, let before {
+        return "was \(SaveReviewRowFormatter.quoted(before))"
+      }
+      return nil
+    }()
+    let noteLine: String? = {
+      if nameID == 25, category == .removed {
+        return "Omitted from export · app PS prefix kept"
+      }
+      return linkedToPSPrefix ? "≡ File naming PS prefix" : nil
+    }()
+    return SaveReviewRowPresentation(
+      id: "name:windows:\(nameID)",
+      nameID: nameID,
+      fieldTitle: label,
+      fieldSubtitle: "",
+      afterValue: afterValue,
+      wasLine: wasLine,
+      noteLine: noteLine,
+      roleLabel: "windows_name",
+      category: category,
+      searchText: SaveReviewRowFormatter.searchText(
+        nameID: nameID,
+        fieldTitle: label,
+        fieldSubtitle: "",
+        afterValue: afterValue,
+        wasLine: wasLine,
+        noteLine: noteLine,
+        roleLabel: "windows_name"
+      )
+    )
   }
 
   private static func makeNameRow(

@@ -18,8 +18,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
     public var statDesignAxisTags: [String]
     public var originalSourcePath: String?
     public var allowInPlace: Bool
-    /// Windows English (3,1,0x0409) patches for name IDs 0–24. Empty `string` deletes that record.
-    /// ID 25 is written via `options.familyPSPrefix`.
+    /// Windows English name patches (IDs 0–24, plus ID 25 omit). Empty `string` deletes/omits that record.
+    /// Non-empty ID 25 values are still written via `options.familyPSPrefix`.
     public var windowsNamePatches: [WindowsNameRecord]
 
     enum CodingKeys: String, CodingKey {

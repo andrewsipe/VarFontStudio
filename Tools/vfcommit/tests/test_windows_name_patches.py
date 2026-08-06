@@ -71,3 +71,23 @@ class WindowsNamePatchTests(unittest.TestCase):
         self.assertTrue(result.get("ok"), result.get("errors"))
         patches = result.get("diff", {}).get("windows_name_patches") or []
         self.assertTrue(any(p.get("name_id") == 6 for p in patches))
+
+    def test_omit_name_id_25_keeps_family_ps_prefix_unused_for_name_table(self) -> None:
+        request = self._base_request()
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "PlayfairRomanVF-omit25.woff2"
+            request["output_path"] = str(output)
+            request["dry_run"] = False
+            request.setdefault("options", {})
+            request["options"]["family_ps_prefix"] = "PlayfairDisplay"
+            request["windows_name_patches"] = [
+                {"name_id": 25, "string": ""},
+            ]
+
+            result = run_commit(request)
+            self.assertTrue(result.get("ok"), result.get("errors"))
+
+            font = TTFont(str(output))
+            self.assertIsNone(font["name"].getName(25, 3, 1, 0x409))
+            # Request kept the naming prefix even though ID 25 was omitted from the font.
+            self.assertEqual(request["options"]["family_ps_prefix"], "PlayfairDisplay")
