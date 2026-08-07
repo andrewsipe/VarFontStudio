@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Instance coords · v4</title>
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --bg-editor: #252526;
+      --fill-2: #3c3c3c;
+      --fill-3: #2d2d2d;
+      --fill-4: #333333;
+      --stroke-1: #6e6e6e;
+      --stroke-2: #505050;
+      --stroke-3: #3e3e3e;
+      --text-1: #e8e8e8;
+      --text-2: #b0b0b0;
+      --text-3: #8a8a8a;
+      --text-4: #666;
+      --accent: #0a84ff;
+      --on-accent: #fff;
+      --mint: #00c7be;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-1);
+      line-height: 1.4;
+    }
+    #root { max-width: 920px; margin: 0 auto; padding: 28px 24px 64px; }
+    h1 { font-size: 22px; font-weight: 650; margin: 0; }
+    h2 { font-size: 15px; font-weight: 650; margin: 0; }
+    h3 { font-size: 13px; font-weight: 650; margin: 0; }
+    button {
+      font: inherit;
+      cursor: pointer;
+    }
+    button:disabled { cursor: not-allowed; }
+    input[type="text"] {
+      font: inherit;
+      width: 100%;
+    }
+    .stack { display: flex; flex-direction: column; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; }
+    .divider { height: 1px; background: var(--stroke-2); border: 0; margin: 4px 0; }
+    .callout {
+      border-radius: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--stroke-2);
+      background: var(--fill-4);
+    }
+    .callout.info { border-color: color-mix(in srgb, var(--accent) 40%, var(--stroke-2)); }
+    .callout .title { font-size: 12px; font-weight: 650; margin-bottom: 4px; }
+    .callout .body { font-size: 12px; color: var(--text-2); }
+    .mode-btn {
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--stroke-2);
+      background: var(--fill-3);
+      color: var(--text-2);
+    }
+    .mode-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--on-accent);
+      font-weight: 600;
+    }
+    .toggle-btn {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--text-2);
+    }
+    .toggle-btn.active {
+      background: var(--fill-2);
+      color: var(--text-1);
+      font-weight: 600;
+    }
+    .switch {
+      appearance: none;
+      width: 32px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--fill-2);
+      position: relative;
+      border: none;
+      padding: 0;
+      vertical-align: middle;
+    }
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.12s ease;
+    }
+    .switch.on { background: var(--accent); }
+    .switch.on::after { transform: translateX(14px); }
+    .muted { color: var(--text-2); }
+    .tertiary { color: var(--text-3); font-size: 12px; }
+    .small { font-size: 12px; }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.5/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+const { useState } = React;
+
+const theme = {
+  bg: { editor: "var(--bg-editor)" },
+  fill: {
+    secondary: "var(--fill-2)",
+    tertiary: "var(--fill-3)",
+    quaternary: "var(--fill-4)",
+  },
+  stroke: {
+    primary: "var(--stroke-1)",
+    secondary: "var(--stroke-2)",
+    tertiary: "var(--stroke-3)",
+  },
+  text: {
+    primary: "var(--text-1)",
+    secondary: "var(--text-2)",
+    tertiary: "var(--text-3)",
+    quaternary: "var(--text-4)",
+    onAccent: "var(--on-accent)",
+  },
+  accent: { primary: "var(--accent)" },
+};
+
+const AXIS_DEFS = [
+  { tag: "opsz", role: "naming", aliases: ["optical", "opticalsize", "size"] },
+  { tag: "wght", role: "naming", aliases: ["weight"] },
+  { tag: "wdth", role: "naming", aliases: ["width"] },
+  { tag: "slnt", role: "naming", aliases: ["slant"] },
+  { tag: "ital", role: "naming", aliases: ["italic"] },
+  { tag: "GRAD", role: "pinned", aliases: ["grade"] },
+  { tag: "SOFT", role: "pinned", aliases: ["softness"] },
+  { tag: "WONK", role: "naming", aliases: ["wonk"] },
+  { tag: "XTRA", role: "pinned", aliases: ["xtransparent"] },
+  { tag: "YTUC", role: "pinned", aliases: ["ytuc"] },
+];
+
+const LONG = {
+  opsz: 14.25,
+  wght: 1000,
+  wdth: 125.5,
+  slnt: -14.99,
+  ital: 1,
+  GRAD: -200,
+  SOFT: 100,
+  WONK: 0.875,
+  XTRA: 468,
+  YTUC: 750.25,
+};
+
+const PILL = {
+  tagCh: 4,
+  padX: 6,
+  gap: 4,
+  fontPx: 10,
+  radius: 5,
+  chPx: 6.1,
+  stripGap: 4,
+};
+
+function point(tag, value) {
+  return { tag, value };
+}
+
+function pillWidthPx(valueCh) {
+  return PILL.padX * 2 + PILL.tagCh * PILL.chPx + PILL.gap + valueCh * PILL.chPx;
+}
+
+function pillBudget(availPx, valueCh) {
+  const one = pillWidthPx(valueCh);
+  if (availPx < one) return 0;
+  return Math.max(1, Math.floor((availPx + PILL.stripGap) / (one + PILL.stripGap)));
+}
+
+function densityRows() {
+  const mk = (name, chainTokens, pending, wght, slnt, wonk) => ({
+    name,
+    chainTokens,
+    pending,
+    axes: AXIS_DEFS.map((a) => {
+      if (a.tag === "wght") return point(a.tag, wght);
+      if (a.tag === "slnt") return point(a.tag, slnt);
+      if (a.tag === "ital") return point(a.tag, slnt < 0 ? 1 : 0);
+      if (a.tag === "WONK") return point(a.tag, wonk);
+      return point(a.tag, LONG[a.tag]);
+    }),
+  });
+  return [
+    mk("8pt Thin", ["8pt", "Thin"], true, 100, 0, 0.125),
+    mk("8pt Thin Italic", ["8pt", "Thin", "Italic"], true, 100, -14.99, 0.125),
+    mk("8pt ExtraLight", ["8pt", "ExtraLight"], true, 200, 0, 0.5),
+    mk("8pt ExtraLight Italic", ["8pt", "ExtraLight", "Italic"], true, 200, -14.99, 0.5),
+    mk("8pt Light", ["8pt", "Light"], true, 300, 0, 0.875),
+    mk("8pt Light Italic", ["8pt", "Light", "Italic"], true, 300, -14.99, 0.875),
+    mk("8pt", ["8pt", "Regular"], false, 400, 0, 0.125),
+    mk("8pt Italic", ["8pt", "Regular", "Italic"], false, 400, -14.99, 0.125),
+    mk("8pt Medium", ["8pt", "Medium"], true, 500, 0, 0.5),
+    mk("8pt Medium Italic", ["8pt", "Medium", "Italic"], true, 500, -14.99, 0.5),
+  ];
+}
+
+function varyingTags(rows, tags) {
+  const out = new Set();
+  const first = rows[0];
+  if (!first) return out;
+  for (const tag of tags) {
+    const values = new Set(rows.map((r) => r.axes.find((a) => a.tag === tag)?.value));
+    if (values.size > 1) out.add(tag);
+  }
+  return out;
+}
+
+function sharedPoints(rows, tags) {
+  const first = rows[0];
+  if (!first) return [];
+  return tags
+    .map((tag) => first.axes.find((a) => a.tag === tag))
+    .filter((a) => {
+      if (!a) return false;
+      const values = new Set(rows.map((r) => r.axes.find((x) => x.tag === a.tag)?.value));
+      return values.size === 1;
+    });
+}
+
+function maxValueWidthCh(points) {
+  let max = 3;
+  for (const a of points) max = Math.max(max, String(a.value).length);
+  return max;
+}
+
+function resolveAxisToken(token) {
+  const t = token.trim().toLowerCase();
+  if (!t) return null;
+  for (const def of AXIS_DEFS) {
+    if (def.tag.toLowerCase() === t) return def.tag;
+    if (def.aliases.some((a) => a === t)) return def.tag;
+  }
+  return null;
+}
+
+function parseSearch(query) {
+  const q = query.trim();
+  if (!q) return { axisSet: null, tagEquals: null, text: null };
+
+  if (q.includes("+") && !q.includes("=")) {
+    const parts = q.split("+").map((p) => resolveAxisToken(p));
+    if (parts.every((p) => p != null)) {
+      return { axisSet: parts, tagEquals: null, text: null };
+    }
+  }
+
+  const eqParts = q.split(/\s+/);
+  const parsed = [];
+  let allEq = true;
+  for (const part of eqParts) {
+    const m = part.match(/^([A-Za-z]+)=(-?[\d.]+)$/);
+    if (!m) {
+      allEq = false;
+      break;
+    }
+    const tag = resolveAxisToken(m[1]);
+    if (!tag) {
+      allEq = false;
+      break;
+    }
+    parsed.push({ tag, value: m[2] });
+  }
+  if (allEq && parsed.length > 0) {
+    return { axisSet: null, tagEquals: parsed, text: null };
+  }
+
+  return { axisSet: null, tagEquals: null, text: q };
+}
+
+function ModeButton({ active, label, onClick }) {
+  return (
+    <button type="button" className={"mode-btn" + (active ? " active" : "")} onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
+function ToggleButton({ active, label, onClick }) {
+  return (
+    <button type="button" className={"toggle-btn" + (active ? " active" : "")} onClick={onClick}>
+      {label}
+    </button>
+  );
+}
+
+function Switch({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      className={"switch" + (checked ? " on" : "")}
+      aria-pressed={checked}
+      onClick={() => onChange(!checked)}
+    />
+  );
+}
+
+function Callout({ tone, title, children }) {
+  return (
+    <div className={"callout" + (tone === "info" ? " info" : "")}>
+      <div className="title">{title}</div>
+      <div className="body">{children}</div>
+    </div>
+  );
+}
+
+function WatchItem({ title, children }) {
+  return (
+    <div className="small" style={{ marginBottom: 4 }}>
+      <strong>{title}</strong>
+      <span className="muted"> — {children}</span>
+    </div>
+  );
+}
+
+function CheckboxMark() {
+  return (
+    <div
+      style={{
+        width: 14,
+        height: 14,
+        borderRadius: 3,
+        background: theme.accent.primary,
+        color: theme.text.onAccent,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 10,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      ✓
+    </div>
+  );
+}
+
+function AxisPill({ tag, value, valueCh, muted = false }) {
+  const width = pillWidthPx(valueCh);
+  return (
+    <span
+      style={{
+        display: "inline-grid",
+        gridTemplateColumns: `${PILL.tagCh}ch ${valueCh}ch`,
+        columnGap: PILL.gap,
+        alignItems: "baseline",
+        width,
+        boxSizing: "border-box",
+        padding: `2px ${PILL.padX}px`,
+        borderRadius: PILL.radius,
+        background: muted ? theme.fill.quaternary : theme.fill.tertiary,
+        fontFamily: "var(--mono)",
+        fontSize: PILL.fontPx,
+        lineHeight: 1.35,
+        whiteSpace: "nowrap",
+        opacity: muted ? 0.85 : 1,
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ color: theme.text.tertiary }}>{tag}</span>
+      <span
+        style={{
+          color: theme.text.primary,
+          fontWeight: 600,
+          textAlign: "right",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </span>
+    </span>
+  );
+}
+
+function PillStrip({ points, valueCh, overflow, budget, hovering, onHover, muted = false }) {
+  const useBudget = overflow === "budget";
+  const visible = useBudget ? points.slice(0, Math.max(0, budget)) : points;
+  const hidden = useBudget ? Math.max(0, points.length - visible.length) : 0;
+  const scrollable = overflow === "hoverScroll";
+
+  return (
+    <div
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        maxWidth: "100%",
+        overflowX: scrollable && hovering ? "auto" : "hidden",
+        overflowY: "hidden",
+        scrollbarWidth: scrollable && hovering ? "thin" : "none",
+      }}
+    >
+      <div style={{ display: "flex", gap: 4, width: "max-content" }}>
+        {visible.map((a) => (
+          <AxisPill key={a.tag} tag={a.tag} value={a.value} valueCh={valueCh} muted={muted} />
+        ))}
+      </div>
+      {hidden > 0 && (
+        <span
+          title={points
+            .slice(visible.length)
+            .map((a) => `${a.tag}=${a.value}`)
+            .join(" ")}
+          style={{
+            flexShrink: 0,
+            fontSize: 10,
+            fontWeight: 600,
+            fontFamily: "var(--mono)",
+            padding: "2px 6px",
+            borderRadius: 4,
+            background: theme.fill.secondary,
+            color: theme.text.secondary,
+            cursor: "default",
+          }}
+        >
+          +{hidden}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function AxisDrawer({ enabled, onToggle, hidePinned }) {
+  return (
+    <div
+      style={{
+        borderTop: `1px solid ${theme.stroke.secondary}`,
+        padding: "8px 10px",
+        background: theme.fill.quaternary,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
+        <span className="small" style={{ fontWeight: 650 }}>
+          Axes
+        </span>
+        <span style={{ flex: 1 }} />
+        <span className="tertiary">{hidePinned ? "Pinned hidden by Naming Order" : "All roles"}</span>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {AXIS_DEFS.map((a) => {
+          const on = enabled.includes(a.tag);
+          const dimmed = hidePinned && a.role === "pinned";
+          return (
+            <button
+              key={a.tag}
+              type="button"
+              disabled={dimmed}
+              onClick={() => onToggle(a.tag)}
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 10,
+                padding: "3px 7px",
+                borderRadius: 4,
+                border: `1px solid ${on && !dimmed ? theme.stroke.primary : theme.stroke.tertiary}`,
+                background: on && !dimmed ? theme.fill.secondary : "transparent",
+                color: dimmed ? theme.text.quaternary : theme.text.secondary,
+                textDecoration: dimmed ? "line-through" : "none",
+              }}
+            >
+              {a.tag}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GroupHeader({ label, count, shared, valueCh, overflow, budget, hovering, onHover }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 8px",
+        margin: 8,
+        background: theme.fill.tertiary,
+        borderRadius: 6,
+        minHeight: 28,
+      }}
+    >
+      <span style={{ fontSize: 11, fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: 11, color: theme.text.secondary }}>· {count}</span>
+      {shared.length > 0 && (
+        <>
+          <span style={{ flex: 1 }} />
+          <PillStrip
+            points={shared}
+            valueCh={valueCh}
+            overflow={overflow}
+            budget={budget}
+            hovering={hovering}
+            onHover={onHover}
+            muted
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function PrototypeRow({
+  row,
+  showNames,
+  showCoords,
+  rowTags,
+  valueCh,
+  pendingAsHighlight,
+  overflow,
+  budget,
+  hideElided,
+  hovering,
+  onHover,
+}) {
+  const pendingFill = "color-mix(in srgb, var(--mint) 16%, transparent)";
+  const both = showNames && showCoords;
+  const displayName = hideElided ? row.name : row.chainTokens.join(" ");
+  const points = rowTags.map((tag) => ({
+    tag,
+    value: row.axes.find((a) => a.tag === tag)?.value ?? 0,
+  }));
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "4px 8px",
+        borderTop: `1px solid ${theme.stroke.tertiary}`,
+        minHeight: 26,
+        background: row.pending && pendingAsHighlight ? pendingFill : "transparent",
+        borderRadius: 6,
+        margin: "0 4px",
+        overflow: "hidden",
+      }}
+    >
+      <CheckboxMark />
+      {showNames && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            minWidth: 0,
+            flex: both ? "1 1 0" : "1 1 auto",
+            overflow: "hidden",
+          }}
+        >
+          <span
+            style={{
+              color: theme.text.primary,
+              fontSize: 12,
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {displayName}
+          </span>
+        </div>
+      )}
+      {showCoords && (
+        <div
+          style={{
+            flex: both ? "0 1 auto" : "1 1 auto",
+            minWidth: 0,
+            display: "flex",
+            justifyContent: both ? "flex-end" : "flex-start",
+            overflow: "hidden",
+          }}
+        >
+          <PillStrip
+            points={points}
+            valueCh={valueCh}
+            overflow={overflow}
+            budget={budget}
+            hovering={hovering}
+            onHover={onHover}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterBarSketch({
+  width,
+  content,
+  onContent,
+  includeAll,
+  onIncludeAll,
+  hideElided,
+  onHideElided,
+  search,
+  onSearch,
+}) {
+  const namesOn = content === "both" || content === "names";
+  const coordsOn = content === "both" || content === "coords";
+
+  function toggleNames() {
+    if (namesOn && coordsOn) onContent("coords");
+    else if (!namesOn && coordsOn) onContent("both");
+  }
+  function toggleCoords() {
+    if (namesOn && coordsOn) onContent("names");
+    else if (namesOn && !coordsOn) onContent("both");
+  }
+
+  return (
+    <div
+      style={{
+        width,
+        maxWidth: "100%",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        padding: "8px 10px",
+        background: theme.fill.tertiary,
+        border: `1px solid ${theme.stroke.secondary}`,
+        borderRadius: 8,
+      }}
+    >
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => onSearch(e.target.value)}
+        placeholder="Search · wdth+wght · weight=400 · Regular"
+        style={{
+          fontSize: 11,
+          padding: "5px 8px",
+          borderRadius: 5,
+          border: `1px solid ${theme.stroke.tertiary}`,
+          background: theme.bg.editor,
+          color: theme.text.primary,
+        }}
+      />
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <CheckboxMark />
+        <ToggleButton active={includeAll} label="Include all" onClick={() => onIncludeAll(!includeAll)} />
+        <ToggleButton active={hideElided} label="Hide elided" onClick={() => onHideElided(!hideElided)} />
+        <span style={{ flex: 1, minWidth: 8 }} />
+        <div
+          style={{
+            display: "flex",
+            gap: 2,
+            padding: 2,
+            background: theme.bg.editor,
+            borderRadius: 6,
+            border: `1px solid ${theme.stroke.tertiary}`,
+          }}
+        >
+          <ToggleButton active={namesOn} label="Names" onClick={toggleNames} />
+          <ToggleButton active={coordsOn} label="Coords" onClick={toggleCoords} />
+        </div>
+        <ToggleButton active={false} label="Show · All ▾" onClick={() => undefined} />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [content, setContent] = useState("both");
+  const [overflow, setOverflow] = useState("budget");
+  const [hidePinned, setHidePinned] = useState(true);
+  const [sharedOnHeader, setSharedOnHeader] = useState(true);
+  const [pendingAsHighlight, setPendingAsHighlight] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [enabledAxes, setEnabledAxes] = useState(AXIS_DEFS.map((a) => a.tag));
+  const [search, setSearch] = useState("");
+  const [width, setWidth] = useState(320);
+  const [includeAll, setIncludeAll] = useState(true);
+  const [hideElided, setHideElided] = useState(true);
+  const [hoveringStrip, setHoveringStrip] = useState(null);
+
+  const rows = densityRows();
+  const visibleDefs = AXIS_DEFS.filter((a) => {
+    if (hidePinned && a.role === "pinned") return false;
+    return enabledAxes.includes(a.tag);
+  });
+  const visibleTags = visibleDefs.map((a) => a.tag);
+  const diffs = varyingTags(rows, visibleTags);
+  const headerShared = sharedOnHeader ? sharedPoints(rows, visibleTags) : [];
+  const headerSharedTags = new Set(headerShared.map((a) => a.tag));
+  const parsed = parseSearch(search);
+  const searchAxisFocus = parsed.axisSet;
+
+  let filteredRows = rows;
+  if (parsed.tagEquals) {
+    filteredRows = rows.filter((row) =>
+      parsed.tagEquals.every((pred) => {
+        const v = row.axes.find((a) => a.tag === pred.tag)?.value;
+        return v != null && String(v) === pred.value;
+      })
+    );
+  } else if (parsed.text) {
+    const q = parsed.text.toLowerCase();
+    filteredRows = rows.filter((row) => {
+      const composed = hideElided ? row.name : row.chainTokens.join(" ");
+      const caption = row.axes.map((a) => `${a.tag}=${a.value}`).join(" ");
+      const chainHit = row.chainTokens.some((t) => t.toLowerCase().includes(q));
+      return (
+        composed.toLowerCase().includes(q) ||
+        caption.toLowerCase().includes(q) ||
+        chainHit
+      );
+    });
+  }
+
+  const rowTags = visibleTags
+    .filter((t) => (sharedOnHeader ? diffs.has(t) : true))
+    .filter((t) => !headerSharedTags.has(t))
+    .filter((t) => (searchAxisFocus ? searchAxisFocus.includes(t) : true));
+
+  const headerPills = headerShared.filter((a) =>
+    searchAxisFocus ? searchAxisFocus.includes(a.tag) : true
+  );
+
+  const allPoints = [
+    ...filteredRows.flatMap((r) => r.axes.filter((a) => rowTags.includes(a.tag))),
+    ...headerPills,
+  ];
+  const valueCh = maxValueWidthCh(allPoints.length ? allPoints : [point("wght", 1000)]);
+
+  const showNames = content === "both" || content === "names";
+  const showCoords = content === "both" || content === "coords";
+  const rowPillTrackPx = showNames && showCoords ? Math.max(80, width * 0.42) : width - 40;
+  const headerPillTrackPx = Math.max(60, width - 100);
+  const rowBudget = pillBudget(rowPillTrackPx, valueCh);
+  const headerBudget = pillBudget(headerPillTrackPx, valueCh);
+
+  function toggleAxis(tag) {
+    setEnabledAxes((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  }
+
+  return (
+    <div className="stack" style={{ gap: 20 }}>
+      <div className="stack" style={{ gap: 6 }}>
+        <h1>Instance coords · v4</h1>
+        <p className="muted small" style={{ margin: 0 }}>
+          Width-based pill budget · hover-to-scroll overflow · bottom axis drawer · richer
+          search (axis sets, semantic tags, elided tokens). Standalone HTML export of the
+          Cursor canvas prototype.
+        </p>
+      </div>
+
+      <div className="stack" style={{ gap: 10 }}>
+        <h2>Overflow strategy</h2>
+        <div className="row" style={{ gap: 6 }}>
+          {[
+            ["clip", "Clip right"],
+            ["budget", "Width budget +N"],
+            ["hoverScroll", "Hover scroll"],
+          ].map(([id, label]) => (
+            <ModeButton
+              key={id}
+              active={overflow === id}
+              label={label}
+              onClick={() => setOverflow(id)}
+            />
+          ))}
+        </div>
+        <Callout
+          tone="info"
+          title={
+            overflow === "budget"
+              ? "Width budget"
+              : overflow === "hoverScroll"
+                ? "Hover scroll"
+                : "Clip"
+          }
+        >
+          {overflow === "budget" &&
+            `Show as many fixed pills as fit (~${rowBudget} on the row track, ~${headerBudget} on the header), then a +N affordance.`}
+          {overflow === "hoverScroll" &&
+            "Keep the full strip; overflow-x auto on hover so power users can scrub without a permanent scrollbar."}
+          {overflow === "clip" &&
+            "Hard clip at the right edge — simple, but no way to reach hidden axes without changing mode/filters."}
+        </Callout>
+      </div>
+
+      <div className="stack" style={{ gap: 10 }}>
+        <h2>Width & chrome</h2>
+        <div className="row" style={{ gap: 6 }}>
+          {[280, 320, 360, 440, 520].map((px) => (
+            <ModeButton key={px} active={width === px} label={`${px}`} onClick={() => setWidth(px)} />
+          ))}
+        </div>
+        <div className="row" style={{ gap: 6 }}>
+          {[
+            ["both", "Names + coords"],
+            ["names", "Names only"],
+            ["coords", "Coords only"],
+          ].map(([id, label]) => (
+            <ModeButton
+              key={id}
+              active={content === id}
+              label={label}
+              onClick={() => setContent(id)}
+            />
+          ))}
+        </div>
+        <div className="row" style={{ gap: 16 }}>
+          {[
+            ["Hide pinned", hidePinned, setHidePinned],
+            ["Shared → header", sharedOnHeader, setSharedOnHeader],
+            ["Pending mint", pendingAsHighlight, setPendingAsHighlight],
+            ["Axis drawer", drawerOpen, setDrawerOpen],
+          ].map(([label, checked, set]) => (
+            <div key={label} className="row" style={{ gap: 8 }}>
+              <span className="small muted">{label}</span>
+              <Switch checked={checked} onChange={set} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <hr className="divider" />
+
+      <div className="stack" style={{ gap: 8 }}>
+        <h3>Search · try these</h3>
+        <div className="row" style={{ gap: 6 }}>
+          {["", "wdth+wght+ital", "width+weight", "weight=400", "Regular", "wght=100"].map(
+            (sample) => (
+              <ModeButton
+                key={sample || "clear"}
+                active={search === sample}
+                label={sample || "Clear"}
+                onClick={() => setSearch(sample)}
+              />
+            )
+          )}
+        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="wdth+wght+ital · weight=400 · Regular · …"
+          style={{
+            fontSize: 12,
+            padding: "7px 10px",
+            borderRadius: 6,
+            border: `1px solid ${theme.stroke.tertiary}`,
+            background: theme.bg.editor,
+            color: theme.text.primary,
+          }}
+        />
+        <Callout tone="neutral" title="Today’s app search (gap)">
+          Substring on composed name, instance key, and tag=value captions only. No semantic
+          aliases (width), no a+b+c axis-set syntax, and elided STAT tokens (e.g. Regular)
+          aren’t matched when absent from the composed string.
+        </Callout>
+      </div>
+
+      <div className="stack" style={{ gap: 8 }}>
+        <h3>Filter bar</h3>
+        <FilterBarSketch
+          width={width}
+          content={content}
+          onContent={setContent}
+          includeAll={includeAll}
+          onIncludeAll={setIncludeAll}
+          hideElided={hideElided}
+          onHideElided={setHideElided}
+          search={search}
+          onSearch={setSearch}
+        />
+      </div>
+
+      <div className="stack" style={{ gap: 8 }}>
+        <h3>
+          List · {width}px · {filteredRows.length} rows
+          {searchAxisFocus ? ` · pills: ${searchAxisFocus.join("+")}` : ""}
+        </h3>
+        <div
+          style={{
+            width,
+            maxWidth: "100%",
+            background: theme.bg.editor,
+            border: `1px solid ${theme.stroke.secondary}`,
+            borderRadius: 8,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <GroupHeader
+            label="8pt"
+            count={filteredRows.length}
+            shared={showCoords ? headerPills : []}
+            valueCh={valueCh}
+            overflow={overflow}
+            budget={headerBudget}
+            hovering={hoveringStrip === "header"}
+            onHover={(h) => setHoveringStrip(h ? "header" : null)}
+          />
+          <div>
+            {filteredRows.map((row) => (
+              <PrototypeRow
+                key={row.name}
+                row={row}
+                showNames={showNames}
+                showCoords={showCoords}
+                rowTags={rowTags}
+                valueCh={valueCh}
+                pendingAsHighlight={pendingAsHighlight}
+                overflow={overflow}
+                budget={rowBudget}
+                hideElided={hideElided}
+                hovering={hoveringStrip === row.name}
+                onHover={(h) => setHoveringStrip(h ? row.name : null)}
+              />
+            ))}
+          </div>
+          {drawerOpen && (
+            <AxisDrawer enabled={enabledAxes} onToggle={toggleAxis} hidePinned={hidePinned} />
+          )}
+        </div>
+        <p className="tertiary" style={{ margin: 0 }}>
+          Row track ≈ {Math.round(rowPillTrackPx)}px → budget {rowBudget} pills · header track ≈{" "}
+          {Math.round(headerPillTrackPx)}px → budget {headerBudget}.
+        </p>
+      </div>
+
+      <hr className="divider" />
+
+      <div className="stack" style={{ gap: 8 }}>
+        <h2>Direction check</h2>
+        <WatchItem title="Budget +N">
+          Prefer over silent clip for the 10-axis case; +N can open the drawer or expand
+          hover-scroll.
+        </WatchItem>
+        <WatchItem title="Drawer">
+          Per-axis visibility without fighting the filter bar — pairs with Naming Order’s
+          hide-pinned as a preset.
+        </WatchItem>
+        <WatchItem title="Search as lens">
+          wdth+wght+ital both filters rows and narrows pills — same control for “what am I
+          looking at?”
+        </WatchItem>
+        <WatchItem title="Elided search">
+          Match against naming-chain tokens (and aliases), not only composedName.
+        </WatchItem>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

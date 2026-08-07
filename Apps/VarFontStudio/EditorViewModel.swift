@@ -77,6 +77,13 @@ struct InstanceListDisplay: Equatable {
     var rowPills: [String: [InstanceCoordPill]] = [:]
     /// Widest formatted value length among visible pills — sizes fixed mono chips.
     var coordValueMaxCharacters: Int = 3
+    /// Instance keys affected by an unresolved axis conflict, precomputed once per
+    /// refresh. Rows look this up in O(1) instead of each calling
+    /// `editor.instanceAffectedByUnresolvedConflict`, which used to recompute every
+    /// conflict bundle (bundler + symptom summaries) from scratch on every single row's
+    /// render — an O(rows × bundles) cost that's what turned "3000+ instances" into a
+    /// multi-second, high-memory scroll.
+    var conflictedInstanceKeys: Set<String> = []
 }
 
 struct AxisTreeFocusRequest: Equatable {

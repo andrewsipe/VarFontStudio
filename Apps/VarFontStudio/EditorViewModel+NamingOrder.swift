@@ -397,8 +397,37 @@ extension EditorViewModel {
             searchAxisFocus: searchFocus,
             groupSharedPills: groupSharedPills,
             rowPills: rowPills,
-            coordValueMaxCharacters: maxValueChars
+            coordValueMaxCharacters: maxValueChars,
+            conflictedInstanceKeys: computeConflictedInstanceKeys(instances: instancePlan.instances)
         )
+    }
+
+    /// One O(instances × bundles) pass instead of letting each row's `hasConflict`
+    /// check recompute the entire conflict-bundle set (bundler + symptom summaries)
+    /// on its own — see `InstanceListDisplay.conflictedInstanceKeys`.
+    private func computeConflictedInstanceKeys(instances: [PlannedInstance]) -> Set<String> {
+        let bundles = axisConflictBundles
+        guard !bundles.isEmpty, let font = selectedFont else { return [] }
+        let axisByTag = Dictionary(uniqueKeysWithValues: font.axes.map { ($0.tag, $0) })
+        let bundleStopValues: [(axisTag: String, values: [Double])] = bundles.compactMap { bundle in
+            guard let axis = axisByTag[bundle.axisTag] else { return nil }
+            let values = bundle.stops(from: axis).map(\.value)
+            return values.isEmpty ? nil : (bundle.axisTag, values)
+        }
+        guard !bundleStopValues.isEmpty else { return [] }
+
+        var keys: Set<String> = []
+        keys.reserveCapacity(instances.count)
+        for instance in instances {
+            for (axisTag, values) in bundleStopValues {
+                guard let coord = instance.coords[axisTag] else { continue }
+                if values.contains(where: { AxisCoordinate.valuesEqual(coord, $0) }) {
+                    keys.insert(instance.key)
+                    break
+                }
+            }
+        }
+        return keys
     }
 
     /// Naming-order axes shown on the coord strip after drawer disables + hide-pinned.

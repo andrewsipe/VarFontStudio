@@ -8,15 +8,25 @@ enum InstanceListLayout {
     /// ScrollView coordinate space used to detect when a section header is pinned flush to the top.
     static let scrollCoordinateSpace = "instanceListScroll"
     /// Monospace ch width at `StudioTypography.monoMeta` (10pt) — sized so a 4-char tag never wraps.
+    /// This is a font-metric measurement, not a spacing value, so it's intentionally not on the 4pt grid.
     static let pillChWidth: CGFloat = 7.5
     static let pillTagCh: CGFloat = 4
-    static let pillPadX: CGFloat = 7
-    static let pillInnerGap: CGFloat = 5
+    static let pillPadX: CGFloat = 8
+    static let pillPadY: CGFloat = 4
+    static let pillInnerGap: CGFloat = 4
     static let pillStripGap: CGFloat = 4
-    static let overflowChipWidth: CGFloat = 30
+    static let overflowChipWidth: CGFloat = 40
     /// Share of the row reserved for the pill strip when Names + Coords are both on.
     static let bothModePillTrackFraction: CGFloat = 0.48
     static let bothModePillTrackMin: CGFloat = 140
+    /// Checkbox + status-accessory slot + inter-item gaps, held back from coords-only
+    /// rows so the pill strip's own width constraint is real rather than .infinity.
+    /// Does *not* include the row's horizontal content inset — that is subtracted
+    /// separately via `rowContentWidth` so it stays in sync with header padding.
+    static let coordsOnlyChromeReserve: CGFloat = 64
+    /// Matches `InstanceGroupHeaderBar` content inset so checkboxes line up with
+    /// section titles and selection/hover washes don't kiss the panel edge.
+    static let rowContentInset: CGFloat = StudioSpacing.rowHorizontal
 
     static func pillWidth(valueCharacters: Int) -> CGFloat {
         let valueCh = CGFloat(max(1, valueCharacters))
@@ -230,7 +240,7 @@ struct InstanceListPanel: View {
     }
 
     private func instanceRow(_ instance: PlannedInstance) -> some View {
-        let hasConflict = editor.instanceAffectedByUnresolvedConflict(instance)
+        let hasConflict = display.conflictedInstanceKeys.contains(instance.key)
         let isPendingExport = display.pendingExportByKey[instance.key] ?? false
         let bothModes = effectiveShowNames && effectiveShowCoords
         return InstanceRowView(
@@ -303,37 +313,14 @@ struct InstanceListPanel: View {
             .padding(.bottom, StudioSpacing.rowGap - 1)
             .animation(.easeOut(duration: 0.15), value: display.axisStopFilterLabel)
 
-            // Row 2: bulk include + content toggles
-            HStack(alignment: .center, spacing: StudioSpacing.rowGap + 1) {
-                StudioIncludeCheckbox(
-                    isOn: editor.allVisibleInstancesIncluded,
-                    isIndeterminate: editor.hasMixedVisibleInclusion
-                ) {
-                    editor.toggleAllVisibleInstancesIncluded()
-                }
-                .disabled(editor.filteredInstances.isEmpty)
-
-                InstanceListToggleButton(
-                    title: "Include all",
-                    isActive: editor.allVisibleInstancesIncluded && !editor.hasMixedVisibleInclusion,
-                    isEnabled: !editor.filteredInstances.isEmpty
-                ) {
-                    editor.toggleAllVisibleInstancesIncluded()
-                }
-
-                InstanceListToggleButton(
-                    title: "Hide elided",
-                    isActive: hideElidedNames,
-                    isEnabled: !editor.filteredInstances.isEmpty
-                ) {
-                    hideElidedNames.toggle()
-                }
-
-                Spacer(minLength: StudioSpacing.controlGap)
-
-                contentModeTray
-
-                showFilterPicker
+            // Row 2: bulk include + content toggles.
+            // Prefer full Labels for Names|Coords; if the panel is too narrow for
+            // those two words, fall back to icon segments only. Include all / Hide
+            // elided / Show stay labeled in both fits — collapsing everything at
+            // once was the extreme jump that made the bar feel empty.
+            ViewThatFits(in: .horizontal) {
+                filterBarRow2(contentModeIcons: false)
+                filterBarRow2(contentModeIcons: true)
             }
             .padding(.leading, Self.checkboxLeading)
             .padding(.trailing, StudioSpacing.panelHorizontal)
@@ -345,37 +332,120 @@ struct InstanceListPanel: View {
         .overlay(alignment: .bottom) { Divider() }
     }
 
-    private var contentModeTray: some View {
-        HStack(spacing: StudioSpacing.instanceRowGap) {
-            StudioSegmentButton(
-                title: "Names",
-                isSelected: effectiveShowNames,
-                help: "Show composed names in the instance list"
+    private func filterBarRow2(contentModeIcons: Bool) -> some View {
+        HStack(alignment: .center, spacing: StudioSpacing.rowGap + 1) {
+            StudioIncludeCheckbox(
+                isOn: editor.allVisibleInstancesIncluded,
+                isIndeterminate: editor.hasMixedVisibleInclusion
             ) {
-                if showNames && !showCoords {
-                    // Solo names → turning Names off would empty; flip to coords-only.
-                    showNames = false
-                    showCoords = true
-                } else {
-                    showNames.toggle()
-                }
+                editor.toggleAllVisibleInstancesIncluded()
             }
-            StudioSegmentButton(
-                title: "Coords",
-                isSelected: effectiveShowCoords,
-                help: "Show axis coordinate pills in the instance list"
+            .disabled(editor.filteredInstances.isEmpty)
+
+            InstanceListToggleButton(
+                title: "Include all",
+                isActive: editor.allVisibleInstancesIncluded && !editor.hasMixedVisibleInclusion,
+                isEnabled: !editor.filteredInstances.isEmpty
             ) {
-                if showCoords && !showNames {
-                    showCoords = false
-                    showNames = true
-                } else {
-                    showCoords.toggle()
+                editor.toggleAllVisibleInstancesIncluded()
+            }
+
+            InstanceListToggleButton(
+                title: "Hide elided",
+                isActive: hideElidedNames,
+                isEnabled: !editor.filteredInstances.isEmpty
+            ) {
+                hideElidedNames.toggle()
+            }
+
+            Spacer(minLength: StudioSpacing.controlGap)
+
+            contentModeTray(iconsOnly: contentModeIcons)
+
+            showFilterPicker
+        }
+    }
+
+    private func contentModeTray(iconsOnly: Bool) -> some View {
+        HStack(spacing: StudioSpacing.instanceRowGap) {
+            if iconsOnly {
+                compactSegmentIcon(
+                    systemImage: "textformat",
+                    isSelected: effectiveShowNames,
+                    help: "Show composed names in the instance list"
+                ) {
+                    toggleShowNames()
+                }
+                compactSegmentIcon(
+                    systemImage: "number",
+                    isSelected: effectiveShowCoords,
+                    help: "Show axis coordinate pills in the instance list"
+                ) {
+                    toggleShowCoords()
+                }
+            } else {
+                StudioSegmentButton(
+                    title: "Names",
+                    isSelected: effectiveShowNames,
+                    help: "Show composed names in the instance list"
+                ) {
+                    toggleShowNames()
+                }
+                StudioSegmentButton(
+                    title: "Coords",
+                    isSelected: effectiveShowCoords,
+                    help: "Show axis coordinate pills in the instance list"
+                ) {
+                    toggleShowCoords()
                 }
             }
         }
         .padding(StudioSpace.x0_5)
         .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func toggleShowNames() {
+        if showNames && !showCoords {
+            // Solo names → turning Names off would empty; flip to coords-only.
+            showNames = false
+            showCoords = true
+        } else {
+            showNames.toggle()
+        }
+    }
+
+    private func toggleShowCoords() {
+        if showCoords && !showNames {
+            showCoords = false
+            showNames = true
+        } else {
+            showCoords.toggle()
+        }
+    }
+
+    /// Icon-only Names/Coords segment — same selected/unselected language as
+    /// `StudioSegmentButton`, used when the labeled tray no longer fits.
+    private func compactSegmentIcon(
+        systemImage: String,
+        isSelected: Bool,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .frame(width: 22, height: 20)
+                .background(
+                    isSelected ? StudioColors.selectionNeutralFillStrong : Color.clear,
+                    in: RoundedRectangle(cornerRadius: StudioRadius.small)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.small), isEnabled: !isSelected)
+        .help(help)
     }
 
     private var searchField: some View {
@@ -518,13 +588,17 @@ struct InstanceListPanel: View {
                     axisDrawerOpen.toggle()
                 }
             } label: {
-                HStack(spacing: StudioSpacing.tightGap) {
+                // Match Combination styles drawer rail in Axis Tree
+                // (`StudioChromeBand.header` + emphasis title) so the two
+                // bottom drawers share a baseline when both panels are open.
+                HStack(spacing: StudioSpacing.controlGap) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(axisDrawerOpen ? 90 : 0))
-                        .foregroundStyle(.tertiary)
+                        .frame(width: 12)
                     Text("Axes")
-                        .font(StudioTypography.meta.weight(.semibold))
+                        .font(StudioTypography.emphasis)
                         .foregroundStyle(.primary)
                     Spacer(minLength: 0)
                     Text(hidePinnedAxes ? "Pinned hidden" : "All roles")
@@ -533,7 +607,7 @@ struct InstanceListPanel: View {
                         .lineLimit(1)
                 }
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, StudioSpacing.panelVertical)
+                .frame(height: StudioChromeBand.header)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -542,6 +616,7 @@ struct InstanceListPanel: View {
             if axisDrawerOpen {
                 axisDrawerChipGrid
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
+                    .padding(.top, StudioSpacing.rowGap)
                     .padding(.bottom, StudioSpacing.panelVertical)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
@@ -650,11 +725,12 @@ private struct FlowAxisChipGrid: View {
     let onToggle: (String) -> Void
 
     var body: some View {
-        // Simple wrapping via LazyVGrid with adaptive columns keeps layout light.
+        // Adaptive wrap; spacing matches coord-pill strip gap so drawer chips
+        // read as the same family as the list pills above (not a denser grid).
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 44), spacing: StudioSpacing.tightGap)],
+            columns: [GridItem(.adaptive(minimum: 48), spacing: StudioSpacing.rowGap)],
             alignment: .leading,
-            spacing: StudioSpacing.tightGap
+            spacing: StudioSpacing.rowGap
         ) {
             ForEach(tags, id: \.self) { tag in
                 let pinned = isPinned(tag)
@@ -667,8 +743,10 @@ private struct FlowAxisChipGrid: View {
                         .font(StudioTypography.monoMeta)
                         .foregroundStyle(dimmed ? Color.secondary.opacity(0.35) : Color.secondary)
                         .strikethrough(dimmed)
-                        .padding(.horizontal, StudioSpacing.tagHorizontalInset)
-                        .padding(.vertical, StudioSpacing.instanceRowGap)
+                        // Match InstanceCoordPillView pad (pillPadX / pillPadY) so
+                        // drawer chips don't feel like a shrunk sibling of the list pills.
+                        .padding(.horizontal, InstanceListLayout.pillPadX)
+                        .padding(.vertical, InstanceListLayout.pillPadY)
                         .background(
                             on && !dimmed ? StudioColors.surfaceInset : Color.clear,
                             in: RoundedRectangle(cornerRadius: StudioRadius.small)
@@ -705,6 +783,7 @@ private struct InstanceGroupHeaderBar: View {
     var onOverflowTap: (() -> Void)?
 
     @State private var isStuckToTop = false
+    @State private var headerWidth: CGFloat = 0
 
     private var cornerRadii: RectangleCornerRadii {
         let r = StudioRadius.row
@@ -724,36 +803,79 @@ private struct InstanceGroupHeaderBar: View {
         )
     }
 
+    /// Inner content width after horizontal padding.
+    private var headerContentWidth: CGFloat {
+        max(0, headerWidth - StudioSpacing.rowHorizontal * 2)
+    }
+
+    /// Title's hard cap — a *fraction of the one measured `headerWidth`*, not a second
+    /// measured quantity. Long group labels ("Compressed Extra Light" vs "8PT") used to
+    /// render at `.fixedSize`, i.e. always their full intrinsic width, while the pill
+    /// track claimed a fixed fraction with no idea how wide the title actually was. The
+    /// two demands could sum to more than the header itself — and since the pill track
+    /// is trailing-aligned, the overflow bled *left*, painting over the title's leading
+    /// characters (the "ESSED EXTRA LIGHT" — missing "Compr" — bug). Capping the title
+    /// here and handing the pill track the exact remainder below means the two can
+    /// never sum to more than `headerContentWidth`, by construction.
+    private var titleMaxWidth: CGFloat {
+        max(50, headerContentWidth * 0.4)
+    }
+
+    /// The exact remainder after the title's cap — not a guess, not a second
+    /// GeometryReader, just `headerContentWidth - titleMaxWidth`. Still only one live
+    /// measurement (`headerWidth`); `titleMaxWidth` is derived from that same value,
+    /// not independently measured, so there's nothing left to race.
+    private var sharedPillMaxWidth: CGFloat {
+        guard headerWidth > 0 else { return InstanceListLayout.bothModePillTrackMin }
+        return max(
+            InstanceListLayout.bothModePillTrackMin,
+            headerContentWidth - titleMaxWidth - StudioSpacing.tightGap
+        )
+    }
+
     var body: some View {
         ZStack(alignment: .leading) {
+            // Opaque base so sticky pins don't let rows show through.
             UnevenRoundedRectangle(cornerRadii: cornerRadii)
                 .fill(.background)
+            // surfaceInset (not surfaceMuted): muted was ~4% wash and read as the same
+            // color as the scroll well. Inset matches filter-bar / pill chrome and is
+            // dark enough to mark a section boundary at a glance.
             UnevenRoundedRectangle(cornerRadii: cornerRadii)
-                .fill(StudioColors.surfaceMuted)
+                .fill(StudioColors.surfaceInset)
 
             HStack(spacing: StudioSpacing.tightGap) {
                 HStack(spacing: StudioSpacing.tightGap) {
-                    Text(label)
-                        .font(StudioTypography.meta.weight(.semibold))
+                    // Uppercase + tracked, matching the app's own convention for section/group
+                    // chrome (the "INSTANCES" panel title, the Add ID popover's "CREDITS"/"OTHER"
+                    // headers) instead of just a bolder version of row text.
+                    Text(label.uppercased())
+                        .font(.system(size: 11, weight: .semibold))
+                        .kerning(0.3)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     Text("· \(count)")
-                        .font(StudioTypography.meta)
+                        .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                .layoutPriority(1)
+                // Bounded, not fixedSize — a title that would blow the cap now
+                // truncates with an ellipsis instead of forcing the pill track to
+                // overflow. See `titleMaxWidth`.
+                .frame(maxWidth: titleMaxWidth, alignment: .leading)
 
                 if !sharedPills.isEmpty {
                     InstanceCoordPillStrip(
                         pills: sharedPills,
                         valueMaxCharacters: valueMaxCharacters,
                         muted: true,
-                        fillsWidth: true,
+                        maxWidth: sharedPillMaxWidth,
                         alignment: .trailing,
                         onOverflowTap: onOverflowTap
                     )
-                    .layoutPriority(0)
+                    // Occupy the rest of the header so the strip's trailing alignment
+                    // lands at the panel edge — not clustered against the title.
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 } else {
                     Spacer(minLength: 0)
                 }
@@ -766,10 +888,14 @@ private struct InstanceGroupHeaderBar: View {
         .zIndex(1)
         .background(alignment: .top) {
             GeometryReader { geo in
-                let minY = geo.frame(in: .named(InstanceListLayout.scrollCoordinateSpace)).minY
+                let frame = geo.frame(in: .named(InstanceListLayout.scrollCoordinateSpace))
                 Color.clear
-                    .onAppear { updateStuckState(minY: minY) }
-                    .onChange(of: minY) { _, y in updateStuckState(minY: y) }
+                    .onAppear {
+                        updateStuckState(minY: frame.minY)
+                        headerWidth = geo.size.width
+                    }
+                    .onChange(of: frame.minY) { _, y in updateStuckState(minY: y) }
+                    .onChange(of: geo.size.width) { _, w in headerWidth = w }
             }
         }
     }
@@ -816,8 +942,26 @@ private struct InstanceRowView: View {
     private var pillTrackWidth: CGFloat {
         max(
             InstanceListLayout.bothModePillTrackMin,
-            rowWidth * InstanceListLayout.bothModePillTrackFraction
+            rowContentWidth * InstanceListLayout.bothModePillTrackFraction
         )
+    }
+
+    /// Inner width after the same horizontal inset the section headers use —
+    /// pill budgets must be driven from this, not the outer measured `rowWidth`,
+    /// or the strip will over-claim and reintroduce the left-bleed overflow.
+    private var rowContentWidth: CGFloat {
+        max(0, rowWidth - InstanceListLayout.rowContentInset * 2)
+    }
+
+    /// Coords-only mode has no sibling column competing for space, so the strip can
+    /// use nearly the whole row — just needs enough held back for the checkbox,
+    /// status accessory, and gaps so the GeometryReader inside the strip gets a real,
+    /// bounded number instead of .infinity (see rowContent for why that matters).
+    /// Falls back to a conservative default before rowWidth's first measurement lands,
+    /// so there's no one-frame flash of unclipped pills.
+    private var coordsOnlyPillMaxWidth: CGFloat {
+        guard rowContentWidth > 0 else { return InstanceListLayout.bothModePillTrackMin }
+        return max(0, rowContentWidth - InstanceListLayout.coordsOnlyChromeReserve)
     }
 
     var body: some View {
@@ -865,6 +1009,11 @@ private struct InstanceRowView: View {
             StudioIncludeCheckbox(isOn: isIncluded) {
                 onIncludedChange(!isIncluded)
             }
+            // Guarantee this can never be squeezed toward zero by a sibling's width
+            // math — the checkbox's slot must never depend on how the pill strip's
+            // budget resolves.
+            .fixedSize()
+            .layoutPriority(2)
 
             if bothModes {
                 namesColumn
@@ -873,11 +1022,19 @@ private struct InstanceRowView: View {
                     pills: pills,
                     valueMaxCharacters: valueMaxCharacters,
                     muted: false,
-                    fillsWidth: true,
+                    // Width is now a plain input, not self-measured — see
+                    // InstanceCoordPillStrip's doc comment. This also turned out to be
+                    // the actual overlap bug: a caller's .frame(width:) around a
+                    // .fixedSize child was only ever a layout proposal, never a clip.
+                    maxWidth: pillTrackWidth,
                     alignment: .trailing,
+                    // StudioColors.surfaceInset (the pill's own fill) isn't fully opaque, so the
+                    // mint wash sitting in the row's .background was bleeding through and tinting
+                    // the pills instead of staying hidden behind them. Forcing an opaque backing
+                    // only on pending-wash rows keeps pills looking identical everywhere else.
+                    opaqueBacking: preferPendingWash,
                     onOverflowTap: onOverflowTap
                 )
-                .frame(width: pillTrackWidth, alignment: .trailing)
             } else if showNames {
                 namesColumn
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -886,7 +1043,7 @@ private struct InstanceRowView: View {
                     pills: pills,
                     valueMaxCharacters: valueMaxCharacters,
                     muted: false,
-                    fillsWidth: true,
+                    maxWidth: coordsOnlyPillMaxWidth,
                     alignment: .leading,
                     onOverflowTap: onOverflowTap
                 )
@@ -895,6 +1052,9 @@ private struct InstanceRowView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .leading)
+        // Same inset as `InstanceGroupHeaderBar` content — lines checkboxes up with
+        // section titles and keeps the trailing pill from kissing the highlight edge.
+        .padding(.horizontal, InstanceListLayout.rowContentInset)
         .padding(.vertical, StudioSpacing.instanceRowVertical)
     }
 
@@ -959,6 +1119,10 @@ private struct InstanceCoordPillView: View {
     let pill: InstanceCoordPill
     let valueMaxCharacters: Int
     var muted: Bool = false
+    /// Forces a fully-opaque base under the pill fill, regardless of that fill's own
+    /// alpha. Needed on pending-wash rows so the mint highlight sitting in the row's
+    /// background can't bleed through a translucent pill fill.
+    var opaqueBacking: Bool = false
 
     var body: some View {
         HStack(spacing: InstanceListLayout.pillInnerGap) {
@@ -980,15 +1144,23 @@ private struct InstanceCoordPillView: View {
         .font(StudioTypography.monoMeta)
         .lineLimit(1)
         .padding(.horizontal, InstanceListLayout.pillPadX)
-        .padding(.vertical, 3)
+        .padding(.vertical, InstanceListLayout.pillPadY)
         .frame(
             width: InstanceListLayout.pillWidth(valueCharacters: valueMaxCharacters),
             alignment: .leading
         )
-        .background(
-            muted ? Color.primary.opacity(0.06) : StudioColors.surfaceInset,
-            in: RoundedRectangle(cornerRadius: StudioRadius.small)
-        )
+        .background {
+            let shape = RoundedRectangle(cornerRadius: StudioRadius.small)
+            ZStack {
+                if opaqueBacking {
+                    shape.fill(.background)
+                }
+                // Muted (header) pills sit on surfaceInset chrome — a same-token fill would
+                // vanish, and the old 6% wash was invisible too. A slightly stronger primary
+                // wash keeps them readable without competing with row pills.
+                shape.fill(muted ? Color.primary.opacity(0.12) : StudioColors.surfaceInset)
+            }
+        }
         .opacity(muted ? 0.9 : 1)
         // Resist parent compression — narrow tracks were wrapping tags into "ins"/"d".
         .fixedSize(horizontal: true, vertical: true)
@@ -1000,13 +1172,25 @@ private struct InstanceCoordPillStrip: View {
     let pills: [InstanceCoordPill]
     let valueMaxCharacters: Int
     var muted: Bool = false
-    /// When true, the strip claims flexible width so overflow budgeting can measure it.
-    var fillsWidth: Bool = true
+    /// The bug: this used to be a `fillsWidth: Bool` flag, with the strip self-measuring
+    /// its own available width via a GeometryReader in `.background`. That's circular —
+    /// the GeometryReader measures the strip's *rendered* size, but `pillRow` forces
+    /// `.fixedSize(horizontal: true)` so the strip's rendered size is whatever fits ALL
+    /// currently-"shown" pills, which itself depends on the width the GeometryReader
+    /// reports. On the first frame (before any measurement exists) the fallback is
+    /// "show every pill," which renders at full intrinsic width, which the
+    /// GeometryReader then dutifully reports back as the "available" width — poisoning
+    /// every calculation after it. Separately, `.fixedSize` on the child means the
+    /// caller's `.frame(width:)` was only ever a layout *proposal*, not a clip — content
+    /// bigger than that gets rendered anyway, which is the actual overlap you saw.
+    /// Fix: the caller already knows its own true available width independent of pill
+    /// count (row width, header width) — take it as a plain input instead of guessing.
+    let maxWidth: CGFloat
     var alignment: HorizontalAlignment = .trailing
+    var opaqueBacking: Bool = false
     var onOverflowTap: (() -> Void)?
 
     @State private var isHovered = false
-    @State private var availableWidth: CGFloat = 0
 
     private var frameAlignment: Alignment {
         Alignment(
@@ -1019,66 +1203,98 @@ private struct InstanceCoordPillStrip: View {
         InstanceListLayout.pillWidth(valueCharacters: valueMaxCharacters)
     }
 
+    private var stripGap: CGFloat { InstanceListLayout.pillStripGap }
+
     /// How many pills fit — only reserve `+N` space when not everything fits.
     private var fittedCount: Int {
-        guard availableWidth > 0, !pills.isEmpty else {
-            return availableWidth > 0 ? 0 : pills.count
-        }
+        guard maxWidth > 0, !pills.isEmpty else { return 0 }
         let fullFit = InstanceCoordPresentation.pillBudget(
-            availableWidth: Double(availableWidth),
+            availableWidth: Double(maxWidth),
             pillWidth: Double(pillWidth),
-            gap: Double(InstanceListLayout.pillStripGap)
+            gap: Double(stripGap)
         )
         if fullFit >= pills.count { return pills.count }
-        let reserved = InstanceListLayout.overflowChipWidth + InstanceListLayout.pillStripGap
+        let reserved = InstanceListLayout.overflowChipWidth + stripGap
         return InstanceCoordPresentation.pillBudget(
-            availableWidth: Double(max(0, availableWidth - reserved)),
+            availableWidth: Double(max(0, maxWidth - reserved)),
             pillWidth: Double(pillWidth),
-            gap: Double(InstanceListLayout.pillStripGap)
+            gap: Double(stripGap)
         )
     }
 
-    private var visibleCount: Int {
-        guard !pills.isEmpty else { return 0 }
-        if isHovered { return pills.count }
-        return min(pills.count, max(fittedCount, 0))
+    private var overflowAtRest: Int {
+        max(0, pills.count - fittedCount)
     }
 
-    private var overflowCount: Int {
-        max(0, pills.count - visibleCount)
+    /// Intrinsic width of the resting (budgeted) cluster, including `+N` when present.
+    /// Hover uses this to keep the first pill parked where trailing-alignment left it —
+    /// otherwise swapping `pills+N` for the full strip reflows from the leading edge and
+    /// the title→pill gap collapses with a jump.
+    private var restingClusterWidth: CGFloat {
+        clusterWidth(pillCount: fittedCount, includeOverflowChip: overflowAtRest > 0)
+    }
+
+    private func clusterWidth(pillCount: Int, includeOverflowChip: Bool) -> CGFloat {
+        guard pillCount > 0 else {
+            return includeOverflowChip ? InstanceListLayout.overflowChipWidth : 0
+        }
+        var width = CGFloat(pillCount) * pillWidth + CGFloat(pillCount - 1) * stripGap
+        if includeOverflowChip {
+            width += stripGap + InstanceListLayout.overflowChipWidth
+        }
+        return width
+    }
+
+    private var showsHoverScroll: Bool {
+        isHovered && overflowAtRest > 0
     }
 
     var body: some View {
         Group {
-            if isHovered && pills.count > fittedCount {
+            if showsHoverScroll {
                 ScrollView(.horizontal, showsIndicators: false) {
                     pillRow(showAll: true)
+                        // Keep the resting cluster's leading edge fixed when expanding.
+                        // Trailing strips: pad so pill[0] stays where it was. Leading strips:
+                        // no pad — content already starts at the track origin.
+                        .padding(
+                            .leading,
+                            alignment == .trailing
+                                ? max(0, maxWidth - restingClusterWidth)
+                                : 0
+                        )
                 }
             } else {
                 pillRow(showAll: false)
             }
         }
-        .frame(
-            maxWidth: fillsWidth ? .infinity : nil,
-            alignment: frameAlignment
-        )
-        .background {
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { availableWidth = geo.size.width }
-                    .onChange(of: geo.size.width) { _, w in availableWidth = w }
-            }
-        }
+        // `maxWidth:`, not `width:` — `width:` is a hard demand: if a caller's budget
+        // math is ever even slightly wrong (a long header title, a stale row
+        // measurement), the strip still insists on rendering at that exact size
+        // regardless of what's actually left, and `.clipped()` only clips *its own*
+        // box — it does nothing to stop that box from being bigger than the real
+        // container. That mismatch is the "pushed outside the left edge" bug: a
+        // trailing-aligned box wider than its slot keeps its right edge docked and
+        // bleeds left, painting over whatever's next to it. `maxWidth:` makes this a
+        // cap instead of a demand, so the strip can only ever shrink to fit what it's
+        // actually offered — worst case it silently shows fewer pills, never overflow.
+        .frame(maxWidth: max(0, maxWidth), alignment: frameAlignment)
+        .clipped()
         .onHover { isHovered = $0 }
     }
 
     private func pillRow(showAll: Bool) -> some View {
-        let count = showAll ? pills.count : visibleCount
+        let count = showAll ? pills.count : min(pills.count, max(fittedCount, 0))
         let shown = Array(pills.prefix(max(count, 0)))
-        let hidden = showAll ? 0 : overflowCount
-        return HStack(spacing: InstanceListLayout.pillStripGap) {
+        let hidden = showAll ? 0 : overflowAtRest
+        return HStack(spacing: stripGap) {
             ForEach(shown) { pill in
-                InstanceCoordPillView(pill: pill, valueMaxCharacters: valueMaxCharacters, muted: muted)
+                InstanceCoordPillView(
+                    pill: pill,
+                    valueMaxCharacters: valueMaxCharacters,
+                    muted: muted,
+                    opaqueBacking: opaqueBacking
+                )
             }
             if hidden > 0 {
                 Button {
@@ -1088,9 +1304,17 @@ private struct InstanceCoordPillStrip: View {
                         .font(StudioTypography.monoMeta.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .padding(.horizontal, StudioSpacing.tagHorizontalInset)
-                        .padding(.vertical, 3)
-                        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                        .padding(.horizontal, InstanceListLayout.pillPadX)
+                        .padding(.vertical, InstanceListLayout.pillPadY)
+                        .background {
+                            let shape = RoundedRectangle(cornerRadius: StudioRadius.small)
+                            ZStack {
+                                if opaqueBacking {
+                                    shape.fill(.background)
+                                }
+                                shape.fill(StudioColors.surfaceInset)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
