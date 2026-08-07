@@ -317,6 +317,7 @@ https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/VarFontStudio.xc
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/EXPORT_DESIGN_NOTES.md
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/HANDOFF.md
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/README.md
+https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/instance-coord-presentation.html
 
 # archive/Design/
 https://raw.githubusercontent.com/andrewsipe/VarFontStudio/main/archive/Design/axis-tree-prototype.html
