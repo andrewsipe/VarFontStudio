@@ -335,13 +335,13 @@ struct AxisTreeStopRow: View {
 
     private func sublineLabel(_ text: String) -> some View {
         Text(text)
-            .font(StudioTypography.meta)
+            .font(StudioTypography.caption)
             .foregroundStyle(.tertiary)
     }
 
     private var sublineSeparator: some View {
         Text("·")
-            .font(StudioTypography.meta)
+            .font(StudioTypography.caption)
             .foregroundStyle(.tertiary)
     }
 

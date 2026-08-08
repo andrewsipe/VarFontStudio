@@ -69,7 +69,7 @@ struct MissingFontsSheet: View {
             StudioPlainLinkButton(
                 title: entry.isResolved ? "Relocate…" : "Locate…",
                 role: .accent,
-                font: StudioTypography.meta
+                font: StudioTypography.caption
             ) {
                 editor.locateMissingFont(fontID: entry.fontID)
             }

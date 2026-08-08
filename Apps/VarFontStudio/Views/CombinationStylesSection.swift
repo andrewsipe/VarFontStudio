@@ -166,7 +166,7 @@ struct CombinationStylesSection: View {
                         .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(StudioColors.warningForeground)
                     Text("Format 4 only — accept or dismiss.")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -196,7 +196,7 @@ struct CombinationStylesSection: View {
                 Text(suggestion.coveredInstanceCount == 1
                       ? "covers 1 of the original instances"
                       : "covers \(suggestion.coveredInstanceCount) of the original instances")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             }
 
@@ -229,7 +229,7 @@ struct CombinationStylesSection: View {
             ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
                 if index > 0 {
                     Text("+")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                 }
                 valueForwardChip(
@@ -304,7 +304,7 @@ struct CombinationStylesSection: View {
 
                     if !isExpanded {
                         Text(legsSummary(for: compound))
-                            .font(StudioTypography.meta)
+                            .font(StudioTypography.caption)
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -354,7 +354,7 @@ struct CombinationStylesSection: View {
                             editor.updateCompoundStatElidable(id: compound.id, elidable: !compound.elidable)
                         }
                         Text("Elidable")
-                            .font(StudioTypography.meta)
+                            .font(StudioTypography.caption)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -387,7 +387,7 @@ struct CombinationStylesSection: View {
             ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
                 if index > 0 {
                     Text("+")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                 }
 
@@ -438,7 +438,7 @@ struct CombinationStylesSection: View {
                     togglePicker(LegPicker(compoundID: compound.id, tag: nil, kind: .addAxis))
                 } label: {
                     Text("+ axis")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.brand)
                 }
                 .buttonStyle(.plain)
@@ -538,7 +538,7 @@ struct CombinationStylesSection: View {
                 .monospacedDigit()
             if !name.isEmpty, name != StudioFormatting.axisValue(stop.value) {
                 Text(name)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -650,7 +650,7 @@ struct CombinationStylesSection: View {
     private var inlineBuilder: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             Text("Pick from stops that already exist on each axis. Doesn’t add an axis or grow the instance grid.")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -692,7 +692,7 @@ struct CombinationStylesSection: View {
                 Text(coveredInstanceCount == 1
                       ? "Would cover 1 instance in the current grid — doesn’t grow the grid."
                       : "Would cover \(coveredInstanceCount) instances in the current grid — doesn’t grow the grid.")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -759,7 +759,7 @@ struct CombinationStylesSection: View {
 
             if stops.isEmpty {
                 Text("No stops on this axis yet")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
             } else {
                 HStack(spacing: StudioSpace.x1) {

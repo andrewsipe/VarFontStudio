@@ -135,14 +135,14 @@ struct CommitDiffReviewView: View {
             HStack(spacing: StudioSpacing.rowGap) {
                 if !psPrefix.isEmpty {
                     Text("PostScript prefix")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                     Text(psPrefix)
-                        .font(StudioTypography.meta.monospaced())
+                        .font(StudioTypography.caption.monospaced())
                 }
                 if !registrationStops.isEmpty {
                     Text("Naming")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                     ForEach(registrationStops, id: \.tag) { stop in
                         HStack(spacing: StudioSpacing.tightGap) {
@@ -150,7 +150,7 @@ struct CommitDiffReviewView: View {
                                 .font(StudioTypography.tag)
                                 .foregroundStyle(.primary)
                             Text(stop.name)
-                                .font(StudioTypography.meta)
+                                .font(StudioTypography.caption)
                                 .foregroundStyle(.primary)
                             if let code = stop.code, !code.isEmpty {
                                 Text(code)
@@ -171,7 +171,7 @@ struct CommitDiffReviewView: View {
                 }
                 if !clarifiers.isEmpty {
                     Text("Clarifiers")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                     ForEach(clarifiers) { clarifier in
                         StudioClarifierPill(label: clarifier.label, compact: true)
@@ -215,7 +215,7 @@ struct CommitDiffReviewView: View {
                 }
                 Spacer(minLength: 8)
                 Text("click to show/hide · ⌘-click to isolate")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -330,7 +330,7 @@ struct CommitDiffReviewView: View {
     ) -> some View {
         Button(action: action) {
             Text(title)
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? StudioColors.brand : .secondary)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -501,7 +501,7 @@ struct CommitDiffReviewView: View {
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
                 HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
                     Image(systemName: "xmark.octagon.fill")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.errorForeground)
                     Text(error.message)
                         .font(StudioTypography.caption)

@@ -23,7 +23,7 @@ struct StudioInspectorConflictBadge: View {
 
     var body: some View {
         let label = Text("\(count) conflict\(count == 1 ? "" : "s")")
-            .font(StudioTypography.meta.weight(.medium))
+            .font(StudioTypography.caption.weight(.medium))
             .foregroundStyle(.primary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -173,7 +173,7 @@ struct InspectorInstanceNamingChain: View {
             } else if link.kind == .compound {
                 HStack(spacing: 5) {
                     Text("F4")
-                        .font(StudioTypography.meta.weight(.semibold))
+                        .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(StudioColors.statFormat1)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
@@ -386,7 +386,7 @@ struct InspectorOpenTypeSourcePill: View {
 
     var body: some View {
         Text(source.rawValue)
-            .font(StudioTypography.meta)
+            .font(StudioTypography.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 4)
             .padding(.vertical, 1)

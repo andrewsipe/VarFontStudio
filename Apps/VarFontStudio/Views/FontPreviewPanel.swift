@@ -66,7 +66,7 @@ struct FontPreviewHeaderControls: View {
 
             HStack(spacing: StudioSpacing.rowGap) {
                 Text("Size")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
 
                 Slider(value: $previewSize, in: 24...72, step: 1)
@@ -90,7 +90,7 @@ struct FontPreviewHeaderControls: View {
                     alignment = option
                 } label: {
                     Image(systemName: option.systemImage)
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(alignment == option ? StudioColors.brand : .secondary)
                         .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.tabChipRowHeight)
                         .background {
@@ -230,7 +230,7 @@ struct FontPreviewPanel: View {
                 .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.canvasTertiary)
             Text(editor.isPreviewHoverPeeking ? "Peek · hover" : "Source · live")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(statusPillForeground)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
                 .padding(.vertical, StudioSpace.x0_5)

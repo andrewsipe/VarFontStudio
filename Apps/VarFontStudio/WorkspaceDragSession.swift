@@ -538,7 +538,7 @@ struct WorkspaceDragGhostOverlay: View {
             Image(systemName: badgeSymbol(for: target) ?? "plus.circle.fill")
                 .font(.system(size: 12, weight: .semibold))
             Text(externalBadgeLabel(for: target))
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .fontWeight(.medium)
         }
         .foregroundStyle(badgeColor(for: target))

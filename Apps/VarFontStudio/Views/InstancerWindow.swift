@@ -198,7 +198,7 @@ private struct InstancerWindowContent: View {
     private var sourceBanner: some View {
         HStack(spacing: StudioSpacing.rowGap) {
             Text("Source")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
             Text(session.hasSource ? session.sourceDisplayName : "None")
                 .font(StudioTypography.monoMeta)
@@ -257,7 +257,7 @@ private struct InstancerWindowContent: View {
             if let warning = session.composerWarning {
                 HStack(spacing: StudioSpace.x2) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.warningForeground)
                     Text(warning)
                         .font(StudioTypography.caption)
@@ -309,7 +309,7 @@ private struct InstancerWindowContent: View {
             ForEach(session.axisTags, id: \.self) { tag in
                 HStack(spacing: StudioSpace.x1) {
                     Text(tag)
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                     StudioNumberField(
                         placeholder: tag == "wght" ? "required" : "0",
@@ -530,7 +530,7 @@ private struct InstancerWindowContent: View {
                 }
             } else {
                 Text("from \(session.psSourceLabel)")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
@@ -724,7 +724,7 @@ private struct InstancerWindowContent: View {
 
     private var statusBar: some View {
         Text(statusBarText)
-            .font(StudioTypography.meta)
+            .font(StudioTypography.caption)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, InstancerLayout.horizontalPadding)
@@ -957,7 +957,7 @@ private struct InstancerRowView: View, Equatable {
             }
             if let note = subtitle {
                 Text(note.text)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(note.color)
             }
         }
@@ -1015,22 +1015,22 @@ private struct InstancerRowView: View, Equatable {
                     StudioFlagLabel(symbol: "＋", text: "custom", tint: StudioColors.customForeground)
                 }
                 Text("·").foregroundStyle(.tertiary)
-                StudioPlainLinkButton(title: "Remove", font: StudioTypography.meta, action: onRemove)
+                StudioPlainLinkButton(title: "Remove", font: StudioTypography.caption, action: onRemove)
             } else if overridden {
-                StudioPlainLinkButton(title: "Revert", font: StudioTypography.meta, action: onRevertName)
+                StudioPlainLinkButton(title: "Revert", font: StudioTypography.caption, action: onRevertName)
             } else if let collision {
                 collisionFlagView(collision)
             } else if willFail {
                 StudioFlagLabel(symbol: "✕", text: "will fail", tint: StudioColors.errorForeground)
                 Text("·").foregroundStyle(.tertiary)
-                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta, action: onFixInStudio)
+                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.caption, action: onFixInStudio)
             } else if fallback {
                 StudioFlagLabel(symbol: "⚠", text: "fallback", tint: StudioColors.warningForeground)
                 Text("·").foregroundStyle(.tertiary)
-                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.meta, action: onFixInStudio)
+                StudioPlainLinkButton(title: "Fix in Studio", font: StudioTypography.caption, action: onFixInStudio)
             }
         }
-        .font(StudioTypography.meta)
+        .font(StudioTypography.caption)
     }
 
     private func collisionFlagView(_ kind: InstancerCollisionKind) -> some View {

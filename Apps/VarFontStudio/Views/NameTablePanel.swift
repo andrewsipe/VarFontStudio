@@ -193,7 +193,7 @@ struct NameTablePanel: View {
                     .font(StudioTypography.caption.weight(.medium))
                     .foregroundStyle(.primary)
                 Text(issue.message)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -315,7 +315,7 @@ struct NameTablePanel: View {
     private var addIDPopover: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Add Windows name ID")
-                .font(StudioTypography.meta.weight(.semibold))
+                .font(StudioTypography.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, StudioSpace.x3)
                 .padding(.top, StudioSpace.x2_5)
@@ -382,7 +382,7 @@ struct NameTablePanel: View {
 
     private func addIDSectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(StudioTypography.meta.weight(.semibold))
+            .font(StudioTypography.caption.weight(.semibold))
             .foregroundStyle(.tertiary)
             .kerning(0.4)
             .padding(.horizontal, StudioSpace.x3)
@@ -435,7 +435,7 @@ struct NameTablePanel: View {
             Text("Win 3/1/409")
                 .foregroundStyle(.tertiary)
         }
-        .font(StudioTypography.meta)
+        .font(StudioTypography.caption)
     }
 
     private static let nameLabelRowHeight: CGFloat = 18

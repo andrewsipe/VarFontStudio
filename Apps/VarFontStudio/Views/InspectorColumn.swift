@@ -52,7 +52,7 @@ struct InspectorColumn: View {
                     Text(project.fonts.count == 1 ? "file" : "files")
                         .foregroundStyle(.secondary)
                 }
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
             }
         case .instance:
             if editor.inspectorInspectableInstance != nil {
@@ -62,7 +62,7 @@ struct InspectorColumn: View {
                     Text("instance")
                         .foregroundStyle(.secondary)
                 }
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
             } else if editor.activeInstanceSelection.count > 1 {
                 HStack(spacing: StudioSpacing.instanceRowVertical) {
                     Text("\(editor.activeInstanceSelection.count)")
@@ -70,7 +70,7 @@ struct InspectorColumn: View {
                     Text("selected")
                         .foregroundStyle(.secondary)
                 }
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
             }
         }
     }

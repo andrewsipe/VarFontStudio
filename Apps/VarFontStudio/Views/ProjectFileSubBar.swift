@@ -48,7 +48,7 @@ struct ProjectFileSubBar: View {
             StudioPlainLinkButton(
                 title: "+ Add file…",
                 role: .accent,
-                font: StudioTypography.meta,
+                font: StudioTypography.caption,
                 help: editor.hasOpenProjects
                     ? "Add a variable font to the active project"
                     : "Open a variable font — creates a new project"
@@ -146,7 +146,7 @@ struct ProjectFileSubBar: View {
                     .foregroundStyle(.secondary)
                     .help("Exported to \(savedName)")
                 Text(savedName)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

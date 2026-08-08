@@ -390,7 +390,7 @@ struct MainEditorView: View {
             if let error = editor.saveReview.persistentSaveError {
                 HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
                     Image(systemName: "xmark.octagon.fill")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.errorForeground)
                         .padding(.top, StudioSpacing.warningGlyphTopNudge)
                     VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
@@ -515,25 +515,25 @@ struct MainEditorView: View {
                 if let id = editor.activeProjectID,
                    let openProject = editor.openProjects.first(where: { $0.id == id }) {
                     Text(editor.projectTabLabel(for: openProject))
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
 
                     if editor.selectedFont != nil {
                         Text("|")
-                            .font(StudioTypography.meta)
+                            .font(StudioTypography.caption)
                             .foregroundStyle(.tertiary)
                     }
                 }
 
                 if let font = editor.selectedFont {
                     Text(editor.fontBasename(for: font))
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 } else if editor.activeProjectID == nil, editor.statusMessage == nil, !editor.instancer.isGenerateBusy {
                     Text("Ready")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -544,7 +544,7 @@ struct MainEditorView: View {
 
             if let message = editor.statusMessage {
                 Text(message)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .multilineTextAlignment(.trailing)
@@ -570,7 +570,7 @@ struct MainEditorView: View {
                     ProgressView()
                         .controlSize(.mini)
                     Text("Instancing \(done)/\(total)")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .monospacedDigit()
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {

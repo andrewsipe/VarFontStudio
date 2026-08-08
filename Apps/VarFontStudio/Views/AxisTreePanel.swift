@@ -31,7 +31,7 @@ struct AxisTreePanel: View {
                             Text("axes")
                                 .foregroundStyle(.secondary)
                         }
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                     }
 
                     StudioToolbarIconButton(
@@ -186,7 +186,7 @@ struct AxisTreePanel: View {
 
             if let font = editor.selectedFont {
                 Text("·")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.quaternary)
                 Text(editor.fontBasename(for: font))
                     .font(StudioTypography.rowName)
@@ -200,7 +200,7 @@ struct AxisTreePanel: View {
                 StudioPlainLinkButton(
                     title: "Push Axis Tree",
                     role: .accent,
-                    font: StudioTypography.meta,
+                    font: StudioTypography.caption,
                     help: "Copy master axis stops to all other files in this project"
                 ) {
                     editor.requestPushMasterAxisTree()
@@ -211,7 +211,7 @@ struct AxisTreePanel: View {
                 StudioPlainLinkButton(
                     title: "+ Add project…",
                     role: .accent,
-                    font: StudioTypography.meta,
+                    font: StudioTypography.caption,
                     help: "Open a variable font as a new project tab"
                 ) {
                     editor.presentOpenPanel()
@@ -280,7 +280,7 @@ struct AxisTreePanel: View {
                 ForEach(Array(infoWarnings.enumerated()), id: \.offset) { _, warning in
                     HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(StudioTypography.meta)
+                            .font(StudioTypography.caption)
                             .foregroundStyle(StudioColors.warningForeground)
                             .padding(.top, StudioSpacing.warningGlyphTopNudge)
                         Text(warning.message)
@@ -292,7 +292,7 @@ struct AxisTreePanel: View {
                             StudioPlainLinkButton(
                                 title: "Show in list…",
                                 role: .secondary,
-                                font: StudioTypography.meta
+                                font: StudioTypography.caption
                             ) {
                                 layout.showInstances = true
                                 if let name = warning.name {
@@ -385,14 +385,14 @@ struct AxisTreePanel: View {
                         .foregroundStyle(.primary)
 
                     Text("\(compounds.count) preset\(compounds.count == 1 ? "" : "s") · format 4")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
 
                     if suggestionCount > 0 {
                         Text(suggestionCount == 1
                               ? "1 Combination"
                               : "\(suggestionCount) Combinations")
-                            .font(StudioTypography.meta.weight(.semibold))
+                            .font(StudioTypography.caption.weight(.semibold))
                             .foregroundStyle(StudioColors.warningForeground)
                             .padding(.horizontal, StudioSpace.x2)
                             .padding(.vertical, StudioSpace.x1)

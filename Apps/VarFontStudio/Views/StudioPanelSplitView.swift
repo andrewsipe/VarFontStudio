@@ -171,7 +171,7 @@ struct StudioPanelSplitView: View {
                     Text("Win 3/1/409")
                         .foregroundStyle(.tertiary)
                 }
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
             }
         }
     }

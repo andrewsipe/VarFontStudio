@@ -697,12 +697,12 @@ struct AddFileAxisSheet: View {
 
             VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
                 Text("Kind")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
                 kindTabs
                 if let disabledReason, !kindEnabled {
                     Label(disabledReason, systemImage: "lock.fill")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -911,13 +911,13 @@ struct AddFileAxisSheet: View {
                 StudioPlainLinkButton(
                     title: "Reset to detected",
                     role: .accent,
-                    font: StudioTypography.meta
+                    font: StudioTypography.caption
                 ) {
                     slopeOverrideIsItalic = nil
                 }
             } else {
                 Text("Auto-detected from this file")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
@@ -958,7 +958,7 @@ struct AddFileAxisSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
             if kindEnabled {
                 Text("Elidable: \(previewElidable ? "yes — name drops when composing" : "no — name stays in the style string"). Naming order: inserts \(editor.namingOrderInsertHint(forNewTag: previewTag)).")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, StudioSpace.x0_5)
@@ -1011,7 +1011,7 @@ struct AddFileAxisSheet: View {
     private var previewSection: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Axis tree preview")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
 
             VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
@@ -1030,7 +1030,7 @@ struct AddFileAxisSheet: View {
                         Text(previewStopName)
                             .font(StudioTypography.bodyMedium)
                         Text("No fvar scale · this file")
-                            .font(StudioTypography.meta)
+                            .font(StudioTypography.caption)
                             .foregroundStyle(.tertiary)
                         Spacer(minLength: 0)
                         StudioTagPill(text: previewTag, compact: true, role: .registration)
@@ -1104,7 +1104,7 @@ struct AddFileAxisSheet: View {
 
     private func previewColumnHeader(_ title: String, width: CGFloat?, alignment: Alignment = .leading) -> some View {
         Text(title)
-            .font(StudioTypography.meta)
+            .font(StudioTypography.caption)
             .foregroundStyle(.tertiary)
             .frame(width: width, alignment: alignment)
             .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)

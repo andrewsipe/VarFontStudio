@@ -210,7 +210,7 @@ struct SaveReviewWindow: View {
             if let error = editor.saveReview.persistentSaveError {
                 HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
                     Image(systemName: "xmark.octagon.fill")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.errorForeground)
                         .padding(.top, StudioSpacing.warningGlyphTopNudge)
                     VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
@@ -306,7 +306,7 @@ struct SaveReviewWindow: View {
                             ProgressView(value: progress, total: 1)
                                 .progressViewStyle(.linear)
                             Text("\(Int((progress * 100).rounded()))%")
-                                .font(StudioTypography.meta)
+                                .font(StudioTypography.caption)
                                 .foregroundStyle(.secondary)
                         } else {
                             ProgressView()
@@ -371,7 +371,7 @@ struct SaveReviewWindow: View {
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
                 HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
                     Image(systemName: "xmark.octagon.fill")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(StudioColors.errorForeground)
                     Text(error.message)
                         .font(StudioTypography.caption)

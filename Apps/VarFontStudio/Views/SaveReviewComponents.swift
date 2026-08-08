@@ -154,36 +154,6 @@ struct StudioSaveReviewCategoryTag: View {
     }
 }
 
-// MARK: - Save Review row typography
-//
-// File-bound content (coordinates, quoted strings, tag=value, nameID slots in values)
-// → monospaced. Human labels, section context, and read-only notes → system sans.
-enum SaveReviewTypography {
-    static let fieldLabel = Font.system(size: 12, weight: .medium)
-    static let fieldLabelMono = Font.system(size: 12, weight: .medium, design: .monospaced)
-    static let fieldDetail = Font.system(size: 10)
-    static let nameID = Font.system(size: 11, weight: .medium, design: .monospaced)
-    static let value = Font.system(size: 10.5, design: .monospaced)
-    static let valueSecondary = Font.system(size: 10, design: .monospaced)
-    static let note = Font.system(size: 10)
-
-    /// Row identifier when it is a file-native key (e.g. `wgth = 400`).
-    static func fieldTitleFont(_ title: String) -> Font {
-        if title.range(of: #"^[a-zA-Z]{4} = "#, options: .regularExpression) != nil {
-            return fieldLabelMono
-        }
-        return fieldLabel
-    }
-
-    /// Subtitle lines that carry coordinates / tags use mono; descriptive labels use sans.
-    static func fieldDetailFont(_ subtitle: String) -> Font {
-        if subtitle.contains("=") || subtitle.hasPrefix("tag=") {
-            return valueSecondary
-        }
-        return fieldDetail
-    }
-}
-
 struct StudioStreamlinedDiffRow: View {
     let row: SaveReviewRowPresentation
 
@@ -198,11 +168,11 @@ struct StudioStreamlinedDiffRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.fieldTitle)
-                        .font(SaveReviewTypography.fieldTitleFont(row.fieldTitle))
+                        .font(Self.fieldTitleFont(row.fieldTitle))
                         .lineLimit(2)
                     if !row.fieldSubtitle.isEmpty {
                         Text(row.fieldSubtitle)
-                            .font(SaveReviewTypography.fieldDetailFont(row.fieldSubtitle))
+                            .font(Self.fieldDetailFont(row.fieldSubtitle))
                             .foregroundStyle(.tertiary)
                             .lineLimit(2)
                     }
@@ -213,13 +183,13 @@ struct StudioStreamlinedDiffRow: View {
                 Group {
                     if let nameID = row.nameID {
                         Text("\(nameID)")
-                            .font(SaveReviewTypography.nameID)
+                            .font(StudioTypography.rowNameMono.weight(.medium))
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                             .lineLimit(1)
                     } else {
                         Text("—")
-                            .font(SaveReviewTypography.fieldDetail)
+                            .font(StudioTypography.caption)
                             .foregroundStyle(.quaternary)
                     }
                 }
@@ -233,7 +203,7 @@ struct StudioStreamlinedDiffRow: View {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             StudioSaveReviewCategoryTag(category: row.category)
                             Text(afterValue)
-                                .font(SaveReviewTypography.value)
+                                .font(StudioTypography.monoValue)
                                 .foregroundStyle(valueColor)
                                 .textSelection(.enabled)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -242,14 +212,14 @@ struct StudioStreamlinedDiffRow: View {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             StudioSaveReviewCategoryTag(category: row.category)
                             Text("—")
-                                .font(SaveReviewTypography.value)
+                                .font(StudioTypography.monoValue)
                                 .foregroundStyle(.tertiary)
                         }
                     }
 
                     if let secondaryLine {
                         Text(secondaryLine)
-                            .font(row.noteLine != nil && row.wasLine == nil ? SaveReviewTypography.note : SaveReviewTypography.valueSecondary)
+                            .font(row.noteLine != nil && row.wasLine == nil ? StudioTypography.caption : StudioTypography.monoValue)
                             .foregroundStyle(.tertiary)
                             .italic(row.noteLine != nil && row.wasLine == nil)
                             .fixedSize(horizontal: false, vertical: true)
@@ -266,6 +236,23 @@ struct StudioStreamlinedDiffRow: View {
                 .frame(height: 0.5)
                 .padding(.leading, SaveReviewLayout.horizontalPadding)
         }
+    }
+
+
+    /// Row identifier when it is a file-native key (e.g. `wgth = 400`).
+    private static func fieldTitleFont(_ title: String) -> Font {
+        if title.range(of: #"^[a-zA-Z]{4} = "#, options: .regularExpression) != nil {
+            return StudioTypography.rowNameMono.weight(.medium)
+        }
+        return StudioTypography.bodyMedium
+    }
+
+    /// Subtitle lines that carry coordinates / tags use mono; descriptive labels use sans.
+    private static func fieldDetailFont(_ subtitle: String) -> Font {
+        if subtitle.contains("=") || subtitle.hasPrefix("tag=") {
+            return StudioTypography.monoValue
+        }
+        return StudioTypography.caption
     }
 
     /// Collapses `wasLine` + `noteLine` onto a single row so the value column

@@ -38,7 +38,7 @@ struct ProjectToolbar: View {
             StudioPlainLinkButton(
                 title: "+ Add project…",
                 role: .accent,
-                font: StudioTypography.meta,
+                font: StudioTypography.caption,
                 help: "Open a variable font as a new project tab"
             ) {
                 editor.presentOpenPanel()
@@ -74,7 +74,7 @@ struct ProjectToolbar: View {
             Image(systemName: "folder.badge.plus")
                 .font(StudioTypography.sectionLabel)
             Text("New project")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .fontWeight(isNewProjectTarget ? .semibold : .regular)
         }
         .foregroundStyle(StudioColors.dropNewProject.opacity(isNewProjectTarget ? 0.95 : 0.45))

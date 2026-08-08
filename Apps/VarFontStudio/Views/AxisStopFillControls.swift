@@ -62,7 +62,7 @@ struct AxisStopFillControls: View {
             }
 
             Text("Each stop uses its numeric value as the name.")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
         }
     }
@@ -86,7 +86,7 @@ struct AxisStopFillControls: View {
 
             HStack(spacing: StudioSpacing.rowGap) {
                 Text("Suggested")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
                 ForEach(AxisStopFillPlanner.suggestedCounts, id: \.self) { count in
                     countChip(count, enabled: options.recommendedCounts.contains(count))
@@ -101,7 +101,7 @@ struct AxisStopFillControls: View {
             stopCount = Double(count)
         } label: {
             Text("\(count)")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(enabled ? .primary : .tertiary)
                 .padding(.horizontal, StudioSpacing.panelHorizontal)
@@ -138,7 +138,7 @@ struct AxisStopFillControls: View {
                     "Produces \(values.count) stop\(values.count == 1 ? "" : "s") across "
                         + "\(AxisStopSuggestions.formatValue(options.minValue))–\(AxisStopSuggestions.formatValue(options.maxValue))."
                 )
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
             }
         }

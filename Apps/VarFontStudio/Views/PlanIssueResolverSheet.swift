@@ -184,7 +184,7 @@ struct PlanIssueResolverSheet: View {
                     .foregroundStyle(.primary)
                 if isRecommended {
                     Text("Recommended")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.primary)
                         .padding(.horizontal, StudioSpacing.tightGap)
                         .padding(.vertical, StudioSpacing.instanceRowGap)
@@ -225,7 +225,7 @@ struct PlanIssueResolverSheet: View {
                             .foregroundStyle(.primary)
                         if proposal.isRecommended {
                             Text("Recommended")
-                                .font(StudioTypography.meta)
+                                .font(StudioTypography.caption)
                                 .foregroundStyle(.primary)
                                 .padding(.horizontal, StudioSpacing.tightGap)
                                 .padding(.vertical, StudioSpacing.instanceRowGap)

@@ -10,7 +10,6 @@ enum StudioTypography {
     static let body = Font.system(size: 13)
     static let bodyMedium = Font.system(size: 12, weight: .medium)
     static let caption = Font.system(size: 10)
-    static let meta = Font.system(size: 10)
     static let gridSummaryValue = Font.system(size: 9, weight: .medium)
     static let gridSummaryValueMono = Font.system(size: 9, weight: .medium, design: .monospaced)
     static let tag = Font.system(size: 9, weight: .medium, design: .monospaced)
@@ -837,7 +836,7 @@ struct StudioClarifierPill: View {
         HStack(spacing: 4) {
             if let showCategory {
                 Text(showCategory)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
             }
             Text(label)
                 .font(compact ? StudioTypography.caption : StudioTypography.bodyMedium)
@@ -974,7 +973,7 @@ struct StudioFlagLabel: View {
     let symbol: String
     let text: String
     let tint: Color
-    var font: Font = StudioTypography.meta
+    var font: Font = StudioTypography.caption
 
     var body: some View {
         HStack(spacing: 3) {
@@ -1001,7 +1000,7 @@ struct StudioCountBadge: View {
 
     var body: some View {
         Text(text)
-            .font(StudioTypography.meta.weight(.medium))
+            .font(StudioTypography.caption.weight(.medium))
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.75)
@@ -1280,10 +1279,10 @@ struct StudioFilterChip<Trailing: View>: View {
         HStack(spacing: 4) {
             if let icon {
                 Label(label, systemImage: icon)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
             } else {
                 Text(label)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
             }
             trailing()
         }
@@ -1654,7 +1653,7 @@ struct StudioSearchField: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "magnifyingglass")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.textPlaceholder)
 
             StudioTextField(
@@ -3077,7 +3076,7 @@ private enum StudioFlatButtonChrome {
     static func font(size: StudioFlatButton.Size) -> Font {
         switch size {
         case .regular, .row: StudioTypography.caption
-        case .compact: StudioTypography.meta
+        case .compact: StudioTypography.caption
         }
     }
 
@@ -3311,7 +3310,7 @@ struct StudioSegmentButton: View {
     let title: String
     var isSelected: Bool = false
     var expands: Bool = false
-    var font: Font = StudioTypography.meta
+    var font: Font = StudioTypography.caption
     var help: String = ""
     /// Marks the segment when its panel holds unresolved issues, so the user does not
     /// have to open the tab to find out.
@@ -3444,7 +3443,7 @@ struct StudioWarningMessage: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.warningForeground)
             Text(message)
                 .font(StudioTypography.caption)
@@ -3462,7 +3461,7 @@ struct StudioErrorMessage: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
             Image(systemName: "xmark.circle.fill")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.errorForeground)
             Text(message)
                 .font(StudioTypography.caption)
@@ -3479,7 +3478,7 @@ struct StudioSuccessMessage: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
             Image(systemName: "checkmark.circle.fill")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.successForeground)
             Text(message)
                 .font(StudioTypography.caption)
@@ -3496,7 +3495,7 @@ struct StudioConflictAlert: View {
     var body: some View {
         HStack(spacing: StudioSpacing.controlGap) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(StudioColors.warningForeground)
 
             Text(message)

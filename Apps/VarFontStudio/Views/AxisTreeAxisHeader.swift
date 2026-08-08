@@ -77,7 +77,7 @@ struct AxisTreeAxisHeader: View {
         HStack(spacing: StudioSpacing.controlGap) {
             if hasAxisAttention {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(StudioColors.warningForeground)
                     .help(attentionHelp)
             }
@@ -90,7 +90,7 @@ struct AxisTreeAxisHeader: View {
 
             if axis.fvarHidden {
                 Text("hidden")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
@@ -166,7 +166,7 @@ struct AxisTreeAxisHeader: View {
                     registrationSubtitle
                 } else if let subtitleText {
                     Text(subtitleText)
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                         .help("The lowest and highest values this axis supports, and its default (fvar min/default/max). D icon = default coordinate.")
@@ -225,25 +225,25 @@ struct AxisTreeAxisHeader: View {
         HStack(spacing: StudioSpacing.tightGap) {
             if let axisRangeText {
                 Text(axisRangeText)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                     .help("This naming axis still has an fvar entry (often a pinned coordinate). Interpolation is unchanged; the stop is for naming/STAT.")
             } else {
                 Text("No fvar scale")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             }
 
             if !registrationStops.isEmpty {
                 Text("·")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
 
                 // Single stop: static label (no menu chrome). Multiple: one chevron only.
                 if registrationStops.count == 1 || onSelectRegistrationStop == nil {
                     Text(selectedRegistrationName)
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .fontWeight(.medium)
                         .foregroundStyle(.primary)
                         .fontWeight(.medium)
@@ -264,7 +264,7 @@ struct AxisTreeAxisHeader: View {
                     } label: {
                         HStack(spacing: StudioSpace.x0_5) {
                             Text(selectedRegistrationName)
-                                .font(StudioTypography.meta)
+                                .font(StudioTypography.caption)
                                 .fontWeight(.medium)
                                 .foregroundStyle(.primary)
                                 .fontWeight(.medium)

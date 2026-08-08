@@ -110,7 +110,7 @@ struct InstanceInspectorContent: View {
                         .font(StudioTypography.bodyMedium)
                     if !included {
                         Text("This instance will not be written to output.")
-                            .font(StudioTypography.meta)
+                            .font(StudioTypography.caption)
                             .foregroundStyle(.secondary)
                     }
                 }

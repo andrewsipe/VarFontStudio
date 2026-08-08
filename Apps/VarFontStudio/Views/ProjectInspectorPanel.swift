@@ -92,7 +92,7 @@ struct ProjectInspectorPanel: View {
 
             if openProject.document.fonts.count > 1 {
                 Text("★ Master file — other files in this project inherit its axis-stop layout.")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -137,7 +137,7 @@ struct ProjectInspectorPanel: View {
             StudioSectionLabel(title: "Fonts")
 
             Text("\(openProject.document.fonts.count)")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.primary)
 
             Spacer(minLength: 0)
@@ -146,7 +146,7 @@ struct ProjectInspectorPanel: View {
                 StudioPlainLinkButton(
                     title: "Export All…",
                     role: .accent,
-                    font: StudioTypography.meta
+                    font: StudioTypography.caption
                 ) {
                     editor.saveAllFiles(inProjectID: openProject.id)
                 }
@@ -157,7 +157,7 @@ struct ProjectInspectorPanel: View {
                 title: "Add font",
                 systemImage: "plus",
                 role: .accent,
-                font: StudioTypography.meta
+                font: StudioTypography.caption
             ) {
                 editor.presentAddFontPanel(projectID: openProject.id)
             }
@@ -177,7 +177,7 @@ struct ProjectInspectorPanel: View {
             StudioPlainLinkButton(
                 title: "Infer Prefix",
                 role: .accent,
-                font: StudioTypography.meta,
+                font: StudioTypography.caption,
                 help: inferEnabled
                     ? "Suggest clarifiers from the filename when axis naming does not already cover them. Uses stop names from the font — never expands abbreviations."
                     : "Axis and registration naming already cover this file, or clarifiers belong on variant files."
@@ -191,7 +191,7 @@ struct ProjectInspectorPanel: View {
                 StudioPlainLinkButton(
                     title: "Push Axis Tree",
                     role: .accent,
-                    font: StudioTypography.meta,
+                    font: StudioTypography.caption,
                     help: "Copy master axis stops to all other files in this project"
                 ) {
                     editor.selectFont(id: font.id)
@@ -203,7 +203,7 @@ struct ProjectInspectorPanel: View {
                 StudioPlainLinkButton(
                     title: "Clear",
                     role: .secondary,
-                    font: StudioTypography.meta
+                    font: StudioTypography.caption
                 ) {
                     editor.selectFont(id: font.id)
                     editor.clearFileClarifiers(for: font.id)

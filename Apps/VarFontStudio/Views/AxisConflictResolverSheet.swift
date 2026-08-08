@@ -285,7 +285,7 @@ struct AxisConflictResolverSheet: View {
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
                 Text(kindLabel)
-                    .font(StudioTypography.meta.weight(.medium))
+                    .font(StudioTypography.caption.weight(.medium))
                     .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
@@ -315,7 +315,7 @@ struct AxisConflictResolverSheet: View {
                     StudioPlainLinkButton(
                         title: "Reset suggestions",
                         role: .secondary,
-                        font: StudioTypography.meta
+                        font: StudioTypography.caption
                     ) {
                         syncBulkNameDrafts()
                     }
@@ -324,7 +324,7 @@ struct AxisConflictResolverSheet: View {
                     StudioPlainLinkButton(
                         title: "Reset suggestions",
                         role: .secondary,
-                        font: StudioTypography.meta
+                        font: StudioTypography.caption
                     ) {
                         syncBulkValueDrafts()
                     }
@@ -666,7 +666,7 @@ struct AxisConflictResolverSheet: View {
                 renameUsesSuggestion = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
             Text("Suggested: “\(resolvedRename)”")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
         }
     }
@@ -692,7 +692,7 @@ struct AxisConflictResolverSheet: View {
             }
             if let min = axis.min, let max = axis.max {
                 Text("Allowed \(AxisStopSuggestions.formatValue(min)) – \(AxisStopSuggestions.formatValue(max))")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -804,7 +804,7 @@ struct AxisConflictResolverSheet: View {
                 Text(outcome.nameBefore)
                     .strikethrough()
                 Text("Removed")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             }
             .font(StudioTypography.body)

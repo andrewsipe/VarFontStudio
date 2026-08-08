@@ -185,7 +185,7 @@ struct InstanceListPanel: View {
                     }
                 }
             }
-            .font(StudioTypography.meta)
+            .font(StudioTypography.caption)
             .lineLimit(1)
         }
     }
@@ -694,7 +694,7 @@ struct InstanceListPanel: View {
                         .foregroundStyle(.primary)
                     Spacer(minLength: 0)
                     Text(hidePinnedAxes ? "Pinned hidden" : "All roles")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
@@ -1175,7 +1175,7 @@ private struct InstanceRowView: View {
                         .fixedSize()
                 } else {
                     Text("Pending")
-                        .font(StudioTypography.meta.weight(.medium))
+                        .font(StudioTypography.caption.weight(.medium))
                         .foregroundStyle(StudioColors.editedForeground)
                         .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                         .padding(.vertical, StudioSpacing.instanceRowGap)
@@ -1208,7 +1208,7 @@ private struct InstanceRowView: View {
 
         if isPendingExport && !showNames {
             Text("Pending")
-                .font(StudioTypography.meta.weight(.medium))
+                .font(StudioTypography.caption.weight(.medium))
                 .foregroundStyle(StudioColors.editedForeground)
                 .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                 .padding(.vertical, StudioSpacing.instanceRowGap)

@@ -16,7 +16,7 @@ struct FileClarifierFields: View {
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             postscriptPrefixRow(fontID: font.id)
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -43,7 +43,7 @@ struct FileClarifierFields: View {
     private func postscriptPrefixRow(fontID: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
             Text("PostScript prefix")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: FileNamingLayout.labelWidth, alignment: .leading)
 
@@ -86,7 +86,7 @@ struct FileNamingSectionPlaceholder: View {
         VStack(alignment: .leading, spacing: StudioSpacing.groupHeaderBelow) {
             StudioSectionLabel(title: "File naming", muted: false)
             Text("Select a file")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
         }
     }

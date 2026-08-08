@@ -142,12 +142,12 @@ struct NamingOrderChainFooter: View {
         VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
             if editor.namingChainTags.isEmpty {
                 Text("No naming axes yet.")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
             } else {
                 if editor.projectHasMultipleFiles {
                     Text("Indigo chips are naming axes — each file carries its own stop on that axis.")
-                        .font(StudioTypography.meta)
+                        .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -178,7 +178,7 @@ struct NamingOrderChainFooter: View {
 
             if !isExpanded {
                 Text(collapsedSummary)
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(collapsedSummaryForeground)
                     .lineLimit(1)
 
@@ -321,7 +321,7 @@ struct NamingOrderChainFooter: View {
 
             if editor.selectedInstance != nil {
                 Text("from selection")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.quaternary)
             }
         }
@@ -334,7 +334,7 @@ struct NamingOrderChainFooter: View {
     ) -> some View {
         HStack(spacing: StudioSpacing.rowGap) {
             Text(label)
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
                 .frame(width: 68, alignment: .leading)
 
@@ -355,7 +355,7 @@ struct NamingOrderChainFooter: View {
         let stored = editor.project?.naming.elidedFallback ?? display.value
         return HStack(spacing: StudioSpacing.rowGap) {
             Text("Elided Fallback")
-                .font(StudioTypography.meta)
+                .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
                 .frame(width: 68, alignment: .leading)
 
@@ -391,7 +391,7 @@ struct NamingOrderChainFooter: View {
 
             if display.inferred, !isEditingElidedFallback {
                 Text("inferred")
-                    .font(StudioTypography.meta)
+                    .font(StudioTypography.caption)
                     .foregroundStyle(.quaternary)
                     .help("No non-elidable baseline segments resolved; using STAT source or Regular.")
             }
@@ -521,7 +521,7 @@ struct NamingOrderChainFooter: View {
 
     private var chainEmptyState: some View {
         Text(chainEmptyMessage)
-            .font(StudioTypography.meta)
+            .font(StudioTypography.caption)
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(minHeight: 28)
