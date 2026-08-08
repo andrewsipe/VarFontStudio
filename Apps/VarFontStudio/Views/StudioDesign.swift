@@ -402,7 +402,10 @@ private enum StudioIconForeground {
 //
 // ## Phase 4 punch list (post-audit)
 // 1. Axis value dot — conditional only (`showMark` default false); column TBD.
-// 2. Two opacity scales — chrome 0.03–0.16 vs semantic fills 0.20–0.30.
+// 2. Opaque area fills — semantic / selection / hover *Fill tokens bake alpha over
+//    the window background (`StudioOpaqueFill` / `StudioOpaquePanelWash`). Opacity
+//    remains for edges only (*Stroke, dividers, drag tints, focus rings). Neutral
+//    panel chrome (`surface*`, field fills) stays translucent/adaptive.
 // 3. Links — `.accent` idle `.primary`, brand on hover/press.
 // 4. Instancer — `StudioSemanticLeadingStripe`, not gradient fade.
 // 5. Tokens — `diffProtected` slate; `diffRenamed` yellow; STAT slate/mauve set.
@@ -420,25 +423,9 @@ private enum StudioPrimaryWash {
     }
 }
 
-/// Opaque color that matches a `StudioPrimaryWash` composited over the window
-/// background. Use under translucent chip fills so row selection/hover cannot
-/// show through (washes alone are translucent and will pick up whatever is behind).
-private enum StudioOpaquePanelWash {
-    static func make(name: String, light: CGFloat, dark: CGFloat) -> Color {
-        Color(nsColor: NSColor(name: NSColor.Name("Studio.OpaquePanelWash.\(name)"), dynamicProvider: { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let alpha = isDark ? dark : light
-            var result: NSColor = .windowBackgroundColor
-            appearance.performAsCurrentDrawingAppearance {
-                let base = NSColor.windowBackgroundColor
-                let wash = NSColor.labelColor.withAlphaComponent(alpha)
-                result = composite(wash, over: base) ?? base
-            }
-            return result
-        }))
-    }
-
-    private static func composite(_ src: NSColor, over dst: NSColor) -> NSColor? {
+/// Shared src-over bake used by opaque fill / panel-wash tokens.
+private enum StudioColorComposite {
+    static func composite(_ src: NSColor, over dst: NSColor) -> NSColor? {
         guard let s = src.usingColorSpace(.sRGB),
               let d = dst.usingColorSpace(.sRGB) else { return nil }
         var sr: CGFloat = 0, sg: CGFloat = 0, sb: CGFloat = 0, sa: CGFloat = 0
@@ -451,6 +438,46 @@ private enum StudioOpaquePanelWash {
             blue: sb * sa + db * (1 - sa),
             alpha: 1
         )
+    }
+}
+
+/// Opaque color that matches a `StudioPrimaryWash` composited over the window
+/// background. Use for neutral text tokens and under translucent chip fills so
+/// row selection/hover cannot show through (washes alone are translucent and
+/// will pick up whatever is behind).
+private enum StudioOpaquePanelWash {
+    static func make(name: String, light: CGFloat, dark: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: NSColor.Name("Studio.OpaquePanelWash.\(name)"), dynamicProvider: { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let alpha = isDark ? dark : light
+            var result: NSColor = .windowBackgroundColor
+            appearance.performAsCurrentDrawingAppearance {
+                let base = NSColor.windowBackgroundColor
+                let wash = NSColor.labelColor.withAlphaComponent(alpha)
+                result = StudioColorComposite.composite(wash, over: base) ?? base
+            }
+            return result
+        }))
+    }
+}
+
+/// Opaque color that matches a hued wash composited over the window background.
+/// Use for semantic / selection area fills so translucent surfaces beneath cannot
+/// bleed through and muddy the tint. Keep `.opacity()` for edges (`*Stroke`,
+/// dividers, drag tints) — not for fills.
+private enum StudioOpaqueFill {
+    static func make(name: String, hue: Color, light: CGFloat, dark: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: NSColor.Name("Studio.OpaqueFill.\(name)"), dynamicProvider: { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let alpha = isDark ? dark : light
+            var result: NSColor = .windowBackgroundColor
+            appearance.performAsCurrentDrawingAppearance {
+                let base = NSColor.windowBackgroundColor
+                let wash = NSColor(hue).withAlphaComponent(alpha)
+                result = StudioColorComposite.composite(wash, over: base) ?? base
+            }
+            return result
+        }))
     }
 }
 
@@ -493,9 +520,10 @@ enum StudioColors {
 
     // MARK: Neutral tags
 
-    /// Instance axis tag pills — neutral text on neutral wash.
-    static let tagForeground = Color.secondary
-    static let tagBackground = Color.secondary.opacity(0.12)
+    /// Instance axis tag pills — readable on `tagBackground`. System `.secondary` was
+    /// too faint on the light wash (especially `ousd`/`insd` mono labels).
+    static let tagForeground = StudioOpaquePanelWash.make(name: "tagForeground", light: 0.62, dark: 0.72)
+    static let tagBackground = StudioOpaqueFill.make(name: "tagBackground", hue: .secondary, light: 0.14, dark: 0.16)
     /// Truly opaque backdrop under translucent chip washes. Bakes `surfaceMuted`
     /// over the window background — `surfaceMuted` itself is a translucent wash,
     /// so using it alone still let selection/hover bleed through the pills.
@@ -511,13 +539,14 @@ enum StudioColors {
     /// Raised from 0.10/0.20 — at the old floor, brand-tinted selection read as barely-there
     /// gray next to the app's neutral chrome washes (same complaint as the diluted STAT
     /// badges). Now roughly matches the status-fill convention (`warningFill`, `successFill`
-    /// use 0.20-0.30) so selection state is legible without a focus ring doing all the work.
-    static let selectionFill = brand.opacity(0.16)
+    /// bake alphas 0.20–0.30) so selection state is legible without a focus ring doing all the work.
+    /// Opaque bake so translucent panel chrome cannot bleed through the tint.
+    static let selectionFill = StudioOpaqueFill.make(name: "selectionFill", hue: brand, light: 0.16, dark: 0.16)
     static let selectionStroke = brand.opacity(0.30)
     /// Neutral (non-accent) selection / hover-over-selection fills — not for borders.
-    static let selectionNeutralFill = StudioPrimaryWash.make(name: "selectionNeutralFill", light: 0.11, dark: 0.08)
-    static let selectionNeutralFillStrong = StudioPrimaryWash.make(name: "selectionNeutralFillStrong", light: 0.15, dark: 0.12)
-    static let hoverFill = StudioPrimaryWash.make(name: "hoverFill", light: 0.08, dark: 0.05)
+    static let selectionNeutralFill = StudioOpaquePanelWash.make(name: "selectionNeutralFill", light: 0.11, dark: 0.08)
+    static let selectionNeutralFillStrong = StudioOpaquePanelWash.make(name: "selectionNeutralFillStrong", light: 0.15, dark: 0.12)
+    static let hoverFill = StudioOpaquePanelWash.make(name: "hoverFill", light: 0.08, dark: 0.05)
 
     // MARK: Canvas (font preview only — see color system guidance)
 
@@ -542,14 +571,41 @@ enum StudioColors {
 
     // MARK: Semantic marks — status (warning / success / error)
     //
-    // Opacity scale for status fills (0.20–0.30) — stronger than neutral chrome washes.
+    // Warning fills are authored dual-tone solids — not `Color.orange` baked at low
+    // alpha. Low-alpha orange over a dark window composites to muddy brown (#5B4423);
+    // these stops stay recognizably amber in both appearances. Strokes keep opacity.
+    //
+    // Hierarchy inside a multi-row Issues band:
+    //   warningFillStrong  — summary header strip (“N issues to review”)
+    //   warningFill        — detail body / standalone banners
+    //   warningFillHover   — CTA chips (brightest, so buttons clear the fill)
 
-    static let warningFill = Color.orange.opacity(0.22)
-    static let warningFillHover = Color.orange.opacity(0.30)
+    /// Soft amber banner / detail-body wash.
+    static let warningFill = StudioHuedToken.make(
+        name: "warningFill",
+        light: (0.965, 0.835, 0.620), // #F6D59E
+        dark: (0.420, 0.250, 0.055)   // #6B400E — soft body under a stronger header
+    )
+    /// Deeper amber for the Issues-band summary strip — separates “N issues” from
+    /// the specific warning rows below without a second card.
+    static let warningFillStrong = StudioHuedToken.make(
+        name: "warningFillStrong",
+        light: (0.940, 0.730, 0.420), // #F0BA6B
+        dark: (0.580, 0.335, 0.055)   // #94550E — richer amber, not muddy brown
+    )
+    /// Brightest amber — CTA chips on warning banners (must clear both fills).
+    static let warningFillHover = StudioHuedToken.make(
+        name: "warningFillHover",
+        light: (0.980, 0.680, 0.280), // #FAAD47
+        dark: (0.820, 0.490, 0.090)   // #D17D17
+    )
+    /// Label on warning CTA chips. Dark ink — system `.primary` (white in dark mode)
+    /// only clears ~3:1 on `warningFillHover`; ink holds 5:1+ in both appearances.
+    static let warningButtonForeground = ink
     /// Mark hue — warning icons, gutter accents, flag symbols. Not banner body text.
     static let warningForeground = Color.orange
     static let warningStroke = Color.orange.opacity(0.45)
-    static let successFill = Color.green.opacity(0.22)
+    static let successFill = StudioOpaqueFill.make(name: "successFill", hue: .green, light: 0.22, dark: 0.22)
     static let successStroke = Color.green.opacity(0.45)
     /// Mark hue — success icons and include-checkbox checkmark when on. Do not use as
     /// standalone text/foreground color on a matching-hue fill — pair with `.primary`/
@@ -565,20 +621,20 @@ enum StudioColors {
     /// Mark hue — name-only collision (distinct from amber fallback / red severe).
     /// Pink family primary mark steps (3:1 non-text).
     static let collisionForeground = StudioPalette.color(.pink, light: .s600, dark: .s300)
-    static let collisionFill = collisionForeground.opacity(0.24)
+    static let collisionFill = StudioOpaqueFill.make(name: "collisionFill", hue: collisionForeground, light: 0.24, dark: 0.24)
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
     /// Indigo family (kept far from cyan `editedForeground` and brand blue).
     static let customForeground = StudioPalette.color(.indigo, light: .s300, dark: .s200)
-    static let customFill = customForeground.opacity(0.24)
+    static let customFill = StudioOpaqueFill.make(name: "customFill", hue: customForeground, light: 0.24, dark: 0.24)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
     /// Cyan family — do not reuse for pending export (see `pendingForeground`).
     static let editedForeground = StudioPalette.color(.cyan, light: .s500, dark: .s200)
-    static let editedFill = editedForeground.opacity(0.24)
+    static let editedFill = StudioOpaqueFill.make(name: "editedFill", hue: editedForeground, light: 0.24, dark: 0.24)
     /// Mark hue — pending export (Instances badge / filter). Emerald-green, unclaimed by
     /// edited-cyan / success-green / code jade — so pending and edited can co-occur.
     static let pendingForeground = StudioPalette.color(.emeraldGreen, light: .s600, dark: .s300)
-    static let pendingFill = pendingForeground.opacity(0.24)
+    static let pendingFill = StudioOpaqueFill.make(name: "pendingFill", hue: pendingForeground, light: 0.24, dark: 0.24)
 
     // MARK: Semantic marks — Save Review diff
     //
@@ -610,22 +666,28 @@ enum StudioColors {
     /// Disabled-selected chip stroke (stronger than `surfaceStroke`).
     static let surfaceStrokeEmphasized = StudioPrimaryWash.make(name: "surfaceStrokeEmphasized", light: 0.22, dark: 0.18)
     /// Softened primary for idle-but-enabled label text.
-    static let primaryMuted = StudioPrimaryWash.make(name: "primaryMuted", light: 0.88, dark: 0.85)
+    /// Opaque bake — translucent `labelColor@alpha` washed out over tinted fills.
+    static let primaryMuted = StudioOpaquePanelWash.make(name: "primaryMuted", light: 0.88, dark: 0.85)
     /// Flat secondary action fill (Cancel, Generate All…, Add Instance…).
     static let buttonSecondaryFill = StudioPrimaryWash.make(name: "buttonSecondaryFill", light: 0.15, dark: 0.12)
     static let buttonSecondaryFillDisabled = StudioPrimaryWash.make(name: "buttonSecondaryFillDisabled", light: 0.07, dark: 0.05)
     /// Readable placeholder in fields and search — stronger than `.tertiary`, softer than `.primary`.
-    static let textPlaceholder = StudioPrimaryWash.make(name: "textPlaceholder", light: 0.42, dark: 0.48)
+    static let textPlaceholder = StudioOpaquePanelWash.make(name: "textPlaceholder", light: 0.42, dark: 0.48)
     /// Muted-but-legible informational text (elided naming-chain links, non-participating axis
     /// coordinate rows, muted axis-value digits). ~3.5–4:1 against panel in both appearances —
-    /// tuned as its own token rather than stacking `.opacity()` on system `.secondary`/`.tertiary`,
+    /// opaque bake rather than stacking `.opacity()` on system `.secondary`/`.tertiary`,
     /// which compounds their own built-in translucency into ~2:1 and washes out.
-    static let mutedForeground = StudioPrimaryWash.make(name: "mutedForeground", light: 0.50, dark: 0.40)
+    static let mutedForeground = StudioOpaquePanelWash.make(name: "mutedForeground", light: 0.50, dark: 0.40)
     /// Section titles, phase headers, and column headers — readable at a glance without
     /// matching `.primary`'s weight. Verified ~4.8–5.2:1 against representative panel
     /// backgrounds in both appearances (plain system `.secondary` only clears ~3.95:1 in
-    /// light mode, below the 4.5:1 AA floor this tier exists to guarantee).
-    static let sectionHeading = StudioPrimaryWash.make(name: "sectionHeading", light: 0.58, dark: 0.50)
+    /// light mode, below the 4.5:1 AA floor this tier exists to guarantee). Opaque so it
+    /// stays crisp over tinted banners and selection fills.
+    static let sectionHeading = StudioOpaquePanelWash.make(name: "sectionHeading", light: 0.58, dark: 0.50)
+    /// Opaque sticky-pin fill matching `surfaceMuted`'s wash strength. Pinned section
+    /// headers (Save Review phases, Instancer groups) must fully cover scrolling rows —
+    /// translucent `surfaceMuted` alone let content bleed through.
+    static let stickyHeaderFill = StudioOpaquePanelWash.make(name: "stickyHeaderFill", light: 0.07, dark: 0.04)
     /// Scannable metric digits — panel header counts, `StudioCountBadge`, summary cards.
     /// Steel blue: related to brand but darker; not used for buttons or selection chrome.
     /// Dual-tone: dark-mode stop verified independently (was fixed RGB, ~2.4:1 in dark mode).
@@ -641,7 +703,7 @@ enum StudioColors {
 
     /// Mark hue — design-record / PS / clarifier. Magenta family primary mark steps.
     static let registrationForeground = StudioPalette.color(.magenta, light: .s500, dark: .s300)
-    static let registrationBackground = registrationForeground.opacity(0.22)
+    static let registrationBackground = StudioOpaqueFill.make(name: "registrationBackground", hue: registrationForeground, light: 0.22, dark: 0.22)
     static let registrationStroke = registrationForeground.opacity(0.40)
     /// Legacy clarifier alias — same plum as registration.
     static let clarifierForeground = registrationForeground
@@ -650,7 +712,7 @@ enum StudioColors {
     /// Mark hue — OpenType classification code chip. Jade-green (not emerald pending /
     /// not green diffAdded) so Code stays distinct from status and pending.
     static let codeForeground = StudioPalette.color(.jadeGreen, light: .s500, dark: .s300)
-    static let codeBackground = codeForeground.opacity(0.22)
+    static let codeBackground = StudioOpaqueFill.make(name: "codeBackground", hue: codeForeground, light: 0.22, dark: 0.22)
     static let codeStroke = codeForeground.opacity(0.45)
 
     // MARK: Semantic marks — STAT format badges
@@ -852,10 +914,15 @@ enum StudioDiffPillStyle {
 
     var background: Color {
         // System yellow measures far lower luminance-contrast against a light panel than the
-        // other diff hues at the same opacity, so it needs a stronger wash to register at all.
+        // other diff hues at the same bake alpha, so it needs a stronger wash to register at all.
+        // Opaque bake so translucent row/selection chrome cannot muddy the pill fill.
         switch self {
-        case .changed: foreground.opacity(0.34)
-        default: foreground.opacity(0.20)
+        case .removed: Self.removedFill
+        case .added: Self.addedFill
+        case .changed: Self.changedFill
+        case .reflowed: Self.reflowedFill
+        case .unchanged: Self.unchangedFill
+        case .protected: Self.protectedFill
         }
     }
     var border: Color {
@@ -864,6 +931,13 @@ enum StudioDiffPillStyle {
         default: foreground.opacity(0.35)
         }
     }
+
+    private static let removedFill = StudioOpaqueFill.make(name: "diffPillRemoved", hue: StudioColors.diffRemoved, light: 0.20, dark: 0.20)
+    private static let addedFill = StudioOpaqueFill.make(name: "diffPillAdded", hue: StudioColors.diffAdded, light: 0.20, dark: 0.20)
+    private static let changedFill = StudioOpaqueFill.make(name: "diffPillChanged", hue: StudioColors.diffRenamed, light: 0.34, dark: 0.34)
+    private static let reflowedFill = StudioOpaqueFill.make(name: "diffPillReflowed", hue: StudioColors.diffReflowed, light: 0.20, dark: 0.20)
+    private static let unchangedFill = StudioOpaqueFill.make(name: "diffPillUnchanged", hue: .secondary, light: 0.20, dark: 0.20)
+    private static let protectedFill = StudioOpaqueFill.make(name: "diffPillProtected", hue: StudioColors.diffProtected, light: 0.20, dark: 0.20)
 }
 
 struct StudioSemanticPill: View {
@@ -3003,8 +3077,17 @@ struct StudioFlatButton: View {
     enum Role {
         case primary
         case secondary
-        /// Tinted variant (e.g. Add Naming Axis registration indigo).
+        /// Tinted variant — `foreground` is the label color; `background` is the chip fill.
+        /// Warning CTAs: `warningAction`. Soft washes (registration): pass `.primary` as label.
         case tinted(foreground: Color, background: Color)
+
+        /// Shared Review / Resolve CTA on amber — dark ink on `warningFillHover`.
+        static var warningAction: Role {
+            .tinted(
+                foreground: StudioColors.warningButtonForeground,
+                background: StudioColors.warningFillHover
+            )
+        }
     }
 
     enum Size {
@@ -3082,12 +3165,11 @@ private enum StudioFlatButtonChrome {
         }
         switch role {
         case .primary: return .white
-        // Label stays neutral even for .tinted — the hue lives in the fill/stroke only.
-        // (Previously duplicated the fill's own hue as full-strength text, which is both a
-        // self-referential contrast problem — the fill IS the text color at 22% opacity, so
-        // they can't be tuned independently — and a direct violation of this file's own rule
-        // that semantic *Foreground hues are marks, not Text.)
-        case .secondary, .tinted: return .primary
+        // `.tinted` uses the caller-supplied label color so bright fills (warning amber)
+        // can pick dark ink instead of `.primary` (white in dark mode — fails AA on the
+        // CTA chip). Soft tinted fills (registration) pass `.primary`.
+        case .secondary: return .primary
+        case .tinted(let foreground, _): return foreground
         }
     }
 
@@ -3483,10 +3565,7 @@ struct StudioConflictAlert: View {
 
             StudioFlatButton(
                 title: actionTitle,
-                role: .tinted(
-                    foreground: StudioColors.warningForeground,
-                    background: StudioColors.warningFillHover
-                ),
+                role: .warningAction,
                 size: .compact,
                 action: action
             )

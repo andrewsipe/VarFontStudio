@@ -288,6 +288,120 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(instanceSection?.rows[1].afterValue, "\"Playfair-Regular\"")
     }
 
+    func testDuplicateComposedNamesFlagImpactedRows() {
+        let analysis = makeAnalysis()
+        let font = makeFont()
+        // Two included instances share "Regular" (duplicate); "Bold" is unique.
+        let plan = InstancePlan(
+            schemaVersion: 1,
+            fontID: "f1",
+            formula: .init(parts: [], totalGenerated: 3, totalIncluded: 3, totalExcluded: 0),
+            instances: [
+                PlannedInstance(key: "i1", composedName: "Regular", coords: ["wght": 400], included: true, duplicate: true, namingChain: []),
+                PlannedInstance(key: "i2", composedName: "Regular", coords: ["wght": 401], included: true, duplicate: true, namingChain: []),
+                PlannedInstance(key: "i3", composedName: "Bold", coords: ["wght": 700], included: true, duplicate: false, namingChain: []),
+            ],
+            warnings: [],
+            namePlanSummary: nil
+        )
+        let report = CommitDiffReport(
+            statRows: [],
+            instanceRows: [
+                CommitDiffInstanceRow(key: "i1", beforeName: "Regular", afterName: "Regular", coords: ["wght": 400], change: .unchanged),
+                CommitDiffInstanceRow(key: "i3", beforeName: "Bold", afterName: "Bold", coords: ["wght": 700], change: .unchanged),
+            ],
+            nameIDRows: [
+                CommitDiffNameIDRow(id: 300, beforeString: "Regular", afterString: "Regular", afterRole: "instance_subfamily", change: .unchanged),
+                CommitDiffNameIDRow(id: 301, beforeString: "Bold", afterString: "Bold", afterRole: "instance_subfamily", change: .unchanged),
+            ]
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: analysis,
+            font: font,
+            plan: plan,
+            report: report,
+            diff: nil,
+            naming: makeNaming()
+        )
+
+        let fvarInstances = presentation.tabs.first { $0.id == .fvar }?
+            .sections.first { $0.title == "Instances" }?.rows ?? []
+        let fvarRegular = fvarInstances.first { $0.afterValue == "\"Regular\"" }
+        let fvarBold = fvarInstances.first { $0.afterValue == "\"Bold\"" }
+        XCTAssertNotNil(fvarRegular?.conflictHint, "Shared composed name should flag the fvar row")
+        XCTAssertNil(fvarBold?.conflictHint, "Unique composed name must not be flagged")
+
+        let nameInstances = presentation.tabs.first { $0.id == .name }?
+            .sections.first { $0.title == "Instances" }?.rows ?? []
+        XCTAssertTrue(
+            nameInstances.contains { $0.afterValue == "\"Regular\"" && $0.conflictHint != nil },
+            "Shared composed name should flag the name-tab subfamily row"
+        )
+        XCTAssertTrue(
+            nameInstances.contains { $0.afterValue == "\"Bold\"" && $0.conflictHint == nil },
+            "Unique composed name row stays unflagged"
+        )
+    }
+
+    func testConflictingAxisStopsFlagStatRows() {
+        let analysis = makeAnalysis()
+        var font = makeFont()
+        // Two "Regular" weight stops (the Axis Tree conflict) plus a clean "Medium".
+        font.axes = [
+            AxisDefinition(
+                tag: "wght",
+                displayName: "Weight",
+                min: 100,
+                default: 100,
+                max: 900,
+                role: .instance,
+                values: [
+                    AxisValue(id: "s100", value: 100, name: "Regular", elidable: true, statFormat: 1),
+                    AxisValue(id: "s200", value: 200, name: "Regular", elidable: false, statFormat: 1),
+                    AxisValue(id: "s350", value: 350, name: "Medium", elidable: false, statFormat: 1),
+                ]
+            ),
+        ]
+        let plan = InstancePlan(
+            schemaVersion: 1,
+            fontID: "f1",
+            formula: .init(parts: [], totalGenerated: 0, totalIncluded: 0, totalExcluded: 0),
+            instances: [],
+            warnings: [
+                PlanWarning(
+                    code: "duplicate_stop_name",
+                    axis: "wght",
+                    name: "Regular",
+                    stopIDs: ["s100", "s200"],
+                    message: "Two Weight stops share the name \"Regular\"."
+                ),
+            ],
+            namePlanSummary: nil
+        )
+        let report = CommitDiffReport(
+            statRows: [
+                CommitDiffStatRow(tag: "wght", value: 100, beforeName: "Regular", afterName: "Regular", beforeNameID: 273, afterNameID: 273, afterStatFormat: 1, afterLinkedValue: nil, change: .unchanged),
+                CommitDiffStatRow(tag: "wght", value: 200, beforeName: nil, afterName: "Regular", beforeNameID: nil, afterNameID: 274, afterStatFormat: 1, afterLinkedValue: nil, change: .added),
+                CommitDiffStatRow(tag: "wght", value: 350, beforeName: "Medium", afterName: "Medium", beforeNameID: 275, afterNameID: 275, afterStatFormat: 1, afterLinkedValue: nil, change: .unchanged),
+            ],
+            instanceRows: [],
+            nameIDRows: []
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: analysis,
+            font: font,
+            plan: plan,
+            report: report,
+            diff: nil,
+            naming: makeNaming()
+        )
+        let statRows = presentation.tabs.first { $0.id == .stat }?
+            .sections.first { $0.title == "Weight" || $0.title == "wght" }?.rows ?? []
+        XCTAssertNotNil(statRows.first { $0.fieldTitle == "wght = 100" }?.conflictHint, "Conflicting stop should be flagged")
+        XCTAssertNotNil(statRows.first { $0.fieldTitle == "wght = 200" }?.conflictHint, "Conflicting stop should be flagged")
+        XCTAssertNil(statRows.first { $0.fieldTitle == "wght = 350" }?.conflictHint, "Non-conflicting stop stays clean")
+    }
+
     // MARK: - Fixtures
 
     private func makeAnalysis() -> FontAnalysis {

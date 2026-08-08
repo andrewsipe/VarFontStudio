@@ -8,6 +8,9 @@ struct AxisStopTableHeader: View {
     var showDefaultMark: Bool = false
     var showRemoveSlot: Bool = true
     var showCode: Bool = false
+    /// Reserve the conflict-badge column so header labels stay aligned with the rows below
+    /// when the axis has a stop in an unresolved naming conflict.
+    var showConflictColumn: Bool = false
     /// `true` ascending, `false` descending, `nil` mixed / single stop.
     var valueSortAscending: Bool? = nil
     var onToggleValueSort: (() -> Void)? = nil
@@ -22,7 +25,7 @@ struct AxisStopTableHeader: View {
 
             Text("Format")
                 .font(StudioTypography.columnLabel)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StudioColors.sectionHeading)
                 .lineLimit(1)
                 .frame(width: AxisBlockLayout.fmtColumnWidth, alignment: .center)
 
@@ -31,14 +34,14 @@ struct AxisStopTableHeader: View {
 
             Text("Name")
                 .font(StudioTypography.columnLabel)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StudioColors.sectionHeading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, AxisBlockLayout.nameGap)
 
             if showElidable {
                 Text("Elided")
                     .font(StudioTypography.columnLabel)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(StudioColors.sectionHeading)
                     .lineLimit(1)
                     .frame(width: AxisBlockLayout.elidableWidth, alignment: .center)
                     .padding(.leading, AxisBlockLayout.elidableGap)
@@ -48,15 +51,21 @@ struct AxisStopTableHeader: View {
             if showCode {
                 Text("Code")
                     .font(StudioTypography.columnLabel)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(StudioColors.sectionHeading)
                     .frame(width: AxisBlockLayout.codeColumnWidth, alignment: .center)
                     .padding(.leading, AxisBlockLayout.codeGap)
                     .help("Optional 1–2 character classification code (letters or digits). Independent of Elided — it always composes into the instance code.")
             }
 
-            // Mirrors AxisTreeStopRow's removeSlot exactly — same width, same
-            // leading gap — so every column stays aligned with the rows beneath
-            // this header instead of drifting by however wide that slot is.
+            // Mirrors AxisTreeStopRow's conflict / remove slots exactly — same widths, same
+            // leading gaps — so every column stays aligned with the rows beneath this header
+            // instead of drifting by however wide those slots are.
+            if showConflictColumn {
+                Color.clear
+                    .frame(width: AxisBlockLayout.conflictSlotWidth)
+                    .padding(.leading, AxisBlockLayout.conflictSlotLeadingGap)
+            }
+
             if showRemoveSlot {
                 Color.clear
                     .frame(width: AxisBlockLayout.removeSlotWidth)
@@ -126,6 +135,12 @@ struct AxisTreeStopRow: View {
     var allowsRemove: Bool = true
     var valueEditable: Bool = true
     let isElidable: Bool
+    /// The axis owning this row has at least one conflicting stop — reserve the trailing slot
+    /// so every row in the table stays column-aligned whether or not it carries the badge.
+    var showConflictColumn: Bool = false
+    /// This stop participates in an unresolved axis naming conflict (duplicate value / name).
+    var isConflicting: Bool = false
+    var onResolveConflict: (() -> Void)?
     let onSelect: () -> Void
     let onBeginEdit: (StopEditField) -> Void
     let onEndEdit: () -> Void
@@ -168,7 +183,12 @@ struct AxisTreeStopRow: View {
             StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
         }
         .overlay(alignment: .leading) {
-            if isRegistrationStop {
+            if isConflicting {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(StudioColors.warningForeground.opacity(0.85))
+                    .frame(width: 3)
+                    .padding(.leading, StudioSpace.x0_5)
+            } else if isRegistrationStop {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(StudioColors.registrationForeground.opacity(0.85))
                     .frame(width: 3)
@@ -236,6 +256,12 @@ struct AxisTreeStopRow: View {
                     .padding(.leading, AxisBlockLayout.codeGap)
             }
 
+            if showConflictColumn {
+                conflictCell
+                    .frame(width: AxisBlockLayout.conflictSlotWidth, alignment: .center)
+                    .padding(.leading, AxisBlockLayout.conflictSlotLeadingGap)
+            }
+
             // Real reserved column, not an overlay — sized to the button alone,
             // so it's contained by the row's own background automatically instead
             // of needing a separately hand-tuned offset/background pair to agree.
@@ -260,6 +286,18 @@ struct AxisTreeStopRow: View {
             }
             .frame(width: AxisBlockLayout.defaultMarkWidth, alignment: .center)
             .padding(.trailing, AxisBlockLayout.defaultMarkTrailingGap)
+        }
+    }
+
+    @ViewBuilder
+    private var conflictCell: some View {
+        if isConflicting {
+            StudioWarningBadge(
+                help: "This stop is part of a naming conflict — resolve it here",
+                action: onResolveConflict
+            )
+        } else {
+            Color.clear
         }
     }
 

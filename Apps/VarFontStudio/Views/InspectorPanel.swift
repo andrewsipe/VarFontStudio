@@ -124,7 +124,10 @@ struct InstanceInspectorContent: View {
 
     private func namingChainSection(_ instance: PlannedInstance) -> some View {
         StudioInspectorBlock(title: "Naming chain") {
-            InspectorInstanceNamingChain(links: instance.namingChain) { tag in
+            InspectorInstanceNamingChain(
+                links: instance.namingChain,
+                conflictTag: editor.primaryConflictAxis(for: instance)?.axisTag
+            ) { tag in
                 editor.focusInspectorAxis(for: instance, tag: tag)
             }
         }
@@ -133,6 +136,7 @@ struct InstanceInspectorContent: View {
     private func axisCoordinatesSection(_ instance: PlannedInstance) -> some View {
         let rows = editor.inspectorAxisCoordRows(for: instance)
         let showsElidableColumn = rows.contains(where: \.showsElisionToggle)
+        let conflictBundle = editor.primaryConflictAxis(for: instance)
 
         return StudioInspectorBlock(title: "Axis coordinates") {
             VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
@@ -151,6 +155,7 @@ struct InstanceInspectorContent: View {
                 InspectorAxisCoordinatesView(
                     rows: rows,
                     selectedStopID: editor.selectedAxisStopID,
+                    conflictAxisTag: conflictBundle?.axisTag,
                     onRowTap: { row in
                         guard let stopID = row.stopID else { return }
                         editor.focusInspectorAxisStop(tag: row.tag, stopID: stopID)
@@ -158,6 +163,11 @@ struct InstanceInspectorContent: View {
                     onElisionToggle: { row in
                         guard let stopID = row.stopID else { return }
                         editor.toggleAxisStopElidable(axisTag: row.tag, stopID: stopID)
+                    },
+                    onConflictTap: {
+                        if let conflictBundle {
+                            editor.presentConflictResolver(bundle: conflictBundle)
+                        }
                     }
                 )
             }

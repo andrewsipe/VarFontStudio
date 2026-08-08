@@ -25,8 +25,9 @@ enum SaveReviewLayout {
     static let gutterLeadingPadding: CGFloat = StudioSpacing.contentInset
     static let gutterTrailingPadding: CGFloat = StudioSpacing.contentInset
 
-    /// Sticky section band in the diff table — matches neutral chrome elsewhere.
-    static let phaseHeaderBackground = StudioColors.surfaceMuted
+    /// Sticky section band in the diff table — opaque so pinned headers fully
+    /// cover scrolling rows (translucent `surfaceMuted` let content bleed through).
+    static let phaseHeaderBackground = StudioColors.stickyHeaderFill
 }
 
 /// Spacing tokens for the Instancer window — shares Review density where chrome matches.

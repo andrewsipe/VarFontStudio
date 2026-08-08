@@ -131,3 +131,104 @@ Chrome tiers going forward:
 - **Act here** — amber banner / Resolve / Review queue
 - **Affected** — icon / badge only
 - **Focused** — one Inspector CTA
+
+## 2026-08-08 — Conflict indicators point at the cause, not just the symptom
+
+Scope: Axis Tree, Inspector, Save Review  
+Status: Approved  
+
+Rationale: The amber banners announced conflicts but never showed *where* to fix them.
+Each surface now carries a marker on the conflicting element itself so a user can resolve
+without opening the issue resolver:
+
+- **Axis Tree** — stops in an unresolved axis naming conflict (`conflictStopIDs`, derived
+  from `axisConflictBundles.involvedStopIDs`) get an amber leading stripe and a clickable
+  `StudioWarningBadge`; clicking jumps into that axis's conflict resolver.
+- **Inspector** — the coordinate row and naming-chain link for `primaryConflictAxis(for:)`
+  are marked (amber chain dot + a resolve badge on the row; amber ring on the chain pill),
+  so the single-instance panel points at the originating axis instead of only warning at top.
+- **Save Review** — triangles follow the conflict *chain*, matching the studio:
+  - **Cause** — the conflicting axis stops (from `AxisConflictBundler`, the same source the
+    Axis Tree uses) are flagged in the **STAT** table and in their **name**-table stop records,
+    keyed `tag:value` so the exact stops (e.g. both `wght` "Regular") carry the triangle just
+    like the Axis Tree rows.
+  - **Symptom** — instance rows whose composed name is shared by >1 included instance
+    (`duplicatedComposedNames`) are flagged in the **fvar** / **name** Instances sections, with
+    the triangle **trailing the composed-name value** (mirroring the Instances list, where
+    `statusAccessory` follows the name).
+  Both live in `SaveReviewRowPresentation.conflictHint`. The diff-category gutter is left intact
+  (not amber-washed) so added/removed/same still reads. The warnings card is now an amber-filled
+  banner matching `StudioConflictAlert` / the Axis Tree plan-warnings band (was a stroke-only
+  card) so every "needs attention" notice reads the same across the app.
+
+Markers reuse `StudioColors.warningForeground` / `StudioWarningBadge`; no new hue introduced.
+
+## 2026-08-08 — Opacity is for edges, not areas or text
+
+Scope: app-wide (targeted hot spots this round)  
+Status: Approved  
+
+Rationale: Stacking `hue.opacity(x)` fills and translucent hierarchy text (`labelColor@alpha`,
+system `.secondary`/`.tertiary`) over translucent panel chrome produced washed/muddy results —
+especially amber banners, selection+chip stacks, and column headers over tinted rows.
+
+**Rule:** opacity stays on edges (`*Stroke`, dividers, drag tints, focus rings). Area fills and
+text that must stay crisp are opaque, pre-composited tokens:
+
+- `StudioOpaqueFill` — bakes an arbitrary hue@alpha over the window background (semantic /
+  selection fills, tag/registration/code backgrounds, diff pill fills).
+- `StudioOpaquePanelWash` — bakes `labelColor@alpha` over the window background (neutral text
+  tokens + `chipSurface` / selection-neutral / hover fills).
+
+Migrated this round: status/instancer/registration/code/tag fills; selection + hover fills;
+`sectionHeading` / `mutedForeground` / `textPlaceholder` / `primaryMuted`; Axis Tree stop-table
+column headers (`.tertiary` → `sectionHeading`). Neutral panel chrome (`surface*`, field fills)
+and general `.secondary`/`.tertiary` prose on plain panels stay as-is.
+
+## 2026-08-08 — Sticky headers opaque; warning amber retuned; small neutrals raised
+
+Scope: targeted (Review sticky pins, Issues banners, tag/subtitle chrome)  
+Status: Approved  
+
+Rationale: Follow-up audit after the opaque-token pass showed three remaining gaps:
+
+1. **Sticky bleed** — Save Review / Instancer phase headers used translucent
+   `surfaceMuted`, so scrolling rows showed through pinned titles ("AXIS RECORDS").
+   New `stickyHeaderFill` (`StudioOpaquePanelWash` at the same wash strength) is the
+   phase-header background.
+2. **Brown Issues amber** — baking `Color.orange` @ 0.22 over a dark window composites
+   to muddy brown (~`#5B4423`). `warningFill` / `warningFillHover` are now authored
+   dual-tone solids (`StudioHuedToken`) that stay peach-amber in light and saturated
+   amber in dark. Mark hue + strokes unchanged.
+3. **Faint small neutrals** — tag pill labels (`ousd`/`insd`) used system `.secondary` on
+   a light wash; Review field subtitles (`STAT`/`fvar`) used `.tertiary`. Tags now use a
+   stronger opaque `tagForeground` + slightly deeper `tagBackground`; subtitles/secondary
+   lines use `mutedForeground`.
+
+## 2026-08-08 — Issues band: summary strip vs detail body
+
+Scope: Axis Tree plan-warnings band  
+Status: Approved  
+
+Rationale: Nesting `StudioConflictAlert` (its own `warningFill`) inside an outer
+`warningFill` card made the “N issues to review” row indistinguishable from the specific
+warnings beneath. One card, two amber tiers:
+
+- `warningFillStrong` — summary header strip
+- `warningFill` — detail body / standalone banners
+- `warningFillHover` — brightest CTA chips (must clear both fills)
+
+Hairline `warningStroke` between header and details. “Show in list…” link uses `.accent`
+so it stays legible on amber. Standalone `StudioConflictAlert` (Inspector / single conflict)
+unchanged.
+
+## 2026-08-08 — Warning CTA: shared role + dark label on amber
+
+Scope: app-wide warning Review / Resolve chips  
+Status: Approved  
+
+Rationale: Axis-header `Review…` still used soft `warningFill` while the Issues band used
+bright `warningFillHover`. White / `.primary` on that bright amber only clears ~3:1 (dark)
+/ ~1.9:1 (light). All warning CTAs now share `StudioFlatButton.Role.warningAction`
+(`warningFillHover` + `warningButtonForeground` = ink). `.tinted` honors its label color
+again so soft fills (registration) keep `.primary` text.

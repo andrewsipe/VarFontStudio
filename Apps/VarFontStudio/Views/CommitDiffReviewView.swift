@@ -475,21 +475,19 @@ struct CommitDiffReviewView: View {
 
     // MARK: - Cards
 
+    // Amber-filled banner — mirrors StudioConflictAlert / the Axis Tree plan-warnings band
+    // so every "needs attention" notice reads the same across the app.
     @ViewBuilder
     private func warningsCard(_ warnings: [PlanWarning]) -> some View {
         VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-            Text("Warnings")
-                .font(StudioTypography.sectionLabel)
-                .foregroundStyle(.secondary)
             ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
                 StudioWarningMessage(message: warning.message)
             }
         }
-        .padding(StudioSpacing.contentInset)
-        .background(
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.warningStroke, lineWidth: StudioStroke.regular)
-        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
     }
 
     @ViewBuilder

@@ -265,64 +265,117 @@ struct AxisTreePanel: View {
     private func planWarningsBand(scrollProxy: ScrollViewProxy) -> some View {
         let issueCount = editor.reviewIssueCount
         let infoWarnings = informationalPlanWarningsForBand
+        let hasSummary = issueCount > 0
+        let hasDetails = !infoWarnings.isEmpty
+        let radius = StudioRadius.row
 
-        if issueCount > 0 || !infoWarnings.isEmpty {
-            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                if issueCount > 0 {
-                    StudioConflictAlert(
-                        message: issueCount == 1 ? "1 issue to review" : "\(issueCount) issues to review",
-                        actionTitle: "Review issues…"
-                    ) {
-                        editor.startReviewSession()
-                    }
-                }
-
-                ForEach(Array(infoWarnings.enumerated()), id: \.offset) { _, warning in
-                    HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+        if hasSummary || hasDetails {
+            // One card composed of uneven-rounded strips:
+            // - summary alone → all four corners rounded
+            // - summary + details → summary top-only, details bottom-only, hairline between
+            // (Fully rounding both strips pinched a gap at the join.)
+            VStack(alignment: .leading, spacing: 0) {
+                if hasSummary {
+                    HStack(spacing: StudioSpacing.controlGap) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(StudioTypography.caption)
                             .foregroundStyle(StudioColors.warningForeground)
-                            .padding(.top, StudioSpacing.warningGlyphTopNudge)
-                        Text(warning.message)
+
+                        Text(issueCount == 1 ? "1 issue to review" : "\(issueCount) issues to review")
                             .font(StudioTypography.caption)
                             .foregroundStyle(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: StudioSpacing.controlGap)
-                        if warning.code == "duplicate_composed_name" {
-                            StudioPlainLinkButton(
-                                title: "Show in list…",
-                                role: .secondary,
-                                font: StudioTypography.caption
-                            ) {
-                                layout.showInstances = true
-                                if let name = warning.name {
-                                    editor.showDuplicateInstances(matchingName: name)
-                                } else {
-                                    editor.showAllDuplicateInstances()
-                                }
-                            }
+                            .lineLimit(2)
+
+                        Spacer(minLength: 0)
+
+                        StudioFlatButton(
+                            title: "Review issues…",
+                            role: .warningAction,
+                            size: .compact
+                        ) {
+                            editor.startReviewSession()
                         }
-                        if PlanIssueCodes.resolvable.contains(warning.code), issueCount > 0 {
-                            StudioFlatButton(
-                                title: "Review…",
-                                role: .tinted(
-                                    foreground: StudioColors.warningForeground,
-                                    background: StudioColors.warningFillHover
-                                ),
-                                size: .compact
-                            ) {
-                                editor.startReviewSession(jumpingTo: warning)
-                                if let axis = warning.axis {
-                                    focusAxis(axis, scrollProxy: scrollProxy)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        StudioColors.warningFillStrong,
+                        in: UnevenRoundedRectangle(
+                            cornerRadii: RectangleCornerRadii(
+                                topLeading: radius,
+                                bottomLeading: hasDetails ? 0 : radius,
+                                bottomTrailing: hasDetails ? 0 : radius,
+                                topTrailing: radius
+                            )
+                        )
+                    )
+                }
+
+                if hasSummary, hasDetails {
+                    Rectangle()
+                        .fill(StudioColors.warningStroke)
+                        .frame(height: 0.5)
+                }
+
+                if hasDetails {
+                    VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+                        ForEach(Array(infoWarnings.enumerated()), id: \.offset) { _, warning in
+                            HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(StudioTypography.caption)
+                                    .foregroundStyle(StudioColors.warningForeground)
+                                    .padding(.top, StudioSpacing.warningGlyphTopNudge)
+                                Text(warning.message)
+                                    .font(StudioTypography.caption)
+                                    .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: StudioSpacing.controlGap)
+                                if warning.code == "duplicate_composed_name" {
+                                    StudioPlainLinkButton(
+                                        title: "Show in list…",
+                                        role: .accent,
+                                        font: StudioTypography.caption
+                                    ) {
+                                        layout.showInstances = true
+                                        if let name = warning.name {
+                                            editor.showDuplicateInstances(matchingName: name)
+                                        } else {
+                                            editor.showAllDuplicateInstances()
+                                        }
+                                    }
+                                }
+                                if PlanIssueCodes.resolvable.contains(warning.code), hasSummary {
+                                    StudioFlatButton(
+                                        title: "Review…",
+                                        role: .warningAction,
+                                        size: .compact
+                                    ) {
+                                        editor.startReviewSession(jumpingTo: warning)
+                                        if let axis = warning.axis {
+                                            focusAxis(axis, scrollProxy: scrollProxy)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
+                    .padding(.horizontal, StudioSpace.x2_5)
+                    .padding(.vertical, StudioSpace.x2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        StudioColors.warningFill,
+                        in: UnevenRoundedRectangle(
+                            cornerRadii: RectangleCornerRadii(
+                                topLeading: hasSummary ? 0 : radius,
+                                bottomLeading: radius,
+                                bottomTrailing: radius,
+                                topTrailing: hasSummary ? 0 : radius
+                            )
+                        )
+                    )
                 }
             }
-            .padding(.horizontal, StudioSpace.x2_5)
-            .padding(.vertical, StudioSpace.x2)
-            .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
             .padding(.bottom, StudioSpacing.controlGap)
         }
     }
@@ -511,7 +564,7 @@ struct AxisTreePanel: View {
                     title: "Add Naming Axis",
                     systemImage: "plus",
                     role: .tinted(
-                        foreground: StudioColors.registrationForeground,
+                        foreground: .primary,
                         background: StudioColors.registrationBackground
                     ),
                     size: .row,
@@ -746,6 +799,7 @@ struct AxisTreePanel: View {
     @ViewBuilder
     private func axisDetail(_ axis: AxisDefinition) -> some View {
         let showElidable = axis.role == .instance || axis.lane == .registration
+        let axisHasConflict = axis.values.contains { editor.conflictStopIDs.contains($0.id) }
 
         VStack(alignment: .leading, spacing: 0) {
             if axis.values.isEmpty {
@@ -760,6 +814,7 @@ struct AxisTreePanel: View {
                     showDefaultMark: true,
                     showRemoveSlot: true,
                     showCode: editor.isCodeNamingEnabled,
+                    showConflictColumn: axisHasConflict,
                     valueSortAscending: EditorViewModel.axisStopsValueSortAscending(axis.values),
                     onToggleValueSort: {
                         editor.toggleAxisStopsValueSort(axisTag: axis.tag)
@@ -768,8 +823,13 @@ struct AxisTreePanel: View {
                 .padding(.bottom, AxisDetailSpacing.tableHeaderToFirstRowGap)
 
                 ForEach(axis.values) { stop in
-                    axisStopRow(axis: axis, stop: stop, showElidable: showElidable)
-                        .id(stop.id)
+                    axisStopRow(
+                        axis: axis,
+                        stop: stop,
+                        showElidable: showElidable,
+                        showConflictColumn: axisHasConflict
+                    )
+                    .id(stop.id)
                 }
             }
 
@@ -869,7 +929,8 @@ struct AxisTreePanel: View {
     private func axisStopRow(
         axis: AxisDefinition,
         stop: AxisValue,
-        showElidable: Bool
+        showElidable: Bool,
+        showConflictColumn: Bool = false
     ) -> some View {
         let isFvarDefault = axis.hasFvarScale
             && axis.default.map { AxisCoordinate.valuesEqual($0, stop.value) } == true
@@ -891,6 +952,9 @@ struct AxisTreePanel: View {
             allowsRemove: true,
             valueEditable: axis.hasFvarScale || axis.isDesignRecordOnly,
             isElidable: stop.elidable,
+            showConflictColumn: showConflictColumn,
+            isConflicting: editor.conflictStopIDs.contains(stop.id),
+            onResolveConflict: { editor.presentConflictResolver(for: axis.tag) },
             onSelect: {
                 scheduleClearEdit()
                 editor.toggleAxisStopSelection(stopID: stop.id)

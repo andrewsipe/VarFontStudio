@@ -114,6 +114,9 @@ public struct SaveReviewRowPresentation: Equatable, Sendable, Identifiable {
     public var roleLabel: String?
     public var category: SaveReviewDisplayCategory
     public var searchText: String
+    /// Non-nil when this row is impacted by an unresolved conflict (e.g. a shared
+    /// composed name). The string is used as the row warning-triangle help text.
+    public var conflictHint: String?
 
     public init(
         id: String,
@@ -125,7 +128,8 @@ public struct SaveReviewRowPresentation: Equatable, Sendable, Identifiable {
         noteLine: String?,
         roleLabel: String?,
         category: SaveReviewDisplayCategory,
-        searchText: String
+        searchText: String,
+        conflictHint: String? = nil
     ) {
         self.id = id
         self.nameID = nameID
@@ -137,6 +141,7 @@ public struct SaveReviewRowPresentation: Equatable, Sendable, Identifiable {
         self.roleLabel = roleLabel
         self.category = category
         self.searchText = searchText
+        self.conflictHint = conflictHint
     }
 }
 

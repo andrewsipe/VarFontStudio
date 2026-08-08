@@ -173,7 +173,7 @@ struct StudioStreamlinedDiffRow: View {
                     if !row.fieldSubtitle.isEmpty {
                         Text(row.fieldSubtitle)
                             .font(Self.fieldDetailFont(row.fieldSubtitle))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(StudioColors.mutedForeground)
                             .lineLimit(2)
                     }
                 }
@@ -207,6 +207,11 @@ struct StudioStreamlinedDiffRow: View {
                                 .foregroundStyle(valueColor)
                                 .textSelection(.enabled)
                                 .fixedSize(horizontal: false, vertical: true)
+                            // Trailing the composed name — same spot the Instances list marks
+                            // an impacted row (statusAccessory follows the name).
+                            if let conflictHint = row.conflictHint {
+                                StudioWarningBadge(help: conflictHint)
+                            }
                         }
                     } else if row.category == .removed {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -220,7 +225,7 @@ struct StudioStreamlinedDiffRow: View {
                     if let secondaryLine {
                         Text(secondaryLine)
                             .font(row.noteLine != nil && row.wasLine == nil ? StudioTypography.caption : StudioTypography.monoValue)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(StudioColors.mutedForeground)
                             .italic(row.noteLine != nil && row.wasLine == nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }

@@ -186,10 +186,7 @@ struct AxisTreeAxisHeader: View {
             } else if !resolvablePlanWarnings.isEmpty, let onReviewPlanIssue {
                 StudioFlatButton(
                     title: "Review…",
-                    role: .tinted(
-                        foreground: StudioColors.warningForeground,
-                        background: StudioColors.warningFill
-                    ),
+                    role: .warningAction,
                     size: .compact,
                     help: resolvablePlanWarnings.first?.hint ?? "Review plan issues on this axis"
                 ) {

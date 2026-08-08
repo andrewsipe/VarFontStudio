@@ -120,6 +120,8 @@ struct StudioInstanceComposedName: View {
 
 struct InspectorInstanceNamingChain: View {
     let links: [NamingChainLink]
+    /// Axis tag whose stop originates the naming conflict affecting this instance.
+    var conflictTag: String?
     var onLinkTap: ((String) -> Void)?
 
     var body: some View {
@@ -135,6 +137,15 @@ struct InspectorInstanceNamingChain: View {
                             namingArrow
                         }
                         namingSegment(link)
+                            .overlay {
+                                if link.tag == conflictTag {
+                                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                                        .strokeBorder(
+                                            StudioColors.warningForeground.opacity(0.85),
+                                            lineWidth: StudioStroke.regular
+                                        )
+                                }
+                            }
                     }
                 }
             }
@@ -234,11 +245,18 @@ enum InspectorAxisCoordLayout {
 struct InspectorAxisCoordinatesView: View {
     let rows: [InspectorAxisCoordRow]
     var selectedStopID: String?
+    /// Axis tag whose stop originates the naming conflict affecting this instance.
+    var conflictAxisTag: String?
     var onRowTap: ((InspectorAxisCoordRow) -> Void)?
     var onElisionToggle: ((InspectorAxisCoordRow) -> Void)?
+    var onConflictTap: (() -> Void)?
 
     private var showsElisionColumn: Bool {
         rows.contains(where: \.showsElisionToggle)
+    }
+
+    private var showsConflictColumn: Bool {
+        conflictAxisTag != nil && rows.contains { $0.tag == conflictAxisTag }
     }
 
     var body: some View {
@@ -272,8 +290,11 @@ struct InspectorAxisCoordinatesView: View {
             linkActiveToNext: linkActiveToNext,
             isSelected: row.stopID == selectedStopID,
             showsElisionColumn: showsElisionColumn,
+            showsConflictColumn: showsConflictColumn,
+            isConflicting: row.tag == conflictAxisTag,
             onRowTap: onRowTap,
-            onElisionToggle: onElisionToggle
+            onElisionToggle: onElisionToggle,
+            onConflictTap: onConflictTap
         )
     }
 }
@@ -285,12 +306,27 @@ private struct InspectorAxisCoordRowView: View {
     let linkActiveToNext: Bool
     let isSelected: Bool
     let showsElisionColumn: Bool
+    var showsConflictColumn: Bool = false
+    var isConflicting: Bool = false
     var onRowTap: ((InspectorAxisCoordRow) -> Void)?
     var onElisionToggle: ((InspectorAxisCoordRow) -> Void)?
+    var onConflictTap: (() -> Void)?
     @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: StudioSpacing.controlGap) {
+            if showsConflictColumn {
+                Group {
+                    if isConflicting {
+                        StudioWarningBadge(
+                            help: "Naming conflict originates on this axis stop — resolve it",
+                            action: onConflictTap
+                        )
+                    }
+                }
+                .frame(width: StudioWarningBadge.slotSize)
+            }
+
             Button {
                 onRowTap?(row)
             } label: {
@@ -354,6 +390,7 @@ private struct InspectorAxisCoordRowView: View {
     @ViewBuilder
     private var chainRail: some View {
         let dotColor: Color = {
+            if isConflicting { return StudioColors.warningForeground }
             if isSelected { return StudioColors.brand }
             if row.participatesInNaming && !row.isElided { return StudioColors.registrationForeground }
             if row.isElided { return .secondary.opacity(0.35) }

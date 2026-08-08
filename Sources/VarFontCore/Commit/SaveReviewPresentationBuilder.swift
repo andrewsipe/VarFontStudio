@@ -13,11 +13,25 @@ public enum SaveReviewPresentationBuilder {
       projectOrder: naming.order,
       axisTags: font.axes.map(\.tag)
     )
+    // Conflict origin: the axis stops flagged in the Axis Tree (duplicate value / name).
+    // Keyed tag:value so STAT + name stop rows can carry the same triangle as the studio.
+    let conflictHintByStopKey = conflictHintByStopKey(
+      plan: plan,
+      font: font,
+      namingOrder: namingOrder
+    )
+    // Downstream symptom: composed names shared by more than one included instance.
+    let duplicatedComposedNames = Set(
+      plan.instances
+        .filter { $0.included && $0.duplicate }
+        .map(\.composedName)
+    )
     let statTab = buildStatTab(
       analysis: analysis,
       font: font,
       report: report,
-      diff: diff
+      diff: diff,
+      conflictHintByStopKey: conflictHintByStopKey
     )
     let fvarTab = buildFvarTab(
       analysis: analysis,
@@ -25,14 +39,17 @@ public enum SaveReviewPresentationBuilder {
       plan: plan,
       report: report,
       diff: diff,
-      namingOrder: namingOrder
+      namingOrder: namingOrder,
+      duplicatedComposedNames: duplicatedComposedNames
     )
     let nameTab = buildNameTab(
       analysis: analysis,
       font: font,
       plan: plan,
       report: report,
-      diff: diff
+      diff: diff,
+      duplicatedComposedNames: duplicatedComposedNames,
+      conflictHintByStopKey: conflictHintByStopKey
     )
     return SaveReviewPresentation(tabs: [statTab, fvarTab, nameTab])
   }
@@ -43,7 +60,8 @@ public enum SaveReviewPresentationBuilder {
     analysis: FontAnalysis,
     font: FontDocument,
     report: CommitDiffReport,
-    diff: CommitDiff?
+    diff: CommitDiff?,
+    conflictHintByStopKey: [String: String]
   ) -> SaveReviewTabPresentation {
     let designTags = statDesignTags(font: font, analysis: analysis)
     var sections: [SaveReviewSectionPresentation] = []
@@ -113,7 +131,8 @@ public enum SaveReviewPresentationBuilder {
             wasLine: wasLine,
             noteLine: noteLine,
             roleLabel: roleLabel
-          )
+          ),
+          conflictHint: conflictHintByStopKey[key]
         )
       }
       let displayName = font.axes.first(where: { $0.tag == tag })?.displayName ?? tag
@@ -182,7 +201,8 @@ public enum SaveReviewPresentationBuilder {
     plan: InstancePlan,
     report: CommitDiffReport,
     diff: CommitDiff?,
-    namingOrder: [String]
+    namingOrder: [String],
+    duplicatedComposedNames: Set<String>
   ) -> SaveReviewTabPresentation {
     var sections: [SaveReviewSectionPresentation] = []
 
@@ -252,7 +272,13 @@ public enum SaveReviewPresentationBuilder {
     }
 
     let instanceRows = report.instanceRows.enumerated().flatMap { index, row in
-      makeFvarInstanceRows(index: index, row: row, namingOrder: namingOrder, diff: diff)
+      makeFvarInstanceRows(
+        index: index,
+        row: row,
+        namingOrder: namingOrder,
+        diff: diff,
+        duplicatedComposedNames: duplicatedComposedNames
+      )
     }
     sections.append(SaveReviewSectionPresentation(title: "Instances", rows: instanceRows))
 
@@ -293,7 +319,9 @@ public enum SaveReviewPresentationBuilder {
     font: FontDocument,
     plan: InstancePlan,
     report: CommitDiffReport,
-    diff: CommitDiff?
+    diff: CommitDiff?,
+    duplicatedComposedNames: Set<String>,
+    conflictHintByStopKey: [String: String]
   ) -> SaveReviewTabPresentation {
     let nameByID = Dictionary(uniqueKeysWithValues: report.nameIDRows.map { ($0.id, $0) })
     let statNameIDToTagValue = statNameIDLookup(diff: diff)
@@ -362,7 +390,9 @@ public enum SaveReviewPresentationBuilder {
         })?.nameID else { continue }
         guard let row = nameByID[nameID] else { continue }
         let tagValue = (axis.tag, stop.value)
-        axisRows.append(makeNameRow(row, font: font, diff: diff, tagValue: tagValue, consumed: &consumedIDs))
+        var pres = makeNameRow(row, font: font, diff: diff, tagValue: tagValue, consumed: &consumedIDs)
+        pres.conflictHint = conflictHintByStopKey[statValueKey(tag: axis.tag, value: stop.value)]
+        axisRows.append(pres)
       }
       if axisRows.isEmpty { continue }
       sections.append(
@@ -383,11 +413,14 @@ public enum SaveReviewPresentationBuilder {
 
     var instanceRows: [SaveReviewRowPresentation] = []
     for instance in plan.instances where instance.included {
+      let isDuplicate = duplicatedComposedNames.contains(instance.composedName)
       let subfamilyRow = report.nameIDRows.first {
         $0.afterString == instance.composedName && $0.afterRole == "instance_subfamily"
       }
       if let subfamilyRow {
-        instanceRows.append(makeNameRow(subfamilyRow, font: font, diff: diff, tagValue: nil, consumed: &consumedIDs))
+        var pres = makeNameRow(subfamilyRow, font: font, diff: diff, tagValue: nil, consumed: &consumedIDs)
+        if isDuplicate { pres.conflictHint = sharedComposedNameHint }
+        instanceRows.append(pres)
       }
       if let psName = diff?.instancesPlanned.first(where: { $0.composedName == instance.composedName })?
         .postscriptName,
@@ -433,7 +466,8 @@ public enum SaveReviewPresentationBuilder {
     index: Int,
     row: CommitDiffInstanceRow,
     namingOrder: [String],
-    diff: CommitDiff?
+    diff: CommitDiff?,
+    duplicatedComposedNames: Set<String>
   ) -> [SaveReviewRowPresentation] {
     let coordsSubtitle = SaveReviewRowFormatter.instanceSubtitle(
       coords: row.coords,
@@ -443,6 +477,9 @@ public enum SaveReviewPresentationBuilder {
     let planned = composedName.flatMap { name in
       diff?.instancesPlanned.first { $0.composedName == name }
     }
+    let conflictHint = composedName.map { duplicatedComposedNames.contains($0) } == true
+      ? sharedComposedNameHint
+      : nil
     var rows: [SaveReviewRowPresentation] = []
 
     let subfamilyCategory = SaveReviewDisplayCategoryMapper.category(for: row)
@@ -468,7 +505,8 @@ public enum SaveReviewPresentationBuilder {
           wasLine: subfamilyWas,
           noteLine: nil,
           roleLabel: "subfamilyNameID"
-        )
+        ),
+        conflictHint: conflictHint
       )
     )
 
@@ -729,7 +767,55 @@ public enum SaveReviewPresentationBuilder {
     return parts.joined(separator: " · ")
   }
 
+  // MARK: - Conflict marking
+
+  /// Maps each conflicting axis stop (by `tag:value`) to warning-triangle help text, using the
+  /// same `AxisConflictBundler` the Axis Tree uses — so the Review flags the *cause* stops under
+  /// STAT / name, not only the downstream duplicate-name instances.
+  private static func conflictHintByStopKey(
+    plan: InstancePlan,
+    font: FontDocument,
+    namingOrder: [String]
+  ) -> [String: String] {
+    let bundles = AxisConflictBundler.bundles(
+      warnings: plan.warnings,
+      axes: font.axes,
+      namingOrder: namingOrder
+    )
+    guard !bundles.isEmpty else { return [:] }
+
+    let valueByStopID = Dictionary(
+      font.axes.flatMap { axis in axis.values.map { ($0.id, (axis.tag, $0.value)) } },
+      uniquingKeysWith: { first, _ in first }
+    )
+
+    var map: [String: String] = [:]
+    for bundle in bundles {
+      let hint = conflictStopHint(for: bundle)
+      for stopID in bundle.involvedStopIDs {
+        guard let (tag, value) = valueByStopID[stopID] else { continue }
+        map[statValueKey(tag: tag, value: value)] = hint
+      }
+    }
+    return map
+  }
+
+  private static func conflictStopHint(for bundle: AxisConflictBundle) -> String {
+    switch bundle.kind {
+    case .duplicateName:
+      return "Duplicate stop name on \(bundle.axisLabel) — resolve in the Axis Tree."
+    case .duplicateValue:
+      return "Duplicate stop value on \(bundle.axisLabel) — resolve in the Axis Tree."
+    case .duplicateValueAndName:
+      return "Duplicate stop value and name on \(bundle.axisLabel) — resolve in the Axis Tree."
+    }
+  }
+
   // MARK: - Helpers
+
+  /// Row warning-triangle help text for instances that share a composed name.
+  private static let sharedComposedNameHint =
+    "Shared composed name — this name is used by more than one included instance."
 
   private static func tabPresentation(
     id: SaveReviewTableTab,

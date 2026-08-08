@@ -226,6 +226,13 @@ enum AxisBlockLayout {
     /// needing a separately hand-tuned offset to agree with it.
     static let removeSlotWidth: CGFloat = removeButtonSize + StudioSpace.x1
     static let removeSlotLeadingGap: CGFloat = StudioSpacing.rowGap
+
+    /// Reserved trailing column for the conflict warning badge. Present only when an axis
+    /// has a stop in an unresolved naming conflict — a genuine layout slot (like the remove
+    /// column) so the clickable triangle has a stable, unambiguous hit target that never
+    /// competes with the name cell's tap gesture.
+    static let conflictSlotWidth: CGFloat = StudioWarningBadge.slotSize
+    static let conflictSlotLeadingGap: CGFloat = StudioSpacing.rowGap
 }
 
 struct AxisHeaderFramePreferenceKey: PreferenceKey {
