@@ -1,0 +1,289 @@
+import AppKit
+import SwiftUI
+import VarFontCore
+
+// MARK: - Save Review components
+
+extension SaveReviewDisplayCategory {
+    var pillStyle: StudioDiffPillStyle {
+        switch self {
+        case .same: .unchanged
+        case .protected: .protected
+        case .reflow: .reflowed
+        case .renamed: .changed
+        case .added: .added
+        case .removed: .removed
+        }
+    }
+}
+
+struct StudioFilterBadge: View {
+    let category: SaveReviewDisplayCategory
+    let count: Int
+    var isHidden: Bool
+    var isIsolated: Bool
+    let action: (_ commandClick: Bool) -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            action(NSEvent.modifierFlags.contains(.command))
+        } label: {
+            Text("\(category.filterLabel.uppercased()) \(count)")
+                .font(StudioTypography.filterBadgeLabel)
+                .tracking(0.3)
+                .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.primary))
+                .padding(.horizontal, StudioSpacing.pillHorizontalInset)
+                .padding(.vertical, StudioSpacing.instanceRowVertical)
+                .background {
+                    ZStack {
+                        if !isHidden {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(category.pillStyle.background)
+                        }
+                        if isHovered, !isHidden, !isIsolated {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(StudioColors.hoverFill)
+                        }
+                    }
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 3)
+                        .strokeBorder(
+                            isIsolated ? Color.primary.opacity(0.22) : (isHidden ? Color.clear : category.pillStyle.border),
+                            lineWidth: isIsolated ? 1 : 0.5
+                        )
+                }
+                .opacity(isHidden ? 0.32 : 1)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
+struct StudioSaveReviewTabBar: View {
+    let tabs: [SaveReviewTabPresentation]
+    @Binding var selectedTab: SaveReviewTableTab
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(tabs, id: \.tabID) { tab in
+                let isSelected = selectedTab == tab.id
+                let hasChanges = tab.changedCount > 0
+                Button {
+                    selectedTab = tab.id
+                } label: {
+                    HStack(spacing: 7) {
+                        Text(tab.label)
+                            .font(StudioTypography.bodyMedium.weight(isSelected ? .semibold : .regular))
+                        Text("\(tab.changedCount) of \(tab.totalCount)")
+                            .font(StudioTypography.columnLabel)
+                            .monospacedDigit()
+                            .foregroundStyle(hasChanges ? Color.primary : Color.secondary.opacity(0.7))
+                            .padding(.horizontal, StudioSpace.x1_5)
+                            .padding(.vertical, StudioSpacing.instanceRowGap)
+                            .background(
+                                hasChanges ? StudioColors.warningFill : StudioColors.selectionNeutralFill,
+                                in: Capsule()
+                            )
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .background(
+                        isSelected ? StudioColors.surfaceLight : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6)
+                    )
+                    .shadow(color: isSelected ? StudioColors.ink.opacity(0.2) : .clear, radius: 2, y: 1)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .studioHoverFill(
+                    shape: .roundedRect(cornerRadius: 6),
+                    isEnabled: !isSelected
+                )
+            }
+        }
+        .padding(3)
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
+        )
+    }
+}
+
+struct StudioSaveReviewPhaseHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title.uppercased())
+            .font(StudioTypography.sectionLabel)
+            .tracking(0.5)
+            .foregroundStyle(StudioColors.sectionHeading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, SaveReviewLayout.horizontalPadding)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            .background(SaveReviewLayout.phaseHeaderBackground)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(StudioColors.surfaceStroke)
+                    .frame(height: 0.5)
+            }
+            .zIndex(1)
+    }
+}
+
+struct StudioSaveReviewCategoryTag: View {
+    let category: SaveReviewDisplayCategory
+
+    var body: some View {
+        Text(category.filterLabel.uppercased())
+            .font(StudioTypography.filterBadgeLabel)
+            .tracking(0.3)
+            .foregroundStyle(.primary)
+            .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+            .padding(.vertical, StudioSpace.x0_5)
+            .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(category.pillStyle.border, lineWidth: 0.5)
+            }
+    }
+}
+
+// MARK: - Save Review row typography
+//
+// File-bound content (coordinates, quoted strings, tag=value, nameID slots in values)
+// → monospaced. Human labels, section context, and read-only notes → system sans.
+enum SaveReviewTypography {
+    static let fieldLabel = Font.system(size: 12, weight: .medium)
+    static let fieldLabelMono = Font.system(size: 12, weight: .medium, design: .monospaced)
+    static let fieldDetail = Font.system(size: 10)
+    static let nameID = Font.system(size: 11, weight: .medium, design: .monospaced)
+    static let value = Font.system(size: 10.5, design: .monospaced)
+    static let valueSecondary = Font.system(size: 10, design: .monospaced)
+    static let note = Font.system(size: 10)
+
+    /// Row identifier when it is a file-native key (e.g. `wgth = 400`).
+    static func fieldTitleFont(_ title: String) -> Font {
+        if title.range(of: #"^[a-zA-Z]{4} = "#, options: .regularExpression) != nil {
+            return fieldLabelMono
+        }
+        return fieldLabel
+    }
+
+    /// Subtitle lines that carry coordinates / tags use mono; descriptive labels use sans.
+    static func fieldDetailFont(_ subtitle: String) -> Font {
+        if subtitle.contains("=") || subtitle.hasPrefix("tag=") {
+            return valueSecondary
+        }
+        return fieldDetail
+    }
+}
+
+struct StudioStreamlinedDiffRow: View {
+    let row: SaveReviewRowPresentation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(gutterColor)
+                .frame(width: SaveReviewLayout.gutterWidth)
+                .padding(.leading, SaveReviewLayout.gutterLeadingPadding)
+                .padding(.trailing, SaveReviewLayout.gutterTrailingPadding)
+
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.fieldTitle)
+                        .font(SaveReviewTypography.fieldTitleFont(row.fieldTitle))
+                        .lineLimit(2)
+                    if !row.fieldSubtitle.isEmpty {
+                        Text(row.fieldSubtitle)
+                            .font(SaveReviewTypography.fieldDetailFont(row.fieldSubtitle))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+                    }
+                }
+                .frame(width: SaveReviewLayout.fieldColumnWidth, alignment: .leading)
+                .layoutPriority(1)
+
+                Group {
+                    if let nameID = row.nameID {
+                        Text("\(nameID)")
+                            .font(SaveReviewTypography.nameID)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    } else {
+                        Text("—")
+                            .font(SaveReviewTypography.fieldDetail)
+                            .foregroundStyle(.quaternary)
+                    }
+                }
+                .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
+                .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
+                .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
+                .layoutPriority(2)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    if let afterValue = row.afterValue, !afterValue.isEmpty {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            StudioSaveReviewCategoryTag(category: row.category)
+                            Text(afterValue)
+                                .font(SaveReviewTypography.value)
+                                .foregroundStyle(valueColor)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    } else if row.category == .removed {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            StudioSaveReviewCategoryTag(category: row.category)
+                            Text("—")
+                                .font(SaveReviewTypography.value)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+
+                    if let secondaryLine {
+                        Text(secondaryLine)
+                            .font(row.noteLine != nil && row.wasLine == nil ? SaveReviewTypography.note : SaveReviewTypography.valueSecondary)
+                            .foregroundStyle(.tertiary)
+                            .italic(row.noteLine != nil && row.wasLine == nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.vertical, SaveReviewLayout.rowVerticalPadding)
+        .padding(.trailing, SaveReviewLayout.horizontalPadding)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(StudioColors.surfaceStroke)
+                .frame(height: 0.5)
+                .padding(.leading, SaveReviewLayout.horizontalPadding)
+        }
+    }
+
+    /// Collapses `wasLine` + `noteLine` onto a single row so the value column
+    /// never grows past badge/value + one secondary line (2 lines total).
+    private var secondaryLine: String? {
+        let parts = [row.wasLine, row.noteLine].compactMap { $0 }.filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " · ")
+    }
+
+    private var gutterColor: Color {
+        if row.category == .same {
+            return StudioColors.surfaceStroke
+        }
+        return row.category.pillStyle.foreground
+    }
+
+    private var valueColor: Color {
+        row.category == .same ? .secondary : .primary
+    }
+}
