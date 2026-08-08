@@ -26,6 +26,8 @@ struct InspectorOpenTypeRow: Identifiable, Sendable {
     var sources: [InspectorOpenTypeSource]
     var isDerived: Bool
     var kind: InspectorOpenTypeRowKind
+    /// Name-table slot when this write maps to a known nameID (Save Review alignment).
+    var nameID: Int? = nil
 }
 
 struct InspectorAxisCoordRow: Identifiable, Sendable {

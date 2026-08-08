@@ -385,55 +385,98 @@ struct InspectorOpenTypeSourcePill: View {
     let source: InspectorOpenTypeSource
 
     var body: some View {
-        Text(source.rawValue)
-            .font(StudioTypography.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 1)
-            .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: StudioRadius.small))
+        Text(source.rawValue.uppercased())
+            .font(StudioTypography.filterBadgeLabel)
+            .tracking(0.3)
+            .foregroundStyle(.primary)
+            .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+            .padding(.vertical, StudioSpace.x0_5)
+            .background(fill, in: RoundedRectangle(cornerRadius: 3))
+            .overlay {
+                RoundedRectangle(cornerRadius: 3)
+                    .strokeBorder(stroke, lineWidth: StudioStroke.hairline)
+            }
+    }
+
+    private var fill: Color {
+        switch source {
+        case .stat: return StudioColors.registrationBackground
+        case .fvar: return StudioColors.brand.opacity(0.16)
+        case .name: return StudioColors.codeBackground
+        case .planned: return StudioColors.pendingFill
+        }
+    }
+
+    private var stroke: Color {
+        switch source {
+        case .stat: return StudioColors.registrationStroke
+        case .fvar: return StudioColors.brand.opacity(0.35)
+        case .name: return StudioColors.codeStroke
+        case .planned: return StudioColors.pendingForeground.opacity(0.45)
+        }
     }
 }
 
 struct InspectorOpenTypeTable: View {
     let rows: [InspectorOpenTypeRow]
 
-    private let tableWidth: CGFloat = 52
-    private let fieldWidth: CGFloat = 108
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: StudioSpacing.controlGap) {
-                Text("Table")
-                    .frame(width: tableWidth, alignment: .leading)
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Field")
-                    .frame(width: fieldWidth, alignment: .leading)
+                    .frame(width: SaveReviewLayout.fieldColumnWidth * 0.55, alignment: .leading)
+                Text("ID")
+                    .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
+                    .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
+                    .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
                 Text("Content")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .font(StudioTypography.columnLabel)
             .foregroundStyle(StudioColors.sectionHeading)
-            .padding(.bottom, 4)
+            .padding(.bottom, StudioSpace.x1)
 
             ForEach(rows) { row in
-                HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
-                    Text(row.table)
-                        .font(StudioTypography.monoMeta)
-                        .frame(width: tableWidth, alignment: .leading)
-                    Text(row.field)
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: fieldWidth, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
+                        Text(row.field)
+                            .font(StudioTypography.bodyMedium)
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                        Text(row.table)
+                            .font(StudioTypography.monoValue)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(width: SaveReviewLayout.fieldColumnWidth * 0.55, alignment: .leading)
+                    .layoutPriority(1)
+
+                    Group {
+                        if let nameID = row.nameID {
+                            Text("\(nameID)")
+                                .font(StudioTypography.rowNameMono.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                                .lineLimit(1)
+                        } else {
+                            Text("—")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.quaternary)
+                        }
+                    }
+                    .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
+                    .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
+                    .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
+                    .layoutPriority(2)
+
+                    VStack(alignment: .leading, spacing: StudioSpace.x1) {
                         Text(row.content)
-                            .font(row.isDerived ? StudioTypography.caption : StudioTypography.body)
-                            // Was `.tertiary` — that tier is reserved for chrome (chevrons,
-                            // separators, disabled-adjacent) elsewhere in this file. This is the
-                            // actual OpenType field value the panel exists to show, so it needs
-                            // to stay at a readable tier even when de-emphasized as "derived."
+                            .font(StudioTypography.monoValue)
                             .foregroundStyle(row.isDerived ? .secondary : .primary)
+                            .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
+
                         if !row.sources.isEmpty {
-                            HStack(spacing: 3) {
+                            HStack(spacing: StudioSpace.x1) {
                                 ForEach(row.sources, id: \.rawValue) { source in
                                     InspectorOpenTypeSourcePill(source: source)
                                 }
@@ -442,10 +485,12 @@ struct InspectorOpenTypeTable: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, StudioSpace.x2)
 
                 if row.id != rows.last?.id {
-                    Divider()
+                    Rectangle()
+                        .fill(StudioColors.surfaceStroke)
+                        .frame(height: StudioStroke.hairline)
                 }
             }
         }
