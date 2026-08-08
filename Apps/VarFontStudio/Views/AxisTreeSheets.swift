@@ -93,7 +93,7 @@ struct AddAxisStopSheet: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 360)
         .onAppear {
             seedDefaults()
@@ -382,7 +382,7 @@ struct FillAxisStopsSheet: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(minWidth: 460)
         .onAppear {
             guard let options else { return }
@@ -486,7 +486,7 @@ struct ChangeAxisStopFormatSheet: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 320)
     }
 
@@ -741,7 +741,7 @@ struct AddFileAxisSheet: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 540)
         .onAppear {
             selectFirstAvailableKind()
@@ -964,7 +964,7 @@ struct AddFileAxisSheet: View {
                     .padding(.top, StudioSpace.x0_5)
             }
         }
-        .padding(StudioSpacing.cardPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             (kindEnabled ? StudioColors.registrationBackground : StudioColors.surfaceMuted),
@@ -1092,7 +1092,7 @@ struct AddFileAxisSheet: View {
                     }
                 }
             }
-            .padding(StudioSpacing.cardPadding)
+            .padding(StudioSpacing.contentInset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: StudioRadius.row))
             .overlay {

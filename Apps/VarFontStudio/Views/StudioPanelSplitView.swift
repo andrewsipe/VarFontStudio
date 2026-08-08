@@ -87,7 +87,7 @@ struct StudioPanelSplitView: View {
             }
 
             middleScopeSwitcher
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .frame(height: StudioChromeBand.scope)
 
             Divider()

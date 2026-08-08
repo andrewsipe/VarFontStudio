@@ -542,7 +542,7 @@ struct WorkspaceDragGhostOverlay: View {
                 .fontWeight(.medium)
         }
         .foregroundStyle(badgeColor(for: target))
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.tightGap)
         .background(.regularMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.12), radius: 3, y: 1)

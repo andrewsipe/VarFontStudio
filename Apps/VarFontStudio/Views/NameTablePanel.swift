@@ -26,7 +26,7 @@ struct NameTablePanel: View {
             }
 
             toolbar
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .frame(height: StudioChromeBand.context)
                 .background(StudioColors.surfaceMuted)
                 .overlay(alignment: .bottom) { Divider() }
@@ -131,7 +131,7 @@ struct NameTablePanel: View {
                     nameRow(row)
                 }
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioSpacing.tightGap)
 
         }
@@ -169,7 +169,7 @@ struct NameTablePanel: View {
                     requiredIssueRow(issue)
                 }
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioSpacing.panelVertical)
             .overlay(alignment: .bottom) { Divider() }
         }

@@ -406,12 +406,12 @@ struct MainEditorView: View {
                         editor.dismissPersistentSaveError()
                     }
                 }
-                .padding(StudioSpacing.cardPadding)
+                .padding(StudioSpacing.contentInset)
                 .background(
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
                 )
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.top, StudioSpace.x2)
             }
 
@@ -550,7 +550,7 @@ struct MainEditorView: View {
                     .multilineTextAlignment(.trailing)
             }
         }
-        .padding(.horizontal, StudioSpacing.editorChromeInset)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
         .frame(minHeight: StudioChromeBand.header, alignment: .center)
     }
@@ -611,7 +611,7 @@ struct MainEditorView: View {
             .padding(.horizontal, StudioSpace.x4)
             .padding(.vertical, StudioSpace.x3)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.top, StudioSpace.x4)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
@@ -628,8 +628,8 @@ struct MainEditorView: View {
                 ProgressView()
                     .controlSize(.small)
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, StudioSpacing.sheetOuterPadding)
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.vertical, StudioSpacing.contentInset)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
         }
         .transition(.opacity)
@@ -662,7 +662,7 @@ struct MainEditorView: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 420)
     }
 }

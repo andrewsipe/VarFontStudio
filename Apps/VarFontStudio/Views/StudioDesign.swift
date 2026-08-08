@@ -71,9 +71,10 @@ enum StudioSpace {
 /// steps at call sites. Values are expressed in `StudioSpace` so the 4pt lattice
 /// stays the single source of truth.
 enum StudioSpacing {
-    /// Universal horizontal inset for panels, sheets, windows, and chrome bands.
+    /// Standard horizontal content inset for panels, sheets, cards, and chrome rails.
     /// Symmetric left/right — trailing space includes macOS overlay scrollbar clearance.
-    static let panelHorizontal: CGFloat = StudioSpace.x3
+    /// Formerly `panelHorizontal` / sheet/card/list inset aliases (all the same 12pt rail).
+    static let contentInset: CGFloat = StudioSpace.x3
     static let panelVertical: CGFloat = StudioSpace.x1_5
     static let rowHorizontal: CGFloat = StudioSpace.x1_5
     static let rowVertical: CGFloat = StudioSpace.x0_5
@@ -81,23 +82,10 @@ enum StudioSpacing {
     /// Tight inter-element gap inside chips / compact tool clusters.
     static let tightGap: CGFloat = StudioSpace.x1
     static let controlGap: CGFloat = StudioSpace.x2
+    /// Section-level rhythm between axis blocks / grouped sections — independent of row density.
     static let sectionGap: CGFloat = StudioSpace.x2_5
-    /// Sheet / modal outer inset — same horizontal rail as panels.
-    static let sheetOuterPadding: CGFloat = panelHorizontal
-    /// Card / inner-box inset inside sheets and panels.
-    static let cardPadding: CGFloat = panelHorizontal
     /// Root spacing in stacked editor sheets — slightly looser than `sectionGap` for dense multi-section layouts.
     static let sheetSectionSpacing: CGFloat = StudioSpace.x3_5
-    /// Scroll list edge inset for section-header bleed (matches `panelHorizontal`).
-    static let listInset: CGFloat = panelHorizontal
-    /// Alias — scroll bodies use the same horizontal rail as headers and chrome.
-    static let scrollContentHorizontal: CGFloat = panelHorizontal
-    /// Alias — toolbar / file-bar chrome.
-    static let editorChromeInset: CGFloat = panelHorizontal
-    /// Alias — font preview / naming footer chrome.
-    static let previewInset: CGFloat = panelHorizontal
-    /// Alias — trailing inset inside padded cards (no extra scroll gutter).
-    static let cardScrollTrailing: CGFloat = panelHorizontal
     /// Top inset when scroll content sits directly under `StudioPanelHeader` (no filter/toolbar row).
     static let panelContentTop: CGFloat = toolbarVertical
     /// Off-lattice micro (3pt) — optical gap under group headers; do not "snap" to 4.
@@ -113,6 +101,22 @@ enum StudioSpacing {
     /// Off-lattice (5pt) — compact tag / badge horizontal inset.
     static let tagHorizontalInset: CGFloat = 5
     static let toolbarVertical: CGFloat = StudioSpace.x1_5
+}
+
+
+/// Shared row-density tiers. Axis Tree headers use `standard`; Instances rows and
+/// Axis Tree stop-detail rows use `compact`. Section openness is controlled by
+/// `StudioSpacing.sectionGap`, not a third row tier.
+enum StudioDensity {
+    static let standard = (
+        rowVertical: StudioSpacing.rowVertical,
+        rowGap: StudioSpacing.rowGap,
+        rowHorizontal: StudioSpacing.rowHorizontal
+    )
+    static let compact = (
+        rowVertical: StudioSpacing.instanceRowVertical,
+        rowGap: StudioSpacing.instanceRowGap
+    )
 }
 
 enum StudioStroke {
@@ -190,10 +194,9 @@ enum StudioRadius {
 ///   conflict resolver, combination styles) share `StopTableLayout`.
 ///
 /// ## Container horizontal inset
-/// - `StudioSpacing.panelHorizontal` (12pt) — every panel, sheet, window, and chrome band.
+/// - `StudioSpacing.contentInset` (12pt) — every panel, sheet, window, and chrome band.
 ///   Trailing inset includes macOS overlay scrollbar clearance; never add extra scroll gutter.
-/// - Aliases (`editorChromeInset`, `previewInset`, `sheetOuterPadding`, …) all resolve to
-///   `panelHorizontal` — prefer `panelHorizontal` at new call sites.
+///   Sheet outer, card, list, and chrome call sites all use this single rail (aliases removed).
 ///
 /// ## Cross-panel chrome bands (vertical alignment)
 /// Three shared horizontal bands across Axis Tree / Instances / Inspector so
@@ -1211,12 +1214,12 @@ struct StudioPanelHeaderChrome<Content: View>: View {
 /// Panel section header — fixed height via `StudioChromeBand.header`.
 struct StudioPanelHeader<Trailing: View>: View {
     let title: String
-    var horizontalPadding: CGFloat = StudioSpacing.panelHorizontal
+    var horizontalPadding: CGFloat = StudioSpacing.contentInset
     @ViewBuilder var trailing: () -> Trailing
 
     init(
         title: String,
-        horizontalPadding: CGFloat = StudioSpacing.panelHorizontal,
+        horizontalPadding: CGFloat = StudioSpacing.contentInset,
         @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
     ) {
         self.title = title
@@ -1358,7 +1361,7 @@ struct StudioGroupHeader: View {
         .background {
             Rectangle()
                 .fill(.background)
-                .padding(.horizontal, -StudioSpacing.panelHorizontal)
+                .padding(.horizontal, -StudioSpacing.contentInset)
         }
     }
 }
@@ -1368,7 +1371,7 @@ struct StudioCompactToolbar<Content: View>: View {
 
     var body: some View {
         content
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioSpacing.toolbarVertical)
     }
 }
@@ -2837,7 +2840,7 @@ struct StudioMenuPicker<Value: Hashable>: View {
                         .padding(.vertical, 4)
                         .background(StudioColors.brand, in: RoundedRectangle(cornerRadius: StudioRadius.small))
                 }
-                .padding(.leading, StudioSpacing.panelHorizontal)
+                .padding(.leading, StudioSpacing.contentInset)
                 .padding(.trailing, StudioSpace.x1)
                 .padding(.vertical, StudioSpace.x1_5)
                 .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.bodyRowHeight, alignment: .leading)
@@ -2874,7 +2877,7 @@ enum StudioCompactControlChrome {
     static let symbolFont = Font.system(size: 11, weight: .medium)
     static let cornerRadius = StudioRadius.control
     static let segmentCornerRadius = StudioRadius.small
-    static let horizontalPadding = StudioSpacing.panelHorizontal
+    static let horizontalPadding = StudioSpacing.contentInset
     /// Leading inset when the button embeds a checkbox — half of `horizontalPadding`
     /// so the mark lines up with instance-row checkboxes (panel + rowContentInset).
     static var checkboxLeadingPadding: CGFloat { horizontalPadding / 2 }
@@ -3081,7 +3084,7 @@ private enum StudioFlatButtonChrome {
     }
 
     static func horizontalPadding(size: StudioFlatButton.Size) -> CGFloat {
-        StudioSpacing.panelHorizontal
+        StudioSpacing.contentInset
     }
 
     static func verticalPadding(size: StudioFlatButton.Size) -> CGFloat {
@@ -3330,7 +3333,7 @@ struct StudioSegmentButton: View {
                 }
             }
             .frame(maxWidth: expands ? .infinity : nil)
-            .padding(.horizontal, expands ? 0 : StudioSpacing.panelHorizontal)
+            .padding(.horizontal, expands ? 0 : StudioSpacing.contentInset)
             .padding(.vertical, expands ? StudioSpacing.panelVertical : StudioSpacing.tightGap)
         }
         .buttonStyle(StudioSegmentButtonStyle(isSelected: isSelected, expands: expands))
@@ -3404,7 +3407,7 @@ struct StudioRowBackground: View {
 
 extension View {
     func studioPanelPadding() -> some View {
-        padding(.horizontal, StudioSpacing.panelHorizontal)
+        padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioSpacing.panelVertical)
     }
 

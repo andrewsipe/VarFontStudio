@@ -17,14 +17,14 @@ struct ProjectInspectorPanel: View {
                     .overlay(alignment: .bottom) { Divider() }
 
                 fileNamingSection(for: openProject)
-                    .padding(.horizontal, StudioSpacing.panelHorizontal)
+                    .padding(.horizontal, StudioSpacing.contentInset)
                     .padding(.top, StudioSpacing.panelContentTop)
                     .padding(.bottom, StudioSpacing.sheetSectionSpacing)
 
                 Divider()
 
                 filesSection(for: openProject)
-                    .padding(.horizontal, StudioSpacing.panelHorizontal)
+                    .padding(.horizontal, StudioSpacing.contentInset)
                     .padding(.top, StudioSpacing.sheetSectionSpacing)
                     .padding(.bottom, StudioSpacing.panelVertical)
                     .frame(maxHeight: .infinity, alignment: .top)

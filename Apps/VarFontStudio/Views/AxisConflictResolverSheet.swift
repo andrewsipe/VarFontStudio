@@ -261,7 +261,7 @@ struct AxisConflictResolverSheet: View {
             previewSection
             actions
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 440)
         .onAppear(perform: syncOnAppear)
         .onChange(of: selectedStopID) { _, _ in syncStrategyState() }
@@ -287,7 +287,7 @@ struct AxisConflictResolverSheet: View {
                 Text(kindLabel)
                     .font(StudioTypography.caption.weight(.medium))
                     .foregroundStyle(.primary)
-                    .padding(.horizontal, StudioSpacing.panelHorizontal)
+                    .padding(.horizontal, StudioSpacing.contentInset)
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(StudioColors.warningFill, in: Capsule())
             }

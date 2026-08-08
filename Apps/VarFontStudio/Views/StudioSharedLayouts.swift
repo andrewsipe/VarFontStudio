@@ -5,7 +5,7 @@ import VarFontCore
 // MARK: - Shared window layouts (Save Review + Instancer)
 
 enum SaveReviewLayout {
-    static let horizontalPadding: CGFloat = StudioSpacing.panelHorizontal
+    static let horizontalPadding: CGFloat = StudioSpacing.contentInset
     static let summaryCardGap: CGFloat = StudioSpace.x2 // 8
     static let chromeSectionGap: CGFloat = StudioSpace.x3 // 12
     static let filterBadgeGap: CGFloat = StudioSpace.x1_5 // 6
@@ -22,8 +22,8 @@ enum SaveReviewLayout {
     static let toolRowMinHeight: CGFloat = StudioSpace.x9 // 36
     static let toolRowVerticalPadding: CGFloat = StudioSpace.x1_5 // 6
     static let gutterWidth: CGFloat = 3
-    static let gutterLeadingPadding: CGFloat = StudioSpacing.panelHorizontal
-    static let gutterTrailingPadding: CGFloat = StudioSpacing.panelHorizontal
+    static let gutterLeadingPadding: CGFloat = StudioSpacing.contentInset
+    static let gutterTrailingPadding: CGFloat = StudioSpacing.contentInset
 
     /// Sticky section band in the diff table — matches neutral chrome elsewhere.
     static let phaseHeaderBackground = StudioColors.surfaceMuted

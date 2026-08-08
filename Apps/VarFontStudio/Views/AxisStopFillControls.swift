@@ -104,7 +104,7 @@ struct AxisStopFillControls: View {
                 .font(StudioTypography.caption)
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(enabled ? .primary : .tertiary)
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background(
                     isSelected ? StudioColors.brand.opacity(0.14) : StudioColors.surfaceLight,

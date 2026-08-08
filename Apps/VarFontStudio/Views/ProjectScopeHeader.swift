@@ -48,7 +48,7 @@ struct ProjectScopeHeader: View {
                 headerActions
             }
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.panelVertical)
         .frame(height: StudioChromeBand.context, alignment: .center)
         .background(StudioColors.surfaceMuted)

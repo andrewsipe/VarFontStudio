@@ -41,7 +41,7 @@ struct InstanceInspectorContent: View {
                 .help("Open conflict resolver for \(bundle.axisLabel)")
             }
         }
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.panelVertical)
     }
 
@@ -91,7 +91,7 @@ struct InstanceInspectorContent: View {
                 nameTableSection(instance)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.top, StudioSpacing.panelContentTop)
             .padding(.bottom, StudioSpacing.panelVertical)
         }

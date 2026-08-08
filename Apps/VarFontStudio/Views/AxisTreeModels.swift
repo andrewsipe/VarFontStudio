@@ -71,7 +71,7 @@ enum AxisDetailSpacing {
     /// Design-record label row → stop table or empty-state message.
     static let metadataToTableGap: CGFloat = StudioSpacing.rowGap
     /// Column header + first data row read as one unit.
-    static let tableHeaderToFirstRowGap: CGFloat = 1
+    static let tableHeaderToFirstRowGap: CGFloat = StudioSpacing.instanceRowGap
     /// Last stop row → Add Stop CTA.
     static let lastStopToAddButtonGap: CGFloat = StudioSpacing.controlGap
 }

@@ -79,7 +79,7 @@ struct PlanIssueResolverSheet: View {
 
             actionBar
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(minWidth: 460)
         .onAppear(perform: configureDefaults)
     }
@@ -130,7 +130,7 @@ struct PlanIssueResolverSheet: View {
                 )
             }
         }
-        .padding(StudioSpacing.cardPadding)
+        .padding(StudioSpacing.contentInset)
         .background(
             fixSelection == .interactiveFill ? StudioColors.surfaceMuted : Color.clear,
             in: RoundedRectangle(cornerRadius: StudioRadius.row)
@@ -192,7 +192,7 @@ struct PlanIssueResolverSheet: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioSpacing.panelVertical)
             .background {
                 StudioRowBackground(
@@ -242,7 +242,7 @@ struct PlanIssueResolverSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.panelVertical)
         .background {
             StudioRowBackground(

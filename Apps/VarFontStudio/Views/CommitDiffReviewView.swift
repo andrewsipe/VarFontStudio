@@ -333,7 +333,7 @@ struct CommitDiffReviewView: View {
                 .font(StudioTypography.caption)
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? StudioColors.brand : .secondary)
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioSpacing.tightGap)
                 .background {
                     RoundedRectangle(cornerRadius: StudioRadius.small)
@@ -485,7 +485,7 @@ struct CommitDiffReviewView: View {
                 StudioWarningMessage(message: warning.message)
             }
         }
-        .padding(StudioSpacing.cardPadding)
+        .padding(StudioSpacing.contentInset)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
                 .strokeBorder(StudioColors.warningStroke, lineWidth: StudioStroke.regular)
@@ -509,7 +509,7 @@ struct CommitDiffReviewView: View {
                 }
             }
         }
-        .padding(StudioSpacing.cardPadding)
+        .padding(StudioSpacing.contentInset)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
                 .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)

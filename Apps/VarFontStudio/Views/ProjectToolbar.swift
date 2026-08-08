@@ -44,7 +44,7 @@ struct ProjectToolbar: View {
                 editor.presentOpenPanel()
             }
         }
-        .padding(.horizontal, StudioSpacing.editorChromeInset)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
         .workspaceDropZoneHighlight(
             isActive: highlightsToolbarRow,

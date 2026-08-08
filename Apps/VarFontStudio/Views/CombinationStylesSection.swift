@@ -139,7 +139,7 @@ struct CombinationStylesSection: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.top, StudioSpacing.controlGap)
         .padding(.bottom, StudioSpacing.panelVertical)
     }

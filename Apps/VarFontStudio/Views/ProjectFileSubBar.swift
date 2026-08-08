@@ -60,7 +60,7 @@ struct ProjectFileSubBar: View {
                 }
             }
         }
-        .padding(.horizontal, StudioSpacing.editorChromeInset)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.toolbarVertical)
         .workspaceDropZoneHighlight(
             isActive: workspaceDrag.shouldHighlightFileSubBarRow(

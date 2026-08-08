@@ -227,7 +227,7 @@ struct InstanceListPanel: View {
                     }
                 }
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.bottom, StudioSpacing.panelVertical)
         }
         .coordinateSpace(name: InstanceListLayout.scrollCoordinateSpace)
@@ -304,7 +304,7 @@ struct InstanceListPanel: View {
                 searchField
                     .frame(width: InstanceListLayout.searchFieldWidth)
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.top, StudioSpacing.toolbarVertical)
             .padding(.bottom, StudioSpacing.rowGap - 1)
             .animation(.easeOut(duration: 0.15), value: display.axisStopFilterLabel)
@@ -318,7 +318,7 @@ struct InstanceListPanel: View {
                 filterBarRow2(contentModeIcons: false)
                 filterBarRow2(contentModeIcons: true)
             }
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.bottom, StudioSpacing.toolbarVertical)
             .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
         }
@@ -698,7 +698,7 @@ struct InstanceListPanel: View {
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                 }
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .frame(height: StudioChromeBand.header)
                 .contentShape(Rectangle())
             }
@@ -707,7 +707,7 @@ struct InstanceListPanel: View {
 
             if axisDrawerOpen {
                 axisDrawerChipGrid
-                    .padding(.horizontal, StudioSpacing.panelHorizontal)
+                    .padding(.horizontal, StudioSpacing.contentInset)
                     .padding(.top, StudioSpacing.rowGap)
                     .padding(.bottom, StudioSpacing.panelVertical)
             }

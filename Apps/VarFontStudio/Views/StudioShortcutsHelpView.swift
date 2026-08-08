@@ -97,7 +97,7 @@ struct StudioShortcutsHelpView: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 460, height: 540)
     }
 }

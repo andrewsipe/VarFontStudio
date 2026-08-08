@@ -53,7 +53,7 @@ struct FvarStatConflictResolverSheet: View {
             }
             actionBar
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(minWidth: 460)
         .onAppear {
             choice = .keepSTAT
@@ -170,7 +170,7 @@ struct FvarStatConflictResolverSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.panelVertical)
         .background {
             StudioRowBackground(isSelected: selected, isHovered: false)

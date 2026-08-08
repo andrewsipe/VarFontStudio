@@ -21,7 +21,7 @@ struct CommitDiffSheet: View {
             }
             .frame(maxHeight: .infinity)
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 900, height: 680)
     }
 }
@@ -226,13 +226,13 @@ struct SaveReviewWindow: View {
                         editor.dismissPersistentSaveError()
                     }
                 }
-                .padding(StudioSpacing.cardPadding)
+                .padding(StudioSpacing.contentInset)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
                 )
-                .padding(.horizontal, StudioSpacing.sheetOuterPadding)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.top, StudioSpace.x2)
             }
 
@@ -259,7 +259,7 @@ struct SaveReviewWindow: View {
                             }
                         }
                         .padding(.horizontal, SaveReviewLayout.horizontalPadding)
-                        .padding(.vertical, StudioSpacing.sheetOuterPadding)
+                        .padding(.vertical, StudioSpacing.contentInset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                 }
@@ -313,7 +313,7 @@ struct SaveReviewWindow: View {
                                 .progressViewStyle(.linear)
                         }
                     }
-                    .padding(StudioSpacing.sheetOuterPadding)
+                    .padding(StudioSpacing.contentInset)
                     .frame(width: 360)
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
                 }
@@ -379,7 +379,7 @@ struct SaveReviewWindow: View {
                 }
             }
         }
-        .padding(StudioSpacing.cardPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)
@@ -396,7 +396,7 @@ struct SaveReviewWindow: View {
                 StudioWarningMessage(message: warning.message)
             }
         }
-        .padding(StudioSpacing.cardPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: StudioRadius.chip)

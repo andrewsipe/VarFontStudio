@@ -196,7 +196,7 @@ struct FontPreviewPanel: View {
                     .foregroundStyle(StudioColors.canvasTertiary)
             }
         }
-        .padding(.horizontal, StudioSpacing.previewInset)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpace.x2_5)
     }
 
@@ -232,7 +232,7 @@ struct FontPreviewPanel: View {
             Text(editor.isPreviewHoverPeeking ? "Peek · hover" : "Source · live")
                 .font(StudioTypography.caption)
                 .foregroundStyle(statusPillForeground)
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioSpace.x0_5)
                 .background(
                     Capsule()
@@ -251,7 +251,7 @@ struct FontPreviewPanel: View {
                         )
                 )
         }
-        .padding(.horizontal, StudioSpacing.previewInset)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.panelVertical)
         .background(StudioColors.canvasPhaseHeader)
     }

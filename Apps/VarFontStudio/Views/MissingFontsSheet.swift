@@ -45,7 +45,7 @@ struct MissingFontsSheet: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 480)
     }
 
@@ -74,7 +74,7 @@ struct MissingFontsSheet: View {
                 editor.locateMissingFont(fontID: entry.fontID)
             }
         }
-        .padding(StudioSpacing.cardPadding)
+        .padding(StudioSpacing.contentInset)
         .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
     }
 
@@ -87,7 +87,7 @@ struct MissingFontsSheet: View {
                 .foregroundStyle(.primary)
         }
         .font(StudioTypography.monoMeta)
-        .padding(.horizontal, StudioSpacing.panelHorizontal)
+        .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.instanceRowVertical)
         .background(
             (entry.isResolved ? StudioColors.successFill : StudioColors.warningFill),

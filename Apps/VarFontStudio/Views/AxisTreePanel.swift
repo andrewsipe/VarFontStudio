@@ -45,13 +45,13 @@ struct AxisTreePanel: View {
 
             axisTreeScopeBand
                 .frame(height: StudioChromeBand.scope)
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
 
             Divider()
 
             axisTreeContextBand
                 .frame(height: StudioChromeBand.context)
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .background(StudioColors.surfaceMuted)
                 .overlay(alignment: .bottom) { Divider() }
 
@@ -61,7 +61,7 @@ struct AxisTreePanel: View {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             axesContent(scrollProxy: scrollProxy)
                         }
-                        .padding(.horizontal, StudioSpacing.panelHorizontal)
+                        .padding(.horizontal, StudioSpacing.contentInset)
                         .padding(.top, StudioSpacing.panelContentTop)
                         .padding(.bottom, StudioSpacing.panelVertical)
                     }
@@ -406,7 +406,7 @@ struct AxisTreePanel: View {
 
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
+                .padding(.horizontal, StudioSpacing.contentInset)
                 .frame(height: StudioChromeBand.header)
                 .contentShape(Rectangle())
             }

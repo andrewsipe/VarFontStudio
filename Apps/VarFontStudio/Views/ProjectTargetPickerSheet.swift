@@ -21,7 +21,7 @@ struct ProjectTargetPickerSheet: View {
                 Text(emptyMessage)
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
-                    .padding(StudioSpacing.cardPadding)
+                    .padding(StudioSpacing.contentInset)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             } else {
@@ -38,7 +38,7 @@ struct ProjectTargetPickerSheet: View {
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(StudioSpacing.cardPadding)
+                .padding(StudioSpacing.contentInset)
                 .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             }
 
@@ -59,7 +59,7 @@ struct ProjectTargetPickerSheet: View {
                 }
             }
         }
-        .padding(StudioSpacing.sheetOuterPadding)
+        .padding(StudioSpacing.contentInset)
         .frame(width: 360)
         .onAppear {
             selectedProjectID = candidateProjects.first?.id ?? ""
