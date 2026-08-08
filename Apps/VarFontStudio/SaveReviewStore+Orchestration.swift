@@ -306,11 +306,8 @@ extension SaveReviewStore {
 
         let projectDoc = open.document
 
-        let duplicateIncluded = plan.instances.filter { $0.included && $0.duplicate }
-        if !duplicateIncluded.isEmpty {
-            requireHost.postStatusMessage("Resolve duplicate instance names before saving.")
-            return nil
-        }
+        // Included duplicate composed names are advisory — Review and Export stay available.
+        // They surface as a preflight warning on the session (see `includedDuplicateComposedNameWarning`).
 
         guard FileManager.default.fileExists(atPath: font.sourcePath) else {
             requireHost.postStatusMessage("Source font file is missing — re-open the original file.")
@@ -356,7 +353,8 @@ extension SaveReviewStore {
                 windowsNameTable: analysis.windowsNameTable
             )
             dryRunRequest.sourcePath = helperSourcePath
-            let result = try await requireHost.commitService.commit(dryRunRequest, preferWorker: preferWorker)
+            var result = try await requireHost.commitService.commit(dryRunRequest, preferWorker: preferWorker)
+            Self.mergeIncludedDuplicateWarning(into: &result, plan: plan)
             if result.ok {
                 let diffReport = CommitDiffBuilder.build(
                     analysis: analysis,
@@ -575,12 +573,8 @@ extension SaveReviewStore {
         }
 
         for font in targets {
-            guard let plan = requireHost.instancePlan(forProjectID: projectID, fontID: font.id) else {
+            guard requireHost.instancePlan(forProjectID: projectID, fontID: font.id) != nil else {
                 requireHost.postStatusMessage("Couldn't prepare the export preview. Try again, or check that the font file hasn't moved or changed.")
-                return
-            }
-            if plan.instances.contains(where: { $0.included && $0.duplicate }) {
-                requireHost.postStatusMessage("Resolve duplicate instance names in \(requireHost.fontBasename(for: font)) before saving.")
                 return
             }
         }
@@ -860,5 +854,28 @@ extension SaveReviewStore {
         default:
             return "Export failed: \(error.localizedDescription)"
         }
+    }
+
+    /// Soft-gate companion: included duplicate composed names no longer abort Review/Export.
+    /// Surface them at the top of preflight warnings so the write preview stays usable.
+    private static func mergeIncludedDuplicateWarning(into result: inout CommitResult, plan: InstancePlan) {
+        let duplicateKeys = plan.instances
+            .filter { $0.included && $0.duplicate }
+            .map(\.key)
+        guard !duplicateKeys.isEmpty else { return }
+        guard !result.warnings.contains(where: { $0.code == "duplicate_composed_name" }) else { return }
+
+        let count = duplicateKeys.count
+        result.warnings.insert(
+            PlanWarning(
+                code: "duplicate_composed_name",
+                keys: duplicateKeys,
+                message: count == 1
+                    ? "1 included instance shares its composed name with another instance."
+                    : "\(count) included instances share composed names with other instances.",
+                hint: "Rename stops, exclude duplicates from export, or proceed if intentional — naming quality is advisory."
+            ),
+            at: 0
+        )
     }
 }

@@ -114,3 +114,20 @@ Rationale: Planned OpenType preview uses Field / ID / Content grammar, mono valu
 source pills colored like Save Review category chrome (STAT→registration, fvar→brand,
 name→code, planned→pending). Disclosure carries a `planned` emerald pill so the concept
 matches Instances pending export without inventing a second hue.
+
+## 2026-08-08 — Amber = fix locus; duplicates are advisory
+
+Scope: app-wide  
+Status: Approved  
+
+Rationale: Almost nothing “breaks” a font — naming/quality issues guide, they don’t hard-block.
+Included duplicate composed names no longer abort Review session build or Export All; they
+appear as a Review preflight warning instead. Instance list keeps warning badges but drops
+full-row `warningFill` washes (doesn’t scale when many labels collide). Inspector shows one
+primary amber CTA (axis Resolve preferred over Show duplicates). Composed-name callouts keep
+a leading warning stripe without a full amber wash.
+
+Chrome tiers going forward:
+- **Act here** — amber banner / Resolve / Review queue
+- **Affected** — icon / badge only
+- **Focused** — one Inspector CTA

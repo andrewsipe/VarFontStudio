@@ -1076,8 +1076,7 @@ private struct InstanceRowView: View {
             .background {
                 StudioRowBackground(
                     isSelected: isSelected,
-                    isHovered: isHovered,
-                    isWarning: isDuplicate
+                    isHovered: isHovered
                 )
             }
             .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))

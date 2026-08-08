@@ -51,8 +51,10 @@ struct StudioComposedNameCallout: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
+            // Duplicate: keep a quiet leading mark only — full amber wash is reserved for
+            // actionable banners / fix loci, not every affected name callout.
             .background(
-                isDuplicate ? StudioColors.warningFill : StudioColors.selectionFill.opacity(0.35),
+                StudioColors.selectionFill.opacity(0.35),
                 in: RoundedRectangle(cornerRadius: StudioRadius.row)
             )
             .overlay(alignment: .leading) {

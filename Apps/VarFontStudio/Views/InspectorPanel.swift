@@ -65,7 +65,16 @@ struct InstanceInspectorContent: View {
                     isDuplicate: instance.duplicate
                 )
 
-                if instance.duplicate {
+                // One primary amber CTA: prefer the fix locus (axis conflict) over the
+                // downstream symptom (shared composed name).
+                if let bundle = editor.primaryConflictAxis(for: instance) {
+                    StudioConflictAlert(
+                        message: "Naming conflict on \(bundle.axisLabel) affects this instance.",
+                        actionTitle: "Resolve…"
+                    ) {
+                        editor.presentConflictResolver(bundle: bundle)
+                    }
+                } else if instance.duplicate {
                     StudioConflictAlert(
                         message: "This composed name is shared by other instances.",
                         actionTitle: "Show duplicates…"
@@ -78,16 +87,6 @@ struct InstanceInspectorContent: View {
                 inclusionSection(instance)
                 namingChainSection(instance)
                 axisCoordinatesSection(instance)
-
-                if let bundle = editor.primaryConflictAxis(for: instance) {
-                    StudioConflictAlert(
-                        message: "Naming conflict on \(bundle.axisLabel) affects this instance.",
-                        actionTitle: "Resolve…"
-                    ) {
-                        editor.presentConflictResolver(bundle: bundle)
-                    }
-                }
-
                 nameTableSection(instance)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
