@@ -42,6 +42,7 @@
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
 		B2000009 /* VarFontCore in Frameworks */ = {isa = PBXBuildFile; productRef = P2000001 /* VarFontCore */; };
 		B2000010 /* StudioDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000009 /* StudioDesign.swift */; };
+		B2000095 /* StudioPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000095 /* StudioPalette.swift */; };
 		B2000094 /* InspectorComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000094 /* InspectorComponents.swift */; };
 		B2000093 /* SaveReviewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000093 /* SaveReviewComponents.swift */; };
 		B2000092 /* StudioSharedLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000092 /* StudioSharedLayouts.swift */; };
@@ -129,6 +130,7 @@
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2000009 /* StudioDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDesign.swift; sourceTree = "<group>"; };
+		F2000095 /* StudioPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioPalette.swift; sourceTree = "<group>"; };
 		F2000092 /* StudioSharedLayouts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioSharedLayouts.swift; sourceTree = "<group>"; };
 		F2000093 /* SaveReviewComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewComponents.swift; sourceTree = "<group>"; };
 		F2000094 /* InspectorComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorComponents.swift; sourceTree = "<group>"; };
@@ -304,6 +306,7 @@
 				F2000071 /* NameTablePanel.swift */,
 				F2000007 /* InspectorPanel.swift */,
 				F2000009 /* StudioDesign.swift */,
+				F2000095 /* StudioPalette.swift */,
 				F2000094 /* InspectorComponents.swift */,
 				F2000093 /* SaveReviewComponents.swift */,
 				F2000092 /* StudioSharedLayouts.swift */,
@@ -528,6 +531,7 @@
 				B2000072 /* EditorViewModel+WindowsNames.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,
+				B2000095 /* StudioPalette.swift in Sources */,
 				B2000094 /* InspectorComponents.swift in Sources */,
 				B2000093 /* SaveReviewComponents.swift in Sources */,
 				B2000092 /* StudioSharedLayouts.swift in Sources */,

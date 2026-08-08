@@ -637,8 +637,8 @@ struct InstanceListPanel: View {
             return StudioColors.warningForeground
         }
         if isPendingExport {
-            // Match the row's pending mark (`p.square.fill` + editedForeground).
-            return StudioColors.editedForeground
+            // Match the row's pending mark (`p.square.fill` + pendingForeground).
+            return StudioColors.pendingForeground
         }
         return isSelected ? Color.primary : Color.secondary
     }
@@ -652,7 +652,7 @@ struct InstanceListPanel: View {
         case .duplicates:
             return StudioColors.warningForeground
         case .pendingExport:
-            return StudioColors.editedForeground
+            return StudioColors.pendingForeground
         case .all:
             return Color.primary
         }
@@ -665,7 +665,7 @@ struct InstanceListPanel: View {
                 : StudioColors.warningFill.opacity(0.45)
         }
         if isPendingExport {
-            return isSelected ? StudioColors.editedForeground : Color.clear
+            return isSelected ? StudioColors.pendingForeground : Color.clear
         }
         return isSelected ? StudioColors.selectionNeutralFillStrong : Color.clear
     }
@@ -1170,16 +1170,16 @@ private struct InstanceRowView: View {
                     // name column when coords already claim the trailing track.
                     Image(systemName: "p.square.fill")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.cyan)
+                        .foregroundStyle(StudioColors.pendingForeground)
                         .help("Included in the plan but not yet written to the working font")
                         .fixedSize()
                 } else {
                     Text("Pending")
                         .font(StudioTypography.caption.weight(.medium))
-                        .foregroundStyle(StudioColors.editedForeground)
+                        .foregroundStyle(StudioColors.pendingForeground)
                         .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                         .padding(.vertical, StudioSpacing.instanceRowGap)
-                        .background((StudioColors.editedFill), in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                        .background((StudioColors.pendingFill), in: RoundedRectangle(cornerRadius: StudioRadius.small))
                         .help("Included in the plan but not yet written to the working font")
                         .fixedSize()
                 }
@@ -1209,10 +1209,10 @@ private struct InstanceRowView: View {
         if isPendingExport && !showNames {
             Text("Pending")
                 .font(StudioTypography.caption.weight(.medium))
-                .foregroundStyle(StudioColors.editedForeground)
+                .foregroundStyle(StudioColors.pendingForeground)
                 .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                 .padding(.vertical, StudioSpacing.instanceRowGap)
-                .background(StudioColors.editedFill, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                .background(StudioColors.pendingFill, in: RoundedRectangle(cornerRadius: StudioRadius.small))
                 .help("Included in the plan but not yet written to the working font")
                 .fixedSize()
         }

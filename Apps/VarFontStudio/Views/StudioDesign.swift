@@ -563,37 +563,33 @@ enum StudioColors {
     // MARK: Semantic marks — instancer row state
 
     /// Mark hue — name-only collision (distinct from amber fallback / red severe).
-    static let collisionForeground = Color.pink
+    /// Pink family primary mark steps (3:1 non-text).
+    static let collisionForeground = StudioPalette.color(.pink, light: .s600, dark: .s300)
     static let collisionFill = collisionForeground.opacity(0.24)
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
-    /// Was `.teal` (189°) — only 9.9° from `editedForeground`'s cyan (199°), and the two
-    /// co-occur in the same Instancer rows. Moved to system indigo (~245°): ~34° from brand
-    /// blue (comparable to the accepted error/warning gap) and ~46° from edited-cyan, while
-    /// staying an Apple system dynamic color so light/dark adaptiveness comes for free.
-    static let customForeground = Color(nsColor: .systemIndigo)
+    /// Indigo family (kept far from cyan `editedForeground` and brand blue).
+    static let customForeground = StudioPalette.color(.indigo, light: .s300, dark: .s200)
     static let customFill = customForeground.opacity(0.24)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
-    static let editedForeground = Color.cyan
+    /// Cyan family — do not reuse for pending export (see `pendingForeground`).
+    static let editedForeground = StudioPalette.color(.cyan, light: .s500, dark: .s200)
     static let editedFill = editedForeground.opacity(0.24)
+    /// Mark hue — pending export (Instances badge / filter). Emerald-green, unclaimed by
+    /// edited-cyan / success-green / code jade — so pending and edited can co-occur.
+    static let pendingForeground = StudioPalette.color(.emeraldGreen, light: .s600, dark: .s300)
+    static let pendingFill = pendingForeground.opacity(0.24)
 
     // MARK: Semantic marks — Save Review diff
     //
-    // `diffRemoved`/`diffAdded`/`diffReflowed` moved to the bespoke accent palette — these are
-    // the highest-traffic large-scale color-coding in Save Review, distinct from the small
-    // system-color indicators (checkmarks, etc.) that are fine left as-is. `diffProtected`
-    // stays system gray (deliberately neutral slate) and `diffRenamed` stays system yellow —
-    // the extracted palette has no yellow family, so there's no bespoke swap available yet.
+    // Diff accents bind to palette families. `diffProtected` stays system gray (neutral
+    // slate) and `diffRenamed` stays system yellow — no yellow family in the review set.
+    // Warning / success / error status marks keep Apple system colors for semantic chrome.
 
-    static let diffRemoved = StudioHuedToken.make(
-        name: "diffRemoved", light: (0.824, 0.153, 0.118), dark: (0.898, 0.659, 0.643)
-    )
-    static let diffAdded = StudioHuedToken.make(
-        name: "diffAdded", light: (0.227, 0.435, 0.125), dark: (0.294, 0.616, 0.294)
-    )
-    static let diffReflowed = StudioHuedToken.make(
-        name: "diffReflowed", light: (0.624, 0.180, 0.863), dark: (0.800, 0.675, 0.863)
-    )
+    static let diffRemoved = StudioPalette.color(.red, light: .s400, dark: .s200)
+    /// Green family (not jade) — distinct from `codeForeground`.
+    static let diffAdded = StudioPalette.color(.green, light: .s600, dark: .s200)
+    static let diffReflowed = StudioPalette.color(.violet, light: .s400, dark: .s200)
     /// Protected/locked — slate, not brand (brand = interaction/selection).
     static let diffProtected = Color.gray
     /// Renamed/changed — informational yellow, not warning orange.
@@ -643,50 +639,27 @@ enum StudioColors {
 
     // MARK: Custom palette — registration & classification (dual-tone)
 
-    /// Mark hue — design-record / PS / clarifier. Plum violet — clearly not brand blue.
-    /// Dual-tone: dark-mode stop verified independently (was fixed RGB, ~2.4:1 in dark mode).
-    static let registrationForeground = StudioHuedToken.make(
-        name: "registrationForeground",
-        light: (0.557, 0.290, 0.624),
-        dark: (0.780, 0.498, 0.855)
-    )
+    /// Mark hue — design-record / PS / clarifier. Magenta family primary mark steps.
+    static let registrationForeground = StudioPalette.color(.magenta, light: .s500, dark: .s300)
     static let registrationBackground = registrationForeground.opacity(0.22)
     static let registrationStroke = registrationForeground.opacity(0.40)
     /// Legacy clarifier alias — same plum as registration.
     static let clarifierForeground = registrationForeground
     static let clarifierBackground = registrationBackground
     static let clarifierStroke = registrationStroke
-    /// Mark hue — OpenType classification code chip.
-    /// Retuned off near-neutral graphite (~8% saturation, indistinguishable from plain gray
-    /// chrome at the standard 22% wash) onto a genuinely saturated teal-mint (~80%+ saturation)
-    /// so the rare "Code" category actually reads as a color, not a slightly-different gray box.
-    /// Dual-tone, verified independently in both appearances.
-    static let codeForeground = StudioHuedToken.make(
-        name: "codeForeground",
-        light: (0.043, 0.494, 0.443),
-        dark: (0.243, 0.851, 0.769)
-    )
+    /// Mark hue — OpenType classification code chip. Jade-green (not emerald pending /
+    /// not green diffAdded) so Code stays distinct from status and pending.
+    static let codeForeground = StudioPalette.color(.jadeGreen, light: .s500, dark: .s300)
     static let codeBackground = codeForeground.opacity(0.22)
     static let codeStroke = codeForeground.opacity(0.45)
 
     // MARK: Semantic marks — STAT format badges
 
-    /// Mark hues for `StudioStatFormatBadge` fill/stroke/label. Sourced from the bespoke
-    /// accent palette review (brown/violet/magenta families) rather than three
-    /// blue-gray/violet tones that sat too close to each other and to `brand`/
-    /// `metricForeground` — the previous set only differed by ~15-20° of hue and read as
-    /// "the same badge with a different tint" until you read the label. These three are
-    /// spread across the wheel and verified independently in both appearances (>=4.5:1
-    /// against a representative panel) so the label itself can now carry the hue.
-    static let statFormat1 = StudioHuedToken.make(
-        name: "statFormat1", light: (0.627, 0.365, 0.173), dark: (0.718, 0.522, 0.384)
-    )
-    static let statFormat2 = StudioHuedToken.make(
-        name: "statFormat2", light: (0.451, 0.278, 0.922), dark: (0.616, 0.522, 0.878)
-    )
-    static let statFormat3 = StudioHuedToken.make(
-        name: "statFormat3", light: (0.671, 0.165, 0.675), dark: (0.741, 0.392, 0.745)
-    )
+    /// Purple tonal ramp — primary / secondary / tertiary within one family
+    /// (F1 common → richest legible; F3 sparse → lightest legible).
+    static let statFormat1 = StudioPalette.color(.purple, light: .s300, dark: .s300)
+    static let statFormat2 = StudioPalette.color(.purple, light: .s500, dark: .s200)
+    static let statFormat3 = StudioPalette.color(.purple, light: .s700, dark: .s100)
 
     // MARK: Drag & drop zones
 
