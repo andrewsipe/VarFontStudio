@@ -25,7 +25,7 @@ vfcommit/
 ## Usage
 
 ```bash
-cd VarFontEditor/Tools/vfcommit
+cd VarFontStudio/Tools/vfcommit
 pip install -r requirements.txt
 
 # Dry-run from fixture (source_path must exist on disk)
@@ -37,7 +37,7 @@ cat request.json | python vfcommit.py
 
 ## Contract
 
-See `VarFontEditor/SCHEMA.md` for `CommitRequest` / `CommitResult` fields.
+See `VarFontStudio/SCHEMA.md` for `CommitRequest` / `CommitResult` fields.
 
 v0 supports `dry_run: true` (plan summary, no file write) and `dry_run: false`
 (writes `output_path`).

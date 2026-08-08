@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "VarFontEditor",
+    name: "VarFontStudio",
     platforms: [
         .macOS(.v14),
     ],

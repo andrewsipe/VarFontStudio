@@ -58,7 +58,7 @@ public struct InstanceService: Sendable {
             .deletingLastPathComponent() // Instance
             .deletingLastPathComponent() // VarFontCore
             .deletingLastPathComponent() // Sources
-            .deletingLastPathComponent() // VarFontEditor
+            .deletingLastPathComponent() // VarFontStudio
             .appendingPathComponent("Tools/vfinstance", isDirectory: true)
     }
 

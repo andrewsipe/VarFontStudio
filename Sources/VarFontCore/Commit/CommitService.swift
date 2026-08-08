@@ -103,7 +103,7 @@ public struct CommitService: Sendable {
             .deletingLastPathComponent() // Commit
             .deletingLastPathComponent() // VarFontCore
             .deletingLastPathComponent() // Sources
-            .deletingLastPathComponent() // VarFontEditor
+            .deletingLastPathComponent() // VarFontStudio
             .appendingPathComponent("Tools/vfcommit", isDirectory: true)
     }
 
