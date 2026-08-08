@@ -158,13 +158,13 @@ struct CombinationStylesSection: View {
     private var suggestionsBanner: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
-                StudioSemanticDot(color: StudioColors.warningForeground)
+                StudioSemanticDot(color: Color.secondary)
                 VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
                     Text(suggestions.count == 1
                           ? "1 fvar name needs a combination"
                           : "\(suggestions.count) fvar names need combinations")
                         .font(StudioTypography.caption.weight(.semibold))
-                        .foregroundStyle(StudioColors.warningForeground)
+                        .foregroundStyle(.primary)
                     Text("Format 4 only — accept or dismiss.")
                         .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
@@ -178,11 +178,9 @@ struct CombinationStylesSection: View {
             }
         }
         .padding(StudioSpacing.controlGap)
-        .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
-        .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.row)
-                .strokeBorder(StudioColors.warningForeground.opacity(0.35), lineWidth: 1)
-        }
+        // Optional suggestions — neutral chrome only. Amber is reserved for real issues.
+        // Fill alone separates the banner; no resting stroke.
+        .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.row))
     }
 
     private func suggestionCard(_ suggestion: FvarStopSeeder.CompoundSuggestion) -> some View {

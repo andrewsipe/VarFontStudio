@@ -393,14 +393,10 @@ struct AxisTreePanel: View {
                               ? "1 Combination"
                               : "\(suggestionCount) Combinations")
                             .font(StudioTypography.caption.weight(.semibold))
-                            .foregroundStyle(StudioColors.warningForeground)
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, StudioSpace.x2)
                             .padding(.vertical, StudioSpace.x1)
-                            .background(StudioColors.warningFill, in: Capsule())
-                            .overlay {
-                                Capsule()
-                                    .strokeBorder(StudioColors.warningForeground.opacity(0.35), lineWidth: 1)
-                            }
+                            .background(StudioColors.selectionNeutralFill, in: Capsule())
                             .help("\(suggestionCount) Format 4 suggestion\(suggestionCount == 1 ? "" : "s") from fvar")
                     }
 
@@ -571,7 +567,7 @@ struct AxisTreePanel: View {
                     RoundedRectangle(cornerRadius: StudioRadius.chip)
                         .strokeBorder(
                             Color.secondary.opacity(0.35),
-                            style: StrokeStyle(lineWidth: StudioStroke.regular, dash: [4, 3])
+                            style: StrokeStyle(lineWidth: StudioStroke.regular, dash: StudioStroke.dragDash)
                         )
                 }
             }
@@ -630,7 +626,7 @@ struct AxisTreePanel: View {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
                     .strokeBorder(
                         Color.secondary.opacity(0.45),
-                        style: StrokeStyle(lineWidth: StudioStroke.strong, dash: [5, 3])
+                        style: StrokeStyle(lineWidth: StudioStroke.strong, dash: StudioStroke.dragDash)
                     )
             }
             .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
@@ -643,7 +639,7 @@ struct AxisTreePanel: View {
         RoundedRectangle(cornerRadius: StudioRadius.chip)
             .strokeBorder(
                 Color.secondary.opacity(0.45),
-                style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: [5, 4])
+                style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: StudioStroke.dragDash)
             )
             .background(
                 Color.secondary.opacity(0.06),

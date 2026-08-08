@@ -617,11 +617,11 @@ struct NamingOrderChainFooter: View {
                 in: RoundedRectangle(cornerRadius: StudioRadius.chip)
             )
             .overlay {
-                // Solid state border — dashed is reserved for drag-hover affordance.
+                // Solid hairline at rest — dashed is reserved for drag-hover affordance.
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
                     .strokeBorder(
                         Color.secondary.opacity(inGrid ? 0.28 : 0.35),
-                        lineWidth: StudioStroke.regular
+                        lineWidth: StudioStroke.hairline
                     )
             }
             .opacity(isDragging ? 0.3 : 1)
@@ -646,7 +646,7 @@ struct NamingOrderChainFooter: View {
             .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.regular)
+                    .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.hairline)
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
@@ -671,7 +671,7 @@ struct NamingOrderChainFooter: View {
             .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(StudioColors.codeStroke, lineWidth: StudioStroke.regular)
+                    .strokeBorder(StudioColors.codeStroke, lineWidth: StudioStroke.hairline)
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
@@ -699,7 +699,7 @@ struct NamingOrderChainFooter: View {
             .background(StudioColors.clarifierBackground.opacity(0.5), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
             .overlay {
                 RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(StudioColors.clarifierStroke, lineWidth: StudioStroke.regular)
+                    .strokeBorder(StudioColors.clarifierStroke, lineWidth: StudioStroke.hairline)
             }
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
@@ -731,7 +731,7 @@ struct NamingOrderChainFooter: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.regular)
+                .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.hairline)
         }
         .opacity(isDragging ? 0.3 : 1)
         .contentShape(Rectangle())
@@ -823,7 +823,7 @@ struct NamingOrderChainFooter: View {
         .opacity(0.5)
         .overlay {
             RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.registrationStroke, style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: [4, 3]))
+                .strokeBorder(StudioColors.registrationStroke, style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: StudioStroke.dragDash))
         }
         .transition(.opacity)
     }
