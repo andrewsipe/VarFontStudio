@@ -145,11 +145,14 @@ public enum InstanceListSearch {
 /// Helpers for Instances list coordinate pills.
 public enum InstanceCoordPresentation {
     /// Axes whose values are equal across every instance in the group (among `enabledTags`).
+    /// Requires at least two instances — a singleton group would otherwise lift every
+    /// axis into the header and leave coords-only rows with nothing but a checkbox
+    /// (common when filtering to Excluded / Conflicts / Pending).
     public static func groupSharedAxes(
         instances: [PlannedInstance],
         enabledTags: [String]
     ) -> [String] {
-        guard let first = instances.first, !enabledTags.isEmpty else { return [] }
+        guard instances.count >= 2, let first = instances.first, !enabledTags.isEmpty else { return [] }
         return enabledTags.filter { tag in
             guard let baseline = first.coords[tag] else { return false }
             return instances.allSatisfy { instance in

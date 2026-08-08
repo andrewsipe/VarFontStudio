@@ -181,28 +181,26 @@ struct NamingOrderChainFooter: View {
                     .font(StudioTypography.meta)
                     .foregroundStyle(collapsedSummaryForeground)
                     .lineLimit(1)
-            }
 
-            Spacer(minLength: StudioSpacing.controlGap)
+                Spacer(minLength: StudioSpacing.controlGap)
 
-            if isExpanded, !isPreviewMode {
-                HStack(spacing: StudioSpacing.controlGap) {
-                    codeNamingControl
-
-                    disclosureToolbarDivider
-
-                    hideStatOnlyControl
-
-                    disclosureToolbarDivider
-
-                    restoreButton
-                }
-            } else if !isExpanded {
                 Text(collapsedTrailingLabel)
                     .font(StudioTypography.caption)
                     .foregroundStyle(collapsedTrailingForeground)
                     .lineLimit(1)
                     .frame(maxWidth: 220, alignment: .trailing)
+            } else if isPreviewMode {
+                // Sample / size / align share this row with Naming Order | Preview so
+                // the glyph canvas can reclaim the former in-panel toolbar height.
+                FontPreviewHeaderControls()
+            } else {
+                Spacer(minLength: StudioSpacing.controlGap)
+
+                HStack(spacing: StudioSpacing.rowGap) {
+                    codeNamingControl
+                    hideStatOnlyControl
+                    restoreButton
+                }
             }
         }
         .padding(.horizontal, isPreviewMode && isExpanded ? StudioSpacing.previewInset : 0)
@@ -279,64 +277,37 @@ struct NamingOrderChainFooter: View {
     }
 
     private var codeNamingControl: some View {
-        HStack(spacing: StudioSpacing.tightGap) {
-            Toggle(
-                "Code",
-                isOn: Binding(
-                    get: { editor.isCodeNamingEnabled },
-                    set: { editor.setCodeNamingEnabled($0) }
-                )
-            )
-            .toggleStyle(.switch)
-            .controlSize(.mini)
-            .labelsHidden()
-            .studioBrandTint()
-
-            Text("Code")
-                .font(StudioTypography.meta)
-                .foregroundStyle(.tertiary)
+        StudioCompactToggleButton(
+            title: "Code",
+            isActive: editor.isCodeNamingEnabled,
+            help: "Include a Code chip in the naming order. When on, Axis Tree and stop sheets show a Code "
+                + "column, and composed names include the concatenated stop codes.",
+            accent: .code
+        ) {
+            editor.setCodeNamingEnabled(!editor.isCodeNamingEnabled)
         }
-        .help(
-            "Include a Code chip in the naming order. When on, Axis Tree and stop sheets show a Code "
-                + "column, and composed names include the concatenated stop codes."
-        )
     }
 
     private var hideStatOnlyControl: some View {
-        HStack(spacing: StudioSpacing.tightGap) {
-            Toggle("Hide pinned axes", isOn: $hideStatOnly)
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .labelsHidden()
-                .studioBrandTint()
-
-            Text("Hide pinned axes")
-                .font(StudioTypography.meta)
-                .foregroundStyle(.tertiary)
-        }
-        .help(
-            "Hide axes that do not contribute to composed names (pinned / off-grid). "
+        StudioCompactToggleButton(
+            title: "Hide Pinned Axes",
+            isActive: hideStatOnly,
+            help: "Hide axes that do not contribute to composed names (pinned / off-grid). "
                 + "Registration axes stay visible because they can appear in names."
-        )
-    }
-
-    private var disclosureToolbarDivider: some View {
-        Rectangle()
-            .fill(.quaternary)
-            .frame(width: 1, height: 14)
+        ) {
+            hideStatOnly.toggle()
+        }
     }
 
     private var restoreButton: some View {
-        StudioPlainLinkButton(
+        StudioCompactToggleButton(
             title: "Restore",
-            role: .secondary,
-            font: StudioTypography.meta,
+            isEnabled: editor.namingDefaultsNeedRestore,
             help: "Restore STAT-inferred naming order and axis instance roles from import"
         ) {
             session.reset()
             editor.restoreNamingDefaults()
         }
-        .disabled(!editor.namingDefaultsNeedRestore)
     }
 
     private var exampleRow: some View {

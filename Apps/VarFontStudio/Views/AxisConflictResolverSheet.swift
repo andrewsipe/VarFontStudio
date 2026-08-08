@@ -727,7 +727,7 @@ struct AxisConflictResolverSheet: View {
                     StudioSuccessMessage(message: "This fix clears the axis conflict")
                 } else if needsFollowUpPass {
                     HStack(spacing: StudioSpace.x1) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
                             .foregroundStyle(StudioColors.warningForeground)
                         Text("One step done — apply to continue with the remaining stops")
                             .foregroundStyle(.primary)

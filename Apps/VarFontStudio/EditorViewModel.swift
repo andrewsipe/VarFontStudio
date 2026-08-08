@@ -17,10 +17,21 @@ enum InstanceFilter: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .all: "All"
-        case .included: "Included"
-        case .excluded: "Excluded"
-        case .duplicates: "Duplicates"
+        case .included: "Included only"
+        case .excluded: "Excluded only"
+        case .duplicates: "Conflicts"
         case .pendingExport: "Pending export"
+        }
+    }
+
+    /// Trailing mark in the Show menu / compact trigger (nil = keep the text label).
+    var menuSymbol: String? {
+        switch self {
+        case .all: nil
+        case .included: "checkmark.square"
+        case .excluded: "square"
+        case .duplicates: "exclamationmark.triangle.fill"
+        case .pendingExport: "p.square.fill"
         }
     }
 }

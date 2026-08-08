@@ -42,6 +42,76 @@ private enum FontPreviewAlignment: String, CaseIterable, Identifiable {
     }
 }
 
+/// Sample text / size / alignment — lives in the footer disclosure header beside
+/// Naming Order | Preview so the glyph canvas can claim the former toolbar row.
+struct FontPreviewHeaderControls: View {
+    @AppStorage("studio.fontPreviewSample") private var sampleText = "Compartmentalization"
+    @AppStorage("studio.fontPreviewSize") private var previewSize = 48.0
+    @AppStorage("studio.fontPreviewAlignment") private var alignmentRaw = FontPreviewAlignment.leading.rawValue
+
+    private var alignment: FontPreviewAlignment {
+        get { FontPreviewAlignment(rawValue: alignmentRaw) ?? .leading }
+        nonmutating set { alignmentRaw = newValue.rawValue }
+    }
+
+    var body: some View {
+        HStack(spacing: StudioSpacing.controlGap) {
+            StudioTextField(
+                placeholder: "Sample text",
+                text: $sampleText,
+                font: StudioTypography.bodyMedium,
+                rowHeight: StudioFieldMetrics.tabChipRowHeight
+            )
+            .frame(maxWidth: .infinity)
+
+            HStack(spacing: StudioSpacing.rowGap) {
+                Text("Size")
+                    .font(StudioTypography.meta)
+                    .foregroundStyle(.tertiary)
+
+                Slider(value: $previewSize, in: 24...72, step: 1)
+                    .frame(width: 100)
+                    .controlSize(.mini)
+
+                Text("\(Int(previewSize.rounded()))")
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 24, alignment: .trailing)
+            }
+
+            alignmentPicker
+        }
+    }
+
+    private var alignmentPicker: some View {
+        HStack(spacing: StudioSpacing.instanceRowGap) {
+            ForEach(FontPreviewAlignment.allCases) { option in
+                Button {
+                    alignment = option
+                } label: {
+                    Image(systemName: option.systemImage)
+                        .font(StudioTypography.meta)
+                        .foregroundStyle(alignment == option ? StudioColors.brand : .secondary)
+                        .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.tabChipRowHeight)
+                        .background {
+                            RoundedRectangle(cornerRadius: StudioRadius.small)
+                                .fill(alignment == option ? StudioColors.brand.opacity(0.12) : Color.clear)
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
+                }
+                .buttonStyle(.plain)
+                .studioHoverIcon(
+                    isEnabled: alignment != option,
+                    tint: alignment == option ? StudioColors.brand : nil
+                )
+                .help(option.help)
+            }
+        }
+        .padding(StudioSpace.x0_5)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+    }
+}
+
 /// Live source-font glyph preview for the editor footer.
 struct FontPreviewPanel: View {
     @EnvironmentObject private var editor: EditorViewModel
@@ -60,21 +130,24 @@ struct FontPreviewPanel: View {
     /// shared naming-order/preview footer height is ever smaller than expected.
     private static let minCanvasHeight: CGFloat = 96
 
-    /// Comfortable natural height for this panel (toolbar + the fixed glyph
-    /// canvas + status bar) when nothing else constrains it. Used as a floor
-    /// so the shared naming-order/preview footer height never squeezes the
-    /// canvas down to nothing (e.g. when the naming chain is empty).
+    /// Former in-panel toolbar allotment — now folded into the canvas so the
+    /// shared footer footprint stays identical after moving controls into the
+    /// disclosure header.
+    private static let reclaimedToolbarHeight: CGFloat =
+        StudioFieldMetrics.bodyMediumRowHeight
+        + StudioSpacing.toolbarVertical * 2
+
+    /// Comfortable natural height for this panel (glyph canvas + status bar, with
+    /// the former toolbar row folded into the canvas). Used as a floor so the
+    /// shared naming-order/preview footer height never squeezes the canvas down
+    /// and switching tabs never changes panel size.
     static let preferredHeight: CGFloat =
-        StudioFieldMetrics.bodyMediumRowHeight   // toolbar row
-        + StudioSpacing.toolbarVertical * 2       // toolbar vertical padding
-        + minCanvasHeight                         // fixed glyph canvas
+        reclaimedToolbarHeight
+        + minCanvasHeight
         + 28                                      // status bar row
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
-                .fixedSize(horizontal: false, vertical: true)
-
             // The canvas claims every bit of leftover height (via maxHeight:
             // .infinity) while `statusBar` below only takes its natural height —
             // standard VStack flex negotiation, so the two always sum to exactly
@@ -105,65 +178,6 @@ struct FontPreviewPanel: View {
             statusBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var toolbar: some View {
-        HStack(spacing: StudioSpacing.controlGap) {
-            StudioTextField(
-                placeholder: "Sample text",
-                text: $sampleText,
-                font: StudioTypography.bodyMedium,
-                rowHeight: StudioFieldMetrics.bodyMediumRowHeight
-            )
-            .frame(maxWidth: .infinity)
-
-            HStack(spacing: StudioSpacing.rowGap) {
-                Text("Size")
-                    .font(StudioTypography.meta)
-                    .foregroundStyle(.tertiary)
-
-                Slider(value: $previewSize, in: 24...72, step: 1)
-                    .frame(width: 100)
-                    .controlSize(.mini)
-
-                Text("\(Int(previewSize.rounded()))")
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 24, alignment: .trailing)
-            }
-
-            alignmentPicker
-        }
-        .padding(.horizontal, StudioSpacing.previewInset)
-        .padding(.vertical, StudioSpacing.toolbarVertical)
-    }
-
-    private var alignmentPicker: some View {
-        HStack(spacing: StudioSpacing.instanceRowGap) {
-            ForEach(FontPreviewAlignment.allCases) { option in
-                Button {
-                    alignment = option
-                } label: {
-                    Image(systemName: option.systemImage)
-                        .font(StudioTypography.meta)
-                        .foregroundStyle(alignment == option ? StudioColors.brand : .secondary)
-                        .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.tabChipRowHeight)
-                        .background {
-                            RoundedRectangle(cornerRadius: StudioRadius.small)
-                                .fill(alignment == option ? StudioColors.brand.opacity(0.12) : Color.clear)
-                        }
-                        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
-                }
-                .buttonStyle(.plain)
-                .studioHoverIcon(
-                    isEnabled: alignment != option,
-                    tint: alignment == option ? StudioColors.brand : nil
-                )
-                .help(option.help)
-            }
-        }
-        .padding(StudioSpace.x0_5)
-        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
     }
 
     private var canvasForeground: some View {
@@ -212,7 +226,9 @@ struct FontPreviewPanel: View {
             }
 
             Spacer(minLength: 0)
-
+            Text("Select an instance to preview")
+                .font(StudioTypography.caption)
+                .foregroundStyle(StudioColors.canvasTertiary)
             Text(editor.isPreviewHoverPeeking ? "Peek · hover" : "Source · live")
                 .font(StudioTypography.meta)
                 .foregroundStyle(statusPillForeground)

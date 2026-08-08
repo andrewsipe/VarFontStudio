@@ -594,7 +594,7 @@ private struct InstancerWindowContent: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let error = session.loadError {
                 ContentUnavailableView {
-                    Label("Couldn’t read font", systemImage: "exclamationmark.triangle")
+                    Label("Couldn’t read font", systemImage: "exclamationmark.triangle.fill")
                 } description: {
                     Text(error)
                 } actions: {

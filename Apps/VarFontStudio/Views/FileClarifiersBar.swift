@@ -50,6 +50,7 @@ struct FileClarifierFields: View {
             StudioTextField(
                 placeholder: "FamilyVariable",
                 text: psPrefixBinding(for: fontID),
+                rowHeight: StudioFieldMetrics.tabChipRowHeight,
                 filledForeground: .primary,
                 focusBinding: $postScriptPrefixFocused
             )

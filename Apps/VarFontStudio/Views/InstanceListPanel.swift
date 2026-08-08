@@ -1,6 +1,9 @@
-import AppKit
 import SwiftUI
 import VarFontCore
+
+/// Instances filter chrome — shared compact control tokens.
+private typealias InstanceListFilterChrome = StudioCompactControlChrome
+
 
 /// Instances panel local track metrics (on-lattice).
 enum InstanceListLayout {
@@ -52,9 +55,6 @@ struct InstanceListPanel: View {
 
     /// When hosted under middle-column chrome, the column owns the title header.
     var showsPanelHeader: Bool = true
-
-    /// Matches list row checkbox column at the panel margin rail.
-    private static let checkboxLeading = StudioSpacing.panelHorizontal
 
     private var display: InstanceListDisplay {
         editor.instanceListDisplay
@@ -242,7 +242,6 @@ struct InstanceListPanel: View {
     private func instanceRow(_ instance: PlannedInstance) -> some View {
         let hasConflict = display.conflictedInstanceKeys.contains(instance.key)
         let isPendingExport = display.pendingExportByKey[instance.key] ?? false
-        let bothModes = effectiveShowNames && effectiveShowCoords
         return InstanceRowView(
             instance: instance,
             pills: display.rowPills[instance.key] ?? [],
@@ -256,7 +255,6 @@ struct InstanceListPanel: View {
             isDuplicate: instance.duplicate,
             hasConflict: hasConflict,
             isPendingExport: isPendingExport,
-            preferPendingWash: bothModes && isPendingExport,
             onSelect: { extend in
                 editor.selectInstance(key: instance.key, extend: extend)
             },
@@ -295,10 +293,8 @@ struct InstanceListPanel: View {
             // Row 1: navigation
             HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
                 if let label = display.axisStopFilterLabel {
-                    StudioFilterChip(icon: nil, label: label) {
-                        StudioDismissButton(scale: .chip, style: .fill, help: "Clear axis stop filter") {
-                            editor.clearAxisStopFilter()
-                        }
+                    instanceListFilterChip(label: label) {
+                        editor.clearAxisStopFilter()
                     }
                     .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
@@ -322,8 +318,7 @@ struct InstanceListPanel: View {
                 filterBarRow2(contentModeIcons: false)
                 filterBarRow2(contentModeIcons: true)
             }
-            .padding(.leading, Self.checkboxLeading)
-            .padding(.trailing, StudioSpacing.panelHorizontal)
+            .padding(.horizontal, StudioSpacing.panelHorizontal)
             .padding(.bottom, StudioSpacing.toolbarVertical)
             .opacity(editor.filteredInstances.isEmpty && display.axisStopFilterLabel == nil ? 0.45 : 1)
         }
@@ -334,23 +329,18 @@ struct InstanceListPanel: View {
 
     private func filterBarRow2(contentModeIcons: Bool) -> some View {
         HStack(alignment: .center, spacing: StudioSpacing.rowGap + 1) {
-            StudioIncludeCheckbox(
-                isOn: editor.allVisibleInstancesIncluded,
-                isIndeterminate: editor.hasMixedVisibleInclusion
-            ) {
-                editor.toggleAllVisibleInstancesIncluded()
-            }
-            .disabled(editor.filteredInstances.isEmpty)
-
-            InstanceListToggleButton(
+            StudioCompactToggleButton(
                 title: "Include all",
                 isActive: editor.allVisibleInstancesIncluded && !editor.hasMixedVisibleInclusion,
-                isEnabled: !editor.filteredInstances.isEmpty
+                isEnabled: !editor.filteredInstances.isEmpty,
+                showsCheckbox: true,
+                checkboxOn: editor.allVisibleInstancesIncluded,
+                checkboxIndeterminate: editor.hasMixedVisibleInclusion
             ) {
                 editor.toggleAllVisibleInstancesIncluded()
             }
 
-            InstanceListToggleButton(
+            StudioCompactToggleButton(
                 title: "Hide elided",
                 isActive: hideElidedNames,
                 isEnabled: !editor.filteredInstances.isEmpty
@@ -367,41 +357,40 @@ struct InstanceListPanel: View {
     }
 
     private func contentModeTray(iconsOnly: Bool) -> some View {
-        HStack(spacing: StudioSpacing.instanceRowGap) {
+        HStack(spacing: StudioSpace.x0_5) {
             if iconsOnly {
-                compactSegmentIcon(
-                    systemImage: "textformat",
+                contentModeSegment(
+                    systemImage: "textformat.characters",
                     isSelected: effectiveShowNames,
-                    help: "Show composed names in the instance list"
-                ) {
-                    toggleShowNames()
-                }
-                compactSegmentIcon(
-                    systemImage: "number",
+                    help: "Show composed names in the instance list",
+                    action: toggleShowNames
+                )
+                contentModeSegment(
+                    systemImage: "numbers",
                     isSelected: effectiveShowCoords,
-                    help: "Show axis coordinate pills in the instance list"
-                ) {
-                    toggleShowCoords()
-                }
+                    help: "Show axis coordinate pills in the instance list",
+                    action: toggleShowCoords
+                )
             } else {
-                StudioSegmentButton(
+                contentModeSegment(
                     title: "Names",
                     isSelected: effectiveShowNames,
-                    help: "Show composed names in the instance list"
-                ) {
-                    toggleShowNames()
-                }
-                StudioSegmentButton(
+                    help: "Show composed names in the instance list",
+                    action: toggleShowNames
+                )
+                contentModeSegment(
                     title: "Coords",
                     isSelected: effectiveShowCoords,
-                    help: "Show axis coordinate pills in the instance list"
-                ) {
-                    toggleShowCoords()
-                }
+                    help: "Show axis coordinate pills in the instance list",
+                    action: toggleShowCoords
+                )
             }
         }
-        .padding(StudioSpace.x0_5)
-        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .padding(InstanceListFilterChrome.trayInset)
+        .background(
+            InstanceListFilterChrome.idleFill,
+            in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
+        )
         .fixedSize(horizontal: true, vertical: false)
     }
 
@@ -424,35 +413,99 @@ struct InstanceListPanel: View {
         }
     }
 
-    /// Icon-only Names/Coords segment — same selected/unselected language as
-    /// `StudioSegmentButton`, used when the labeled tray no longer fits.
-    private func compactSegmentIcon(
-        systemImage: String,
+    /// One segment inside the Names|Coords tray — icon or text.
+    /// Text uses resolved SF Rounded Medium; symbols keep SF Symbol metrics
+    /// (`design: .rounded` on an `Image(systemName:)` doesn't change the glyph and
+    /// was hiding whether the text path actually resolved to Rounded).
+    private func contentModeSegment(
+        title: String? = nil,
+        systemImage: String? = nil,
         isSelected: Bool,
         help: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .frame(width: 22, height: 20)
-                .background(
-                    isSelected ? StudioColors.selectionNeutralFillStrong : Color.clear,
-                    in: RoundedRectangle(cornerRadius: StudioRadius.small)
-                )
-                .contentShape(Rectangle())
+            Group {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(InstanceListFilterChrome.symbolFont)
+                } else if let title {
+                    Text(title)
+                        .font(InstanceListFilterChrome.labelFont)
+                }
+            }
+            .foregroundStyle(InstanceListFilterChrome.foreground(isActive: isSelected))
+            .padding(.horizontal, InstanceListFilterChrome.horizontalPadding)
+            .frame(height: InstanceListFilterChrome.segmentHeight)
+            .background(
+                isSelected ? InstanceListFilterChrome.activeFill : Color.clear,
+                in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.segmentCornerRadius)
+            )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.small), isEnabled: !isSelected)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: InstanceListFilterChrome.segmentCornerRadius),
+            isEnabled: !isSelected
+        )
         .help(help)
     }
 
     private var searchField: some View {
-        StudioSearchField(
-            text: $editor.searchText,
-            placeholder: "name, wght=400, wdth+wght…",
-            isFocused: $isSearchFocused
+        HStack(spacing: StudioSpacing.tightGap) {
+            Image(systemName: "magnifyingglass")
+                .font(InstanceListFilterChrome.symbolFont)
+                .foregroundStyle(StudioColors.textPlaceholder)
+
+            StudioTextField(
+                placeholder: "name, wght=400, wdth+wght…",
+                text: $editor.searchText,
+                font: InstanceListFilterChrome.labelFont,
+                rowHeight: InstanceListFilterChrome.searchHeight - 4,
+                showsFieldChrome: false,
+                focusBinding: $isSearchFocused
+            )
+
+            if !editor.searchText.isEmpty {
+                StudioDismissButton(scale: .chip, style: .fill) {
+                    editor.searchText = ""
+                }
+            }
+        }
+        .padding(.horizontal, InstanceListFilterChrome.horizontalPadding)
+        .frame(height: InstanceListFilterChrome.searchHeight)
+        .background(
+            isSearchFocused ? StudioColors.fieldFillFocused : InstanceListFilterChrome.idleFill,
+            in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
+        )
+    }
+
+    /// Axis-stop selection pill — inverted vs idle buttons (light fill / dark label).
+    private func instanceListFilterChip(label: String, onClear: @escaping () -> Void) -> some View {
+        HStack(spacing: StudioSpacing.tightGap) {
+            Text(label)
+                .font(InstanceListFilterChrome.labelFont)
+                .foregroundStyle(InstanceListFilterChrome.chipForeground)
+                .lineLimit(1)
+            Button(action: onClear) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: StudioChromeScale.chip.pointSize, weight: StudioChromeScale.symbolWeight))
+                    .foregroundStyle(InstanceListFilterChrome.chipForeground.opacity(0.55))
+                    .frame(
+                        width: StudioChromeScale.chip.hitSize,
+                        height: StudioChromeScale.chip.hitSize
+                    )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Clear axis stop filter")
+        }
+        .padding(.leading, InstanceListFilterChrome.horizontalPadding)
+        .padding(.trailing, StudioSpacing.tightGap)
+        .frame(height: InstanceListFilterChrome.controlHeight)
+        .background(
+            InstanceListFilterChrome.chipFill,
+            in: RoundedRectangle(cornerRadius: 12)
         )
     }
 
@@ -462,22 +515,34 @@ struct InstanceListPanel: View {
         } label: {
             HStack(spacing: StudioSpacing.tightGap) {
                 Text("Show")
-                    .foregroundStyle(.tertiary)
-                Text(editor.instanceFilter.label)
-                    .foregroundStyle(showFilterTriggerForeground)
-                    .lineLimit(1)
+                    .font(InstanceListFilterChrome.labelFont)
+                    .foregroundStyle(.secondary)
+                // Compact trigger: keep "All" as text; every other filter is its menu symbol
+                // so the control width stays stable when switching.
+                if let symbol = editor.instanceFilter.menuSymbol {
+                    Image(systemName: symbol)
+                        .font(InstanceListFilterChrome.symbolFont)
+                        .foregroundStyle(showFilterSymbolForeground(for: editor.instanceFilter))
+                } else {
+                    Text(editor.instanceFilter.label)
+                        .font(InstanceListFilterChrome.labelFont)
+                        .foregroundStyle(showFilterTriggerForeground)
+                        .lineLimit(1)
+                }
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
                     .foregroundStyle(.tertiary)
             }
-            .font(StudioTypography.meta)
-            .padding(.horizontal, StudioSpacing.panelHorizontal)
-            .padding(.vertical, StudioSpacing.instanceRowVertical)
-            .background(showFilterTriggerBackground, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            .padding(.horizontal, InstanceListFilterChrome.horizontalPadding)
+            .frame(height: InstanceListFilterChrome.controlHeight)
+            .background(
+                showFilterTriggerBackground,
+                in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+        .studioHoverFill(shape: .roundedRect(cornerRadius: InstanceListFilterChrome.cornerRadius))
         .help(showFilterHelp(for: editor.instanceFilter))
         .popover(isPresented: $showFilterMenu, arrowEdge: .bottom) {
             showFilterMenuContent
@@ -496,6 +561,8 @@ struct InstanceListPanel: View {
 
     private func showFilterMenuRow(_ filter: InstanceFilter) -> some View {
         let isSelected = editor.instanceFilter == filter
+        let isConflicts = filter == .duplicates
+        let isPending = filter == .pendingExport
         return Button {
             editor.instanceFilter = filter
             showFilterMenu = false
@@ -507,13 +574,18 @@ struct InstanceListPanel: View {
                     .opacity(isSelected ? 1 : 0)
                     .frame(width: 12, alignment: .leading)
                 Text(filter.label)
-                    .font(StudioTypography.caption)
+                    .font(InstanceListFilterChrome.labelFont)
                     .foregroundStyle(showFilterForeground(
                         isSelected: true,
-                        isDuplicates: filter == .duplicates,
-                        isPendingExport: filter == .pendingExport
+                        isConflicts: isConflicts,
+                        isPendingExport: isPending
                     ))
                 Spacer(minLength: 0)
+                if let symbol = filter.menuSymbol {
+                    Image(systemName: symbol)
+                        .font(InstanceListFilterChrome.symbolFont)
+                        .foregroundStyle(showFilterSymbolForeground(for: filter))
+                }
             }
             .padding(.horizontal, StudioSpace.x1_5)
             .padding(.vertical, StudioSpacing.panelVertical)
@@ -527,7 +599,7 @@ struct InstanceListPanel: View {
     private var showFilterTriggerForeground: Color {
         showFilterForeground(
             isSelected: true,
-            isDuplicates: editor.instanceFilter == .duplicates,
+            isConflicts: editor.instanceFilter == .duplicates,
             isPendingExport: editor.instanceFilter == .pendingExport
         )
     }
@@ -537,43 +609,63 @@ struct InstanceListPanel: View {
         case .duplicates, .pendingExport:
             return showFilterBackground(
                 isSelected: true,
-                isDuplicates: editor.instanceFilter == .duplicates,
+                isConflicts: editor.instanceFilter == .duplicates,
                 isPendingExport: editor.instanceFilter == .pendingExport
             )
         default:
-            return StudioColors.surfaceInset
+            return InstanceListFilterChrome.idleFill
         }
     }
 
     private func showFilterHelp(for filter: InstanceFilter) -> String {
         switch filter {
         case .duplicates:
-            "Show instances that share a composed name"
+            "Show instances with naming conflicts (duplicate composed names)"
         case .pendingExport:
             "Show included instances not yet written to the working font"
-        default:
-            filter.label
+        case .included:
+            "Show included instances"
+        case .excluded:
+            "Show excluded instances"
+        case .all:
+            "Show all instances"
         }
     }
 
-    private func showFilterForeground(isSelected: Bool, isDuplicates: Bool, isPendingExport: Bool) -> Color {
-        if isDuplicates {
+    private func showFilterForeground(isSelected: Bool, isConflicts: Bool, isPendingExport: Bool) -> Color {
+        if isConflicts {
             return StudioColors.warningForeground
         }
         if isPendingExport {
-            return isSelected ? Color.mint : Color.mint.opacity(0.7)
+            // Match the row's pending mark (`p.square.fill` + editedForeground).
+            return StudioColors.editedForeground
         }
         return isSelected ? Color.primary : Color.secondary
     }
 
-    private func showFilterBackground(isSelected: Bool, isDuplicates: Bool, isPendingExport: Bool) -> Color {
-        if isDuplicates {
+    /// Menu/trigger trailing marks — Included/Excluded use checkbox blue; Conflicts /
+    /// Pending keep their semantic hues; All has no mark.
+    private func showFilterSymbolForeground(for filter: InstanceFilter) -> Color {
+        switch filter {
+        case .included, .excluded:
+            return StudioColors.brand
+        case .duplicates:
+            return StudioColors.warningForeground
+        case .pendingExport:
+            return StudioColors.editedForeground
+        case .all:
+            return Color.primary
+        }
+    }
+
+    private func showFilterBackground(isSelected: Bool, isConflicts: Bool, isPendingExport: Bool) -> Color {
+        if isConflicts {
             return isSelected
                 ? StudioColors.warningFill
                 : StudioColors.warningFill.opacity(0.45)
         }
         if isPendingExport {
-            return isSelected ? Color.mint.opacity(0.16) : Color.clear
+            return isSelected ? StudioColors.editedForeground : Color.clear
         }
         return isSelected ? StudioColors.selectionNeutralFillStrong : Color.clear
     }
@@ -584,9 +676,9 @@ struct InstanceListPanel: View {
         VStack(spacing: 0) {
             Divider()
             Button {
-                withAnimation(.easeOut(duration: 0.15)) {
-                    axisDrawerOpen.toggle()
-                }
+                // Instant open/close — same as Combination styles drawer.
+                // Height animation on the chip grid reads as a genie resize.
+                axisDrawerOpen.toggle()
             } label: {
                 // Match Combination styles drawer rail in Axis Tree
                 // (`StudioChromeBand.header` + emphasis title) so the two
@@ -618,23 +710,22 @@ struct InstanceListPanel: View {
                     .padding(.horizontal, StudioSpacing.panelHorizontal)
                     .padding(.top, StudioSpacing.rowGap)
                     .padding(.bottom, StudioSpacing.panelVertical)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .background(StudioColors.surfaceMuted)
     }
 
     private var axisDrawerChipGrid: some View {
+        let font = editor.selectedFont
         let tags = editor.namingChainTags.filter { tag in
-            editor.selectedFont?.axes.contains(where: { $0.tag == tag }) == true
+            guard let axis = font?.axes.first(where: { $0.tag == tag }) else { return false }
+            // Pinned axes are omitted entirely when Hide pinned is on — no struck chip.
+            if hidePinnedAxes, axis.isDesignRecordOnly { return false }
+            return true
         }
         return FlowAxisChipGrid(
             tags: tags,
             enabledTags: Set(display.enabledAxisTags),
-            hidePinned: hidePinnedAxes,
-            isPinned: { tag in
-                editor.selectedFont?.axes.first(where: { $0.tag == tag })?.isDesignRecordOnly == true
-            },
             onToggle: toggleDrawerAxis
         )
     }
@@ -655,7 +746,7 @@ struct InstanceListPanel: View {
 
     private var emptyListTitle: String {
         if editor.instanceFilter == .duplicates && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
-            return "No Duplicate Instances"
+            return "No Conflicts"
         }
         if editor.instanceFilter == .pendingExport && editor.searchText.isEmpty && display.axisStopFilterLabel == nil {
             return "No Pending Export Instances"
@@ -686,84 +777,102 @@ struct InstanceListPanel: View {
     }
 }
 
-// MARK: - Filter toggle chrome
+// MARK: - Axis drawer chips
 
-private struct InstanceListToggleButton: View {
-    let title: String
-    var isActive: Bool = false
-    var isEnabled: Bool = true
-    let action: () -> Void
+/// Packs chips leading with a constant edge-to-edge gap. `LazyVGrid(.adaptive)`
+/// used equal-width columns, so narrower tags (e.g. `ital` vs `ousd`) left uneven
+/// residual space inside their cells and the visual gaps looked uneven.
+private struct AxisChipFlowLayout: Layout {
+    var spacing: CGFloat = StudioSpacing.rowGap
 
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(StudioTypography.meta.weight(isActive ? .semibold : .regular))
-                .foregroundStyle(isEnabled
-                    ? (isActive ? Color.primary : Color.secondary)
-                    : Color.secondary.opacity(0.45))
-                .padding(.horizontal, StudioSpacing.panelHorizontal)
-                .padding(.vertical, StudioSpacing.tightGap)
-                .background(
-                    isActive ? StudioColors.surfaceInset : Color.clear,
-                    in: RoundedRectangle(cornerRadius: StudioRadius.control)
-                )
-                .contentShape(Rectangle())
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(proposal: proposal, subviews: subviews).size
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let result = arrange(proposal: proposal, subviews: subviews)
+        for index in subviews.indices {
+            let size = result.sizes[index]
+            let origin = result.positions[index]
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
+                proposal: ProposedViewSize(size)
+            )
         }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+    }
+
+    private func arrange(
+        proposal: ProposedViewSize,
+        subviews: Subviews
+    ) -> (size: CGSize, positions: [CGPoint], sizes: [CGSize]) {
+        let maxWidth = proposal.width ?? .infinity
+        var positions: [CGPoint] = []
+        var sizes: [CGSize] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var rowMaxX: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            sizes.append(size)
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            rowMaxX = max(rowMaxX, x - spacing)
+        }
+
+        return (
+            CGSize(width: rowMaxX, height: y + rowHeight),
+            positions,
+            sizes
+        )
     }
 }
-
-// MARK: - Axis drawer chips
 
 private struct FlowAxisChipGrid: View {
     let tags: [String]
     let enabledTags: Set<String>
-    let hidePinned: Bool
-    let isPinned: (String) -> Bool
     let onToggle: (String) -> Void
 
     var body: some View {
-        // Adaptive wrap; spacing matches coord-pill strip gap so drawer chips
-        // read as the same family as the list pills above (not a denser grid).
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 48), spacing: StudioSpacing.rowGap)],
-            alignment: .leading,
-            spacing: StudioSpacing.rowGap
-        ) {
+        // Same chrome as the Instances filter buttons; flow layout keeps a
+        // constant 6pt gap between chip edges regardless of tag glyph width.
+        AxisChipFlowLayout(spacing: StudioSpacing.rowGap) {
             ForEach(tags, id: \.self) { tag in
-                let pinned = isPinned(tag)
-                let dimmed = hidePinned && pinned
                 let on = enabledTags.contains(tag)
                 Button {
                     onToggle(tag)
                 } label: {
                     Text(tag)
-                        .font(StudioTypography.monoMeta)
-                        .foregroundStyle(dimmed ? Color.secondary.opacity(0.35) : Color.secondary)
-                        .strikethrough(dimmed)
-                        // Match InstanceCoordPillView pad (pillPadX / pillPadY) so
-                        // drawer chips don't feel like a shrunk sibling of the list pills.
-                        .padding(.horizontal, InstanceListLayout.pillPadX)
-                        .padding(.vertical, InstanceListLayout.pillPadY)
+                        .font(InstanceListFilterChrome.labelFont)
+                        .foregroundStyle(InstanceListFilterChrome.foreground(isActive: on))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, InstanceListFilterChrome.horizontalPadding)
+                        .frame(height: InstanceListFilterChrome.controlHeight)
                         .background(
-                            on && !dimmed ? StudioColors.surfaceInset : Color.clear,
-                            in: RoundedRectangle(cornerRadius: StudioRadius.small)
+                            InstanceListFilterChrome.fill(isActive: on),
+                            in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
                         )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: StudioRadius.small)
-                                .strokeBorder(
-                                    on && !dimmed ? Color.primary.opacity(0.25) : Color.primary.opacity(0.08),
-                                    lineWidth: 1
-                                )
-                        )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(dimmed)
-                .help(dimmed
-                    ? "Pinned axis hidden by Naming Order — turn off Hide pinned to enable"
-                    : (on ? "Hide \(tag) from coordinate pills" : "Show \(tag) on coordinate pills"))
+                .studioHoverFill(
+                    shape: .roundedRect(cornerRadius: InstanceListFilterChrome.cornerRadius),
+                    isEnabled: !on
+                )
+                .help(on ? "Hide \(tag) from coordinate pills" : "Show \(tag) on coordinate pills")
             }
         }
     }
@@ -923,8 +1032,6 @@ private struct InstanceRowView: View {
     var isDuplicate: Bool = false
     var hasConflict: Bool = false
     var isPendingExport: Bool = false
-    /// When names+coords are both on, prefer a mint wash over the Pending badge.
-    var preferPendingWash: Bool = false
     let onSelect: (Bool) -> Void
     let onIncludedChange: (Bool) -> Void
     let onSetSelectionIncluded: (Bool) -> Void
@@ -937,7 +1044,6 @@ private struct InstanceRowView: View {
     @State private var rowWidth: CGFloat = 0
 
     private var bothModes: Bool { showNames && showCoords }
-    private var showPendingBadge: Bool { isPendingExport && !preferPendingWash }
 
     private var pillTrackWidth: CGFloat {
         max(
@@ -968,17 +1074,11 @@ private struct InstanceRowView: View {
         rowContent
             .opacity(isIncluded ? 1 : 0.45)
             .background {
-                ZStack {
-                    StudioRowBackground(
-                        isSelected: isSelected,
-                        isHovered: isHovered,
-                        isWarning: isDuplicate
-                    )
-                    if preferPendingWash {
-                        RoundedRectangle(cornerRadius: StudioRadius.row)
-                            .fill(Color.mint.opacity(0.16))
-                    }
-                }
+                StudioRowBackground(
+                    isSelected: isSelected,
+                    isHovered: isHovered,
+                    isWarning: isDuplicate
+                )
             }
             .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
             .onTapGesture {
@@ -1028,11 +1128,6 @@ private struct InstanceRowView: View {
                     // .fixedSize child was only ever a layout proposal, never a clip.
                     maxWidth: pillTrackWidth,
                     alignment: .trailing,
-                    // StudioColors.surfaceInset (the pill's own fill) isn't fully opaque, so the
-                    // mint wash sitting in the row's .background was bleeding through and tinting
-                    // the pills instead of staying hidden behind them. Forcing an opaque backing
-                    // only on pending-wash rows keeps pills looking identical everywhere else.
-                    opaqueBacking: preferPendingWash,
                     onOverflowTap: onOverflowTap
                 )
             } else if showNames {
@@ -1069,15 +1164,25 @@ private struct InstanceRowView: View {
             .strikethrough(!isIncluded, color: .secondary)
             .lineLimit(1)
 
-            if showPendingBadge {
-                Text("Pending")
-                    .font(StudioTypography.meta.weight(.medium))
-                    .foregroundStyle(Color.mint)
-                    .padding(.horizontal, StudioSpacing.tagHorizontalInset)
-                    .padding(.vertical, StudioSpacing.instanceRowGap)
-                    .background(Color.mint.opacity(0.16), in: RoundedRectangle(cornerRadius: StudioRadius.small))
-                    .help("Included in the plan but not yet written to the working font")
-                    .fixedSize()
+            if isPendingExport {
+                if bothModes {
+                    // Compact mark — the full "Pending" badge eats too much of the
+                    // name column when coords already claim the trailing track.
+                    Image(systemName: "p.square.fill")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.cyan)
+                        .help("Included in the plan but not yet written to the working font")
+                        .fixedSize()
+                } else {
+                    Text("Pending")
+                        .font(StudioTypography.meta.weight(.medium))
+                        .foregroundStyle(StudioColors.editedForeground)
+                        .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+                        .padding(.vertical, StudioSpacing.instanceRowGap)
+                        .background((StudioColors.editedFill), in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                        .help("Included in the plan but not yet written to the working font")
+                        .fixedSize()
+                }
             }
 
             statusAccessory
@@ -1101,13 +1206,14 @@ private struct InstanceRowView: View {
             }
             .fixedSize()
 
-        if showPendingBadge && !showNames {
+        if isPendingExport && !showNames {
             Text("Pending")
                 .font(StudioTypography.meta.weight(.medium))
-                .foregroundStyle(Color.mint)
+                .foregroundStyle(StudioColors.editedForeground)
                 .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                 .padding(.vertical, StudioSpacing.instanceRowGap)
-                .background(Color.mint.opacity(0.16), in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                .background(StudioColors.editedFill, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                .help("Included in the plan but not yet written to the working font")
                 .fixedSize()
         }
     }
@@ -1119,22 +1225,18 @@ private struct InstanceCoordPillView: View {
     let pill: InstanceCoordPill
     let valueMaxCharacters: Int
     var muted: Bool = false
-    /// Forces a fully-opaque base under the pill fill, regardless of that fill's own
-    /// alpha. Needed on pending-wash rows so the mint highlight sitting in the row's
-    /// background can't bleed through a translucent pill fill.
-    var opaqueBacking: Bool = false
 
     var body: some View {
         HStack(spacing: InstanceListLayout.pillInnerGap) {
             Text(pill.tag)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StudioColors.tagForeground)
                 .frame(
                     width: InstanceListLayout.pillTagCh * InstanceListLayout.pillChWidth,
                     alignment: .leading
                 )
             Text(pill.formatted)
                 .fontWeight(.semibold)
-                .foregroundStyle(.primary)
+                .foregroundStyle(StudioColors.tagForeground)
                 .monospacedDigit()
                 .frame(
                     width: InstanceListLayout.valueColumnWidth(valueCharacters: valueMaxCharacters),
@@ -1150,18 +1252,23 @@ private struct InstanceCoordPillView: View {
             alignment: .leading
         )
         .background {
-            let shape = RoundedRectangle(cornerRadius: StudioRadius.small)
-            ZStack {
-                if opaqueBacking {
-                    shape.fill(.background)
+            // Canonical token: StudioColors.tagBackground is documented as
+            // "Instance axis tag pills — neutral text on neutral wash." Row pills
+            // were using surfaceInset and header pills a bespoke
+            // Color.primary.opacity(0.12) — two unrelated formulas that read as
+            // two different pill colors sitting right next to each other. One
+            // token everywhere now; `muted` only dims its opacity, never its hue,
+            // so header and row pills read as the same family at different volumes.
+            //
+            // Opaque `chipSurface` under the wash so row selection/hover cannot
+            // tint through the translucent tag fill.
+            RoundedRectangle(cornerRadius: StudioRadius.small)
+                .fill(StudioColors.chipSurface)
+                .overlay {
+                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                        .fill(StudioColors.tagBackground.opacity(muted ? 0.6 : 1))
                 }
-                // Muted (header) pills sit on surfaceInset chrome — a same-token fill would
-                // vanish, and the old 6% wash was invisible too. A slightly stronger primary
-                // wash keeps them readable without competing with row pills.
-                shape.fill(muted ? Color.primary.opacity(0.12) : StudioColors.surfaceInset)
-            }
         }
-        .opacity(muted ? 0.9 : 1)
         // Resist parent compression — narrow tracks were wrapping tags into "ins"/"d".
         .fixedSize(horizontal: true, vertical: true)
         .accessibilityLabel("\(pill.tag) \(pill.formatted)")
@@ -1187,7 +1294,6 @@ private struct InstanceCoordPillStrip: View {
     /// count (row width, header width) — take it as a plain input instead of guessing.
     let maxWidth: CGFloat
     var alignment: HorizontalAlignment = .trailing
-    var opaqueBacking: Bool = false
     var onOverflowTap: (() -> Void)?
 
     @State private var isHovered = false
@@ -1292,8 +1398,7 @@ private struct InstanceCoordPillStrip: View {
                 InstanceCoordPillView(
                     pill: pill,
                     valueMaxCharacters: valueMaxCharacters,
-                    muted: muted,
-                    opaqueBacking: opaqueBacking
+                    muted: muted
                 )
             }
             if hidden > 0 {
@@ -1302,18 +1407,19 @@ private struct InstanceCoordPillStrip: View {
                 } label: {
                     Text("+\(hidden)")
                         .font(StudioTypography.monoMeta.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StudioColors.tagForeground)
                         .lineLimit(1)
                         .padding(.horizontal, InstanceListLayout.pillPadX)
                         .padding(.vertical, InstanceListLayout.pillPadY)
                         .background {
-                            let shape = RoundedRectangle(cornerRadius: StudioRadius.small)
-                            ZStack {
-                                if opaqueBacking {
-                                    shape.fill(.background)
+                            // Same tagBackground family as the pills it summarizes —
+                            // opaque-backed so selection/hover cannot tint through.
+                            RoundedRectangle(cornerRadius: StudioRadius.small)
+                                .fill(StudioColors.chipSurface)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                                        .fill(StudioColors.tagBackground)
                                 }
-                                shape.fill(StudioColors.surfaceInset)
-                            }
                         }
                 }
                 .buttonStyle(.plain)

@@ -418,6 +418,40 @@ private enum StudioPrimaryWash {
     }
 }
 
+/// Opaque color that matches a `StudioPrimaryWash` composited over the window
+/// background. Use under translucent chip fills so row selection/hover cannot
+/// show through (washes alone are translucent and will pick up whatever is behind).
+private enum StudioOpaquePanelWash {
+    static func make(name: String, light: CGFloat, dark: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: NSColor.Name("Studio.OpaquePanelWash.\(name)"), dynamicProvider: { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let alpha = isDark ? dark : light
+            var result: NSColor = .windowBackgroundColor
+            appearance.performAsCurrentDrawingAppearance {
+                let base = NSColor.windowBackgroundColor
+                let wash = NSColor.labelColor.withAlphaComponent(alpha)
+                result = composite(wash, over: base) ?? base
+            }
+            return result
+        }))
+    }
+
+    private static func composite(_ src: NSColor, over dst: NSColor) -> NSColor? {
+        guard let s = src.usingColorSpace(.sRGB),
+              let d = dst.usingColorSpace(.sRGB) else { return nil }
+        var sr: CGFloat = 0, sg: CGFloat = 0, sb: CGFloat = 0, sa: CGFloat = 0
+        var dr: CGFloat = 0, dg: CGFloat = 0, db: CGFloat = 0, da: CGFloat = 0
+        s.getRed(&sr, green: &sg, blue: &sb, alpha: &sa)
+        d.getRed(&dr, green: &dg, blue: &db, alpha: &da)
+        return NSColor(
+            srgbRed: sr * sa + dr * (1 - sa),
+            green: sg * sa + dg * (1 - sa),
+            blue: sb * sa + db * (1 - sa),
+            alpha: 1
+        )
+    }
+}
+
 /// Dynamic color built from two independently-authored sRGB stops rather than one fixed
 /// RGB value + system opacity. Use for any custom (non-system) semantic hue that appears
 /// as `Text` foreground, where light/dark need separately verified contrast — not just for
@@ -460,6 +494,10 @@ enum StudioColors {
     /// Instance axis tag pills — neutral text on neutral wash.
     static let tagForeground = Color.secondary
     static let tagBackground = Color.secondary.opacity(0.12)
+    /// Truly opaque backdrop under translucent chip washes. Bakes `surfaceMuted`
+    /// over the window background — `surfaceMuted` itself is a translucent wash,
+    /// so using it alone still let selection/hover bleed through the pills.
+    static let chipSurface = StudioOpaquePanelWash.make(name: "chipSurface", light: 0.07, dark: 0.04)
 
     // MARK: Semantic marks — axis & instancer
 
@@ -482,16 +520,23 @@ enum StudioColors {
     // MARK: Canvas (font preview only — see color system guidance)
 
     /// Fixed paper-white glyph preview — font preview panel only (not Review/Instancer tables).
-    static let canvasBackground = Color.white
+    static let paper = StudioHuedToken.make(
+        name: "paper", light: (1.0, 0.992, 0.976), dark: (0.937, 0.914, 0.867)
+    )
+    
+    static let ink = StudioHuedToken.make(
+        name: "ink", light: (0.129, 0.114, 0.086), dark: (0.110, 0.094, 0.067)
+    )
+    static let canvasBackground = StudioColors.paper
     /// Ink on the font preview canvas — always black regardless of system appearance.
-    static let canvasForeground = Color.black
-    static let canvasSecondary = Color.black.opacity(0.55)
-    static let canvasTertiary = Color.black.opacity(0.38)
-    static let canvasQuaternary = Color.black.opacity(0.22)
-    static let canvasDivider = Color.black.opacity(0.10)
+    static let canvasForeground = StudioColors.ink
+    static let canvasSecondary = StudioColors.ink.opacity(0.55)
+    static let canvasTertiary = StudioColors.ink.opacity(0.38)
+    static let canvasQuaternary = StudioColors.ink.opacity(0.22)
+    static let canvasDivider = StudioColors.ink.opacity(0.10)
     /// Status strip on the font preview panel.
-    static let canvasPhaseHeader = Color(white: 0.96)
-    static let canvasHoverFill = brand.opacity(0.08)
+    static let canvasPhaseHeader = StudioColors.paper.opacity(0.96)
+    static let canvasHoverFill = StudioColors.brand.opacity(0.08)
 
     // MARK: Semantic marks — status (warning / success / error)
     //
@@ -721,9 +766,9 @@ struct StudioTagPill: View {
             .padding(.horizontal, Self.horizontalPadding)
             .padding(.vertical, 2)
             .foregroundStyle(foreground)
-            .background(
+            .studioChipBackground(
                 background,
-                in: RoundedRectangle(cornerRadius: compact ? StudioRadius.small : StudioRadius.small)
+                cornerRadius: compact ? StudioRadius.small : StudioRadius.small
             )
     }
 }
@@ -771,8 +816,11 @@ struct StudioStatFormatBadge: View {
             .font(.system(size: 9, weight: .bold, design: .monospaced))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .foregroundStyle(isDark ? Color.black.opacity(0.82) : markColor)
-            .background(markColor.opacity(isDark ? 0.92 : 0.20), in: RoundedRectangle(cornerRadius: 3))
+            .foregroundStyle(isDark ? StudioColors.ink.opacity(0.82) : markColor)
+            .studioChipBackground(
+                markColor.opacity(isDark ? 0.92 : 0.20),
+                cornerRadius: 3
+            )
             .overlay {
                 RoundedRectangle(cornerRadius: 3)
                     .strokeBorder(markColor.opacity(isDark ? 1.0 : 0.45), lineWidth: 0.5)
@@ -1372,7 +1420,7 @@ struct StudioSaveReviewTabBar: View {
                         isSelected ? StudioColors.surfaceLight : Color.clear,
                         in: RoundedRectangle(cornerRadius: 6)
                     )
-                    .shadow(color: isSelected ? Color.black.opacity(0.2) : .clear, radius: 2, y: 1)
+                    .shadow(color: isSelected ? StudioColors.ink.opacity(0.2) : .clear, radius: 2, y: 1)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -3290,6 +3338,175 @@ struct StudioMenuPicker<Value: Hashable>: View {
     }
 }
 
+// MARK: - Compact filter / toolbar chrome
+
+/// Shared compact control chrome (Instances filter bar, Naming Order footer toggles, etc.).
+/// Fixed 22pt height, always-on idle fill, stronger active fill, SF Rounded labels.
+enum StudioCompactControlChrome {
+    /// Text-button labels only. Symbols keep their own SF Symbol metrics.
+    /// Resolved via `NSFont` + `.rounded` — SwiftUI's `Font.system(design: .rounded)` alone
+    /// can silently fall back to SF Pro on macOS when an environment font wins.
+    static let labelFont: Font = {
+        let size: CGFloat = 11
+        let base = NSFont.systemFont(ofSize: size, weight: .regular)
+        if let rounded = base.fontDescriptor.withDesign(.rounded),
+           let nsFont = NSFont(descriptor: rounded, size: size) {
+            return Font(nsFont)
+        }
+        return Font.system(size: size, weight: .regular, design: .rounded)
+    }()
+    /// SF Symbol size for compact icon segments — not rounded-design text.
+    static let symbolFont = Font.system(size: 11, weight: .medium)
+    static let cornerRadius = StudioRadius.control
+    static let segmentCornerRadius = StudioRadius.small
+    static let horizontalPadding = StudioSpacing.panelHorizontal
+    /// Leading inset when the button embeds a checkbox — half of `horizontalPadding`
+    /// so the mark lines up with instance-row checkboxes (panel + rowContentInset).
+    static var checkboxLeadingPadding: CGFloat { horizontalPadding / 2 }
+    /// Gap between the embedded checkbox and the title — absorbs the leading half
+    /// that was removed, so total button width stays the same.
+    static var checkboxTitleGap: CGFloat { StudioSpacing.tightGap + checkboxLeadingPadding }
+    /// Outer pad inside a Names|Coords-style tray around the segments.
+    static let trayInset = StudioSpace.x0_5
+    /// Locked to the text-only control height (Hide elided / Code / Restore).
+    static let controlHeight: CGFloat = 22
+    /// Search field is allowed to read taller than the button row.
+    static let searchHeight: CGFloat = 28
+    /// Checkbox mark sized to fit inside `controlHeight` without growing the button.
+    static let checkboxSize: CGFloat = 12
+
+    static var idleFill: Color { StudioColors.surfaceInset }
+    static var activeFill: Color { StudioColors.selectionNeutralFillStrong }
+    /// Inverted selection chip: light fill / dark label (opposite of idle buttons).
+    static var chipFill: Color { Color.primary }
+    static var chipForeground: Color { Color(nsColor: .textBackgroundColor) }
+
+    static func fill(isActive: Bool, accentFill: Color? = nil) -> Color {
+        guard isActive else { return idleFill }
+        return accentFill ?? activeFill
+    }
+
+    static func foreground(isActive: Bool, isEnabled: Bool = true, accentForeground: Color? = nil) -> Color {
+        guard isEnabled else { return Color.secondary.opacity(0.45) }
+        guard isActive else { return Color.secondary }
+        return accentForeground ?? Color.primary
+    }
+
+    /// Segment height inside a tray (tray inset on top + bottom).
+    static var segmentHeight: CGFloat { controlHeight - trayInset * 2 }
+}
+
+/// Semantic active tint for compact toggles (hue lives in fill/stroke; label stays readable).
+enum StudioCompactToggleAccent {
+    /// Matches the naming-chain Code chip (`StudioColors.code*`).
+    case code
+
+    var fill: Color {
+        switch self {
+        case .code: StudioColors.codeBackground
+        }
+    }
+
+    var foreground: Color {
+        switch self {
+        case .code: StudioColors.codeForeground
+        }
+    }
+
+    var stroke: Color {
+        switch self {
+        case .code: StudioColors.codeStroke
+        }
+    }
+}
+
+/// Compact filled toggle / action — same chrome as Instances "Hide elided" / "Include all".
+struct StudioCompactToggleButton: View {
+    let title: String
+    var isActive: Bool = false
+    var isEnabled: Bool = true
+    var help: String = ""
+    /// When set, active state uses this semantic wash instead of the neutral active fill.
+    var accent: StudioCompactToggleAccent? = nil
+    /// Embeds an include-checkbox mark inside the button (Instances Include all).
+    var showsCheckbox: Bool = false
+    var checkboxOn: Bool = false
+    var checkboxIndeterminate: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: showsCheckbox
+                   ? StudioCompactControlChrome.checkboxTitleGap
+                   : StudioSpacing.tightGap) {
+                if showsCheckbox {
+                    includeMark
+                }
+                Text(title)
+                    .font(StudioCompactControlChrome.labelFont)
+                    .foregroundStyle(StudioCompactControlChrome.foreground(
+                        isActive: isActive,
+                        isEnabled: isEnabled,
+                        accentForeground: accent?.foreground
+                    ))
+            }
+            .padding(
+                .leading,
+                showsCheckbox
+                    ? StudioCompactControlChrome.checkboxLeadingPadding
+                    : StudioCompactControlChrome.horizontalPadding
+            )
+            .padding(.trailing, StudioCompactControlChrome.horizontalPadding)
+            .frame(height: StudioCompactControlChrome.controlHeight)
+            .background(
+                StudioCompactControlChrome.fill(isActive: isActive, accentFill: accent?.fill),
+                in: RoundedRectangle(cornerRadius: StudioCompactControlChrome.cornerRadius)
+            )
+            .overlay {
+                if isActive, let stroke = accent?.stroke {
+                    RoundedRectangle(cornerRadius: StudioCompactControlChrome.cornerRadius)
+                        .strokeBorder(stroke, lineWidth: StudioStroke.regular)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .studioHoverFill(
+            shape: .roundedRect(cornerRadius: StudioCompactControlChrome.cornerRadius),
+            isEnabled: isEnabled && !isActive
+        )
+        .help(help)
+    }
+
+    /// Same visual language as `StudioIncludeCheckbox`, but mark-only and sized to
+    /// fit `controlHeight` so Include all doesn't grow taller than Hide elided.
+    private var includeMark: some View {
+        let size = StudioCompactControlChrome.checkboxSize
+        return ZStack {
+            RoundedRectangle(cornerRadius: StudioRadius.small)
+                .strokeBorder(
+                    checkboxOn || checkboxIndeterminate
+                        ? StudioColors.brand.opacity(0.55)
+                        : Color.secondary.opacity(0.35),
+                    lineWidth: StudioStroke.regular
+                )
+                .frame(width: size, height: size)
+            if checkboxIndeterminate {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(Color.secondary.opacity(0.6))
+                    .frame(width: 5, height: 1.5)
+            } else if checkboxOn {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 7, weight: .bold, design: .rounded))
+                    .foregroundStyle(StudioColors.brand)
+            }
+        }
+        .frame(width: size, height: size)
+        .opacity(isEnabled ? 1 : 0.45)
+    }
+}
+
 /// Flat filled action — primary (accent) or secondary (gray). No border, no dashed chrome.
 struct StudioFlatButton: View {
     enum Role {
@@ -3679,6 +3896,22 @@ extension View {
     func studioRowInsets() -> some View {
         padding(.horizontal, StudioSpacing.rowHorizontal)
             .padding(.vertical, StudioSpacing.instanceRowVertical)
+    }
+
+    /// Translucent chip wash over an opaque `chipSurface` base so row
+    /// selection/hover cannot show through and recolor the chip.
+    func studioChipBackground(
+        _ wash: Color,
+        cornerRadius: CGFloat = StudioRadius.small
+    ) -> some View {
+        background {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(StudioColors.chipSurface)
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(wash)
+                }
+        }
     }
 
     func studioCompactControl() -> some View {

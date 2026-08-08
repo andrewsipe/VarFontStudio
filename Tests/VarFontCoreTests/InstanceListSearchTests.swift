@@ -121,6 +121,17 @@ final class InstanceListSearchTests: XCTestCase {
         XCTAssertEqual(shared, ["wdth", "opsz"])
     }
 
+    func testGroupSharedAxesDoesNotLiftSingletonGroup() {
+        // One instance matching an Excluded/Conflicts filter would otherwise lift
+        // every axis to the header and leave coords-only rows empty.
+        let solo = instance(coords: ["wdth": 75, "wght": 400, "opsz": 12])
+        let shared = InstanceCoordPresentation.groupSharedAxes(
+            instances: [solo],
+            enabledTags: ["wdth", "wght", "opsz"]
+        )
+        XCTAssertEqual(shared, [])
+    }
+
     func testPillBudgetFitsFixedWidthTags() {
         // 80 wide, 24 pill + 4 gap → floor((80+4)/(24+4)) = 3
         XCTAssertEqual(InstanceCoordPresentation.pillBudget(availableWidth: 80, pillWidth: 24, gap: 4), 3)
