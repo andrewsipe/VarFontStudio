@@ -3,43 +3,54 @@ import SwiftUI
 
 // MARK: - StudioPalette
 //
-// Shared accent families from the VarFont Studio palette review.
+// Chromatic accent families from Tailwind CSS v4 (`theme.css` OKLCH → sRGB hex).
 // Prefer role tokens on `StudioColors` at call sites; reach for `StudioPalette`
 // only when binding a new semantic role.
 //
+// Neutrals (slate/gray/zinc/…) stay out — panel chrome uses Apple system labels
+// and `StudioPrimaryWash` / opaque panel washes.
+//
 // ## Step guidance (light / dark)
-// - **Primary** (common / strongest mark): richest step that still clears the
-//   role contrast floor — for marks, WCAG 3:1 non-text; for Text, 4.5:1.
+// One scale per family (50 lightest → 950 darkest). Pick different steps for
+// light vs dark appearance via `color(_:light:dark:)`:
+// - **Primary** mark: richest step that still clears WCAG 3:1 non-text (often
+//   600 in light / 300–400 in dark).
 // - **Secondary**: mid step in the same family.
-// - **Tertiary** (sparse): lightest legible step in the family.
+// - **Tertiary** (sparse): lightest legible step.
 // Exemplar: `statFormat1/2/3` = purple primary / secondary / tertiary.
 //
-// Do not use `.forestGreen` until its dark export is re-checked in Figma
-// (currently byte-identical to light — likely an export artifact).
+// Soft fills / banners: 50–200 in light, 800–950 in dark.
+// Solid CTAs: 300–500 in light, 500–600 in dark (verify label contrast).
 
 enum StudioPalette {
+    /// Tailwind v4 chromatic families.
     enum Family: String, CaseIterable, Sendable {
-        case pink
-        case jamPink
-        case magenta
-        case purple
-        case violet
-        case indigo
-        case royalBlue
-        case blue
-        case cyan
-        case teal
-        case jadeGreen
-        case emeraldGreen
-        case forestGreen
-        case green
-        case brown
-        case orange
         case red
+        case orange
+        case amber
+        case yellow
+        case lime
+        case green
+        case emerald
+        case teal
+        case cyan
+        case sky
+        case blue
+        case indigo
+        case violet
+        case purple
+        case fuchsia
+        case pink
+        case rose
+        case neutral
+        case stone
+        case paper
+        case ink
     }
 
-    /// Palette steps 100 (lightest) … 900 (darkest) within a family.
+    /// Tailwind shade steps 50 (lightest) … 950 (darkest).
     enum Step: Int, CaseIterable, Sendable {
+        case s50 = 50
         case s100 = 100
         case s200 = 200
         case s300 = 300
@@ -49,12 +60,13 @@ enum StudioPalette {
         case s700 = 700
         case s800 = 800
         case s900 = 900
+        case s950 = 950
     }
 
-    /// Dynamic sRGB color for a family × step pair.
+    /// Dynamic sRGB color for a family × step pair (different steps per appearance).
     static func color(_ family: Family, light: Step, dark: Step) -> Color {
-        let lightRGB = rgb(family, step: light, appearance: .light)
-        let darkRGB = rgb(family, step: dark, appearance: .dark)
+        let lightRGB = rgb(family, step: light)
+        let darkRGB = rgb(family, step: dark)
         return makeDynamic(
             name: "\(family.rawValue).L\(light.rawValue).D\(dark.rawValue)",
             light: lightRGB,
@@ -67,55 +79,58 @@ enum StudioPalette {
         color(family, light: step, dark: step)
     }
 
-    private enum Appearance { case light, dark }
-
-    private static func rgb(_ family: Family, step: Step, appearance: Appearance) -> (r: Double, g: Double, b: Double) {
+    private static func rgb(_ family: Family, step: Step) -> (r: Double, g: Double, b: Double) {
         let index = Step.allCases.firstIndex(of: step) ?? 0
-        let hexes = appearance == .light ? lightHexes(family) : darkHexes(family)
-        return Self.hexToRGB(hexes[index])
+        return Self.hexToRGB(hexes(family)[index])
     }
 
-    private static func lightHexes(_ family: Family) -> [String] {
+    /// Official Tailwind v4 OKLCH stops converted to sRGB hex (clamped).
+    private static func hexes(_ family: Family) -> [String] {
+        // Order: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950
         switch family {
-        case .pink: return ["#F7B6CB", "#ED5A8B", "#EA437B", "#E82C6A", "#E1195C", "#CA1652", "#B31449", "#9C1140", "#850F36"]
-        case .jamPink: return ["#F5ADDD", "#EA53B7", "#E73CAE", "#E425A4", "#D51A97", "#BF1887", "#A81577", "#911267", "#7B0F57"]
-        case .magenta: return ["#E7A1E8", "#D24ED4", "#CD3ACF", "#BF2FC1", "#AB2AAC", "#962598", "#822083", "#6E1B6F", "#59165A"]
-        case .purple: return ["#D19BEE", "#A943DF", "#9F2EDC", "#9223CD", "#821FB7", "#731BA1", "#63188C", "#541476", "#441060"]
-        case .violet: return ["#B8A0F9", "#9675F0", "#855EED", "#7347EB", "#6230E8", "#5019E6", "#4817CF", "#4014B8", "#3812A1"]
-        case .indigo: return ["#A8A8FA", "#7171FF", "#5757FF", "#3E3EFF", "#2424FF", "#0B0BFE", "#0101EF", "#0000D6", "#0000B2"]
-        case .royalBlue: return ["#6B9BFA", "#4380F9", "#256CF8", "#0858F7", "#074FDF", "#0646C6", "#053DAD", "#053594", "#042872"]
-        case .blue: return ["#6BB3FA", "#0880F7", "#0773DF", "#0666C6", "#0559AD", "#054D94", "#044586", "#03386D", "#032B54"]
-        case .cyan: return ["#61C7FA", "#07A1ED", "#0790D5", "#067FBC", "#056FA3", "#045E8B", "#044D72", "#033C59", "#022C40"]
-        case .teal: return ["#51D6D6", "#14ADAD", "#139F9F", "#129696", "#108484", "#0E7777", "#0B6060", "#0A5151", "#073B3B"]
-        case .jadeGreen: return ["#51D6AA", "#15B27E", "#14AA79", "#12966A", "#0F7F5A", "#0C684A", "#0A513A", "#073B29", "#042419"]
-        case .emeraldGreen: return ["#73CF91", "#33B45E", "#30AB59", "#2B974F", "#258344", "#206F3A", "#1A5B30", "#144825", "#0F341B"]
-        case .forestGreen: return ["#73CF73", "#39AF39", "#2EA32E", "#2B972B", "#258325", "#206F20", "#1A5B1A", "#144814", "#0F340F"]
-        case .green: return ["#91CF73", "#5FB434", "#55A32E", "#4F972B", "#448325", "#3A6F20", "#305B1A", "#254814", "#1B340F"]
-        case .brown: return ["#E4B99B", "#CD824C", "#C87438", "#B46832", "#A05D2C", "#844C24", "#6C3E1E", "#5C3519", "#482A14"]
-        case .orange: return ["#F1B87E", "#E77D13", "#D07011", "#B8630F", "#A0570D", "#894A0B", "#713D09", "#5A3007", "#422405"]
-        case .red: return ["#F0999D", "#E43F3F", "#E02F29", "#D2271E", "#BC251B", "#A52118", "#8F1C14", "#791811", "#63130E"]
-        }
-    }
-
-    private static func darkHexes(_ family: Family) -> [String] {
-        switch family {
-        case .pink: return ["#EFBECE", "#DA6C91", "#D55882", "#D04372", "#C83264", "#B42D5A", "#9F2850", "#8B2345", "#761E3B"]
-        case .jamPink: return ["#EFBEDE", "#DA6CB6", "#D558AB", "#D043A1", "#C83296", "#B42D87", "#9F2877", "#8B2368", "#761E59"]
-        case .magenta: return ["#DCACDC", "#BD64BE", "#B552B7", "#A847A9", "#963F97", "#843885", "#723073", "#602961", "#4E214F"]
-        case .purple: return ["#CCACDC", "#9F64BE", "#9452B7", "#8747A9", "#783F97", "#6A3885", "#5C3073", "#4D2961", "#3F214F"]
-        case .violet: return ["#BCAAEF", "#9D85E0", "#8D70DB", "#7D5CD6", "#6C47D1", "#5C33CC", "#532EB8", "#4A29A3", "#41248F"]
-        case .indigo: return ["#B1B1F1", "#7F7FF0", "#6868EE", "#5151EB", "#3A3AE9", "#2323E6", "#1919D7", "#1616C0", "#1313A9"]
-        case .royalBlue: return ["#7AA0EB", "#5686E6", "#3C73E2", "#2160DE", "#1E56C8", "#1B4DB1", "#17439B", "#143A85", "#0F2C66"]
-        case .blue: return ["#7AB3EB", "#2180DE", "#1E73C8", "#1B66B1", "#17599B", "#144D85", "#124578", "#0F3862", "#0B2B4B"]
-        case .cyan: return ["#71C2EA", "#2099D5", "#1D89BF", "#1979A9", "#166992", "#13597C", "#0F4966", "#0C3950", "#09293A"]
-        case .teal: return ["#66C1C1", "#289999", "#258E8E", "#228585", "#1E7676", "#1B6969", "#165555", "#134848", "#0D3434"]
-        case .jadeGreen: return ["#66C1A3", "#299E77", "#279772", "#228564", "#1D7155", "#185D46", "#134837", "#0D3427", "#082018"]
-        case .emeraldGreen: return ["#85BC98", "#4A9D66", "#469561", "#3E8455", "#36724A", "#2E613F", "#265034", "#1D3E28", "#152D1D"]
-        case .forestGreen: return ["#73CF73", "#39AF39", "#2EA32E", "#2B972B", "#258325", "#206F20", "#1A5B1A", "#144814", "#0F340F"]
-        case .green: return ["#85BC85", "#4B9D4B", "#438E43", "#3E843E", "#367236", "#2E612E", "#265026", "#1D3E1D", "#152D15"]
-        case .brown: return ["#D7BCA8", "#B78562", "#AE7851", "#9D6C49", "#8C6041", "#734F35", "#5E412C", "#503725", "#3F2B1D"]
-        case .orange: return ["#E3B88C", "#CE7D2C", "#B97027", "#A46323", "#8F571E", "#7A4A1A", "#653D15", "#503011", "#3B240C"]
-        case .red: return ["#E5A8A4", "#CE5D55", "#C84A42", "#BA3E36", "#A63830", "#93312B", "#7F2B25", "#6B241F", "#571D19"]
+        case .red:
+            return ["#FEF2F2", "#FFE2E2", "#FFC9C9", "#FFA2A2", "#FF6467", "#FB2C36", "#E7000B", "#C10007", "#9F0712", "#82181A", "#460809"]
+        case .orange:
+            return ["#FFF7ED", "#FFEDD4", "#FFD6A7", "#FFB86A", "#FF8904", "#FF6900", "#F54900", "#CA3500", "#9F2D00", "#7E2A0C", "#441306"]
+        case .amber:
+            return ["#FFFBEB", "#FEF3C6", "#FEE685", "#FFD230", "#FFB900", "#FE9A00", "#E17100", "#BB4D00", "#973C00", "#7B3306", "#461901"]
+        case .yellow:
+            return ["#FEFCE8", "#FEF9C2", "#FFF085", "#FFDF20", "#FDC700", "#F0B100", "#D08700", "#A65F00", "#894B00", "#733E0A", "#432004"]
+        case .lime:
+            return ["#F7FEE7", "#ECFCCA", "#D8F999", "#BBF451", "#9AE600", "#7CCF00", "#5EA500", "#497D00", "#3C6300", "#35530E", "#192E03"]
+        case .green:
+            return ["#F0FDF4", "#DCFCE7", "#B9F8CF", "#7BF1A8", "#05DF72", "#00C950", "#00A63E", "#008236", "#016630", "#0D542B", "#032E15"]
+        case .emerald:
+            return ["#ECFDF5", "#D0FAE5", "#A4F4CF", "#5EE9B5", "#00D492", "#00BC7D", "#009966", "#007A55", "#006045", "#004F3B", "#002C22"]
+        case .teal:
+            return ["#F0FDFA", "#CBFBF1", "#96F7E4", "#46ECD5", "#00D5BE", "#00BBA7", "#009689", "#00786F", "#005F5A", "#0B4F4A", "#022F2E"]
+        case .cyan:
+            return ["#ECFEFF", "#CEFAFE", "#A2F4FD", "#53EAFD", "#00D3F2", "#00B8DB", "#0092B8", "#007595", "#005F78", "#104E64", "#053345"]
+        case .sky:
+            return ["#F0F9FF", "#DFF2FE", "#B8E6FE", "#74D4FF", "#00BCFF", "#00A6F4", "#0084D1", "#0069A8", "#00598A", "#024A70", "#052F4A"]
+        case .blue:
+            return ["#EFF6FF", "#DBEAFE", "#BEDBFF", "#8EC5FF", "#51A2FF", "#2B7FFF", "#155DFC", "#1447E6", "#193CB8", "#1C398E", "#162456"]
+        case .indigo:
+            return ["#EEF2FF", "#E0E7FF", "#C6D2FF", "#A3B3FF", "#7C86FF", "#615FFF", "#4F39F6", "#432DD7", "#372AAC", "#312C85", "#1E1A4D"]
+        case .violet:
+            return ["#F5F3FF", "#EDE9FE", "#DDD6FF", "#C4B4FF", "#A684FF", "#8E51FF", "#7F22FE", "#7008E7", "#5D0EC0", "#4D179A", "#2F0D68"]
+        case .purple:
+            return ["#FAF5FF", "#F3E8FF", "#E9D4FF", "#DAB2FF", "#C27AFF", "#AD46FF", "#9810FA", "#8200DB", "#6E11B0", "#59168B", "#3C0366"]
+        case .fuchsia:
+            return ["#FDF4FF", "#FAE8FF", "#F6CFFF", "#F4A8FF", "#ED6AFF", "#E12AFB", "#C800DE", "#A800B7", "#8A0194", "#721378", "#4B004F"]
+        case .pink:
+            return ["#FDF2F8", "#FCE7F3", "#FCCEE8", "#FDA5D5", "#FB64B6", "#F6339A", "#E60076", "#C6005C", "#A3004C", "#861043", "#510424"]
+        case .rose:
+            return ["#FFF1F2", "#FFE4E6", "#FFCCD3", "#FFA1AD", "#FF637E", "#FF2056", "#EC003F", "#C70036", "#A50036", "#8B0836", "#4D0218"]
+        case .neutral:
+            return ["#FAFAFA", "#F5F5F5", "#E5E5E5", "#D4D4D4", "#A3A3A3", "#737373", "#525252", "#404040", "#262626", "#171717", "#0A0A0A"]
+        case .stone:
+            return ["#FAFAF9", "#F5F5F4", "#E7E5E4", "#D6D3D1", "#A8A29E", "#78716C", "#57534E", "#44403C", "#292524", "#1C1917", "#0C0A09"]
+        case .paper:
+            return ["#fffdf9", "#f1eee9", "#e2dfd8","#d4d0c8", "#c5c1b8", "#b7b2a8", "#a9a297", 
+            "9a9387", "#8c8477", "#7d7566", "#6f6656"]
+        case .ink:
+            return ["#231e15", "#211c14", "#1f1a12", "#1c1811", "#1a1610", "#18140f", "#16130d", "#14110c", "#110f0b", "#0f0d09", "#0d0b08"]
         }
     }
 

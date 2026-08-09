@@ -232,3 +232,168 @@ bright `warningFillHover`. White / `.primary` on that bright amber only clears ~
 / ~1.9:1 (light). All warning CTAs now share `StudioFlatButton.Role.warningAction`
 (`warningFillHover` + `warningButtonForeground` = ink). `.tinted` honors its label color
 again so soft fills (registration) keep `.primary` text.
+
+## 2026-08-08 — StudioPalette = Tailwind v4 chromatic (sRGB)
+
+Scope: app-wide  
+Status: Approved  
+
+Rationale: Bespoke Figma-export hex + hand-tuned warning browns were muddy and hard to
+extend. `StudioPalette` now stores Tailwind CSS v4 chromatic families (official OKLCH →
+sRGB hex), steps 50–950, one scale per family with light/dark step selection at bind time.
+`StudioColors` remains the only call-site API. Neutrals stay Apple system + washes (no
+slate/zinc). `brand` / `metricForeground` stay bespoke this round.
+
+## 2026-08-08 — Brand blue → Tailwind solid steps
+
+Scope: app-wide brand / selection / metric  
+Status: Approved  
+
+Rationale: Bespoke royal-blue + `brand@0.16` baked over charcoal composited to
+~`#1B303F` — reads indigo/teal next to the strong Export CTA. Metric was a separate
+steel-blue hex, so the app showed three different “blues.”
+
+One Tailwind **blue** family, solid area fills:
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `brand` | 600 | 600 | Mark + primary CTA (white label ~5:1) |
+| `metricForeground` | 700 | 400 | Scannable counts (same family, off-CTA) |
+| `selectionFill` / `brandBackground` | 100 | 900 | Selected rows, segments, brand chips |
+| `selectionFillSoft` / `canvasHoverFill` | 50 | 950 | Quieter wash (composed-name callout) |
+| `brandFillDisabled` | 200 | 800 | Disabled primary button |
+
+Call-site cleanups: segment selected → `selectionFill`; composed-name callout →
+`selectionFillSoft` (was `selectionFill.opacity(0.35)`); disabled primary →
+`brandFillDisabled`. Drop-zone / 1pt tick overlays keep `.opacity()` (transient or edge).
+
+## 2026-08-08 — Selection wash + segment label contrast
+
+Scope: `selectionFill` / composed-name header / `StudioSegmentButton`  
+Status: Approved  
+
+Rationale: Selected segments used `brand` (600) on `selectionFill` (100/900) —
+~2:1 in dark (blue-on-blue), and light `100` was nearly invisible on white chrome.
+Inspector composed-name header (deep navy + bright stripe) was the clearer pattern.
+
+Retune:
+
+- `selectionFill` → light `200` / dark `950` (perceptible wash; matches header navy)
+- `selectionFillSoft` → light `100` / dark `950`
+- Composed-name callout → `selectionFill` (same fill as selected segments/rows)
+- Selected segment label → `metricForeground` (700/400), not `brand` — clears ~4.8:1
+  light / ~5.6:1 dark on the wash; dark 400 reads as the bright accent beside the stripe
+
+`brand` stays 600 for CTAs / leading stripes only.
+
+## 2026-08-08 — Preview alignment: neutral raised segments
+
+Scope: `FontPreviewHeaderControls` alignment picker  
+Status: Approved  
+
+Rationale: Alignment is a mutually exclusive tray choice (like Names|Coords), not a
+brand/selection locus. Brand fill + `brand.opacity(0.12)` made Preview look like a
+different control system and reintroduced muted blue.
+
+Restyled onto `StudioCompactControlChrome`: shared `idleFill` tray, selected =
+`activeFill` (neutral raised), idle segment clear, `foreground(isActive:)`. No brand.
+
+## 2026-08-08 — Preview status pill + compact size slider
+
+Scope: `FontPreviewPanel` status bar / size control  
+Status: Approved  
+
+Rationale: Peek pill used `canvasHoverFill` → `selectionFillSoft`, which is navy in
+dark mode on the always-paper status strip — ink-on-navy ~illegible. Mini `Slider`
+drew macOS tick marks and fought compact chrome.
+
+- `canvasHoverFill` → fixed light `blue-100` (paper world); add `canvasPeekForeground`
+  (`blue-700`) for Peek label contrast
+- Source · live = stroke-only quiet; Peek · hover = soft blue fill + blue-700 label
+- Size → `StudioCompactSlider` (thin neutral track, capsule thumb, no system ticks)
+- Removed stray duplicate “Select an instance…” label before the pill
+
+## 2026-08-09 — Drag outline: uniform 4pt / 6pt radius
+
+Scope: Axis Tree reorder + Naming Order chip drag  
+Status: Approved  
+
+Rationale: Dashed hover/ghost/target rings used horizontal-only outset (`outlineHorizontalOutset`),
+so Naming Order looked wide on the sides and tight top/bottom; Axis Tree overlays were flush
+or uneven against header padding.
+
+`StudioDragOutline` — outset `4`, corner radius `6`, shared `expandedRing` helper.
+`studioDragAffordances` always uses that ring (dropped per-call horizontal outset).
+Axis Tree later overrides to **8pt horizontal / 4pt vertical** via `axisTreeOutset*`.
+Source placeholder, floating ghost, and empty drop target all share the same content size
+(header frame) and the same outset ring — the drop slot is no longer a smaller inset dashed box.
+
+Axis Tree targeting freezes header frames at pickup so inserting the drop gap cannot
+oscillate midY hit-testing. Expand controls on the header use taps (not Buttons) so
+click-and-hold reorder can start from the name/chevron.
+
+Warning chrome remapped to Tailwind **amber** (not orange): fills 100/200/300 × dark
+900/800/600; mark 600/400. CTA ink still clears ≥5:1 on `warningFillHover`.
+
+Role family map after adoption: registration → fuchsia; code → teal; pending → emerald;
+success/error marks → green/red; `diffRenamed` → orange; STAT purple ramp 600·500·400 /
+300·200·100.
+
+## 2026-08-08 — Warning: yellow containers, amber marks/CTAs
+
+Scope: app-wide warning chrome  
+Status: Approved  
+
+Rationale: All-amber Issues bands made triangles and Review buttons fight the fill.
+Split Tailwind families:
+
+- **yellow** — `warningFill` / `warningFillStrong` (conflict containers, summary strip,
+  warning row wash; row hover uses Strong, not amber)
+- **amber** — `warningForeground` / `warningStroke` (triangles) and `warningFillHover`
+  (Review CTA chips via `warningAction`)
+
+`diffRenamed` moves to **orange** so yellow stays reserved for warning containers.
+Neutrals and system text hierarchy (`.primary` / `.secondary` / `.tertiary`) unchanged;
+chromatic accents continue to bind through `StudioPalette` → `StudioColors`.
+
+## 2026-08-08 — Warning yellow/amber steps + ink on fill
+
+Scope: app-wide warning chrome  
+Status: Approved  
+
+Rationale: Dark yellow **700–900** read muddy mustard on charcoal; light washes were a
+shade too pale and amber CTAs a shade too hot. Retune:
+
+- **yellow** fills — light `200`/`300`; dark `500`/`600` (skip 700–900)
+- **amber** CTA — `300` both appearances (lighter chip clears the gold)
+- **amber** marks — light `600`, dark `800` so triangles clear the yellow wash
+- Body copy on yellow containers uses `warningOnFillForeground` (ink) — white `.primary`
+  fails AA on mid yellows in dark mode
+
+CTA labels stay `warningButtonForeground` = ink on `warningFillHover`.
+
+## 2026-08-08 — Muted chips: opacity-on-fill audit
+
+Scope: app-wide badge/chip fills  
+Status: Approved  
+
+Rationale: Palette hex was already exact-match to Tailwind v4, but several chip fills
+still applied `.opacity()` directly to a chromatic color as an area fill (STAT `fvar`
+source pill, `statFormat1` "F4" capsule, Instance List "Conflicts" filter unselected
+state, Instancer filter badges). Per the existing opaque-fill principle, that lets
+whatever's behind the chip (often a translucent/vibrant panel) bleed through and wash
+out the hue — reads muted even though the underlying color is correct.
+
+Added baked (`StudioOpaqueFill`-composited) tokens instead of ad hoc `.opacity()`:
+
+- `brandBackground` — brand badge fill (was `brand.opacity(0.16)`)
+- `statFormat1Background` — compound-name F4 capsule (was `statFormat1.opacity(0.16)`)
+- `warningFillSoft` — Conflicts filter unselected state (was `warningFill.opacity(0.45)`,
+  which re-added translucency on top of an already-solid Tailwind step)
+- `StudioColors.opaqueFill(_:light:dark:)` — general escape hatch for call sites that
+  pick their tint dynamically (Instancer per-row filter badges) and can't predeclare a
+  named token
+
+Left alone: hairline strokes and 1–1.5pt tick/divider rectangles — `.opacity()` is still
+correct there per the "opacity for edges only" rule.
+

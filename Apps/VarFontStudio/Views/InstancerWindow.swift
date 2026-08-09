@@ -221,7 +221,7 @@ private struct InstancerWindowContent: View {
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(
                         StudioColors.editedFill,
-                        in: RoundedRectangle(cornerRadius: 3)
+                        in: RoundedRectangle(cornerRadius: 4)
                     )
             }
             if session.fontID != nil, session.projectID != nil {
@@ -261,7 +261,7 @@ private struct InstancerWindowContent: View {
                         .foregroundStyle(StudioColors.warningForeground)
                     Text(warning)
                         .font(StudioTypography.caption)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(StudioColors.warningOnFillForeground)
                     Spacer(minLength: 0)
                     if session.composerForcePending {
                         StudioFlatButton(title: "Add anyway", size: .compact) {
@@ -1110,7 +1110,8 @@ private struct InstancerFilterBadgeButton: View {
             .padding(.vertical, StudioSpacing.instanceRowVertical)
             .background {
                 if isolated {
-                    RoundedRectangle(cornerRadius: StudioRadius.small).fill(accent.opacity(0.16))
+                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                        .fill(StudioColors.opaqueFill(accent, light: 0.16, dark: 0.16))
                 }
             }
             .overlay {

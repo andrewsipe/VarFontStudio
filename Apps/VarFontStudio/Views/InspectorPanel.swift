@@ -195,11 +195,11 @@ struct InstanceInspectorContent: View {
                             .foregroundStyle(.primary)
                             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                             .padding(.vertical, StudioSpace.x0_5)
-                            .background(StudioColors.pendingFill, in: RoundedRectangle(cornerRadius: 3))
+                            .background(StudioColors.pendingFill, in: RoundedRectangle(cornerRadius: 4))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 3)
+                                RoundedRectangle(cornerRadius: 4)
                                     .strokeBorder(
-                                        StudioColors.pendingForeground.opacity(0.45),
+                                        StudioColors.pendingFill.opacity(0.45),
                                         lineWidth: StudioStroke.hairline
                                     )
                             }

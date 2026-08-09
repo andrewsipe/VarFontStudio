@@ -158,7 +158,7 @@ struct CommitDiffReviewView: View {
                                     .foregroundStyle(.primary)
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 1)
-                                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 3))
+                                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 4))
                             }
                         }
                         .padding(.horizontal, StudioSpacing.rowHorizontal)

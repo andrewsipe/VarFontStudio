@@ -902,9 +902,9 @@ struct AddFileAxisSheet: View {
                 slopeOverrideOption(title: "Italic", isItalic: true)
             }
             .padding(StudioSpace.x0_5)
-            .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: 7))
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: 8))
             .overlay {
-                RoundedRectangle(cornerRadius: 7)
+                RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: StudioStroke.hairline)
             }
             if slopeOverrideIsItalic != nil {
@@ -1059,9 +1059,9 @@ struct AddFileAxisSheet: View {
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(fmtColor.opacity(0.20), in: RoundedRectangle(cornerRadius: 3))
+                            .background(fmtColor.opacity(0.20), in: RoundedRectangle(cornerRadius: 4))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 3)
+                                RoundedRectangle(cornerRadius: 4)
                                     .strokeBorder(fmtColor.opacity(0.35), lineWidth: 0.5)
                             }
                             .frame(width: FillStopPreviewLayout.formatColumnWidth, alignment: .center)
@@ -1086,7 +1086,7 @@ struct AddFileAxisSheet: View {
                                 .foregroundStyle(.primary)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 1)
-                                .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 3))
+                                .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 4))
                                 .frame(width: FillStopPreviewLayout.codeColumnWidth, alignment: .center)
                         }
                     }

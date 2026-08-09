@@ -447,7 +447,7 @@ struct NamingOrderChainFooter: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
-                    .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: 3))
+                    .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: 4))
 
                 Text(hasPrefix ? prefix : "Set prefix…")
                     .font(StudioTypography.caption.weight(hasPrefix ? .semibold : .regular))
@@ -627,9 +627,10 @@ struct NamingOrderChainFooter: View {
             .opacity(isDragging ? 0.3 : 1)
             .contentShape(Rectangle())
             .studioDragAffordances(
-                isDragging: isDragging,
-                outlineHorizontalOutset: StudioSpace.x1
+                isEnabled: !session.isDragging,
+                isDragging: isDragging
             )
+            .allowsHitTesting(!session.isDragging || isDragging)
         )
     }
 
@@ -652,9 +653,10 @@ struct NamingOrderChainFooter: View {
             .contentShape(Rectangle())
             .help("Drag to set where the PostScript hyphen splits the style segment (fvar postscriptNameID field).")
             .studioDragAffordances(
-                isDragging: isDragging,
-                outlineHorizontalOutset: StudioSpace.x1
+                isEnabled: !session.isDragging,
+                isDragging: isDragging
             )
+            .allowsHitTesting(!session.isDragging || isDragging)
             .gesture(dragGesture(for: tag))
     }
 
@@ -677,9 +679,10 @@ struct NamingOrderChainFooter: View {
             .contentShape(Rectangle())
             .help("Classification code — concatenated from Axis Tree stop codes in axis order. Drag to reorder.")
             .studioDragAffordances(
-                isDragging: isDragging,
-                outlineHorizontalOutset: StudioSpace.x1
+                isEnabled: !session.isDragging,
+                isDragging: isDragging
             )
+            .allowsHitTesting(!session.isDragging || isDragging)
             .gesture(dragGesture(for: tag))
     }
 
@@ -705,9 +708,10 @@ struct NamingOrderChainFooter: View {
             .contentShape(Rectangle())
             .help("Legacy clarifier token — prefer registration axes in the Axis Tree")
             .studioDragAffordances(
-                isDragging: isDragging,
-                outlineHorizontalOutset: StudioSpace.x1
+                isEnabled: !session.isDragging,
+                isDragging: isDragging
             )
+            .allowsHitTesting(!session.isDragging || isDragging)
             .gesture(dragGesture(for: tag))
     }
 
@@ -736,9 +740,10 @@ struct NamingOrderChainFooter: View {
         .opacity(isDragging ? 0.3 : 1)
         .contentShape(Rectangle())
         .studioDragAffordances(
-            isDragging: isDragging,
-            outlineHorizontalOutset: StudioSpace.x1
+            isEnabled: !session.isDragging,
+            isDragging: isDragging
         )
+        .allowsHitTesting(!session.isDragging || isDragging)
         .gesture(dragGesture(for: tag))
     }
 
@@ -822,8 +827,10 @@ struct NamingOrderChainFooter: View {
         }
         .opacity(0.5)
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
-                .strokeBorder(StudioColors.registrationStroke, style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: StudioStroke.dragDash))
+            StudioDragOutline.expandedRing(
+                color: StudioColors.registrationStroke,
+                lineWidth: StudioStroke.emphasis
+            )
         }
         .transition(.opacity)
     }

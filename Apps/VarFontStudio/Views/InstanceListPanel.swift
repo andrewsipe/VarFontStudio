@@ -439,13 +439,13 @@ struct InstanceListPanel: View {
             .frame(height: InstanceListFilterChrome.segmentHeight)
             .background(
                 isSelected ? InstanceListFilterChrome.activeFill : Color.clear,
-                in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.segmentCornerRadius)
+                in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.segmentcornerRadius)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .studioHoverFill(
-            shape: .roundedRect(cornerRadius: InstanceListFilterChrome.segmentCornerRadius),
+            shape: .roundedRect(cornerRadius: InstanceListFilterChrome.segmentcornerRadius),
             isEnabled: !isSelected
         )
         .help(help)
@@ -662,10 +662,10 @@ struct InstanceListPanel: View {
         if isConflicts {
             return isSelected
                 ? StudioColors.warningFill
-                : StudioColors.warningFill.opacity(0.45)
+                : StudioColors.warningFillSoft
         }
         if isPendingExport {
-            return isSelected ? StudioColors.pendingForeground : Color.clear
+            return isSelected ? StudioColors.pendingFill : Color.clear
         }
         return isSelected ? StudioColors.selectionNeutralFillStrong : Color.clear
     }

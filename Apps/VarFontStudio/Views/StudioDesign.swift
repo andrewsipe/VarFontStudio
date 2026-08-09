@@ -130,6 +130,47 @@ enum StudioStroke {
     static let dragDash: [CGFloat] = [4, 3]
 }
 
+/// Dashed reorder ring — Axis Tree headers, Naming Order chips, drop targets.
+enum StudioDragOutline {
+    /// Default gap (Naming Order chips) — uniform on all sides.
+    static let outset: CGFloat = StudioSpace.x1 // 4
+    /// Axis Tree headers need a wider horizontal breath than vertical.
+    static let axisTreeOutsetHorizontal: CGFloat = StudioSpace.x2 // 8
+    static let axisTreeOutsetVertical: CGFloat = outset // 4
+    /// Shared corner for hover / ghost / placeholder / drop-gap rings.
+    static let cornerRadius: CGFloat = 6
+
+    /// Expanded dashed ring (hover affordance, source placeholder, floating ghost).
+    static func expandedRing(
+        color: Color = Color.secondary.opacity(0.4),
+        lineWidth: CGFloat = StudioStroke.regular,
+        horizontalOutset: CGFloat = outset,
+        verticalOutset: CGFloat = outset
+    ) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .strokeBorder(
+                color,
+                style: StrokeStyle(lineWidth: lineWidth, dash: StudioStroke.dragDash)
+            )
+            .padding(.horizontal, -horizontalOutset)
+            .padding(.vertical, -verticalOutset)
+            .allowsHitTesting(false)
+    }
+
+    /// Axis Tree preset — 8pt horizontal / 4pt vertical.
+    static func axisTreeRing(
+        color: Color = Color.secondary.opacity(0.4),
+        lineWidth: CGFloat = StudioStroke.regular
+    ) -> some View {
+        expandedRing(
+            color: color,
+            lineWidth: lineWidth,
+            horizontalOutset: axisTreeOutsetHorizontal,
+            verticalOutset: axisTreeOutsetVertical
+        )
+    }
+}
+
 enum StudioRadius {
     static let row: CGFloat = StudioSpace.x1_5
     static let chip: CGFloat = StudioSpace.x1
@@ -385,17 +426,18 @@ private enum StudioIconForeground {
 // - Per-hue WCAG text variants (Option B).
 //
 // ## Brand hue (decided)
-// `brand` stays `Color.blue` for interaction, selection, and app tint only.
+// `brand` / selection / metric are Tailwind single family, solid steps.
+// Never bake `brand@opacity` over charcoal for area fills (composites to teal/indigo).
 //
-// ## Custom palette (decided)
-// System indigo reads too close to brand blue; system brown is poor on neutral chrome.
-// Fixed RGB tokens (like `statFormat*`) for registration, code, and metric digits.
-// See **Custom palette** in `COLOR_OUTLINE.md`.
+// ## Chromatic palette (decided)
+// `StudioPalette` is Tailwind CSS v4 chromatic families (sRGB hex from official OKLCH).
+// Semantic roles on `StudioColors` pick light/dark steps. Neutrals stay Apple system
+// + `StudioPrimaryWash` / opaque panel washes — not slate/zinc.
 //
 // ## Migration phases
 // - **Phase 1** (this document) — lock rules; no visual changes.
 // - **Phase 2** — high-traffic tables: Review values, axis value column, Instancer
-//   flags; `axisValue` / `diffRenamed` → `Color.orange` as mark hues only. **Done**.
+//   flags; `axisValue` / `diffRenamed` → mark hues only. **Done**.
 // - **Phase 3** — pills, naming footer, remaining sheets; lint checks. **Done**.
 // - **Phase 4** — audit polish: no unconditional value dots; semantic fill scale;
 //   link idle neutral; Instancer leading stripe; token disambiguation. **Done**.
@@ -408,11 +450,12 @@ private enum StudioIconForeground {
 //    panel chrome (`surface*`, field fills) stays translucent/adaptive.
 // 3. Links — `.accent` idle `.primary`, brand on hover/press.
 // 4. Instancer — `StudioSemanticLeadingStripe`, not gradient fade.
-// 5. Tokens — `diffProtected` slate; `diffRenamed` yellow; STAT slate/mauve set.
+// 5. Tokens — `diffProtected` slate; `diffRenamed` yellow; STAT purple ramp.
 //
 // ## Token audit rule
 // Same hue = same meaning everywhere, or split the token. Category labels must not
-// borrow status hues (success green, edited cyan, brand blue, warning orange).
+// borrow status hues (success green, edited cyan, brand, warning amber marks /
+// yellow containers).
 //
 private enum StudioPrimaryWash {
     static func make(name: String, light: CGFloat, dark: CGFloat) -> Color {
@@ -505,16 +548,36 @@ private enum StudioHuedToken {
 /// After migration they are for marks (icons, gutters, dots, badge strokes) — not
 /// for `Text` body copy. Pair with `*Fill` / `*Stroke` at call sites.
 enum StudioColors {
-    // MARK: Brand & interaction
+    /// Opaque composite over the window background for an arbitrary hue — the same
+    /// bake `successFill`/`warningFill`-style tokens use, exposed for call sites that
+    /// pick their tint dynamically (e.g. a per-row accent) and can't predeclare a
+    /// named token. Prefer `.opacity()` only for edges/strokes, never for area fills.
+    static func opaqueFill(_ hue: Color, light: CGFloat, dark: CGFloat) -> Color {
+        StudioOpaqueFill.make(name: "adhoc.\(UUID().uuidString)", hue: hue, light: light, dark: dark)
+    }
 
-    /// Tier 1 — fixed brand for interactive/selected chrome (not system accent).
-    /// Bespoke `royal-blue` (accent palette review) rather than system `Color.blue` — sits
-    /// far enough from `metricForeground`'s steel blue to stop the app from reading as "one
-    /// blue, diluted everywhere," and holds its saturation at the depth most call sites
-    /// actually render it at (`selectionFill`/`selectionStroke` opacity, not full strength).
-    static let brand = StudioHuedToken.make(
-        name: "brand", light: (0.031, 0.345, 0.969), dark: (0.047, 0.549, 0.914)
-    )
+    // MARK: Brand & interaction
+    //
+    // One Tailwind family — solid steps only for area fills. Baking
+    // `brand@0.16` over charcoal used to composite to ~`#1B303F` (indigo/teal);
+    // solid `blue-100`/`blue-900` keeps the same hue as the Export CTA.
+
+    /// Tier 1 — mark hue + primary CTA fill (Export, Include checkbox fill, tab underline).
+    /// Light/dark both `600` so white button labels clear ~5:1 AA.
+    static let brand = StudioPalette.color(.blue, light: .s600, dark: .s600)
+    /// Soft brand wash — selected rows, selected segments, brand chips (`fvar` pill),
+    /// Inspector composed-name header. Light `200` so the wash reads on white chrome;
+    /// dark `950` matches the deep navy used with the brand leading stripe (not `900`,
+    /// which sat too close to `brand` and killed segment label contrast).
+    static let selectionFill = StudioPalette.color(.blue, light: .s300, dark: .s950)
+    /// Quieter brand wash — soft highlights only (one step under `selectionFill` in light).
+    static let selectionFillSoft = StudioPalette.color(.blue, light: .s200, dark: .s900)
+    /// Brand chip / badge fill — same stop as selection so chips and rows match.
+    static let brandBackground = selectionFill
+    /// Disabled primary button fill (was `brand.opacity(0.22)`).
+    static let brandFillDisabled = StudioPalette.color(.blue, light: .s100, dark: .s800)
+    /// Selection / focus ring edge — opacity OK (edge, not area fill).
+    static let selectionStroke = brand.opacity(0.35)
     /// AppKit bridge for caret/selection styling in `StudioTextField`.
     static var brandNSColor: NSColor { NSColor(brand) }
 
@@ -532,17 +595,10 @@ enum StudioColors {
     // MARK: Semantic marks — axis & instancer
 
     /// **Mark hue** — axis value column (dot / column accent). Not for value digits.
-    static let axisValue = Color.orange
+    static let axisValue = StudioPalette.color(.orange, light: .s600, dark: .s400)
 
-    // MARK: Selection & hover (brand + neutral washes)
+    // MARK: Selection & hover (neutral washes; brand selection is `selectionFill` above)
 
-    /// Raised from 0.10/0.20 — at the old floor, brand-tinted selection read as barely-there
-    /// gray next to the app's neutral chrome washes (same complaint as the diluted STAT
-    /// badges). Now roughly matches the status-fill convention (`warningFill`, `successFill`
-    /// bake alphas 0.20–0.30) so selection state is legible without a focus ring doing all the work.
-    /// Opaque bake so translucent panel chrome cannot bleed through the tint.
-    static let selectionFill = StudioOpaqueFill.make(name: "selectionFill", hue: brand, light: 0.16, dark: 0.16)
-    static let selectionStroke = brand.opacity(0.30)
     /// Neutral (non-accent) selection / hover-over-selection fills — not for borders.
     static let selectionNeutralFill = StudioOpaquePanelWash.make(name: "selectionNeutralFill", light: 0.11, dark: 0.08)
     static let selectionNeutralFillStrong = StudioOpaquePanelWash.make(name: "selectionNeutralFillStrong", light: 0.15, dark: 0.12)
@@ -551,70 +607,80 @@ enum StudioColors {
     // MARK: Canvas (font preview only — see color system guidance)
 
     /// Fixed paper-white glyph preview — font preview panel only (not Review/Instancer tables).
-    static let paper = StudioHuedToken.make(
-        name: "paper", light: (1.0, 0.992, 0.976), dark: (0.937, 0.914, 0.867)
-    )
+    ///static let paper = StudioHuedToken.make(
+    ///name: "paper", light: (1.0, 0.992, 0.976), dark: (0.937, 0.914, 0.867)
+    ///)
     
-    static let ink = StudioHuedToken.make(
-        name: "ink", light: (0.129, 0.114, 0.086), dark: (0.110, 0.094, 0.067)
-    )
-    static let canvasBackground = StudioColors.paper
+    ///static let ink = StudioHuedToken.make(
+    ///name: "ink", light: (0.129, 0.114, 0.086), dark: (0.110, 0.094, 0.067)
+    ///)
+    static let canvasBackground = StudioPalette.color(.paper, light: .s100, dark: .s200)
     /// Ink on the font preview canvas — always black regardless of system appearance.
-    static let canvasForeground = StudioColors.ink
-    static let canvasSecondary = StudioColors.ink.opacity(0.55)
-    static let canvasTertiary = StudioColors.ink.opacity(0.38)
-    static let canvasQuaternary = StudioColors.ink.opacity(0.22)
-    static let canvasDivider = StudioColors.ink.opacity(0.10)
-    /// Status strip on the font preview panel.
-    static let canvasPhaseHeader = StudioColors.paper.opacity(0.96)
-    static let canvasHoverFill = StudioColors.brand.opacity(0.08)
+    static let canvasForeground = StudioPalette.color(.ink, light: .s800, dark: .s950)
+    static let canvasSecondary = StudioPalette.color(.ink, step: .s600)//.opacity(0.55)
+    static let canvasTertiary = StudioPalette.color(.ink, step: .s400)//.opacity(0.38)
+    static let canvasQuaternary = StudioPalette.color(.ink, step: .s200)//.opacity(0.22)
+    static let canvasDivider = StudioPalette.color(.ink, step: .s100)//.opacity(0.10)
+    /// Status strip on the font preview panel — paper chrome (canvas is always light).
+    static let canvasPhaseHeader = StudioPalette.color(.paper, step: .s200)
+    /// Soft wash on paper canvas / status (always light blue-100 — never dark-mode
+    /// `selectionFillSoft`, which goes navy and fails ink contrast on the paper strip).
+    static let canvasHoverFill = StudioPalette.color(.blue, step: .s100)
+    /// Peek-mode pill label on `canvasHoverFill` — blue-700 clears ~5.6:1 on blue-100.
+    static let canvasPeekForeground = StudioPalette.color(.blue, step: .s800)
 
     // MARK: Semantic marks — status (warning / success / error)
     //
-    // Warning fills are authored dual-tone solids — not `Color.orange` baked at low
-    // alpha. Low-alpha orange over a dark window composites to muddy brown (#5B4423);
-    // these stops stay recognizably amber in both appearances. Strokes keep opacity.
-    //
-    // Hierarchy inside a multi-row Issues band:
+    // Warning chrome splits two Tailwind families so marks stay prominent on the fill:
+    //   **yellow** — conflict/issue containers (banner body, summary strip, row wash)
+    //   **amber**  — warning triangles, strokes, Review CTA chips
+    // Hierarchy:
     //   warningFillStrong  — summary header strip (“N issues to review”)
     //   warningFill        — detail body / standalone banners
-    //   warningFillHover   — CTA chips (brightest, so buttons clear the fill)
+    //   warningFillHover   — amber CTA chips (not yellow — must clear the container)
 
-    /// Soft amber banner / detail-body wash.
-    static let warningFill = StudioHuedToken.make(
-        name: "warningFill",
-        light: (0.965, 0.835, 0.620), // #F6D59E
-        dark: (0.420, 0.250, 0.055)   // #6B400E — soft body under a stronger header
-    )
-    /// Deeper amber for the Issues-band summary strip — separates “N issues” from
+    /// Soft yellow conflict-container wash (Issues detail body, alerts, row tint).
+    /// Light: 200 (up from pale 100). Dark: mid gold 500 — not 700–900 (those read
+    /// muddy mustard on charcoal). Body copy on these fills uses `warningOnFillForeground`.
+    static let warningFill = StudioPalette.color(.yellow, light: .s200, dark: .s300)
+    /// Deeper yellow for the Issues-band summary strip — separates “N issues” from
     /// the specific warning rows below without a second card.
-    static let warningFillStrong = StudioHuedToken.make(
-        name: "warningFillStrong",
-        light: (0.940, 0.730, 0.420), // #F0BA6B
-        dark: (0.580, 0.335, 0.055)   // #94550E — richer amber, not muddy brown
-    )
-    /// Brightest amber — CTA chips on warning banners (must clear both fills).
-    static let warningFillHover = StudioHuedToken.make(
-        name: "warningFillHover",
-        light: (0.980, 0.680, 0.280), // #FAAD47
-        dark: (0.820, 0.490, 0.090)   // #D17D17
-    )
+    static let warningFillStrong = StudioPalette.color(.yellow, light: .s300, dark: .s400)
+    /// Amber CTA chip on yellow (or neutral) chrome — Review / Resolve buttons.
+    /// Light: one step down from 400 so amber doesn’t overpower the wash. Dark: 300
+    /// so the chip stays lighter than the gold fill and still reads amber.
+    static let warningFillHover = StudioPalette.color(.yellow, light: .s400, dark: .s500)
     /// Label on warning CTA chips. Dark ink — system `.primary` (white in dark mode)
-    /// only clears ~3:1 on `warningFillHover`; ink holds 5:1+ in both appearances.
-    static let warningButtonForeground = ink
-    /// Mark hue — warning icons, gutter accents, flag symbols. Not banner body text.
-    static let warningForeground = Color.orange
-    static let warningStroke = Color.orange.opacity(0.45)
-    static let successFill = StudioOpaqueFill.make(name: "successFill", hue: .green, light: 0.22, dark: 0.22)
-    static let successStroke = Color.green.opacity(0.45)
+    /// fails AA on bright amber CTAs; ink holds 5:1+ in both appearances.
+    static let warningButtonForeground = StudioPalette.color(.stone, light: .s900, dark: .s950)
+    /// Body / caption text sitting on `warningFill` / `warningFillStrong`. Same ink as
+    /// CTA labels — white `.primary` fails on mid yellows in dark mode.
+    static let warningOnFillForeground = StudioPalette.color(.stone, light: .s700, dark: .s800)
+    /// Mark hue — warning icons / triangles, gutter accents, flag symbols. Amber so
+    /// it stays readable on yellow containers and pops on neutral chrome. Darker steps
+    /// than the CTA chip so triangles clear the gold wash (~3:1+).
+    static let warningForeground = StudioPalette.color(.amber, light: .s600, dark: .s600)
+    static let warningStroke = warningForeground.opacity(0.45)
+    /// Soft/unselected variant of `warningFill` — baked opaque composite, not
+    /// `warningFill.opacity()`. `warningFill` is already a solid Tailwind step, so
+    /// layering `.opacity()` on top reintroduces translucency and lets the surface
+    /// behind (often a vibrant/blurred material) mute the yellow.
+    static let warningFillSoft = StudioOpaqueFill.make(name: "warningFillSoft", hue: warningFill, light: 0.35, dark: 0.35)
+    static let successFill = StudioOpaqueFill.make(
+        name: "successFill",
+        hue: StudioPalette.color(.green, light: .s500, dark: .s400),
+        light: 0.22,
+        dark: 0.22
+    )
+    static let successStroke = StudioPalette.color(.green, light: .s600, dark: .s400).opacity(0.45)
     /// Mark hue — success icons and include-checkbox checkmark when on. Do not use as
     /// standalone text/foreground color on a matching-hue fill — pair with `.primary`/
     /// `.secondary` text and reserve the hue for the icon/mark/stroke.
-    static let successForeground = Color.green
+    static let successForeground = StudioPalette.color(.green, light: .s600, dark: .s400)
     /// Mark hue — error icons, severe collision flags, destructive emphasis. Same pairing
     /// rule as `successForeground`: text stays neutral, hue lives on the mark.
-    static let errorForeground = Color.red
-    static let errorStroke = Color.red.opacity(0.5)
+    static let errorForeground = StudioPalette.color(.red, light: .s600, dark: .s400)
+    static let errorStroke = errorForeground.opacity(0.5)
 
     // MARK: Semantic marks — instancer row state
 
@@ -625,31 +691,30 @@ enum StudioColors {
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
     /// Indigo family (kept far from cyan `editedForeground` and brand blue).
-    static let customForeground = StudioPalette.color(.indigo, light: .s300, dark: .s200)
+    static let customForeground = StudioPalette.color(.indigo, light: .s500, dark: .s300)
     static let customFill = StudioOpaqueFill.make(name: "customFill", hue: customForeground, light: 0.24, dark: 0.24)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
     /// Cyan family — do not reuse for pending export (see `pendingForeground`).
-    static let editedForeground = StudioPalette.color(.cyan, light: .s500, dark: .s200)
+    static let editedForeground = StudioPalette.color(.teal, light: .s600, dark: .s300)
     static let editedFill = StudioOpaqueFill.make(name: "editedFill", hue: editedForeground, light: 0.24, dark: 0.24)
-    /// Mark hue — pending export (Instances badge / filter). Emerald-green, unclaimed by
-    /// edited-cyan / success-green / code jade — so pending and edited can co-occur.
-    static let pendingForeground = StudioPalette.color(.emeraldGreen, light: .s600, dark: .s300)
+    /// Mark hue — pending export (Instances badge / filter). Emerald, unclaimed by
+    /// edited-cyan / success-green / code teal — so pending and edited can co-occur.
+    static let pendingForeground = StudioPalette.color(.emerald, light: .s600, dark: .s300)
     static let pendingFill = StudioOpaqueFill.make(name: "pendingFill", hue: pendingForeground, light: 0.24, dark: 0.24)
 
     // MARK: Semantic marks — Save Review diff
     //
-    // Diff accents bind to palette families. `diffProtected` stays system gray (neutral
-    // slate) and `diffRenamed` stays system yellow — no yellow family in the review set.
-    // Warning / success / error status marks keep Apple system colors for semantic chrome.
+    // Diff accents bind to Tailwind families. `diffProtected` stays system gray (neutral
+    // slate). Renamed uses yellow (informational), not warning amber.
 
-    static let diffRemoved = StudioPalette.color(.red, light: .s400, dark: .s200)
-    /// Green family (not jade) — distinct from `codeForeground`.
-    static let diffAdded = StudioPalette.color(.green, light: .s600, dark: .s200)
-    static let diffReflowed = StudioPalette.color(.violet, light: .s400, dark: .s200)
+    static let diffRemoved = StudioPalette.color(.red, light: .s500, dark: .s300)
+    /// Green family — distinct from `codeForeground` (teal) and `pendingForeground` (emerald).
+    static let diffAdded = StudioPalette.color(.green, light: .s600, dark: .s300)
+    static let diffReflowed = StudioPalette.color(.violet, light: .s500, dark: .s300)
     /// Protected/locked — slate, not brand (brand = interaction/selection).
     static let diffProtected = Color.gray
-    /// Renamed/changed — informational yellow, not warning orange.
-    static let diffRenamed = Color.yellow
+    /// Renamed/changed — informational orange (yellow is reserved for warning containers).
+    static let diffRenamed = StudioPalette.color(.orange, light: .s600, dark: .s300)
 
     // MARK: Neutral surfaces & fields
 
@@ -689,29 +754,24 @@ enum StudioColors {
     /// translucent `surfaceMuted` alone let content bleed through.
     static let stickyHeaderFill = StudioOpaquePanelWash.make(name: "stickyHeaderFill", light: 0.07, dark: 0.04)
     /// Scannable metric digits — panel header counts, `StudioCountBadge`, summary cards.
-    /// Steel blue: related to brand but darker; not used for buttons or selection chrome.
-    /// Dual-tone: dark-mode stop verified independently (was fixed RGB, ~2.4:1 in dark mode).
-    static let metricForeground = StudioHuedToken.make(
-        name: "metricForeground",
-        light: (0.082, 0.396, 0.722),
-        dark: (0.353, 0.663, 0.941)
-    )
+    /// Same Tailwind family as `brand`, one step off so totals don't compete with CTAs. Numbers.
+    static let metricForeground = StudioPalette.color(.blue, light: .s700, dark: .s300)
     /// Brand mark — elided STAT fallback segment in naming chains (neutral text + brand dot).
-    static let elidedFallbackForeground = brand
+    static let elidedFallbackForeground = StudioPalette.color(.blue, light: .s600, dark: .s400)
 
     // MARK: Custom palette — registration & classification (dual-tone)
 
-    /// Mark hue — design-record / PS / clarifier. Magenta family primary mark steps.
-    static let registrationForeground = StudioPalette.color(.magenta, light: .s500, dark: .s300)
+    /// Mark hue — design-record / PS / clarifier. fuchsia (Tailwind; was bespoke magenta).
+    static let registrationForeground = StudioPalette.color(.fuchsia, light: .s600, dark: .s500)
     static let registrationBackground = StudioOpaqueFill.make(name: "registrationBackground", hue: registrationForeground, light: 0.22, dark: 0.22)
     static let registrationStroke = registrationForeground.opacity(0.40)
-    /// Legacy clarifier alias — same plum as registration.
+    /// Legacy clarifier alias — same sky as registration.
     static let clarifierForeground = registrationForeground
     static let clarifierBackground = registrationBackground
     static let clarifierStroke = registrationStroke
-    /// Mark hue — OpenType classification code chip. Jade-green (not emerald pending /
+    /// Mark hue — OpenType classification code chip. Teal (not emerald pending /
     /// not green diffAdded) so Code stays distinct from status and pending.
-    static let codeForeground = StudioPalette.color(.jadeGreen, light: .s500, dark: .s300)
+    static let codeForeground = StudioPalette.color(.teal, light: .s700, dark: .s400)
     static let codeBackground = StudioOpaqueFill.make(name: "codeBackground", hue: codeForeground, light: 0.22, dark: 0.22)
     static let codeStroke = codeForeground.opacity(0.45)
 
@@ -719,20 +779,23 @@ enum StudioColors {
 
     /// Purple tonal ramp — primary / secondary / tertiary within one family
     /// (F1 common → richest legible; F3 sparse → lightest legible).
-    static let statFormat1 = StudioPalette.color(.purple, light: .s300, dark: .s300)
-    static let statFormat2 = StudioPalette.color(.purple, light: .s500, dark: .s200)
-    static let statFormat3 = StudioPalette.color(.purple, light: .s700, dark: .s100)
+    static let statFormat1 = StudioPalette.color(.rose, light: .s700, dark: .s400)
+    static let statFormat2 = StudioPalette.color(.rose, light: .s600, dark: .s300)
+    static let statFormat3 = StudioPalette.color(.rose, light: .s500, dark: .s200)
+    /// Baked badge fill for the `statFormat1` compound-name capsule — opaque composite,
+    /// not `statFormat1.opacity()`.
+    static let statFormat1Background = StudioOpaqueFill.make(name: "statFormat1Background", hue: statFormat1, light: 0.16, dark: 0.16)
 
     // MARK: Drag & drop zones
 
     /// Drop zone half fills — 5% tint over the target region during drag.
     static let dropZoneFillOpacity: CGFloat = 0.05
-    /// Add-to-existing project — brand blue (pairs with selection / interaction, not registration plum).
+    /// Add-to-existing project — brand blue (pairs with selection / interaction, not registration).
     static let dropZoneAddFill = brand.opacity(dropZoneFillOpacity)
-    static let dropZoneNewFill = Color.green.opacity(dropZoneFillOpacity)
+    static let dropZoneNewFill = StudioPalette.color(.green, light: .s500, dark: .s400).opacity(dropZoneFillOpacity)
     /// Drop zone borders when the cursor is over a half.
     static let dropAddExisting = brand
-    static let dropNewProject = Color.green
+    static let dropNewProject = StudioPalette.color(.green, light: .s600, dark: .s400)
 }
 
 enum StudioFormatting {
@@ -831,7 +894,7 @@ struct StudioStatFormatBadge: View {
                     badgeLabel
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: 3))
+                .studioHoverFill(shape: .roundedRect(cornerRadius: 4))
                 .help("Change STAT format")
             } else {
                 badgeLabel
@@ -853,13 +916,13 @@ struct StudioStatFormatBadge: View {
             .font(.system(size: 9, weight: .bold, design: .monospaced))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .foregroundStyle(isDark ? StudioColors.ink.opacity(0.82) : markColor)
+            .foregroundStyle(isDark ? StudioPalette.color(.ink, step: .s800) : markColor)
             .studioChipBackground(
                 markColor.opacity(isDark ? 0.92 : 0.20),
-                cornerRadius: 3
+                cornerRadius: 4
             )
             .overlay {
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: 4)
                     .strokeBorder(markColor.opacity(isDark ? 1.0 : 0.45), lineWidth: 0.5)
             }
     }
@@ -1362,7 +1425,7 @@ struct StudioIncludeCheckbox: View {
                     )
                     .frame(width: Self.size, height: Self.size)
                 if isIndeterminate {
-                    RoundedRectangle(cornerRadius: 1)
+                    RoundedRectangle(cornerRadius: 2)
                         .fill(Color.secondary.opacity(0.6))
                         .frame(width: 6, height: 1.5)
                 } else if isOn {
@@ -1567,6 +1630,8 @@ struct StudioTextField: View {
     var rowHeight: CGFloat = StudioFieldMetrics.captionRowHeight
     /// When false, renders without field chrome (for embedding in `StudioSearchField`).
     var showsFieldChrome: Bool = true
+    /// Trailing clear control when the field has text (Preview sample, etc.).
+    var showsClearButton: Bool = false
 
     /// When set, non-empty value text uses this color (e.g. clarifier fields in file naming).
     var filledForeground: Color? = nil
@@ -1583,30 +1648,38 @@ struct StudioTextField: View {
     }
 
     var body: some View {
-        TextField(
-            "",
-            text: $text,
-            prompt: Text(placeholder)
-                .font(font)
-                .foregroundStyle(StudioColors.textPlaceholder)
-        )
+        HStack(spacing: StudioSpacing.tightGap) {
+            TextField(
+                "",
+                text: $text,
+                prompt: Text(placeholder)
+                    .font(font)
+                    .foregroundStyle(StudioColors.textPlaceholder)
+            )
             .textFieldStyle(.plain)
             .font(font)
             .foregroundStyle(valueForeground)
-            .padding(.horizontal, showsFieldChrome ? StudioFieldMetrics.horizontalPadding : 0)
-            .frame(height: rowHeight, alignment: .center)
-            .background {
-                if showsFieldChrome {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
-                        .fill(fieldBackground)
-                }
-            }
             .focused(activeFocus)
             .modifier(StudioFocusRingSuppression())
             .modifier(StudioTextInputAccentModifier())
             .studioInteractiveCursor()
             .onSubmit { handleSubmit() }
             .onExitCommand { handleCancel() }
+
+            if showsClearButton, !text.isEmpty {
+                StudioDismissButton(scale: .chip, style: .fill, help: "Clear") {
+                    text = ""
+                }
+            }
+        }
+        .padding(.horizontal, showsFieldChrome ? StudioFieldMetrics.horizontalPadding : 0)
+        .frame(height: rowHeight, alignment: .center)
+        .background {
+            if showsFieldChrome {
+                RoundedRectangle(cornerRadius: StudioRadius.control)
+                    .fill(fieldBackground)
+            }
+        }
     }
 
     private func handleSubmit() {
@@ -2340,23 +2413,24 @@ extension View {
     }
 
     /// Dashed hover ring + open-hand cursor for press-drag reorder targets (no fill wash).
+    /// Default ring: `StudioDragOutline` 4pt all sides, 6pt radius.
+    /// Pass outsets for Axis Tree (8pt horizontal / 4pt vertical).
     func studioDragAffordances(
         isEnabled: Bool = true,
         isDragging: Bool = false,
-        cornerRadius: CGFloat = StudioRadius.chip,
         showsOutline: Bool = true,
         showsCursor: Bool = true,
-        /// Extends the dashed outline into horizontal margins without shifting content.
-        outlineHorizontalOutset: CGFloat = 0
+        outlineHorizontalOutset: CGFloat = StudioDragOutline.outset,
+        outlineVerticalOutset: CGFloat = StudioDragOutline.outset
     ) -> some View {
         modifier(
             StudioDragAffordancesModifier(
                 isEnabled: isEnabled,
                 isDragging: isDragging,
-                cornerRadius: cornerRadius,
                 showsOutline: showsOutline,
                 showsCursor: showsCursor,
-                outlineHorizontalOutset: outlineHorizontalOutset
+                outlineHorizontalOutset: outlineHorizontalOutset,
+                outlineVerticalOutset: outlineVerticalOutset
             )
         )
     }
@@ -2600,10 +2674,10 @@ private final class StudioInteractiveHoverView: NSView {
 private struct StudioDragAffordancesModifier: ViewModifier {
     var isEnabled: Bool
     var isDragging: Bool
-    var cornerRadius: CGFloat
     var showsOutline: Bool
     var showsCursor: Bool
     var outlineHorizontalOutset: CGFloat
+    var outlineVerticalOutset: CGFloat
     @State private var isHovered = false
     @State private var interactiveChildHovered = false
     @State private var cursorGate = StudioDragCursorGate()
@@ -2624,13 +2698,10 @@ private struct StudioDragAffordancesModifier: ViewModifier {
             }
             .overlay {
                 if affordanceActive, showsOutline {
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(
-                            Color.secondary.opacity(0.4),
-                            style: StrokeStyle(lineWidth: StudioStroke.regular, dash: StudioStroke.dragDash)
-                        )
-                        .padding(.horizontal, -outlineHorizontalOutset)
-                        .allowsHitTesting(false)
+                    StudioDragOutline.expandedRing(
+                        horizontalOutset: outlineHorizontalOutset,
+                        verticalOutset: outlineVerticalOutset
+                    )
                 }
             }
             .overlay {
@@ -2903,6 +2974,72 @@ struct StudioMenuPicker<Value: Hashable>: View {
     }
 }
 
+// MARK: - Compact continuous value
+
+/// Thin-track value control for dense chrome (font preview size, etc.).
+/// Replaces `Slider` + `.controlSize(.mini)`, which draws macOS tick marks and
+/// fights the Studio compact language. Neutral track/thumb — not brand.
+struct StudioCompactSlider: View {
+    @Binding var value: Double
+    var range: ClosedRange<Double>
+    var step: Double = 1
+
+    private let trackHeight: CGFloat = 3
+    private let thumbWidth: CGFloat = 7
+    private let thumbHeight: CGFloat = 14
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let fraction = range.upperBound > range.lowerBound
+                ? (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+                : 0
+            let thumbX = CGFloat(fraction) * width
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.28))
+                    .frame(height: trackHeight)
+
+                Capsule()
+                    .fill(Color.secondary.opacity(0.55))
+                    .frame(width: max(thumbWidth, thumbX), height: trackHeight)
+
+                Capsule()
+                    .fill(Color.primary.opacity(0.85))
+                    .frame(width: thumbWidth, height: thumbHeight)
+                    .position(x: min(width, max(0, thumbX)), y: geo.size.height / 2)
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { drag in
+                        guard width > 0 else { return }
+                        let raw = Double(drag.location.x / width)
+                        let clamped = min(1, max(0, raw))
+                        let unstepped = range.lowerBound + clamped * (range.upperBound - range.lowerBound)
+                        let stepped = (step > 0)
+                            ? (range.lowerBound + (round((unstepped - range.lowerBound) / step) * step))
+                            : unstepped
+                        value = min(range.upperBound, max(range.lowerBound, stepped))
+                    }
+            )
+        }
+        .frame(height: StudioCompactControlChrome.controlHeight)
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                value = min(range.upperBound, value + step)
+            case .decrement:
+                value = max(range.lowerBound, value - step)
+            @unknown default:
+                break
+            }
+        }
+    }
+}
+
 // MARK: - Compact filter / toolbar chrome
 
 /// Shared compact control chrome (Instances filter bar, Naming Order footer toggles, etc.).
@@ -2923,7 +3060,7 @@ enum StudioCompactControlChrome {
     /// SF Symbol size for compact icon segments — not rounded-design text.
     static let symbolFont = Font.system(size: 11, weight: .medium)
     static let cornerRadius = StudioRadius.control
-    static let segmentCornerRadius = StudioRadius.small
+    static let segmentcornerRadius = StudioRadius.small
     static let horizontalPadding = StudioSpacing.contentInset
     /// Leading inset when the button embeds a checkbox — half of `horizontalPadding`
     /// so the mark lines up with instance-row checkboxes (panel + rowContentInset).
@@ -3058,7 +3195,7 @@ struct StudioCompactToggleButton: View {
                 )
                 .frame(width: size, height: size)
             if checkboxIndeterminate {
-                RoundedRectangle(cornerRadius: 1)
+                RoundedRectangle(cornerRadius: 2)
                     .fill(Color.secondary.opacity(0.6))
                     .frame(width: 5, height: 1.5)
             } else if checkboxOn {
@@ -3176,7 +3313,7 @@ private enum StudioFlatButtonChrome {
     static func fill(role: StudioFlatButton.Role, isEnabled: Bool) -> Color {
         guard isEnabled else {
             switch role {
-            case .primary: return StudioColors.brand.opacity(0.22)
+            case .primary: return StudioColors.brandFillDisabled
             case .secondary: return StudioColors.buttonSecondaryFillDisabled
             case .tinted(_, let background): return background.opacity(0.45)
             }
@@ -3300,7 +3437,7 @@ struct StudioSegmentButtonStyle: ButtonStyle {
 
     private func segmentBackground(state: StudioInteractionState) -> Color {
         if isSelected {
-            return StudioColors.brand.opacity(0.16)
+            return StudioColors.selectionFill
         }
         switch state {
         case .idle: return .clear
@@ -3380,7 +3517,11 @@ struct StudioSegmentButton: View {
             HStack(spacing: StudioSpace.x1) {
                 Text(title)
                     .font(font.weight(isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? StudioColors.brand : Color.primary.opacity(0.78))
+                    // Selected label uses `metricForeground` (700/400), not `brand` (600):
+                    // brand-on-selectionFill only clears ~2:1 in dark / ~3.7:1 in light.
+                    // Metric is the same brand family, lighter in dark (matches the leading
+                    // stripe’s bright read) and darker in light so it clears the wash.
+                    .foregroundStyle(isSelected ? StudioColors.metricForeground : Color.primary.opacity(0.78))
                 if showsWarning {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 9))
@@ -3401,7 +3542,8 @@ struct StudioSegmentButton: View {
 enum StudioRowChrome {
     static func fill(isSelected: Bool, isHovered: Bool, isWarning: Bool) -> Color {
         if isWarning {
-            return isHovered ? StudioColors.warningFillHover : StudioColors.warningFill
+            // Stay in the yellow container family on hover — amber is reserved for CTAs.
+            return isHovered ? StudioColors.warningFillStrong : StudioColors.warningFill
         }
         if isSelected {
             return StudioColors.selectionFill
@@ -3495,6 +3637,7 @@ extension View {
 
 
 /// Simple warning caption row for lists (Save Review warnings, etc.).
+/// Message uses `warningOnFillForeground` — this view sits on `warningFill` banners.
 struct StudioWarningMessage: View {
     let message: String
 
@@ -3505,7 +3648,7 @@ struct StudioWarningMessage: View {
                 .foregroundStyle(StudioColors.warningForeground)
             Text(message)
                 .font(StudioTypography.caption)
-                .foregroundStyle(.primary)
+                .foregroundStyle(StudioColors.warningOnFillForeground)
         }
     }
 }
@@ -3558,7 +3701,7 @@ struct StudioConflictAlert: View {
 
             Text(message)
                 .font(StudioTypography.caption)
-                .foregroundStyle(.primary)
+                .foregroundStyle(StudioColors.warningOnFillForeground)
                 .lineLimit(2)
 
             Spacer(minLength: 0)

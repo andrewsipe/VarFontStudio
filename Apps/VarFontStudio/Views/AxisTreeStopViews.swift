@@ -456,7 +456,7 @@ struct AxisTreeStopRow: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpace.x1)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
-                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 3))
+                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 4))
                     .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .center)
                     .contentShape(Rectangle())
                     .gesture(clickGesture(for: .code))

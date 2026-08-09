@@ -286,7 +286,7 @@ struct AxisConflictResolverSheet: View {
                     .foregroundStyle(.secondary)
                 Text(kindLabel)
                     .font(StudioTypography.caption.weight(.medium))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(StudioColors.warningOnFillForeground)
                     .padding(.horizontal, StudioSpacing.contentInset)
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(StudioColors.warningFill, in: Capsule())
@@ -766,7 +766,7 @@ struct AxisConflictResolverSheet: View {
         .opacity(outcome.isRemoved ? 0.55 : 1)
         .overlay(alignment: .leading) {
             if outcome.isTarget {
-                RoundedRectangle(cornerRadius: 1.5)
+                RoundedRectangle(cornerRadius: 2)
                     .fill(StudioColors.brand)
                     .frame(width: 3)
                     .padding(.vertical, StudioSpacing.tightGap)

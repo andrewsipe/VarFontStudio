@@ -24,7 +24,7 @@ struct StudioInspectorConflictBadge: View {
     var body: some View {
         let label = Text("\(count) conflict\(count == 1 ? "" : "s")")
             .font(StudioTypography.caption.weight(.medium))
-            .foregroundStyle(.primary)
+            .foregroundStyle(StudioColors.warningOnFillForeground)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(StudioColors.warningFill, in: Capsule())
@@ -54,7 +54,7 @@ struct StudioComposedNameCallout: View {
             // Duplicate: keep a quiet leading mark only — full amber wash is reserved for
             // actionable banners / fix loci, not every affected name callout.
             .background(
-                StudioColors.selectionFill.opacity(0.35),
+                StudioColors.selectionFill,
                 in: RoundedRectangle(cornerRadius: StudioRadius.row)
             )
             .overlay(alignment: .leading) {
@@ -190,7 +190,7 @@ struct InspectorInstanceNamingChain: View {
                         .foregroundStyle(StudioColors.statFormat1)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
-                        .background(StudioColors.statFormat1.opacity(0.16), in: Capsule())
+                        .background(StudioColors.statFormat1Background, in: Capsule())
                     Text(link.tag)
                         .font(StudioTypography.monoMeta)
                         .foregroundStyle(.secondary)
@@ -430,9 +430,9 @@ struct InspectorOpenTypeSourcePill: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
             .padding(.vertical, StudioSpace.x0_5)
-            .background(fill, in: RoundedRectangle(cornerRadius: 3))
+            .background(fill, in: RoundedRectangle(cornerRadius: 4))
             .overlay {
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: 4)
                     .strokeBorder(stroke, lineWidth: StudioStroke.hairline)
             }
     }
@@ -440,7 +440,7 @@ struct InspectorOpenTypeSourcePill: View {
     private var fill: Color {
         switch source {
         case .stat: return StudioColors.registrationBackground
-        case .fvar: return StudioColors.brand.opacity(0.16)
+        case .fvar: return StudioColors.brandBackground
         case .name: return StudioColors.codeBackground
         case .planned: return StudioColors.pendingFill
         }
@@ -449,7 +449,7 @@ struct InspectorOpenTypeSourcePill: View {
     private var stroke: Color {
         switch source {
         case .stat: return StudioColors.registrationStroke
-        case .fvar: return StudioColors.brand.opacity(0.35)
+        case .fvar: return StudioColors.selectionStroke
         case .name: return StudioColors.codeStroke
         case .planned: return StudioColors.pendingForeground.opacity(0.45)
         }

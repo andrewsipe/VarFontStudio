@@ -283,7 +283,7 @@ struct AxisTreePanel: View {
 
                         Text(issueCount == 1 ? "1 issue to review" : "\(issueCount) issues to review")
                             .font(StudioTypography.caption)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(StudioColors.warningOnFillForeground)
                             .lineLimit(2)
 
                         Spacer(minLength: 0)
@@ -328,7 +328,7 @@ struct AxisTreePanel: View {
                                     .padding(.top, StudioSpacing.warningGlyphTopNudge)
                                 Text(warning.message)
                                     .font(StudioTypography.caption)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(StudioColors.warningOnFillForeground)
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: StudioSpacing.controlGap)
                                 if warning.code == "duplicate_composed_name" {
@@ -541,10 +541,8 @@ struct AxisTreePanel: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(font.axes.enumerated()), id: \.element.id) { index, axis in
                     if shouldShowAxisDropGap(before: index) {
-                        axisReorderDropGap(
-                            height: max(axisDragSession.ghostSize.height, 36)
-                        )
-                        .padding(.vertical, StudioSpacing.rowGap)
+                        axisReorderDropGap()
+                            .padding(.vertical, StudioSpacing.rowGap)
                     } else if index > 0 {
                         Divider()
                             .padding(.vertical, StudioSpacing.rowGap)
@@ -554,10 +552,8 @@ struct AxisTreePanel: View {
                         .id(axis.tag)
                 }
                 if shouldShowAxisDropGap(before: font.axes.count) {
-                    axisReorderDropGap(
-                        height: max(axisDragSession.ghostSize.height, 36)
-                    )
-                    .padding(.top, StudioSpacing.rowGap)
+                    axisReorderDropGap()
+                        .padding(.top, StudioSpacing.rowGap)
                 }
 
                 StudioFlatButton(
@@ -575,9 +571,13 @@ struct AxisTreePanel: View {
                 .padding(.top, StudioSpacing.sectionGap)
             }
             .coordinateSpace(name: axisReorderCoordinateSpace)
+            .onPreferenceChange(AxisHeaderFramePreferenceKey.self) { frames in
+                axisHeaderFrames.merge(frames) { _, new in new }
+            }
             .overlay(alignment: .topLeading) {
                 axisReorderGhostOverlay
             }
+            .animation(.easeOut(duration: 0.12), value: axisDragSession.targetGapIndex)
         }
     }
 
@@ -617,17 +617,21 @@ struct AxisTreePanel: View {
             .opacity(axisDragSession.draggingTag == axis.tag ? 0.28 : 1)
             .overlay {
                 if axisDragSession.draggingTag == axis.tag {
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
-                        .strokeBorder(
-                            Color.secondary.opacity(0.35),
-                            style: StrokeStyle(lineWidth: StudioStroke.regular, dash: StudioStroke.dragDash)
-                        )
+                    StudioDragOutline.axisTreeRing(color: Color.secondary.opacity(0.35))
                 }
             }
             .contentShape(Rectangle())
             .studioDragAffordances(
+                // Suppress hover rings / grab cursor on every header while a reorder is active.
+                isEnabled: !axisDragSession.isDragging,
                 isDragging: axisDragSession.draggingTag == axis.tag,
-                outlineHorizontalOutset: StudioSpace.x1
+                outlineHorizontalOutset: StudioDragOutline.axisTreeOutsetHorizontal,
+                outlineVerticalOutset: StudioDragOutline.axisTreeOutsetVertical
+            )
+            // Keep the dragged header hittable so the active gesture isn't cancelled;
+            // block other rows so their hover links / toggles don't light up under the pointer.
+            .allowsHitTesting(
+                !axisDragSession.isDragging || axisDragSession.draggingTag == axis.tag
             )
             .simultaneousGesture(axisReorderPressThenDragGesture(for: axis.tag))
             .help("Click to expand · click and hold to reorder")
@@ -638,9 +642,6 @@ struct AxisTreePanel: View {
                         value: [axis.tag: proxy.frame(in: .named(axisReorderCoordinateSpace))]
                     )
                 }
-            }
-            .onPreferenceChange(AxisHeaderFramePreferenceKey.self) { frames in
-                axisHeaderFrames.merge(frames) { _, new in new }
             }
 
             if isExpanded, axisDragSession.draggingTag != axis.tag {
@@ -655,10 +656,12 @@ struct AxisTreePanel: View {
     private var axisReorderGhostOverlay: some View {
         if let tag = axisDragSession.draggingTag,
            let axis = editor.selectedFont?.axes.first(where: { $0.tag == tag }) {
-            let width = max(axisDragSession.ghostSize.width, 120)
+            let size = axisDragSession.ghostSize
+            let width = max(size.width, 120)
+            let height = max(size.height, 36)
             AxisTreeAxisHeader(
                 axis: axis,
-                isExpanded: expandedAxes.contains(tag),
+                isExpanded: false,
                 hasConflict: false,
                 axisWarnings: [],
                 resolvablePlanWarnings: [],
@@ -668,19 +671,16 @@ struct AxisTreePanel: View {
                 isInstanceAxis: .constant(axis.role == .instance),
                 onToggleExpansion: {}
             )
-            .padding(.horizontal, StudioSpacing.rowHorizontal)
-            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-            .frame(width: width, alignment: .leading)
+            .frame(width: width, height: height, alignment: .leading)
             .background(
                 StudioColors.surfaceInset,
-                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                in: RoundedRectangle(cornerRadius: StudioDragOutline.cornerRadius)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
-                    .strokeBorder(
-                        Color.secondary.opacity(0.45),
-                        style: StrokeStyle(lineWidth: StudioStroke.strong, dash: StudioStroke.dragDash)
-                    )
+                StudioDragOutline.axisTreeRing(
+                    color: Color.secondary.opacity(0.45),
+                    lineWidth: StudioStroke.strong
+                )
             }
             .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
             .offset(x: axisDragSession.ghostOrigin.x, y: axisDragSession.ghostOrigin.y)
@@ -688,18 +688,22 @@ struct AxisTreePanel: View {
         }
     }
 
-    private func axisReorderDropGap(height: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: StudioRadius.chip)
-            .strokeBorder(
-                Color.secondary.opacity(0.45),
-                style: StrokeStyle(lineWidth: StudioStroke.emphasis, dash: StudioStroke.dragDash)
-            )
-            .background(
-                Color.secondary.opacity(0.06),
-                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
-            )
+    /// Empty drop slot matching the dragged header size + the same outset ring as the ghost.
+    private func axisReorderDropGap() -> some View {
+        let height = max(axisDragSession.ghostSize.height, 36)
+        return Color.clear
             .frame(maxWidth: .infinity)
             .frame(height: height)
+            .background(
+                Color.secondary.opacity(0.06),
+                in: RoundedRectangle(cornerRadius: StudioDragOutline.cornerRadius)
+            )
+            .overlay {
+                StudioDragOutline.axisTreeRing(
+                    color: Color.secondary.opacity(0.45),
+                    lineWidth: StudioStroke.emphasis
+                )
+            }
             .accessibilityLabel("Drop axis here")
     }
 
@@ -712,8 +716,9 @@ struct AxisTreePanel: View {
     /// Click-and-hold on the header starts a reorder drag; a short click still expands/collapses
     /// via the header button (suppressed after a drag).
     private func axisReorderPressThenDragGesture(for tag: String) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.22)
+        LongPressGesture(minimumDuration: 0.18)
             .sequenced(before: DragGesture(
+                // 0: ghost appears as soon as the long-press succeeds (no extra wiggle).
                 minimumDistance: 0,
                 coordinateSpace: .named(axisReorderCoordinateSpace)
             ))
@@ -723,7 +728,15 @@ struct AxisTreePanel: View {
                 case .second(true, let drag):
                     guard let drag else { return }
                     if axisDragSession.draggingTag == nil {
-                        let headerFrame = axisHeaderFrames[tag] ?? .zero
+                        // Prefer a measured header frame; fall back to start location so a
+                        // missing preference doesn't produce a zero-size / stuck ghost.
+                        let headerFrame = axisHeaderFrames[tag] ?? CGRect(
+                            x: drag.startLocation.x - 60,
+                            y: drag.startLocation.y - 18,
+                            width: 240,
+                            height: 36
+                        )
+                        guard headerFrame.width > 1, headerFrame.height > 1 else { return }
                         let grabOffset = CGSize(
                             width: drag.startLocation.x - headerFrame.minX,
                             height: drag.startLocation.y - headerFrame.minY
@@ -743,8 +756,15 @@ struct AxisTreePanel: View {
                     break
                 }
             }
-            .onEnded { _ in
-                commitAxisReorderOrCancel()
+            .onEnded { value in
+                // Only commit if the long-press→drag sequence actually started a session.
+                // A cancelled long-press still delivers onEnded; don't swallow the expand click.
+                switch value {
+                case .second(true, _):
+                    commitAxisReorderOrCancel()
+                default:
+                    break
+                }
             }
     }
 
@@ -756,6 +776,8 @@ struct AxisTreePanel: View {
         toggleExpansion(for: tag)
     }
 
+    /// Gap index in the freeze-at-pickup header layout (`0...count`).
+    /// Frozen frames avoid midY oscillation when inserting the drop gap shifts live rows.
     private func axisReorderTargetGap(at y: CGFloat) -> Int? {
         let tags = axisDragSession.originalTags
         guard !tags.isEmpty else { return nil }

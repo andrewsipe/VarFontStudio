@@ -42,6 +42,40 @@ private enum FontPreviewAlignment: String, CaseIterable, Identifiable {
     }
 }
 
+/// Bundled waterfall word list for the Preview sample-field dice control.
+private enum FontPreviewSampleWords {
+    private static let lock = NSLock()
+    private static var cached: [String]?
+
+    static func randomWord() -> String {
+        let list = words
+        guard let word = list.randomElement(), !word.isEmpty else {
+            return "Handgloves"
+        }
+        return word
+    }
+
+    private static var words: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cached { return cached }
+        let loaded = load()
+        cached = loaded
+        return loaded
+    }
+
+    private static func load() -> [String] {
+        guard let url = Bundle.main.url(forResource: "waterfall-default", withExtension: "txt"),
+              let body = try? String(contentsOf: url, encoding: .utf8) else {
+            return []
+        }
+        return body
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+}
+
 /// Sample text / size / alignment — lives in the footer disclosure header beside
 /// Naming Order | Preview so the glyph canvas can claim the former toolbar row.
 struct FontPreviewHeaderControls: View {
@@ -56,12 +90,17 @@ struct FontPreviewHeaderControls: View {
 
     var body: some View {
         HStack(spacing: StudioSpacing.controlGap) {
-            StudioTextField(
-                placeholder: "Sample text",
-                text: $sampleText,
-                font: StudioTypography.bodyMedium,
-                rowHeight: StudioFieldMetrics.tabChipRowHeight
-            )
+            HStack(spacing: StudioSpacing.tightGap) {
+                StudioTextField(
+                    placeholder: "Instance name when empty",
+                    text: $sampleText,
+                    font: StudioTypography.bodyMedium,
+                    rowHeight: StudioFieldMetrics.tabChipRowHeight,
+                    showsClearButton: true
+                )
+
+                randomWordButton
+            }
             .frame(maxWidth: .infinity)
 
             HStack(spacing: StudioSpacing.rowGap) {
@@ -69,46 +108,72 @@ struct FontPreviewHeaderControls: View {
                     .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
 
-                Slider(value: $previewSize, in: 24...72, step: 1)
+                StudioCompactSlider(value: $previewSize, range: 24...72, step: 1)
                     .frame(width: 100)
-                    .controlSize(.mini)
 
                 Text("\(Int(previewSize.rounded()))")
                     .font(StudioTypography.monoMeta)
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 24, alignment: .trailing)
+                    .monospacedDigit()
             }
 
             alignmentPicker
         }
     }
 
+    private var randomWordButton: some View {
+        let chrome = StudioCompactControlChrome.self
+        return Button {
+            sampleText = FontPreviewSampleWords.randomWord()
+        } label: {
+            HStack(spacing: StudioSpacing.tightGap) {
+                Text("Random Word")
+                    .font(chrome.labelFont)
+                Image(systemName: "dice")
+                    .font(chrome.symbolFont)
+            }
+            .foregroundStyle(Color.secondary)
+            .padding(.horizontal, chrome.horizontalPadding)
+            .frame(height: chrome.controlHeight)
+            .background(chrome.idleFill, in: RoundedRectangle(cornerRadius: chrome.cornerRadius))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: chrome.cornerRadius))
+        .help("Fills font preview with a random word")
+    }
+
     private var alignmentPicker: some View {
-        HStack(spacing: StudioSpacing.instanceRowGap) {
+        // Same tray + neutral-raised segment language as Instances Names|Coords —
+        // mutually exclusive choice, not a brand/selection locus.
+        let chrome = StudioCompactControlChrome.self
+        return HStack(spacing: 0) {
             ForEach(FontPreviewAlignment.allCases) { option in
+                let isSelected = alignment == option
                 Button {
                     alignment = option
                 } label: {
                     Image(systemName: option.systemImage)
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(alignment == option ? StudioColors.brand : .secondary)
-                        .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: StudioFieldMetrics.tabChipRowHeight)
-                        .background {
-                            RoundedRectangle(cornerRadius: StudioRadius.small)
-                                .fill(alignment == option ? StudioColors.brand.opacity(0.12) : Color.clear)
-                        }
-                        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
+                        .font(chrome.symbolFont)
+                        .foregroundStyle(chrome.foreground(isActive: isSelected))
+                        .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: chrome.segmentHeight)
+                        .background(
+                            isSelected ? chrome.activeFill : Color.clear,
+                            in: RoundedRectangle(cornerRadius: chrome.segmentcornerRadius)
+                        )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .studioHoverIcon(
-                    isEnabled: alignment != option,
-                    tint: alignment == option ? StudioColors.brand : nil
+                .studioHoverFill(
+                    shape: .roundedRect(cornerRadius: chrome.segmentcornerRadius),
+                    isEnabled: !isSelected
                 )
                 .help(option.help)
             }
         }
-        .padding(StudioSpace.x0_5)
-        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .padding(chrome.trayInset)
+        .background(chrome.idleFill, in: RoundedRectangle(cornerRadius: chrome.cornerRadius))
     }
 }
 
@@ -122,6 +187,17 @@ struct FontPreviewPanel: View {
     private var alignment: FontPreviewAlignment {
         get { FontPreviewAlignment(rawValue: alignmentRaw) ?? .leading }
         nonmutating set { alignmentRaw = newValue.rawValue }
+    }
+
+    /// Empty / whitespace sample → active instance composed name; else a space so
+    /// the canvas still lays out a glyph run while nothing is selected.
+    private var displaySample: String {
+        let trimmed = sampleText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        if let name = editor.previewActiveInstance?.composedName, !name.isEmpty {
+            return name
+        }
+        return " "
     }
 
     private static let canvasColor = StudioColors.canvasBackground
@@ -183,7 +259,7 @@ struct FontPreviewPanel: View {
     private var canvasForeground: some View {
         Group {
             if let nsFont = previewFont {
-                Text(sampleText.isEmpty ? " " : sampleText)
+                Text(displaySample)
                     .font(Font(nsFont))
                     .foregroundStyle(StudioColors.canvasForeground)
                     .multilineTextAlignment(alignment.textAlignment)
@@ -226,40 +302,40 @@ struct FontPreviewPanel: View {
             }
 
             Spacer(minLength: 0)
-            Text("Select an instance to preview")
-                .font(StudioTypography.caption)
-                .foregroundStyle(StudioColors.canvasTertiary)
-            Text(editor.isPreviewHoverPeeking ? "Peek · hover" : "Source · live")
-                .font(StudioTypography.caption)
-                .foregroundStyle(statusPillForeground)
-                .padding(.horizontal, StudioSpacing.contentInset)
-                .padding(.vertical, StudioSpace.x0_5)
-                .background(
-                    Capsule()
-                        .strokeBorder(
-                            editor.isPreviewHoverPeeking
-                                ? StudioColors.canvasTertiary
-                                : StudioColors.canvasDivider,
-                            lineWidth: StudioStroke.regular
-                        )
-                        .background(
-                            Capsule().fill(
-                                editor.isPreviewHoverPeeking
-                                    ? StudioColors.canvasHoverFill
-                                    : Color.clear
-                            )
-                        )
-                )
+
+            sourcePeekPill
         }
         .padding(.horizontal, StudioSpacing.contentInset)
         .padding(.vertical, StudioSpacing.panelVertical)
         .background(StudioColors.canvasPhaseHeader)
     }
 
-    private var statusPillForeground: Color {
-        editor.isPreviewHoverPeeking
-            ? StudioColors.canvasSecondary
-            : StudioColors.canvasTertiary
+    /// Source = quiet baseline on paper. Peek = soft blue wash + blue-700 label
+    /// (paper-safe — never dark-mode selection navy).
+    private var sourcePeekPill: some View {
+        let peeking = editor.isPreviewHoverPeeking
+        return Text(peeking ? "Peek · hover" : "Source · live")
+            .font(StudioTypography.caption)
+            .foregroundStyle(
+                peeking
+                    ? StudioColors.canvasPeekForeground
+                    : StudioColors.canvasSecondary
+            )
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.vertical, StudioSpace.x0_5)
+            .background {
+                Capsule()
+                    .fill(peeking ? StudioColors.canvasHoverFill : Color.clear)
+            }
+            .overlay {
+                Capsule()
+                    .strokeBorder(
+                        peeking
+                            ? StudioColors.canvasPeekForeground.opacity(0.35)
+                            : StudioColors.canvasDivider,
+                        lineWidth: StudioStroke.hairline
+                    )
+            }
     }
 
     private var previewFont: NSFont? {

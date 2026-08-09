@@ -113,18 +113,16 @@ struct AxisTreeAxisHeader: View {
                         )
                         .frame(maxWidth: 220, alignment: .leading)
                     } else {
-                        Button(action: onToggleExpansion) {
-                            Text(currentDisplayName)
-                                .font(StudioTypography.body)
-                                .lineLimit(1)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .studioHoverLink(.primary)
-                        .studioInteractiveCursor()
-                        .help(lane == .registration
-                            ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
-                            : "Expand axis stops")
+                        Text(currentDisplayName)
+                            .font(StudioTypography.body)
+                            .lineLimit(1)
+                            .contentShape(Rectangle())
+                            .onTapGesture(perform: onToggleExpansion)
+                            .studioHoverLink(.primary)
+                            .studioInteractiveCursor()
+                            .help(lane == .registration
+                                ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
+                                : "Expand axis stops")
                     }
 
                     if onUpdateDisplayName != nil, !isEditingDisplayName {
@@ -137,14 +135,12 @@ struct AxisTreeAxisHeader: View {
                         }
                     }
 
-                    Button(action: onToggleExpansion) {
-                        StudioDisclosureChevron(isExpanded: isExpanded)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .studioHoverIcon()
-                    .studioInteractiveCursor()
-                    .help(isExpanded ? "Collapse axis stops" : "Expand axis stops")
+                    StudioDisclosureChevron(isExpanded: isExpanded)
+                        .contentShape(Rectangle())
+                        .onTapGesture(perform: onToggleExpansion)
+                        .studioHoverIcon()
+                        .studioInteractiveCursor()
+                        .help(isExpanded ? "Collapse axis stops" : "Expand axis stops")
 
                     Spacer(minLength: 0)
                 }

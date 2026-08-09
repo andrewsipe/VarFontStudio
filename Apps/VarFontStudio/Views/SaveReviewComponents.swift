@@ -38,17 +38,17 @@ struct StudioFilterBadge: View {
                 .background {
                     ZStack {
                         if !isHidden {
-                            RoundedRectangle(cornerRadius: 3)
+                            RoundedRectangle(cornerRadius: 4)
                                 .fill(category.pillStyle.background)
                         }
                         if isHovered, !isHidden, !isIsolated {
-                            RoundedRectangle(cornerRadius: 3)
+                            RoundedRectangle(cornerRadius: 4)
                                 .fill(StudioColors.hoverFill)
                         }
                     }
                 }
                 .overlay {
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: 4)
                         .strokeBorder(
                             isIsolated ? Color.primary.opacity(0.22) : (isHidden ? Color.clear : category.pillStyle.border),
                             lineWidth: isIsolated ? 1 : 0.5
@@ -79,7 +79,11 @@ struct StudioSaveReviewTabBar: View {
                         Text("\(tab.changedCount) of \(tab.totalCount)")
                             .font(StudioTypography.columnLabel)
                             .monospacedDigit()
-                            .foregroundStyle(hasChanges ? Color.primary : Color.secondary.opacity(0.7))
+                            .foregroundStyle(
+                                hasChanges
+                                    ? StudioColors.warningOnFillForeground
+                                    : Color.secondary.opacity(0.7)
+                            )
                             .padding(.horizontal, StudioSpace.x1_5)
                             .padding(.vertical, StudioSpacing.instanceRowGap)
                             .background(
@@ -95,7 +99,7 @@ struct StudioSaveReviewTabBar: View {
                         isSelected ? StudioColors.surfaceLight : Color.clear,
                         in: RoundedRectangle(cornerRadius: 6)
                     )
-                    .shadow(color: isSelected ? StudioColors.ink.opacity(0.2) : .clear, radius: 2, y: 1)
+                    .shadow(color: isSelected ? StudioPalette.color(.ink, light: .s900, dark: .s900).opacity(0.2) : .clear, radius: 2, y: 1)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -146,9 +150,9 @@ struct StudioSaveReviewCategoryTag: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
             .padding(.vertical, StudioSpace.x0_5)
-            .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 3))
+            .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 4))
             .overlay {
-                RoundedRectangle(cornerRadius: 3)
+                RoundedRectangle(cornerRadius: 4)
                     .strokeBorder(category.pillStyle.border, lineWidth: 0.5)
             }
     }

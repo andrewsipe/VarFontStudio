@@ -84,7 +84,9 @@ struct MissingFontsSheet: View {
             Image(systemName: entry.isResolved ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(entry.isResolved ? StudioColors.successForeground : StudioColors.warningForeground)
             Text(entry.isResolved ? "Found" : "Missing")
-                .foregroundStyle(.primary)
+                .foregroundStyle(
+                    entry.isResolved ? Color.primary : StudioColors.warningOnFillForeground
+                )
         }
         .font(StudioTypography.monoMeta)
         .padding(.horizontal, StudioSpacing.contentInset)
