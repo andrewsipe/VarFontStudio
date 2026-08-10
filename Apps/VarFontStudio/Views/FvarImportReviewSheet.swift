@@ -126,9 +126,9 @@ struct FvarImportReviewSheet: View {
         if report.heldStopCandidates.isEmpty,
            report.compoundSuggestions.isEmpty,
            report.conflicts.isEmpty {
-            return "Named styles look thin or shared. Stops still seed — polish names later in the Axis Tree."
+            return "A few instance names look thin or repeated. That’s fine — stops will seed normally, and you can clean up names anytime in the Axis Tree."
         }
-        return "Seeding every fvar coordinate as a global stop would densify styles beyond what’s in the font. Accept the recommendations, or walk through each choice."
+        return "This font’s instances aren’t fully orthogonal, so adding every value as a stop on the axis would create more style combinations than the font actually has. Accept our recommendations to stay close to the original, or review each value yourself."
     }
 
     private var summarySection: some View {
@@ -155,6 +155,14 @@ struct FvarImportReviewSheet: View {
                 }
             }
 
+            // Already-happened seeding context first (separate from pending decisions below).
+            if let seededContext = alreadySeededContextText {
+                Text(seededContext)
+                    .font(StudioTypography.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
                 ForEach(summaryBullets, id: \.self) { bullet in
                     HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
@@ -170,24 +178,25 @@ struct FvarImportReviewSheet: View {
                 }
             }
 
-            if report.seededStopCount > 0 {
-                Text("Already seeded \(report.seededStopCount) safe stop\(report.seededStopCount == 1 ? "" : "s").")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.tertiary)
-            }
-
             if hasDecisionSections {
-                HStack(spacing: StudioSpacing.controlGap) {
-                    StudioFlatButton(title: "Accept recommendations", role: .primary, size: .compact) {
-                        acceptRecommendationsAndApply()
-                    }
-                    StudioFlatButton(
-                        title: reviewExpanded ? "Hide details" : "Review choices",
-                        size: .compact
-                    ) {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            reviewExpanded.toggle()
+                VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                    HStack(spacing: StudioSpacing.controlGap) {
+                        StudioFlatButton(title: "Accept recommendations", role: .primary, size: .compact) {
+                            acceptRecommendationsAndApply()
                         }
+                        StudioFlatButton(
+                            title: reviewExpanded ? "Hide details" : "Review choices",
+                            size: .compact
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                reviewExpanded.toggle()
+                            }
+                        }
+                    }
+                    if !report.compoundSuggestions.isEmpty {
+                        Text("Named combinations stay in the drawer either way — add them from there anytime.")
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.tertiary)
                     }
                 }
                 .padding(.top, StudioSpacing.tightGap)
@@ -196,6 +205,17 @@ struct FvarImportReviewSheet: View {
         .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.surface))
+    }
+
+    private var alreadySeededContextText: String? {
+        guard report.seededStopCount > 0 else { return nil }
+        let seeded =
+            "Already added \(report.seededStopCount) stop\(report.seededStopCount == 1 ? "" : "s") that were safe, unambiguous matches."
+        if let expansion = report.expansionCallouts.first, expansion.inventedCombinationCount > 0 {
+            let n = expansion.inventedCombinationCount
+            return "\(seeded) That alone created \(n) style combination\(n == 1 ? "" : "s") not in the original font — see “Consequence” below once you review stops."
+        }
+        return seeded
     }
 
     private func metricBlock(value: String, label: String) -> some View {
@@ -215,40 +235,45 @@ struct FvarImportReviewSheet: View {
         if comboOnlyCount > 0 {
             items.append(
                 comboOnlyCount == 1
-                    ? "One value only shows up inside multi-axis styles — keep it for named combinations."
-                    : "\(comboOnlyCount) values only show up inside multi-axis styles — keep them for named combinations."
+                    ? "One value only ever shows up paired with another axis — we’d keep it just for named combinations, not as its own style."
+                    : "\(comboOnlyCount) values only ever show up paired with another axis — we’d keep them for named combinations, not as their own styles."
             )
         }
-        if let expansion = report.expansionCallouts.first, expansion.inventedCombinationCount > 0 {
+        // Expansion from already-seeded stops lives in `alreadySeededContextText`.
+        // Keep a fallback bullet only when seeding count is zero but expansion still fires.
+        if report.seededStopCount == 0,
+           let expansion = report.expansionCallouts.first,
+           expansion.inventedCombinationCount > 0 {
+            let n = expansion.inventedCombinationCount
             items.append(
-                "Even with recommendations, \(expansion.inventedCombinationCount) style combination\(expansion.inventedCombinationCount == 1 ? "" : "s") aren’t in the original font (from stops already seeded)."
+                "Seeding already created \(n) style combination\(n == 1 ? "" : "s") that aren’t in the original font — see the consequence panel below."
             )
         }
         if !report.compoundSuggestions.isEmpty {
             let n = report.compoundSuggestions.count
             items.append(
                 n == 1
-                    ? "One named combination can be added as a Format 4 style, or left for the Combinations drawer."
-                    : "\(n) named combinations can be added as Format 4 styles, or left for the Combinations drawer."
+                    ? "We noticed one recurring name pairing two axis values — add it as its own named style now, or leave it for the Combinations drawer later."
+                    : "We noticed \(n) recurring name pairings — add them as named styles now, or leave them for the Combinations drawer later."
             )
         }
         if !report.conflicts.isEmpty {
             let n = report.conflicts.count
             items.append(
                 n == 1
-                    ? "One stop name disagrees between STAT and the font."
-                    : "\(n) stop names disagree between STAT and the font."
+                    ? "One stop has two different names — STAT and the font disagree."
+                    : "\(n) stops have conflicting names between STAT and the font."
             )
         }
         if let sparsity = report.namingSparsity, !sparsity.isEmpty {
             if sparsity.missingSubfamilyCount > 0 {
-                items.append("Some instances are missing subfamily names — stops may use values as labels.")
+                items.append("Some instances don’t have subfamily names, so their stops may just show a number until you name them.")
             } else if sparsity.sharedNameCollapseSize >= 2 {
-                items.append("Several locations share one instance name — rename later in the Axis Tree.")
+                items.append("A few axis positions currently share one instance name — you can tell them apart later in the Axis Tree.")
             }
         }
         if items.isEmpty, !report.reviewReason.isEmpty {
-            items.append(report.reviewReason)
+            items.append("This font needs a quick review before seeding — take a look below.")
         }
         return items
     }
@@ -258,7 +283,7 @@ struct FvarImportReviewSheet: View {
     private func sparsitySection(_ sparsity: FvarStopSeeder.NamingSparsityCallout) -> some View {
         reviewSection(
             title: "Instance names",
-            caption: "Stops still seed. Treat this as a polish reminder, not a blocker."
+            caption: "This won’t stop seeding — just a reminder to clean up names when you get a chance."
         ) {
             Text(sparsity.message)
                 .font(StudioTypography.body)
@@ -319,7 +344,7 @@ struct FvarImportReviewSheet: View {
     private var stopsSection: some View {
         reviewSection(
             title: "Stops to decide",
-            caption: "Choose how each held value should live in STAT. The consequence below updates as you choose."
+            caption: "Choose what happens with each value below. The panel at the bottom updates live as you pick."
         ) {
             ForEach(report.heldStopCandidates) { candidate in
                 let decision = stopDecisions[candidate.id] ?? candidate.recommendedDecision
@@ -375,22 +400,22 @@ struct FvarImportReviewSheet: View {
     private func classificationLabel(_ classification: FvarStopSeeder.StopClassification) -> String {
         switch classification {
         case .safeUnivariate:
-            return "Safe to promote as a global stop."
+            return "Safe to add — this won’t create any new combinations."
         case .comboOnly:
-            return "Recommended: keep for named combinations only — don’t multiply the style grid."
+            return "Recommended: only use this inside named combinations, not as its own style — adding it standalone multiplies your total style count."
         case .ambiguous:
-            return "Unclear attribution — review before promoting."
+            return "We’re not confident this maps to one clear style — worth a look before adding it."
         }
     }
 
     private func decisionOutcome(_ decision: FvarStopSeeder.StopDecision) -> String {
         switch decision {
         case .promote:
-            return "Adds a global Format 1 stop on this axis (multiplies the style grid)."
+            return "Adds this as a real stop on the axis — every existing style gets a version at this value too."
         case .comboOnly:
-            return "No Format 1 stop — value stays available for Format 4 / named combinations only."
+            return "No standalone stop added — this value stays available only inside named combinations."
         case .ignore:
-            return "Skip entirely — neither a Format 1 stop nor reserved for Format 4."
+            return "Skip it completely — it won’t be added anywhere."
         }
     }
 
@@ -423,7 +448,7 @@ struct FvarImportReviewSheet: View {
             Text(consequenceHeadline(callout, promotingHeld: promotingHeld))
                 .font(StudioTypography.bodyMedium)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Orthogonal STAT naming would compose these style names. They are not in the original font.")
+            Text("These names come from combining the axis values above — they don’t exist in the original font.")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -441,7 +466,7 @@ struct FvarImportReviewSheet: View {
                 }
             }
             if promotingHeld {
-                Text("Demote or ignore promoted stops above to shrink this list.")
+                Text("Want fewer invented combinations? Change a stop above from Promote to Combo only or Ignore.")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
             }
@@ -459,7 +484,7 @@ struct FvarImportReviewSheet: View {
     }
 
     private var expansionClearCallout: some View {
-        Text("With these choices, the custom-axis product stays within the styles present in the font.")
+        Text("Good — with these choices, you won’t end up with any styles beyond what’s already in the font.")
             .font(StudioTypography.caption)
             .foregroundStyle(.secondary)
             .padding(StudioSpacing.contentInset)
@@ -473,15 +498,15 @@ struct FvarImportReviewSheet: View {
     ) -> String {
         let n = callout.inventedCombinationCount
         if promotingHeld {
-            return "\(n) style combination\(n == 1 ? "" : "s") would be invented that aren’t in the original font."
+            return "Promoting this would create \(n) new style combination\(n == 1 ? "" : "s") that don’t exist in the original font."
         }
-        return "\(n) style combination\(n == 1 ? "" : "s") still aren’t in the original font — from stops already seeded."
+        return "\(n) style combination\(n == 1 ? "" : "s") already exist from the stops we auto-seeded — nothing above adds to that."
     }
 
     private var compoundsSection: some View {
         reviewSection(
             title: "Named combinations",
-            caption: "Optional Format 4 styles. Add now, or leave them for the Combinations drawer after Apply."
+            caption: "Optional — these are recurring name pairings we noticed across axes. Add them now, or handle them later from the Combinations drawer."
         ) {
             ForEach(report.compoundSuggestions) { suggestion in
                 let accepted = acceptedCompoundIDs.contains(suggestion.id)
@@ -491,7 +516,7 @@ struct FvarImportReviewSheet: View {
                         Text(suggestion.name)
                             .font(StudioTypography.bodyMedium)
                         Spacer(minLength: StudioSpacing.controlGap)
-                        Text("covers \(suggestion.coveredInstanceCount) style\(suggestion.coveredInstanceCount == 1 ? "" : "s")")
+                        Text("covers \(suggestion.coveredInstanceCount) of your original style\(suggestion.coveredInstanceCount == 1 ? "" : "s")")
                             .font(StudioTypography.caption)
                             .foregroundStyle(.secondary)
                     }
