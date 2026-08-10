@@ -98,6 +98,10 @@ extension EditorViewModel {
         issueResolvers.presentFvarStatConflicts(conflicts)
     }
 
+    func presentFvarImportReview(report: FvarStopSeeder.Report, fontID: String) {
+        issueResolvers.presentFvarImportReview(report: report, fontID: fontID)
+    }
+
     func dismissFvarStatConflictResolver() {
         issueResolvers.dismissFvarStatConflictResolver()
     }
@@ -107,6 +111,45 @@ extension EditorViewModel {
         andContinue: Bool = false
     ) {
         issueResolvers.applyFvarStatConflictResolution(resolution, andContinue: andContinue)
+    }
+
+    func applyFvarImportReview(_ decisions: FvarStopSeeder.ReviewDecisions) {
+        guard let session = issueResolvers.fvarImportReviewRequest,
+              var project,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == session.fontID })
+        else {
+            issueResolvers.dismissFvarImportReview()
+            return
+        }
+
+        pushUndoSnapshot()
+        let remaining = FvarStopSeeder.apply(
+            reviewDecisions: decisions,
+            report: session.report,
+            to: &project.fonts[fontIndex]
+        )
+        project.fonts[fontIndex].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+
+        // Replace this font's compound suggestions with unresolved leftovers.
+        compoundSuggestions.removeAll { $0.fontID == session.fontID }
+        compoundSuggestions.append(contentsOf: remaining)
+
+        regeneratePlan()
+        issueResolvers.dismissFvarImportReview()
+    }
+
+    func deferFvarImportReview() {
+        guard let session = issueResolvers.fvarImportReviewRequest else {
+            issueResolvers.dismissFvarImportReview()
+            return
+        }
+        // Park Format 4 suggestions; leave held stops unapplied for later Axis Tree / Combinations work.
+        compoundSuggestions.removeAll { $0.fontID == session.fontID }
+        compoundSuggestions.append(contentsOf: session.report.compoundSuggestions)
+        issueResolvers.dismissFvarImportReview()
     }
 
     // MARK: - Naming / compound helpers (remain on editor)

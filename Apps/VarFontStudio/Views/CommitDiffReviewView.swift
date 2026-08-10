@@ -158,14 +158,14 @@ struct CommitDiffReviewView: View {
                                     .foregroundStyle(.primary)
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 1)
-                                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 4))
+                                    .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
                             }
                         }
                         .padding(.horizontal, StudioSpacing.rowHorizontal)
                         .padding(.vertical, StudioSpace.x0_5)
                         .background(
                             StudioColors.registrationBackground,
-                            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                            in: RoundedRectangle.studio(StudioRadius.chip)
                         )
                     }
                 }
@@ -311,7 +311,7 @@ struct CommitDiffReviewView: View {
                 }
             }
             .padding(StudioSpace.x0_5)
-            .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
             .fixedSize()
         }
         .layoutPriority(1)
@@ -336,10 +336,10 @@ struct CommitDiffReviewView: View {
                 .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioSpacing.tightGap)
                 .background {
-                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                    RoundedRectangle.studio(StudioRadius.small)
                         .fill(isSelected ? StudioColors.brand.opacity(0.12) : Color.clear)
                 }
-                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.small))
+                .contentShape(RoundedRectangle.studio(StudioRadius.small))
         }
         .buttonStyle(.plain)
         .studioHoverFill(
@@ -475,7 +475,7 @@ struct CommitDiffReviewView: View {
 
     // MARK: - Cards
 
-    // Amber-filled banner — mirrors StudioConflictAlert / the Axis Tree plan-warnings band
+    // Yellow-filled banner — mirrors StudioConflictAlert / the Axis Tree plan-warnings band
     // so every "needs attention" notice reads the same across the app.
     @ViewBuilder
     private func warningsCard(_ warnings: [PlanWarning]) -> some View {
@@ -487,7 +487,7 @@ struct CommitDiffReviewView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        .background(StudioColors.warningFill, in: RoundedRectangle.studio(StudioRadius.surface))
     }
 
     @ViewBuilder
@@ -509,7 +509,7 @@ struct CommitDiffReviewView: View {
         }
         .padding(StudioSpacing.contentInset)
         .background(
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
+            RoundedRectangle.studio(StudioRadius.chip)
                 .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
         )
     }

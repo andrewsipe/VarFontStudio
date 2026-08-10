@@ -134,7 +134,7 @@ private struct InstancerWindowContent: View {
                 }
                 .padding(.horizontal, StudioSpace.x3)
                 .padding(.vertical, StudioSpace.x2)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+                .background(.ultraThinMaterial, in: RoundedRectangle.studio(StudioRadius.surface))
                 .padding(.bottom, StudioSpace.x6)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -205,7 +205,7 @@ private struct InstancerWindowContent: View {
                 .foregroundStyle(session.hasSource ? .primary : .tertiary)
                 .padding(.horizontal, StudioSpacing.pillHorizontalInset)
                 .padding(.vertical, StudioSpace.x0_5)
-                .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+                .background(StudioColors.surfaceLight, in: RoundedRectangle.studio(StudioRadius.control))
             if session.isLoading {
                 ProgressView()
                     .controlSize(.small)
@@ -221,7 +221,7 @@ private struct InstancerWindowContent: View {
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(
                         StudioColors.editedFill,
-                        in: RoundedRectangle(cornerRadius: 4)
+                        in: RoundedRectangle.studio(StudioRadius.chip)
                     )
             }
             if session.fontID != nil, session.projectID != nil {
@@ -275,11 +275,11 @@ private struct InstancerWindowContent: View {
                     }
                 }
                 .padding(StudioSpace.x2)
-                .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+                .background(StudioColors.warningFill, in: RoundedRectangle.studio(StudioRadius.surface))
             }
         }
         .padding(StudioSpace.x2)
-        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.surface))
     }
 
     private var composerFields: some View {
@@ -1110,12 +1110,12 @@ private struct InstancerFilterBadgeButton: View {
             .padding(.vertical, StudioSpacing.instanceRowVertical)
             .background {
                 if isolated {
-                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                    RoundedRectangle.studio(StudioRadius.small)
                         .fill(StudioColors.opaqueFill(accent, light: 0.16, dark: 0.16))
                 }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.small)
+                RoundedRectangle.studio(StudioRadius.small)
                     .strokeBorder(
                         isolated ? accent.opacity(0.45) : (dimmed ? Color.clear : StudioColors.selectionNeutralFillStrong),
                         lineWidth: isolated ? StudioStroke.regular : StudioStroke.hairline

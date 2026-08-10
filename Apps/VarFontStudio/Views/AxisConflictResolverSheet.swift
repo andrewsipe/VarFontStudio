@@ -347,7 +347,7 @@ struct AxisConflictResolverSheet: View {
                 }
             }
             .padding(.vertical, StudioSpace.x2)
-            .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
         }
     }
 
@@ -476,7 +476,7 @@ struct AxisConflictResolverSheet: View {
                     isHovered: isHovered
                 )
             }
-            .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+            .contentShape(RoundedRectangle.studio(StudioRadius.control))
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -512,7 +512,7 @@ struct AxisConflictResolverSheet: View {
                     isHovered: isHovered
                 )
             }
-            .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+            .contentShape(RoundedRectangle.studio(StudioRadius.control))
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -714,9 +714,9 @@ struct AxisConflictResolverSheet: View {
                     }
                 }
                 .padding(.vertical, StudioSpace.x2)
-                .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
                 .overlay {
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    RoundedRectangle.studio(StudioRadius.chip)
                         .strokeBorder(
                             resolvesConflict ? StudioColors.successStroke : StudioColors.warningStroke,
                             lineWidth: StudioStroke.hairline
@@ -766,7 +766,7 @@ struct AxisConflictResolverSheet: View {
         .opacity(outcome.isRemoved ? 0.55 : 1)
         .overlay(alignment: .leading) {
             if outcome.isTarget {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle.studio(StudioRadius.hairline)
                     .fill(StudioColors.brand)
                     .frame(width: 3)
                     .padding(.vertical, StudioSpacing.tightGap)

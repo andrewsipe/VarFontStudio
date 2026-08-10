@@ -23,7 +23,7 @@ struct ProjectTargetPickerSheet: View {
                     .foregroundStyle(.secondary)
                     .padding(StudioSpacing.contentInset)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                    .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
             } else {
                 VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                     Text("Project")
@@ -39,7 +39,7 @@ struct ProjectTargetPickerSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(StudioSpacing.contentInset)
-                .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
             }
 
             HStack(spacing: StudioSpacing.controlGap) {

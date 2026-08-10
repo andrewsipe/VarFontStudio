@@ -137,8 +137,8 @@ enum StudioDragOutline {
     /// Axis Tree headers need a wider horizontal breath than vertical.
     static let axisTreeOutsetHorizontal: CGFloat = StudioSpace.x2 // 8
     static let axisTreeOutsetVertical: CGFloat = outset // 4
-    /// Shared corner for hover / ghost / placeholder / drop-gap rings.
-    static let cornerRadius: CGFloat = 6
+    /// Matches the control nest anchor (buttons / fields).
+    static let cornerRadius: CGFloat = StudioRadius.control
 
     /// Expanded dashed ring (hover affordance, source placeholder, floating ghost).
     static func expandedRing(
@@ -147,7 +147,7 @@ enum StudioDragOutline {
         horizontalOutset: CGFloat = outset,
         verticalOutset: CGFloat = outset
     ) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
+        RoundedRectangle.studio(cornerRadius)
             .strokeBorder(
                 color,
                 style: StrokeStyle(lineWidth: lineWidth, dash: StudioStroke.dragDash)
@@ -171,13 +171,28 @@ enum StudioDragOutline {
     }
 }
 
+/// Concentric corner scale. Nesting rule: outer ≈ inner + the padding at that boundary.
+/// Anchor at `control` (buttons/fields); derive larger tokens for padded cards / panels.
 enum StudioRadius {
-    static let row: CGFloat = StudioSpace.x1_5
-    static let chip: CGFloat = StudioSpace.x1
-    /// Off-lattice (5pt) — control corner; leave alone.
-    static let control: CGFloat = 5
-    /// Off-lattice (3pt) — compact corner; leave alone.
+    /// Hairline gutter stripes / checkbox ticks — not part of the nest ladder.
+    static let hairline: CGFloat = StudioSpace.x0_5 // 2
+    /// Micro marks / compact segment corners (off-lattice).
     static let small: CGFloat = 3
+    /// Pills, badges, naming chips.
+    static let chip: CGFloat = StudioSpace.x1 // 4
+    /// Buttons, fields, drag rings — nest anchor.
+    static let control: CGFloat = StudioSpace.x1_5 // 6
+    /// Padded inset cards / warning banners (≈ control + typical content padding).
+    static let surface: CGFloat = StudioSpace.x2_5 // 10
+    /// Sheet / large panel chrome nesting a surface-level card.
+    static let panel: CGFloat = StudioSpace.x4 // 16
+}
+
+extension RoundedRectangle {
+    /// Studio default curve — continuous (squircle), matching system chrome.
+    static func studio(_ radius: CGFloat) -> RoundedRectangle {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+    }
 }
 
 /// Fixed control metrics so display ↔ edit transitions do not shift layout.
@@ -450,11 +465,11 @@ private enum StudioIconForeground {
 //    panel chrome (`surface*`, field fills) stays translucent/adaptive.
 // 3. Links — `.accent` idle `.primary`, brand on hover/press.
 // 4. Instancer — `StudioSemanticLeadingStripe`, not gradient fade.
-// 5. Tokens — `diffProtected` slate; `diffRenamed` yellow; STAT purple ramp.
+// 5. Tokens — `diffProtected` slate; `diffRenamed` orange; STAT rose ramp.
 //
 // ## Token audit rule
 // Same hue = same meaning everywhere, or split the token. Category labels must not
-// borrow status hues (success green, edited cyan, brand, warning amber marks /
+// borrow status hues (success green, edited teal, brand, warning amber marks /
 // yellow containers).
 //
 private enum StudioPrimaryWash {
@@ -566,7 +581,7 @@ enum StudioColors {
     /// Light/dark both `600` so white button labels clear ~5:1 AA.
     static let brand = StudioPalette.color(.blue, light: .s600, dark: .s600)
     /// Soft brand wash — selected rows, selected segments, brand chips (`fvar` pill),
-    /// Inspector composed-name header. Light `200` so the wash reads on white chrome;
+    /// Inspector composed-name header. Light `300` so the wash reads on white chrome;
     /// dark `950` matches the deep navy used with the brand leading stripe (not `900`,
     /// which sat too close to `brand` and killed segment label contrast).
     static let selectionFill = StudioPalette.color(.blue, light: .s300, dark: .s950)
@@ -626,18 +641,18 @@ enum StudioColors {
     /// Soft wash on paper canvas / status (always light blue-100 — never dark-mode
     /// `selectionFillSoft`, which goes navy and fails ink contrast on the paper strip).
     static let canvasHoverFill = StudioPalette.color(.blue, step: .s100)
-    /// Peek-mode pill label on `canvasHoverFill` — blue-700 clears ~5.6:1 on blue-100.
+    /// Peek-mode pill label on `canvasHoverFill` — blue-800 clears strongly on blue-100.
     static let canvasPeekForeground = StudioPalette.color(.blue, step: .s800)
 
     // MARK: Semantic marks — status (warning / success / error)
     //
     // Warning chrome splits two Tailwind families so marks stay prominent on the fill:
-    //   **yellow** — conflict/issue containers (banner body, summary strip, row wash)
-    //   **amber**  — warning triangles, strokes, Review CTA chips
+    //   **yellow** — conflict/issue containers AND Review CTA chip fills
+    //   **amber**  — warning triangles / strokes (marks only)
     // Hierarchy:
     //   warningFillStrong  — summary header strip (“N issues to review”)
     //   warningFill        — detail body / standalone banners
-    //   warningFillHover   — amber CTA chips (not yellow — must clear the container)
+    //   warningFillHover   — yellow CTA chips on yellow containers
 
     /// Soft yellow conflict-container wash (Issues detail body, alerts, row tint).
     /// Light: 200 (up from pale 100). Dark: mid gold 500 — not 700–900 (those read
@@ -646,12 +661,11 @@ enum StudioColors {
     /// Deeper yellow for the Issues-band summary strip — separates “N issues” from
     /// the specific warning rows below without a second card.
     static let warningFillStrong = StudioPalette.color(.yellow, light: .s300, dark: .s400)
-    /// Amber CTA chip on yellow (or neutral) chrome — Review / Resolve buttons.
-    /// Light: one step down from 400 so amber doesn’t overpower the wash. Dark: 300
-    /// so the chip stays lighter than the gold fill and still reads amber.
+    /// Yellow CTA chip on yellow (or neutral) chrome — Review / Resolve buttons.
+    /// Light/dark steps sit above the container wash so the chip still reads as a control.
     static let warningFillHover = StudioPalette.color(.yellow, light: .s400, dark: .s500)
     /// Label on warning CTA chips. Dark ink — system `.primary` (white in dark mode)
-    /// fails AA on bright amber CTAs; ink holds 5:1+ in both appearances.
+    /// fails AA on bright yellow CTAs; ink holds 5:1+ in both appearances.
     static let warningButtonForeground = StudioPalette.color(.stone, light: .s900, dark: .s950)
     /// Body / caption text sitting on `warningFill` / `warningFillStrong`. Same ink as
     /// CTA labels — white `.primary` fails on mid yellows in dark mode.
@@ -690,22 +704,23 @@ enum StudioColors {
     static let collisionFill = StudioOpaqueFill.make(name: "collisionFill", hue: collisionForeground, light: 0.24, dark: 0.24)
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
-    /// Indigo family (kept far from cyan `editedForeground` and brand blue).
+    /// Indigo family (kept far from teal `editedForeground` and brand blue).
     static let customForeground = StudioPalette.color(.indigo, light: .s500, dark: .s300)
     static let customFill = StudioOpaqueFill.make(name: "customFill", hue: customForeground, light: 0.24, dark: 0.24)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
-    /// Cyan family — do not reuse for pending export (see `pendingForeground`).
+    /// Teal family — do not reuse for pending export (see `pendingForeground`).
     static let editedForeground = StudioPalette.color(.teal, light: .s600, dark: .s300)
     static let editedFill = StudioOpaqueFill.make(name: "editedFill", hue: editedForeground, light: 0.24, dark: 0.24)
     /// Mark hue — pending export (Instances badge / filter). Emerald, unclaimed by
-    /// edited-cyan / success-green / code teal — so pending and edited can co-occur.
+    /// edited-teal / success-green / code teal — so pending and edited can co-occur.
+    /// Code uses a darker teal step (`codeForeground`) to stay distinct from edited.
     static let pendingForeground = StudioPalette.color(.emerald, light: .s600, dark: .s300)
     static let pendingFill = StudioOpaqueFill.make(name: "pendingFill", hue: pendingForeground, light: 0.24, dark: 0.24)
 
     // MARK: Semantic marks — Save Review diff
     //
     // Diff accents bind to Tailwind families. `diffProtected` stays system gray (neutral
-    // slate). Renamed uses yellow (informational), not warning amber.
+    // slate). Renamed uses orange (informational); yellow is reserved for warning containers.
 
     static let diffRemoved = StudioPalette.color(.red, light: .s500, dark: .s300)
     /// Green family — distinct from `codeForeground` (teal) and `pendingForeground` (emerald).
@@ -765,7 +780,7 @@ enum StudioColors {
     static let registrationForeground = StudioPalette.color(.fuchsia, light: .s600, dark: .s500)
     static let registrationBackground = StudioOpaqueFill.make(name: "registrationBackground", hue: registrationForeground, light: 0.22, dark: 0.22)
     static let registrationStroke = registrationForeground.opacity(0.40)
-    /// Legacy clarifier alias — same sky as registration.
+    /// Legacy clarifier alias — same fuchsia as registration.
     static let clarifierForeground = registrationForeground
     static let clarifierBackground = registrationBackground
     static let clarifierStroke = registrationStroke
@@ -777,14 +792,28 @@ enum StudioColors {
 
     // MARK: Semantic marks — STAT format badges
 
-    /// Purple tonal ramp — primary / secondary / tertiary within one family
-    /// (F1 common → richest legible; F3 sparse → lightest legible).
-    static let statFormat1 = StudioPalette.color(.rose, light: .s700, dark: .s400)
-    static let statFormat2 = StudioPalette.color(.rose, light: .s600, dark: .s300)
-    static let statFormat3 = StudioPalette.color(.rose, light: .s500, dark: .s200)
+    /// Rose tonal ramp — primary → tertiary within one family
+    /// (F1 common → richest legible; F4 combinations → lightest legible).
+    static let statFormat1 = StudioPalette.color(.rose, step: .s600)
+    static let statFormat2 = StudioPalette.color(.rose, step: .s500)
+    static let statFormat3 = StudioPalette.color(.rose, step: .s400)
+    /// Format 4 (multi-axis combination) — lightest step on the STAT rose ramp.
+    static let statFormat4 = StudioPalette.color(.rose, step: .s300)
+    /// Soft rose wash for Format 4 chrome (combination drawer suggestion pill, etc.).
+    static let statFormat4Background = StudioOpaqueFill.make(
+        name: "statFormat4Background",
+        hue: statFormat1,
+        light: 0.16,
+        dark: 0.16
+    )
     /// Baked badge fill for the `statFormat1` compound-name capsule — opaque composite,
     /// not `statFormat1.opacity()`.
-    static let statFormat1Background = StudioOpaqueFill.make(name: "statFormat1Background", hue: statFormat1, light: 0.16, dark: 0.16)
+    static let statFormat1Background = StudioOpaqueFill.make(
+        name: "statFormat1Background",
+        hue: statFormat1,
+        light: 0.16,
+        dark: 0.16
+    )
 
     // MARK: Drag & drop zones
 
@@ -883,6 +912,7 @@ struct StudioStatFormatBadge: View {
         switch format {
         case 2: StudioColors.statFormat2
         case 3: StudioColors.statFormat3
+        case 4: StudioColors.statFormat4
         default: StudioColors.statFormat1
         }
     }
@@ -894,7 +924,7 @@ struct StudioStatFormatBadge: View {
                     badgeLabel
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: 4))
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.chip))
                 .help("Change STAT format")
             } else {
                 badgeLabel
@@ -919,10 +949,10 @@ struct StudioStatFormatBadge: View {
             .foregroundStyle(isDark ? StudioPalette.color(.ink, step: .s800) : markColor)
             .studioChipBackground(
                 markColor.opacity(isDark ? 0.92 : 0.20),
-                cornerRadius: 4
+                cornerRadius: StudioRadius.chip
             )
             .overlay {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(markColor.opacity(isDark ? 1.0 : 0.45), lineWidth: 0.5)
             }
     }
@@ -956,8 +986,8 @@ struct StudioClarifierPill: View {
 // MARK: - Pills & badges
 //
 // Compact badges are marks: hue on `background` / `border`; label uses `.primary`.
-// Exception: `StudioStatFormatBadge` colors its label too — with only 3 short-lived
-// glyphs ("F1"/"F2"/"F3") shown side-by-side and no icon to anchor on, a neutral label
+// Exception: `StudioStatFormatBadge` colors its label too — with only short-lived
+// glyphs ("F1"…"F4") shown side-by-side and no icon to anchor on, a neutral label
 // left the badges distinguishable only by reading text, not by glancing at hue.
 
 /// Capsule pill with semantic diff colors — Save Review section counts.
@@ -1104,7 +1134,7 @@ struct StudioFlagLabel: View {
 /// **Fixed width:** When `fixedWidth` is set, digits scale down before truncating so trailing
 /// header clusters stay aligned. The axis-tree slot is 32pt (fits 1–3 digit counts at `meta`).
 /// Use 36pt+ for 4-digit totals. Trailing cluster today: optional Resolve button, count badge,
-/// instance-axis toggle — not the legacy "Pinned" label (replaced by the switch).
+/// Pin compact toggle — not the legacy switch / "Pinned" label.
 struct StudioCountBadge: View {
     let text: String
     var highlighted: Bool = true
@@ -1161,7 +1191,8 @@ struct StudioNestedDisclosureChevron: View {
 typealias StudioSquareDisclosureChevron = StudioNestedDisclosureChevron
 
 /// Mutually exclusive elision control for axis stops (one elidable stop per axis).
-/// Use `StudioElidableSwitch` only where each row can elide independently (e.g. combination styles).
+/// Also used for combination-style Elided (independent per compound; same mark language).
+/// Prefer this over `StudioElidableSwitch` so Elided chrome matches the Axis Tree.
 struct StudioElidableRadio: View {
     let isOn: Bool
     var helpText: String? = nil
@@ -1199,7 +1230,8 @@ struct StudioElidableRadio: View {
     }
 }
 
-/// Independent on/off elision for rows that are not mutually exclusive (combination styles).
+/// Independent on/off elision switch — prefer `StudioElidableRadio` for Axis Tree /
+/// combination Elided so the mark matches. Kept for rare cases that need a true switch.
 struct StudioElidableSwitch: View {
     @Binding var isOn: Bool
     var helpText: String = "Omit this name from the composed style when it is the default choice"
@@ -1263,9 +1295,9 @@ struct StudioMetricCard: View {
         .frame(minWidth: minWidth, maxWidth: fillsWidth ? .infinity : nil)
         .padding(.horizontal, prominent ? 6 : 12)
         .padding(.vertical, prominent ? 10 : 8)
-        .background(StudioColors.surfaceLight, in: RoundedRectangle(cornerRadius: 6))
+        .background(StudioColors.surfaceLight, in: RoundedRectangle.studio(StudioRadius.control))
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle.studio(StudioRadius.control)
                 .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
         )
     }
@@ -1416,7 +1448,7 @@ struct StudioIncludeCheckbox: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                RoundedRectangle(cornerRadius: StudioRadius.small)
+                RoundedRectangle.studio(StudioRadius.small)
                     .strokeBorder(
                         isOn || isIndeterminate
                             ? StudioColors.brand.opacity(0.55)
@@ -1425,7 +1457,7 @@ struct StudioIncludeCheckbox: View {
                     )
                     .frame(width: Self.size, height: Self.size)
                 if isIndeterminate {
-                    RoundedRectangle(cornerRadius: 2)
+                    RoundedRectangle.studio(StudioRadius.hairline)
                         .fill(Color.secondary.opacity(0.6))
                         .frame(width: 6, height: 1.5)
                 } else if isOn {
@@ -1676,7 +1708,7 @@ struct StudioTextField: View {
         .frame(height: rowHeight, alignment: .center)
         .background {
             if showsFieldChrome {
-                RoundedRectangle(cornerRadius: StudioRadius.control)
+                RoundedRectangle.studio(StudioRadius.control)
                     .fill(fieldBackground)
             }
         }
@@ -1741,7 +1773,7 @@ struct StudioWrappingTextField: View {
         .padding(.vertical, verticalPadding)
         .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
+            RoundedRectangle.studio(StudioRadius.control)
                 .fill(StudioColors.fieldFillFocused)
         }
         .modifier(StudioFocusRingSuppression())
@@ -1796,7 +1828,7 @@ struct StudioSearchField: View {
         .frame(height: StudioFieldMetrics.captionRowHeight + 8)
         .background(
             isFieldFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill,
-            in: RoundedRectangle(cornerRadius: StudioRadius.control)
+            in: RoundedRectangle.studio(StudioRadius.control)
         )
     }
 }
@@ -1827,7 +1859,7 @@ struct StudioNumberField: View {
         .padding(.horizontal, StudioFieldMetrics.horizontalPadding)
         .frame(height: rowHeight, alignment: .center)
         .background {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
+            RoundedRectangle.studio(StudioRadius.control)
                 .fill(isFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill)
         }
         .focused($isFocused)
@@ -1859,7 +1891,7 @@ struct StudioBoundNumberField: View {
             .padding(.horizontal, StudioFieldMetrics.horizontalPadding)
             .frame(height: rowHeight, alignment: .center)
             .background {
-                RoundedRectangle(cornerRadius: StudioRadius.control)
+                RoundedRectangle.studio(StudioRadius.control)
                     .fill(isFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill)
             }
             .focused($isFocused)
@@ -1952,11 +1984,11 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
                         }
                     }
             case .roundedRect:
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .fill(chipFill)
                     .overlay {
                         if isHighlighted {
-                            RoundedRectangle(cornerRadius: StudioRadius.chip)
+                            RoundedRectangle.studio(StudioRadius.chip)
                                 .strokeBorder(StudioColors.selectionStroke, lineWidth: 0.5)
                         }
                     }
@@ -1986,7 +2018,7 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
             Capsule()
                 .fill(dropTargetTint.opacity(StudioColors.dropZoneFillOpacity))
         case .roundedRect:
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
+            RoundedRectangle.studio(StudioRadius.chip)
                 .fill(dropTargetTint.opacity(StudioColors.dropZoneFillOpacity))
         }
     }
@@ -2037,7 +2069,7 @@ struct StudioFieldLabel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 if showsFieldChrome {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                    RoundedRectangle.studio(StudioRadius.control)
                         .fill(StudioColors.fieldFill)
                 }
             }
@@ -2279,7 +2311,7 @@ extension View {
             .frame(height: isActive ? rowHeight : nil, alignment: .center)
             .background {
                 if isActive {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                    RoundedRectangle.studio(StudioRadius.control)
                         .fill(isFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill)
                 }
             }
@@ -2291,7 +2323,7 @@ extension View {
 
 enum StudioHoverShape: Equatable {
     case rect
-    case roundedRect(cornerRadius: CGFloat = StudioRadius.row)
+    case roundedRect(cornerRadius: CGFloat = StudioRadius.control)
     case capsule
     case circle
 }
@@ -2321,7 +2353,7 @@ private struct StudioHoverFillModifier: ViewModifier {
         case .rect:
             Rectangle().fill(fill)
         case .roundedRect(let radius):
-            RoundedRectangle(cornerRadius: radius).fill(fill)
+            RoundedRectangle.studio(radius).fill(fill)
         case .capsule:
             Capsule().fill(fill)
         case .circle:
@@ -2956,14 +2988,14 @@ struct StudioMenuPicker<Value: Hashable>: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 4)
-                        .background(StudioColors.brand, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                        .background(StudioColors.brand, in: RoundedRectangle.studio(StudioRadius.small))
                 }
                 .padding(.leading, StudioSpacing.contentInset)
                 .padding(.trailing, StudioSpace.x1)
                 .padding(.vertical, StudioSpace.x1_5)
                 .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.bodyRowHeight, alignment: .leading)
-                .background(StudioColors.buttonSecondaryFill, in: RoundedRectangle(cornerRadius: StudioRadius.control))
-                .contentShape(RoundedRectangle(cornerRadius: StudioRadius.control))
+                .background(StudioColors.buttonSecondaryFill, in: RoundedRectangle.studio(StudioRadius.control))
+                .contentShape(RoundedRectangle.studio(StudioRadius.control))
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -3162,11 +3194,11 @@ struct StudioCompactToggleButton: View {
             .frame(height: StudioCompactControlChrome.controlHeight)
             .background(
                 StudioCompactControlChrome.fill(isActive: isActive, accentFill: accent?.fill),
-                in: RoundedRectangle(cornerRadius: StudioCompactControlChrome.cornerRadius)
+                in: RoundedRectangle.studio(StudioCompactControlChrome.cornerRadius)
             )
             .overlay {
                 if isActive, let stroke = accent?.stroke {
-                    RoundedRectangle(cornerRadius: StudioCompactControlChrome.cornerRadius)
+                    RoundedRectangle.studio(StudioCompactControlChrome.cornerRadius)
                         .strokeBorder(stroke, lineWidth: StudioStroke.regular)
                 }
             }
@@ -3186,7 +3218,7 @@ struct StudioCompactToggleButton: View {
     private var includeMark: some View {
         let size = StudioCompactControlChrome.checkboxSize
         return ZStack {
-            RoundedRectangle(cornerRadius: StudioRadius.small)
+            RoundedRectangle.studio(StudioRadius.small)
                 .strokeBorder(
                     checkboxOn || checkboxIndeterminate
                         ? StudioColors.brand.opacity(0.55)
@@ -3195,7 +3227,7 @@ struct StudioCompactToggleButton: View {
                 )
                 .frame(width: size, height: size)
             if checkboxIndeterminate {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle.studio(StudioRadius.hairline)
                     .fill(Color.secondary.opacity(0.6))
                     .frame(width: 5, height: 1.5)
             } else if checkboxOn {
@@ -3361,15 +3393,15 @@ struct StudioFlatButtonStyle: ButtonStyle {
             .padding(.vertical, StudioFlatButtonChrome.verticalPadding(size: size))
             .background(
                 StudioFlatButtonChrome.fill(role: role, isEnabled: isEnabled),
-                in: RoundedRectangle(cornerRadius: StudioRadius.control)
+                in: RoundedRectangle.studio(StudioRadius.control)
             )
             .overlay {
                 if overlayOpacity > 0 {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                    RoundedRectangle.studio(StudioRadius.control)
                         .fill(Color.primary.opacity(overlayOpacity))
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: StudioRadius.control))
+            .contentShape(RoundedRectangle.studio(StudioRadius.control))
             .onHover { isHovered = $0 }
     }
 }
@@ -3418,7 +3450,7 @@ struct StudioSegmentButtonStyle: ButtonStyle {
     @State private var isHovered = false
 
     private var cornerRadius: CGFloat {
-        expands ? StudioRadius.row : StudioRadius.small
+        expands ? StudioRadius.control : StudioRadius.small
     }
 
     func makeBody(configuration: Configuration) -> some View {
@@ -3428,10 +3460,10 @@ struct StudioSegmentButtonStyle: ButtonStyle {
         )
         configuration.label
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius)
+                RoundedRectangle.studio(cornerRadius)
                     .fill(segmentBackground(state: state))
             }
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .contentShape(RoundedRectangle.studio(cornerRadius))
             .onHover { isHovered = $0 }
     }
 
@@ -3585,7 +3617,7 @@ struct StudioRowBackground: View {
     var selectionStyle: StudioRowSelectionStyle = .fillOnly
 
     var body: some View {
-        RoundedRectangle(cornerRadius: StudioRadius.row)
+        RoundedRectangle.studio(StudioRadius.control)
             .fill(StudioRowChrome.fill(
                 isSelected: isSelected,
                 isHovered: isHovered,
@@ -3593,7 +3625,7 @@ struct StudioRowBackground: View {
             ))
             .overlay {
                 if isSelected && selectionStyle == .fillAndStroke && !isWarning {
-                    RoundedRectangle(cornerRadius: StudioRadius.row)
+                    RoundedRectangle.studio(StudioRadius.control)
                         .strokeBorder(StudioColors.selectionStroke, lineWidth: 0.5)
                 }
             }
@@ -3620,10 +3652,10 @@ extension View {
         cornerRadius: CGFloat = StudioRadius.small
     ) -> some View {
         background {
-            RoundedRectangle(cornerRadius: cornerRadius)
+            RoundedRectangle.studio(cornerRadius)
                 .fill(StudioColors.chipSurface)
                 .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius)
+                    RoundedRectangle.studio(cornerRadius)
                         .fill(wash)
                 }
         }
@@ -3715,7 +3747,7 @@ struct StudioConflictAlert: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        .background(StudioColors.warningFill, in: RoundedRectangle.studio(StudioRadius.surface))
     }
 }
 

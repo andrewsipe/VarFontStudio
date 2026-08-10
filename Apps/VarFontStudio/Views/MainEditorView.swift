@@ -102,6 +102,11 @@ struct MainEditorView: View {
                 .id("\(session.id)-\(conflict.id)")
             }
         }
+        .sheet(item: fvarImportReviewBinding) { session in
+            FvarImportReviewSheet(session: session)
+                .environmentObject(editor)
+                .id(session.id)
+        }
         .background(AuxiliaryWindowOpenBridge())
         .sheet(isPresented: commitDiffSheetBinding) {
             if let projectID = editor.activeProjectID,
@@ -336,6 +341,13 @@ struct MainEditorView: View {
         )
     }
 
+    private var fvarImportReviewBinding: Binding<FvarImportReviewSession?> {
+        Binding(
+            get: { editor.issueResolvers.fvarImportReviewRequest },
+            set: { editor.issueResolvers.fvarImportReviewRequest = $0 }
+        )
+    }
+
     private var commitDiffSheetBinding: Binding<Bool> {
         Binding(
             get: { editor.saveReview.presentCommitDiffSheet },
@@ -408,7 +420,7 @@ struct MainEditorView: View {
                 }
                 .padding(StudioSpacing.contentInset)
                 .background(
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    RoundedRectangle.studio(StudioRadius.chip)
                         .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
                 )
                 .padding(.horizontal, StudioSpacing.contentInset)
@@ -610,7 +622,7 @@ struct MainEditorView: View {
             }
             .padding(.horizontal, StudioSpace.x4)
             .padding(.vertical, StudioSpace.x3)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+            .background(.ultraThinMaterial, in: RoundedRectangle.studio(StudioRadius.surface))
             .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.top, StudioSpace.x4)
             .transition(.move(edge: .top).combined(with: .opacity))
@@ -630,7 +642,7 @@ struct MainEditorView: View {
             }
             .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioSpacing.contentInset)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+            .background(.regularMaterial, in: RoundedRectangle.studio(StudioRadius.surface))
         }
         .transition(.opacity)
         .allowsHitTesting(false)

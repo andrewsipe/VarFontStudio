@@ -133,7 +133,7 @@ struct PlanIssueResolverSheet: View {
         .padding(StudioSpacing.contentInset)
         .background(
             fixSelection == .interactiveFill ? StudioColors.surfaceMuted : Color.clear,
-            in: RoundedRectangle(cornerRadius: StudioRadius.row)
+            in: RoundedRectangle.studio(StudioRadius.control)
         )
     }
 

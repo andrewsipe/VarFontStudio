@@ -55,6 +55,7 @@ final class IssueResolverStore: ObservableObject {
     @Published var conflictResolverRequest: AxisConflictResolverSession?
     @Published var planIssueResolverRequest: PlanIssueResolverSession?
     @Published var fvarStatConflictRequest: FvarStatConflictSession?
+    @Published var fvarImportReviewRequest: FvarImportReviewSession?
 
     private(set) var reviewSession: AxisTreeReviewSession?
 
@@ -107,6 +108,11 @@ final class IssueResolverStore: ObservableObject {
         fvarStatConflictRequest = FvarStatConflictSession(conflicts: conflicts, index: 0)
     }
 
+    func presentFvarImportReview(report: FvarStopSeeder.Report, fontID: String) {
+        guard report.needsReview else { return }
+        fvarImportReviewRequest = FvarImportReviewSession(report: report, fontID: fontID)
+    }
+
     func dismissConflictResolver(clearReviewSession: Bool) {
         conflictResolverRequest = nil
         if clearReviewSession {
@@ -125,10 +131,15 @@ final class IssueResolverStore: ObservableObject {
         fvarStatConflictRequest = nil
     }
 
+    func dismissFvarImportReview() {
+        fvarImportReviewRequest = nil
+    }
+
     func clearBothResolvers() {
         planIssueResolverRequest = nil
         conflictResolverRequest = nil
         fvarStatConflictRequest = nil
+        fvarImportReviewRequest = nil
     }
 
     func clearBothResolversAndReviewSession() {

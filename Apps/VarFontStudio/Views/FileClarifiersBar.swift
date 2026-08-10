@@ -57,7 +57,7 @@ struct FileClarifierFields: View {
             .help(psPrefixHelp(for: fontID))
             .background {
                 if highlightPostScriptPrefix {
-                    RoundedRectangle(cornerRadius: StudioRadius.control)
+                    RoundedRectangle.studio(StudioRadius.control)
                         .fill(StudioColors.selectionFill)
                 }
             }

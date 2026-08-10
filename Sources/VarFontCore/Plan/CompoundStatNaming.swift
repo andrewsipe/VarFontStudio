@@ -2,6 +2,12 @@ import Foundation
 
 /// Format 4 compound matching and emit placement (OpenType / fontTools-aligned).
 public enum CompoundStatNaming {
+    /// Axes that normally carry their own Format 1 names — omit from Format 4 legs
+    /// in suggestions and the combination builder (weight especially should not participate).
+    public static let standaloneNamingTags: Set<String> = [
+        "wght", "wdth", "opsz", "ital", "slnt", "GRAD",
+    ]
+
     /// Non-overlapping matches, most-specific (most legs) first.
     public static func selectedMatches(
         compounds: [CompoundStatValue],

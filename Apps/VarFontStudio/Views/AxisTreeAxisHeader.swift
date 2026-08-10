@@ -95,7 +95,7 @@ struct AxisTreeAxisHeader: View {
                     .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
                     .background(Color.secondary.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .clipShape(RoundedRectangle.studio(StudioRadius.chip))
                     .help("Hide this axis from user-facing controls (fvar HIDDEN_AXIS flag).")
             }
 
@@ -195,18 +195,17 @@ struct AxisTreeAxisHeader: View {
                     .fixedSize(horizontal: true, vertical: false)
 
                 if lane != .registration {
-                    Toggle("Instance axis", isOn: $isInstanceAxis)
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .labelsHidden()
-                        .studioBrandTint()
-                        .help(
-                            "When on, stops on this axis generate named instances. "
-                                + "When off, the axis stays at its default for every instance. "
-                                + "Naming axes never use this toggle."
-                        )
-                        .accessibilityLabel("Instance axis")
-                        .studioInteractiveCursor()
+                    StudioCompactToggleButton(
+                        title: "Pin",
+                        isActive: !isInstanceAxis,
+                        help: isInstanceAxis
+                            ? "Pin this axis at its default for every instance. Stops leave the instance grid."
+                            : "Unpin so stops on this axis generate named instances again."
+                    ) {
+                        isInstanceAxis.toggle()
+                    }
+                    .accessibilityLabel(isInstanceAxis ? "Pin axis" : "Unpin axis")
+                    .studioInteractiveCursor()
                 }
             }
             .fixedSize(horizontal: true, vertical: false)

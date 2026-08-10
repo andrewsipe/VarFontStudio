@@ -93,6 +93,6 @@ struct InspectorColumn: View {
             }
         }
         .padding(StudioSpace.x0_5)
-        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
     }
 }

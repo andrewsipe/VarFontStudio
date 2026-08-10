@@ -1,17 +1,12 @@
 import SwiftUI
 import VarFontCore
 
-/// Axes that usually carry their own Format 1 names — prefer other axes for Format 4 legs.
-private let preferredStandaloneNamingTags: Set<String> = [
-    "wght", "wdth", "opsz", "ital", "slnt", "GRAD",
-]
-
 enum CombinationStyleDefaults {
     /// Prefer custom / secondary axes for Format 4 legs; avoid weight as a default participant.
     static func suggestedAxisPair(from axes: [AxisDefinition]) -> (AxisDefinition, AxisDefinition)? {
         let instance = axes.filter { $0.role == .instance && $0.hasFvarScale }
         guard instance.count >= 2 else { return nil }
-        let preferred = instance.filter { !preferredStandaloneNamingTags.contains($0.tag) }
+        let preferred = instance.filter { !CompoundStatNaming.standaloneNamingTags.contains($0.tag) }
         if preferred.count >= 2 {
             return (preferred[0], preferred[1])
         }
@@ -46,13 +41,21 @@ struct CombinationStylesSection: View {
     let axes: [AxisDefinition]
 
     @State private var isBuilderOpen = false
-    @State private var pickedTags: [String] = []
-    @State private var pickedStops: [String: AxisValue] = [:]
+    @State private var builderLegs: [BuilderLeg] = []
+    @State private var chainLocked = false
     @State private var nameText = ""
     @State private var nameEdited = false
     @State private var expandedCompoundID: String?
     @State private var openPicker: LegPicker?
     @State private var hoveredCompoundID: String?
+    /// Draft custom value while editing an existing compound leg.
+    @State private var editCustomDraft: Double = 0
+
+    private struct BuilderLeg: Identifiable, Equatable {
+        var id: UUID = UUID()
+        var tag: String
+        var value: Double
+    }
 
     private struct LegPicker: Equatable {
         enum Kind: Equatable {
@@ -83,13 +86,30 @@ struct CombinationStylesSection: View {
     }
 
     private var builderCoords: [String: Double] {
-        Dictionary(uniqueKeysWithValues: pickedStops.map { ($0.key, $0.value.value) })
+        Dictionary(uniqueKeysWithValues: builderLegs.map { ($0.tag, $0.value) })
+    }
+
+    private var legsComplete: Bool {
+        builderLegs.count >= 2
+            && Set(builderLegs.map(\.tag)).count == builderLegs.count
+            && builderLegs.allSatisfy { axisByTag[$0.tag] != nil }
     }
 
     private var canCommitBuilder: Bool {
-        !nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && pickedStops.count >= 2
-            && pickedStops.count == pickedTags.count
+        chainLocked
+            && legsComplete
+            && !nameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var availableAxesForNewLeg: [AxisDefinition] {
+        let used = Set(builderLegs.map(\.tag))
+        return instanceAxes.filter {
+            !used.contains($0.tag) && !CompoundStatNaming.standaloneNamingTags.contains($0.tag)
+        }
+    }
+
+    private var canAddLeg: Bool {
+        !chainLocked && legsComplete && !availableAxesForNewLeg.isEmpty
     }
 
     private var coveredInstanceCount: Int {
@@ -128,13 +148,14 @@ struct CombinationStylesSection: View {
                 if isBuilderOpen {
                     inlineBuilder
                 } else {
-                    Button {
+                    StudioFlatButton(
+                        title: "Add combination",
+                        systemImage: "plus",
+                        size: .row,
+                        help: "Create a Format 4 name at a multi-axis location"
+                    ) {
                         openBuilder()
-                    } label: {
-                        Label("Add combination", systemImage: "plus")
-                            .font(StudioTypography.caption)
                     }
-                    .buttonStyle(StudioLinkButtonStyle(linkStyle: .accent))
                 }
             }
         }
@@ -171,20 +192,19 @@ struct CombinationStylesSection: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: StudioSpace.x1_5) {
+            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
                 ForEach(suggestions) { suggestion in
                     suggestionCard(suggestion)
                 }
             }
         }
         .padding(StudioSpacing.controlGap)
-        // Optional suggestions — neutral chrome only. Amber is reserved for real issues.
-        // Fill alone separates the banner; no resting stroke.
-        .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        // Optional suggestions — neutral chrome only. Amber/yellow reserved for real issues.
+        .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.surface))
     }
 
     private func suggestionCard(_ suggestion: FvarStopSeeder.CompoundSuggestion) -> some View {
-        VStack(alignment: .leading, spacing: StudioSpace.x1) {
+        VStack(alignment: .leading, spacing: StudioSpace.x1_5) {
             HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
                 Text(suggestion.name)
                     .font(StudioTypography.caption.weight(.semibold))
@@ -202,20 +222,27 @@ struct CombinationStylesSection: View {
 
             HStack(spacing: StudioSpacing.controlGap) {
                 Spacer(minLength: 0)
-                Button("Dismiss") {
+                StudioFlatButton(
+                    title: "Dismiss",
+                    size: .compact,
+                    help: "Dismiss this Format 4 suggestion"
+                ) {
                     editor.dismissCompoundSuggestion(id: suggestion.id)
                 }
-                .buttonStyle(StudioLinkButtonStyle(linkStyle: .secondary))
-                Button("Add") {
+                StudioFlatButton(
+                    title: "Add",
+                    role: .primary,
+                    size: .compact,
+                    help: "Add this combination style"
+                ) {
                     editor.acceptCompoundSuggestion(suggestion)
                 }
-                .buttonStyle(StudioLinkButtonStyle(linkStyle: .accent))
             }
         }
-        .padding(.horizontal, StudioSpace.x2)
-        .padding(.vertical, StudioSpace.x1_5)
+        .padding(.horizontal, StudioSpacing.contentInset)
+        .padding(.vertical, StudioSpacing.controlGap)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.control))
     }
 
     private func valueForwardChain(
@@ -251,7 +278,7 @@ struct CombinationStylesSection: View {
             return "\(formatted) on \(axisLabel(for: tag)) · \(trimmed)"
         }()
 
-        return HStack(spacing: 4) {
+        return HStack(spacing: StudioSpacing.tightGap) {
             Text(formatted)
                 .font(StudioTypography.caption.weight(.semibold))
                 .monospacedDigit()
@@ -261,12 +288,12 @@ struct CombinationStylesSection: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        .padding(.horizontal, StudioSpace.x2)
-        .padding(.vertical, StudioSpace.x1)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .padding(.horizontal, StudioSpacing.contentInset)
+        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
+        .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            RoundedRectangle.studio(StudioRadius.chip)
+                .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
         }
         .fixedSize(horizontal: true, vertical: false)
         .help(helpText)
@@ -279,37 +306,50 @@ struct CombinationStylesSection: View {
         let isHovered = hoveredCompoundID == compound.id
 
         return VStack(alignment: .leading, spacing: 0) {
-            Button {
-                if isExpanded {
-                    expandedCompoundID = nil
-                    openPicker = nil
-                } else {
-                    expandedCompoundID = compound.id
-                    openPicker = nil
-                }
-            } label: {
-                HStack(spacing: StudioSpace.x1_5) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .frame(width: 10)
-
-                    Text(compound.name.isEmpty ? "Untitled" : compound.name)
-                        .font(StudioTypography.caption.weight(.semibold))
-                        .foregroundStyle(StudioColors.registrationForeground)
-                        .lineLimit(1)
-
-                    if !isExpanded {
-                        Text(legsSummary(for: compound))
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: StudioSpacing.controlGap) {
+                Button {
+                    if isExpanded {
+                        expandedCompoundID = nil
+                        openPicker = nil
                     } else {
+                        expandedCompoundID = compound.id
+                        openPicker = nil
+                    }
+                } label: {
+                    HStack(spacing: StudioSpacing.tightGap) {
+                        StudioDisclosureChevron(isExpanded: isExpanded)
+
+                        StudioStatFormatBadge(format: 4)
+
+                        Text(compound.name.isEmpty ? "Untitled" : compound.name)
+                            .font(StudioTypography.caption.weight(.semibold))
+                            .foregroundStyle(StudioColors.statFormat1)
+                            .lineLimit(1)
+
                         Spacer(minLength: 0)
                     }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
+                HStack(spacing: StudioSpace.x0_5) {
+                    Text("Elided")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+
+                    StudioElidableRadio(
+                        isOn: compound.elidable,
+                        helpText: compound.elidable
+                            ? "Clear elided — include this combination name when composing"
+                            : "Mark elided — omit this combination name when it is the default choice"
+                    ) {
+                        editor.updateCompoundStatElidable(id: compound.id, elidable: !compound.elidable)
+                    }
+                    .frame(width: 16, height: StudioFieldMetrics.toolbarIconHitSize)
+                }
+
+                // Always reserve the remove slot so Elided doesn't shift on hover.
+                ZStack {
                     if isHovered || isExpanded {
                         StudioDismissButton(scale: .chip, style: .fill, help: "Remove combination") {
                             editor.removeCompoundStatValue(id: compound.id)
@@ -319,11 +359,10 @@ struct CombinationStylesSection: View {
                         }
                     }
                 }
-                .padding(.horizontal, StudioSpace.x2)
-                .padding(.vertical, StudioSpace.x2)
-                .contentShape(Rectangle())
+                .frame(width: StudioChromeScale.chip.hitSize, height: StudioChromeScale.chip.hitSize)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.vertical, StudioSpacing.controlGap)
             .onHover { hovering in
                 hoveredCompoundID = hovering ? compound.id : (hoveredCompoundID == compound.id ? nil : hoveredCompoundID)
             }
@@ -346,37 +385,23 @@ struct CombinationStylesSection: View {
                     if let picker = openPicker, picker.compoundID == compound.id {
                         inlinePicker(for: compound, picker: picker)
                     }
-
-                    HStack(spacing: StudioSpace.x1_5) {
-                        StudioElidableSwitch(isOn: compound.elidable) {
-                            editor.updateCompoundStatElidable(id: compound.id, elidable: !compound.elidable)
-                        }
-                        Text("Elidable")
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.tertiary)
-                    }
                 }
                 .padding(.leading, StudioSpace.x6)
-                .padding(.trailing, StudioSpace.x2)
-                .padding(.bottom, StudioSpace.x2)
+                .padding(.trailing, StudioSpacing.contentInset)
+                .padding(.bottom, StudioSpacing.controlGap)
             }
         }
         .background(
-            Color.primary.opacity(isExpanded ? 0.035 : 0.02),
-            in: RoundedRectangle(cornerRadius: StudioRadius.row)
+            isExpanded ? StudioColors.surfaceInset : StudioColors.surfaceSubtle,
+            in: RoundedRectangle.studio(StudioRadius.surface)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.row)
-                .strokeBorder(Color.primary.opacity(isExpanded ? 0.1 : 0.06), lineWidth: 1)
+            RoundedRectangle.studio(StudioRadius.surface)
+                .strokeBorder(
+                    isExpanded ? StudioColors.surfaceStrokeStrong : StudioColors.surfaceStroke,
+                    lineWidth: StudioStroke.hairline
+                )
         }
-    }
-
-    private func legsSummary(for compound: CompoundStatValue) -> String {
-        orderedLegTags(for: compound).map { tag in
-            let value = compound.coords[tag] ?? 0
-            return "\(StudioFormatting.axisValue(value)) \(axisLabel(for: tag))"
-        }
-        .joined(separator: " + ")
     }
 
     private func editLegs(_ compound: CompoundStatValue) -> some View {
@@ -395,12 +420,12 @@ struct CombinationStylesSection: View {
                     Text(StudioFormatting.axisValue(compound.coords[tag] ?? 0))
                         .font(StudioTypography.caption.weight(.semibold))
                         .monospacedDigit()
-                        .padding(.horizontal, StudioSpace.x2)
-                        .padding(.vertical, StudioSpace.x1)
-                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+                        .padding(.horizontal, StudioSpacing.contentInset)
+                        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
+                        .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
                         .overlay {
-                            RoundedRectangle(cornerRadius: StudioRadius.control)
-                                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                            RoundedRectangle.studio(StudioRadius.chip)
+                                .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
                         }
                 }
                 .buttonStyle(.plain)
@@ -408,18 +433,18 @@ struct CombinationStylesSection: View {
                 Button {
                     togglePicker(LegPicker(compoundID: compound.id, tag: tag, kind: .axis))
                 } label: {
-                    HStack(spacing: 3) {
+                    HStack(spacing: StudioSpace.x0_5) {
                         Text(axisLabel(for: tag))
                             .font(StudioTypography.caption)
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(StudioTypography.iconGlyph)
                     }
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, StudioSpace.x1_5)
-                    .padding(.vertical, StudioSpace.x1)
+                    .padding(.horizontal, StudioSpacing.tightGap)
+                    .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                     .overlay {
-                        RoundedRectangle(cornerRadius: StudioRadius.control)
-                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                        RoundedRectangle.studio(StudioRadius.chip)
+                            .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: StudioStroke.hairline)
                     }
                 }
                 .buttonStyle(.plain)
@@ -432,14 +457,14 @@ struct CombinationStylesSection: View {
             }
 
             if !addableAxes(for: compound).isEmpty {
-                Button {
+                StudioFlatButton(
+                    title: "Add axis",
+                    systemImage: "plus",
+                    size: .compact,
+                    help: "Add another axis leg to this combination"
+                ) {
                     togglePicker(LegPicker(compoundID: compound.id, tag: nil, kind: .addAxis))
-                } label: {
-                    Text("+ axis")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.brand)
                 }
-                .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -463,19 +488,52 @@ struct CombinationStylesSection: View {
     }
 
     private func valueStopPicker(compound: CompoundStatValue, tag: String, axis: AxisDefinition) -> some View {
-        inlinePickerChrome(title: "\(axisLabel(for: tag)) stops") {
-            HStack(spacing: StudioSpace.x1) {
-                ForEach(axis.values) { stop in
-                    let selected = AxisCoordinate.valuesEqual(stop.value, compound.coords[tag] ?? 0)
-                    Button {
-                        editor.updateCompoundStatCoordinate(id: compound.id, tag: tag, value: stop.value)
-                        openPicker = nil
-                    } label: {
-                        stopOptionChip(stop: stop, selected: selected)
+        let current = compound.coords[tag] ?? 0
+        return inlinePickerChrome(title: "\(axisLabel(for: tag)) value") {
+            VStack(alignment: .leading, spacing: StudioSpace.x1_5) {
+                if !axis.values.isEmpty {
+                    HStack(spacing: StudioSpace.x1) {
+                        ForEach(axis.values) { stop in
+                            let selected = AxisCoordinate.valuesEqual(stop.value, current)
+                            Button {
+                                editor.updateCompoundStatCoordinate(id: compound.id, tag: tag, value: stop.value)
+                                openPicker = nil
+                            } label: {
+                                stopOptionChip(stop: stop, selected: selected)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .buttonStyle(.plain)
+                }
+
+                HStack(spacing: StudioSpacing.controlGap) {
+                    Text("Custom")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                    StudioBoundNumberField(
+                        value: $editCustomDraft,
+                        rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
+                        alignment: .leading,
+                        onSubmit: {
+                            let clamped = clampedValue(editCustomDraft, for: axis)
+                            editor.updateCompoundStatCoordinate(id: compound.id, tag: tag, value: clamped)
+                            openPicker = nil
+                        }
+                    )
+                    .frame(width: 88)
+                    if let min = axis.min, let max = axis.max {
+                        Text("\(StudioFormatting.axisValue(min))–\(StudioFormatting.axisValue(max))")
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    StudioFlatButton(title: "Set", size: .compact, help: "Use this custom value") {
+                        let clamped = clampedValue(editCustomDraft, for: axis)
+                        editor.updateCompoundStatCoordinate(id: compound.id, tag: tag, value: clamped)
+                        openPicker = nil
+                    }
                 }
             }
+            .onAppear { editCustomDraft = current }
         }
     }
 
@@ -520,17 +578,17 @@ struct CombinationStylesSection: View {
                 .foregroundStyle(.tertiary)
             content()
         }
-        .padding(StudioSpace.x2)
-        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .padding(StudioSpacing.contentInset)
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
-                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+            RoundedRectangle.studio(StudioRadius.surface)
+                .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
         }
     }
 
     private func stopOptionChip(stop: AxisValue, selected: Bool) -> some View {
         let name = stop.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return HStack(spacing: 4) {
+        return HStack(spacing: StudioSpacing.tightGap) {
             Text(StudioFormatting.axisValue(stop.value))
                 .font(StudioTypography.caption.weight(.semibold))
                 .monospacedDigit()
@@ -541,17 +599,17 @@ struct CombinationStylesSection: View {
             }
         }
         .foregroundStyle(selected ? .primary : .secondary)
-        .padding(.horizontal, StudioSpace.x2)
-        .padding(.vertical, StudioSpace.x1)
+        .padding(.horizontal, StudioSpacing.contentInset)
+        .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
         .background {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
-                .fill(selected ? StudioColors.selectionFill : Color.primary.opacity(0.02))
+            RoundedRectangle.studio(StudioRadius.chip)
+                .fill(selected ? StudioColors.surfaceInset : StudioColors.surfaceMuted)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.control)
+            RoundedRectangle.studio(StudioRadius.chip)
                 .strokeBorder(
-                    selected ? StudioColors.brand.opacity(0.45) : Color.primary.opacity(0.12),
-                    lineWidth: 1
+                    selected ? StudioColors.surfaceStrokeStrong : StudioColors.surfaceStroke,
+                    lineWidth: StudioStroke.hairline
                 )
         }
     }
@@ -560,17 +618,17 @@ struct CombinationStylesSection: View {
         Text(axis.displayName ?? axis.tag)
             .font(StudioTypography.caption.weight(isCurrent ? .semibold : .regular))
             .foregroundStyle(isCurrent ? .primary : .secondary)
-            .padding(.horizontal, StudioSpace.x2)
-            .padding(.vertical, StudioSpace.x1)
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background {
-                RoundedRectangle(cornerRadius: StudioRadius.control)
-                    .fill(isCurrent ? StudioColors.selectionFill : Color.primary.opacity(0.02))
+                RoundedRectangle.studio(StudioRadius.chip)
+                    .fill(isCurrent ? StudioColors.surfaceInset : StudioColors.surfaceMuted)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.control)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(
-                        isCurrent ? StudioColors.brand.opacity(0.45) : Color.primary.opacity(0.12),
-                        lineWidth: 1
+                        isCurrent ? StudioColors.surfaceStrokeStrong : StudioColors.surfaceStroke,
+                        lineWidth: StudioStroke.hairline
                     )
             }
     }
@@ -600,14 +658,15 @@ struct CombinationStylesSection: View {
 
     private func addableAxes(for compound: CompoundStatValue) -> [AxisDefinition] {
         instanceAxes.filter {
-            compound.coords[$0.tag] == nil && !preferredStandaloneNamingTags.contains($0.tag)
+            compound.coords[$0.tag] == nil
+                && !CompoundStatNaming.standaloneNamingTags.contains($0.tag)
         }
     }
 
     private func swappableAxes(for compound: CompoundStatValue, currentTag: String) -> [AxisDefinition] {
         instanceAxes.filter {
             ($0.tag == currentTag || compound.coords[$0.tag] == nil)
-                && !preferredStandaloneNamingTags.contains($0.tag)
+                && !CompoundStatNaming.standaloneNamingTags.contains($0.tag)
         }
     }
 
@@ -623,70 +682,118 @@ struct CombinationStylesSection: View {
         openPicker = nil
     }
 
-    // MARK: - Inline builder (value-forward)
+    // MARK: - Inline builder (leg chain)
 
     private func openBuilder() {
         isBuilderOpen = true
+        chainLocked = false
         nameEdited = false
         nameText = ""
-        pickedStops = [:]
-        if let pair = CombinationStyleDefaults.suggestedAxisPair(from: axes) {
-            pickedTags = [pair.0.tag, pair.1.tag]
-        } else {
-            pickedTags = Array(instanceAxes.prefix(2).map(\.tag))
-        }
+        builderLegs = seedInitialLegs()
     }
 
     private func closeBuilder() {
         isBuilderOpen = false
-        pickedTags = []
-        pickedStops = [:]
+        builderLegs = []
+        chainLocked = false
         nameText = ""
         nameEdited = false
     }
 
+    private func seedInitialLegs() -> [BuilderLeg] {
+        let pair: (AxisDefinition, AxisDefinition)?
+        if let suggested = CombinationStyleDefaults.suggestedAxisPair(from: axes) {
+            pair = suggested
+        } else if instanceAxes.count >= 2 {
+            pair = (instanceAxes[0], instanceAxes[1])
+        } else {
+            pair = nil
+        }
+        guard let pair else { return [] }
+        return [
+            BuilderLeg(tag: pair.0.tag, value: CombinationStyleDefaults.suggestedValue(for: pair.0)),
+            BuilderLeg(tag: pair.1.tag, value: CombinationStyleDefaults.suggestedValue(for: pair.1)),
+        ]
+    }
+
     private var inlineBuilder: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            Text("Pick from stops that already exist on each axis. Doesn’t add an axis or grow the instance grid.")
+            Text("Name a multi-axis location. Use existing stops or any value in range — combo-only values don’t need a Format 1 stop and don’t grow the instance grid.")
                 .font(StudioTypography.caption)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Text("Axes to combine")
-                .font(StudioTypography.columnLabel)
-                .foregroundStyle(.tertiary)
-
-            axisPills
-
-            if !pickedTags.isEmpty {
-                Text("Stops")
-                    .font(StudioTypography.columnLabel)
-                    .foregroundStyle(.tertiary)
-
-                ForEach(pickedTags, id: \.self) { tag in
-                    stopLane(for: tag)
-                }
-            }
 
             Text("Chain")
                 .font(StudioTypography.columnLabel)
                 .foregroundStyle(.tertiary)
 
-            chainPreview
-
-            StudioTextField(
-                placeholder: "Name",
-                text: Binding(
-                    get: { nameText },
-                    set: { newValue in
-                        nameText = newValue
-                        nameEdited = true
+            if chainLocked {
+                lockedChainSummary
+            } else {
+                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                    ForEach(Array(builderLegs.enumerated()), id: \.element.id) { index, leg in
+                        builderLegRow(leg, index: index)
                     }
-                ),
-                rowHeight: StudioFieldMetrics.bodyRowHeight
-            )
+                }
 
-            if pickedStops.count >= 2 {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    Button {
+                        addBuilderLeg()
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(StudioTypography.iconGlyph)
+                            .foregroundStyle(canAddLeg ? .primary : .tertiary)
+                            .frame(width: StudioChromeScale.chip.hitSize, height: StudioChromeScale.chip.hitSize)
+                            .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
+                            .overlay {
+                                RoundedRectangle.studio(StudioRadius.chip)
+                                    .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canAddLeg)
+                    .help(canAddLeg ? "Add another axis + value" : "Need two complete legs and another unused axis")
+
+                    Button {
+                        chainLocked = true
+                    } label: {
+                        Image(systemName: "lock.open")
+                            .font(StudioTypography.iconGlyph)
+                            .foregroundStyle(legsComplete ? .primary : .tertiary)
+                            .frame(width: StudioChromeScale.chip.hitSize, height: StudioChromeScale.chip.hitSize)
+                            .background(
+                                legsComplete ? StudioColors.surfaceInset : StudioColors.surfaceMuted,
+                                in: RoundedRectangle.studio(StudioRadius.chip)
+                            )
+                            .overlay {
+                                RoundedRectangle.studio(StudioRadius.chip)
+                                    .strokeBorder(
+                                        legsComplete ? StudioColors.surfaceStrokeStrong : StudioColors.surfaceStroke,
+                                        lineWidth: StudioStroke.hairline
+                                    )
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!legsComplete)
+                    .help(legsComplete ? "Lock chain and name this Format 4 stop" : "Set at least two axis + value legs first")
+
+                    Spacer(minLength: 0)
+                }
+            }
+
+            if chainLocked {
+                StudioTextField(
+                    placeholder: "Name this Format 4 stop",
+                    text: Binding(
+                        get: { nameText },
+                        set: { newValue in
+                            nameText = newValue
+                            nameEdited = true
+                        }
+                    ),
+                    rowHeight: StudioFieldMetrics.bodyRowHeight
+                )
+
                 Text(coveredInstanceCount == 1
                       ? "Would cover 1 instance in the current grid — doesn’t grow the grid."
                       : "Would cover \(coveredInstanceCount) instances in the current grid — doesn’t grow the grid.")
@@ -700,142 +807,214 @@ struct CombinationStylesSection: View {
                 StudioFlatButton(title: "Cancel", size: .compact) {
                     closeBuilder()
                 }
-                StudioFlatButton(title: "Add", role: .primary, size: .compact, isEnabled: canCommitBuilder) {
-                    commitBuilder()
+                if chainLocked {
+                    StudioFlatButton(title: "Add", role: .primary, size: .compact, isEnabled: canCommitBuilder) {
+                        commitBuilder()
+                    }
                 }
             }
         }
         .padding(StudioSpacing.controlGap)
-        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.surface))
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.row)
-                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+            RoundedRectangle.studio(StudioRadius.surface)
+                .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
         }
     }
 
-    private var axisPills: some View {
-        HStack(spacing: StudioSpace.x1) {
-            ForEach(instanceAxes, id: \.tag) { axis in
-                let isPicked = pickedTags.contains(axis.tag)
-                let isStandalone = preferredStandaloneNamingTags.contains(axis.tag)
-                Button {
-                    guard !isStandalone || isPicked else { return }
-                    toggleAxis(axis.tag)
-                } label: {
-                    Text(axis.displayName ?? axis.tag)
+    private var lockedChainSummary: some View {
+        HStack(alignment: .center, spacing: StudioSpace.x1) {
+            Image(systemName: "lock.fill")
+                .font(StudioTypography.iconGlyph)
+                .foregroundStyle(.secondary)
+                .help("Chain locked — unlock to edit legs")
+
+            ForEach(Array(builderLegs.enumerated()), id: \.element.id) { index, leg in
+                if index > 0 {
+                    Text("+")
                         .font(StudioTypography.caption)
-                        .padding(.horizontal, StudioSpace.x2)
-                        .padding(.vertical, StudioSpace.x1)
-                        .background {
-                            Capsule()
-                                .fill(isPicked ? StudioColors.selectionFill : Color.clear)
-                        }
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(
-                                    isPicked ? StudioColors.brand.opacity(0.45) : Color.primary.opacity(0.12),
-                                    lineWidth: 1
-                                )
-                        }
-                        .opacity(isStandalone && !isPicked ? 0.4 : 1)
+                        .foregroundStyle(.tertiary)
                 }
-                .buttonStyle(.plain)
-                .help(isStandalone
-                      ? "\(axis.displayName ?? axis.tag) usually carries its own Format 1 names"
-                      : "Include \(axis.displayName ?? axis.tag)")
+                HStack(spacing: StudioSpacing.tightGap) {
+                    Text(StudioFormatting.axisValue(leg.value))
+                        .font(StudioTypography.caption.weight(.semibold))
+                        .monospacedDigit()
+                    Text(axisLabel(for: leg.tag))
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, StudioSpacing.contentInset)
+                .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
+                .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.chip))
+                .overlay {
+                    RoundedRectangle.studio(StudioRadius.chip)
+                        .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: StudioStroke.hairline)
+                }
             }
+
+            Spacer(minLength: 0)
+
+            Button {
+                chainLocked = false
+            } label: {
+                Text("Unlock")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Edit axis + value legs")
+        }
+        .padding(StudioSpacing.contentInset)
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))
+        .overlay {
+            RoundedRectangle.studio(StudioRadius.surface)
+                .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
         }
     }
 
-    private func stopLane(for tag: String) -> some View {
-        let axis = axisByTag[tag]
+    private func builderLegRow(_ leg: BuilderLeg, index: Int) -> some View {
+        let axis = axisByTag[leg.tag]
         let stops = axis?.values ?? []
         return VStack(alignment: .leading, spacing: StudioSpace.x1) {
-            Text(axisLabel(for: tag))
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: StudioSpacing.controlGap) {
+                if index > 0 {
+                    Text("+")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 12, alignment: .center)
+                } else {
+                    Color.clear.frame(width: 12)
+                }
 
-            if stops.isEmpty {
-                Text("No stops on this axis yet")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.tertiary)
-            } else {
+                StudioBoundNumberField(
+                    value: Binding(
+                        get: { builderLegs[safe: index]?.value ?? leg.value },
+                        set: { setBuilderValue(at: index, value: $0) }
+                    ),
+                    rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
+                    alignment: .leading
+                )
+                .frame(width: 72)
+
+                axisMenu(for: index, currentTag: leg.tag)
+
+                if let axis, let min = axis.min, let max = axis.max {
+                    Text("\(StudioFormatting.axisValue(min))–\(StudioFormatting.axisValue(max))")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Spacer(minLength: 0)
+
+                if builderLegs.count > 2 {
+                    StudioDismissButton(scale: .chip, style: .fill, help: "Remove this leg") {
+                        removeBuilderLeg(at: index)
+                    }
+                }
+            }
+
+            if !stops.isEmpty {
                 HStack(spacing: StudioSpace.x1) {
                     ForEach(stops) { stop in
-                        let selected = pickedStops[tag].map { AxisCoordinate.valuesEqual($0.value, stop.value) } ?? false
+                        let selected = AxisCoordinate.valuesEqual(stop.value, leg.value)
                         Button {
-                            selectStop(tag: tag, stop: stop)
+                            setBuilderValue(at: index, value: stop.value)
                         } label: {
                             stopOptionChip(stop: stop, selected: selected)
                         }
                         .buttonStyle(.plain)
                     }
                 }
+                .padding(.leading, 12 + StudioSpacing.controlGap)
             }
         }
     }
 
-    private var chainPreview: some View {
-        let complete = pickedTags.compactMap { tag -> (String, Double)? in
-            guard let stop = pickedStops[tag] else { return nil }
-            return (tag, stop.value)
-        }
-
-        return Group {
-            if complete.count < 2 {
-                Text("Pick a stop on at least two axes")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(StudioSpace.x2)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: StudioRadius.control)
-                            .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .foregroundStyle(Color.primary.opacity(0.12))
-                    }
-            } else {
-                HStack(spacing: StudioSpace.x1) {
-                    ForEach(Array(complete.enumerated()), id: \.offset) { index, item in
-                        if index > 0 {
-                            Text("+")
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(StudioColors.brand.opacity(0.7))
-                        }
-                        HStack(spacing: 4) {
-                            Text(StudioFormatting.axisValue(item.1))
-                                .font(StudioTypography.caption.weight(.bold))
-                                .monospacedDigit()
-                            Text(axisLabel(for: item.0))
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, StudioSpace.x2)
-                        .padding(.vertical, StudioSpace.x1)
-                        .background(StudioColors.selectionFill, in: RoundedRectangle(cornerRadius: StudioRadius.control))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: StudioRadius.control)
-                                .strokeBorder(StudioColors.brand.opacity(0.45), lineWidth: 1)
-                        }
+    private func axisMenu(for index: Int, currentTag: String) -> some View {
+        let options = axisOptions(for: currentTag)
+        return Menu {
+            ForEach(options, id: \.tag) { axis in
+                Button {
+                    setBuilderAxis(at: index, tag: axis.tag)
+                } label: {
+                    if axis.tag == currentTag {
+                        Label(axis.displayName ?? axis.tag, systemImage: "checkmark")
+                    } else {
+                        Text(axis.displayName ?? axis.tag)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(StudioSpace.x2)
-                .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            }
+        } label: {
+            HStack(spacing: StudioSpace.x0_5) {
+                Text(axisLabel(for: currentTag))
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(StudioTypography.iconGlyph)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
+            .overlay {
+                RoundedRectangle.studio(StudioRadius.chip)
+                    .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
             }
         }
+        .menuStyle(.borderlessButton)
+        .help("Choose axis for this leg")
     }
 
-    private func toggleAxis(_ tag: String) {
-        if let index = pickedTags.firstIndex(of: tag) {
-            pickedTags.remove(at: index)
-            pickedStops.removeValue(forKey: tag)
-        } else {
-            pickedTags.append(tag)
+    private func axisOptions(for currentTag: String) -> [AxisDefinition] {
+        let used = Set(builderLegs.map(\.tag))
+        return instanceAxes.filter { axis in
+            if axis.tag == currentTag { return true }
+            if used.contains(axis.tag) { return false }
+            return !CompoundStatNaming.standaloneNamingTags.contains(axis.tag)
         }
     }
 
-    private func selectStop(tag: String, stop: AxisValue) {
-        pickedStops[tag] = stop
+    private func addBuilderLeg() {
+        guard canAddLeg, let next = availableAxesForNewLeg.first else { return }
+        builderLegs.append(
+            BuilderLeg(tag: next.tag, value: CombinationStyleDefaults.suggestedValue(for: next))
+        )
+    }
+
+    private func removeBuilderLeg(at index: Int) {
+        guard builderLegs.count > 2, builderLegs.indices.contains(index) else { return }
+        builderLegs.remove(at: index)
+    }
+
+    private func setBuilderValue(at index: Int, value: Double) {
+        guard builderLegs.indices.contains(index) else { return }
+        let tag = builderLegs[index].tag
+        if let axis = axisByTag[tag] {
+            builderLegs[index].value = clampedValue(value, for: axis)
+        } else {
+            builderLegs[index].value = AxisCoordinateFormat.canonical(value)
+        }
+    }
+
+    private func setBuilderAxis(at index: Int, tag: String) {
+        guard builderLegs.indices.contains(index),
+              let axis = axisByTag[tag],
+              builderLegs[index].tag != tag else { return }
+        guard !builderLegs.contains(where: { $0.tag == tag }) else { return }
+        builderLegs[index].tag = tag
+        builderLegs[index].value = CombinationStyleDefaults.suggestedValue(for: axis)
+    }
+
+    private func clampedValue(_ value: Double, for axis: AxisDefinition) -> Double {
+        var result = AxisCoordinateFormat.canonical(value)
+        if let min = axis.min {
+            result = max(result, min)
+        }
+        if let max = axis.max {
+            result = min(result, max)
+        }
+        return AxisCoordinateFormat.canonical(result)
     }
 
     private func commitBuilder() {
@@ -843,5 +1022,11 @@ struct CombinationStylesSection: View {
         guard canCommitBuilder, !trimmed.isEmpty else { return }
         editor.addCompoundStatValue(name: trimmed, coords: builderCoords)
         closeBuilder()
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

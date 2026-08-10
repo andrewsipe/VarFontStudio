@@ -2,7 +2,7 @@
 
 Append-only running log for color, typography, spacing/density, and stroke decisions.
 Check this file **and** the token enums (`StudioColors`, `StudioPalette`, `StudioTypography`,
-`StudioSpacing` / `StudioDensity`, `StudioStroke`) before adding new styling.
+`StudioSpacing` / `StudioDensity`, `StudioStroke`, `StudioRadius`) before adding new styling.
 
 **Live source of truth for tokens:** `Views/StudioPalette.swift`, `Views/StudioDesign.swift`
 (`StudioColors`, typography, spacing, stroke). `COLOR_OUTLINE.md` is historical notes only —
@@ -16,6 +16,55 @@ do not treat it as authoritative when it disagrees with code.
    - **App-wide** — new token, hue, stroke usage, or reusable spacing; prototype narrowly,
      then confirm before rolling out.
 3. Append an entry below when a decision lands.
+
+---
+
+## 2026-08-09 — Concentric radius ladder + continuous corners
+
+Scope: app-wide  
+Status: Approved  
+
+Rationale: `StudioRadius` values were unrelated (control parked at 5; `.row` at 6 reused for
+hit-boxes, materials, and padded warning cards). Nested corners read tight because
+SwiftUI’s default `.circular` curve is more mechanical than system chrome, and padded
+cards used the same 6pt as buttons.
+
+**Ladder (concentric — outer ≈ inner + padding at that boundary):**
+
+| Token | pt | Role |
+|-------|----|------|
+| `hairline` | 2 | Gutter stripes / checkbox ticks |
+| `small` | 3 | Micro / compact segment corners |
+| `chip` | 4 | Pills, badges, naming chips |
+| `control` | **6** | Buttons, fields, drag rings — **nest anchor** |
+| `surface` | 10 | Padded inset cards / warning banners / material trays |
+| `panel` | 16 | Large panel chrome (available; sparse today) |
+
+**Curve:** `RoundedRectangle.studio(_:)` always uses `.continuous`. Prefer it at every
+fill / stroke / contentShape call site. `StudioDragOutline.cornerRadius` → `control`.
+Removed the old `.row` token (call sites mapped to `control` or `surface`).
+
+## 2026-08-09 — Live color map (comment/doc sync)
+
+Scope: docs + comments only (no token rebinds)  
+Status: Approved  
+
+User-tuned palette is locked; comments/DESIGN entries that still said purple STAT,
+cyan edited, graphite code, amber CTA fills, etc. are outdated. **Live families:**
+
+| Role | Family |
+|------|--------|
+| brand / selection / metric | blue |
+| warning containers + CTA fill (`warningFill*`) | yellow |
+| warning marks (`warningForeground`) | amber |
+| edited + code | teal (code uses a darker step) |
+| pending | emerald |
+| registration / clarifier | fuchsia |
+| STAT format badges | rose |
+| custom | indigo |
+| `diffRenamed` | orange |
+
+`COLOR_OUTLINE.md` remains historical — trust `StudioColors` over that file.
 
 ---
 
@@ -72,20 +121,20 @@ Status: Approved
 
 Rationale: Shared family × step API from the accent palette review. Marks use WCAG 3:1;
 text uses 4.5:1. Within a family: primary = richest legible mark step, secondary = mid,
-tertiary = lightest legible. Exemplar: `statFormat1/2/3` = purple primary/secondary/tertiary.
+tertiary = lightest legible. Exemplar: `statFormat1/2/3` = rose primary/secondary/tertiary.
 Do not use `forestGreen` until Figma re-check (dark export quirk).
 
 Apple system colors remain for true semantic chrome (`.primary` / `.secondary` /
-`.tertiary`, warning orange, success/error where they mean platform status). HIG is a
+`.tertiary`, warning marks, success/error where they mean platform status). HIG is a
 reference for finicky calls — not a redesign mandate.
 
-## 2026-08-08 — Pending export = emerald-green; edited stays cyan
+## 2026-08-08 — Pending export = emerald-green; edited stays teal
 
 Scope: app-wide  
 Status: Approved  
 
-Rationale: Pending export previously borrowed `editedForeground` (cyan), colliding with
-“name edited from default” on the same rows. Emerald is unclaimed and far from cyan.
+Rationale: Pending export previously borrowed `editedForeground` (teal), colliding with
+“name edited from default” on the same rows. Emerald is unclaimed and far from teal.
 Token: `StudioColors.pendingForeground` / `pendingFill`.
 
 ## 2026-08-08 — Registration / code / STAT / diff accents rebound to palette
@@ -93,17 +142,20 @@ Token: `StudioColors.pendingForeground` / `pendingFill`.
 Scope: app-wide  
 Status: Approved  
 
-| Role | Family | Light / dark steps |
+> **Superseded steps/families:** see **2026-08-09 — Live color map**. Table below is the
+> original bind; live code now uses fuchsia / teal / rose / orange for several rows.
+
+| Role | Family (original bind) | Light / dark steps |
 |------|--------|--------------------|
-| `registrationForeground` | magenta | 500 / 300 |
-| `codeForeground` | jade-green | 500 / 300 |
-| `statFormat1/2/3` | purple | 300·500·700 / 300·200·100 |
+| `registrationForeground` | magenta → **fuchsia** | 500 / 300 |
+| `codeForeground` | jade-green → **teal** | 500 / 300 |
+| `statFormat1/2/3` | purple → **rose** | 300·500·700 / 300·200·100 |
 | `diffAdded` | green | 600 / 200 |
 | `diffRemoved` | red | 400 / 200 |
 | `diffReflowed` | violet | 400 / 200 |
 | `collisionForeground` | pink | 600 / 300 |
 | `customForeground` | indigo | 300 / 200 |
-| `editedForeground` | cyan | 500 / 200 |
+| `editedForeground` | cyan → **teal** | 500 / 200 |
 
 ## 2026-08-08 — Inspector planned writes align with Save Review
 
@@ -308,8 +360,8 @@ dark mode on the always-paper status strip — ink-on-navy ~illegible. Mini `Sli
 drew macOS tick marks and fought compact chrome.
 
 - `canvasHoverFill` → fixed light `blue-100` (paper world); add `canvasPeekForeground`
-  (`blue-700`) for Peek label contrast
-- Source · live = stroke-only quiet; Peek · hover = soft blue fill + blue-700 label
+  (`blue-800`) for Peek label contrast
+- Source · live = stroke-only quiet; Peek · hover = soft blue fill + blue-800 label
 - Size → `StudioCompactSlider` (thin neutral track, capsule thumb, no system ticks)
 - Removed stray duplicate “Select an instance…” label before the pill
 
@@ -336,8 +388,7 @@ Warning chrome remapped to Tailwind **amber** (not orange): fills 100/200/300 ×
 900/800/600; mark 600/400. CTA ink still clears ≥5:1 on `warningFillHover`.
 
 Role family map after adoption: registration → fuchsia; code → teal; pending → emerald;
-success/error marks → green/red; `diffRenamed` → orange; STAT purple ramp 600·500·400 /
-300·200·100.
+success/error marks → green/red; `diffRenamed` → orange; STAT **rose** ramp.
 
 ## 2026-08-08 — Warning: yellow containers, amber marks/CTAs
 
@@ -348,9 +399,8 @@ Rationale: All-amber Issues bands made triangles and Review buttons fight the fi
 Split Tailwind families:
 
 - **yellow** — `warningFill` / `warningFillStrong` (conflict containers, summary strip,
-  warning row wash; row hover uses Strong, not amber)
-- **amber** — `warningForeground` / `warningStroke` (triangles) and `warningFillHover`
-  (Review CTA chips via `warningAction`)
+  warning row wash) **and** `warningFillHover` (Review CTA chip fill — live)
+- **amber** — `warningForeground` / `warningStroke` (triangles / marks only)
 
 `diffRenamed` moves to **orange** so yellow stays reserved for warning containers.
 Neutrals and system text hierarchy (`.primary` / `.secondary` / `.tertiary`) unchanged;
@@ -362,11 +412,11 @@ Scope: app-wide warning chrome
 Status: Approved  
 
 Rationale: Dark yellow **700–900** read muddy mustard on charcoal; light washes were a
-shade too pale and amber CTAs a shade too hot. Retune:
+shade too pale. Retune:
 
-- **yellow** fills — light `200`/`300`; dark `500`/`600` (skip 700–900)
-- **amber** CTA — `300` both appearances (lighter chip clears the gold)
-- **amber** marks — light `600`, dark `800` so triangles clear the yellow wash
+- **yellow** fills — light `200`/`300`; dark mid gold (skip 700–900)
+- **yellow** CTA (`warningFillHover`) — steps above the container wash
+- **amber** marks — so triangles clear the yellow wash
 - Body copy on yellow containers uses `warningOnFillForeground` (ink) — white `.primary`
   fails AA on mid yellows in dark mode
 
@@ -396,4 +446,55 @@ Added baked (`StudioOpaqueFill`-composited) tokens instead of ad hoc `.opacity()
 
 Left alone: hairline strokes and 1–1.5pt tick/divider rectangles — `.opacity()` is still
 correct there per the "opacity for edges only" rule.
+
+## 2026-08-10 — Combinations builder: neutral selection
+
+Scope: Combinations drawer add/edit chips  
+Status: Approved  
+
+Rationale: Brand `selectionFill` / `selectionStroke` on axis pills, stop shortcuts, and
+chain chips made the Format 4 add flow hard to read (blue wash + white/ink competition).
+Builder and edit pickers now use neutral surfaces only:
+
+- Idle: `surfaceMuted` + `surfaceStroke`
+- Selected/active: `surfaceInset` / `surfaceSubtle` + `surfaceStrokeStrong`
+- Primary **Add** CTA stays `StudioFlatButton.Role.primary` (same as Add Stop sheets)
+
+Interaction: sequential axis+value legs with **+** / lock-then-name, still in the drawer
+(macOS sheets block Axis Tree scrolling).
+
+## 2026-08-10 — Import Review sheet (seeder gate)
+
+Scope: fvar → STAT import review  
+Status: Approved  
+
+Rationale: Blanket Format 1 seeding from fvar densifies sparse catalogs (Ease) beyond
+designer intent. Gate:
+
+- Quiet when orthogonal + well-named
+- Import Review sheet when combo-only coords, grid expansion, Format 4 suggestions,
+  conflicts, or sparse/shared instance names
+
+Chrome: neutral surfaces for callouts; Format 4 section stays non-issue styling; naming
+sparsity is informational (coords still seed with value-as-name). True STAT/fvar name
+conflicts can keep warning chips inside the sheet.
+
+Hierarchy (2026-08-10 polish): summary orients with instance-count metrics
+(original → with recommendations → if everything promotes) and plain-language bullets.
+Primary path: **Accept recommendations** (combo-only held stops; Format 4 left for the
+Combinations drawer) or **Review choices** to expand decision sections — same idea as
+conflict walkthrough vs batch accept.
+
+Expansion is **not** a peer decision section. It nests under “Stops to decide” as a live
+consequence of Promote / Combo only / Ignore. Samples show **projected STAT-composed
+names** (via `NamingComposer`) as primary, coords secondary — e.g. SemiRounded SemiDisplay
+from Outside 20 × Inside 50 — clarifying these are orthogonal naming products absent from
+fvar.
+
+Stop choices teach on select: Promote = Format 1 (optional name field, default value-as-name);
+Combo only = Format 4 reservation only; Ignore = neither.
+
+**Follow-up (not this pass):** “Include Original Only” via plan prune / `includedInstanceKeys`
+(or exclude invented), plus Instance panel Include/Exclude toggle for fonts whose analytic
+grid exceeds original fvar. Prefer prune over demoting orthogonal Format 1 into Format 4.
 

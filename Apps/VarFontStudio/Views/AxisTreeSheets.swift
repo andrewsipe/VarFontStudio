@@ -771,10 +771,10 @@ struct AddFileAxisSheet: View {
                         .foregroundStyle(tabForeground(enabled: enabled, selected: selected))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, StudioSpace.x2)
-                        .background(tabBackground(enabled: enabled, selected: selected), in: RoundedRectangle(cornerRadius: 6))
+                        .background(tabBackground(enabled: enabled, selected: selected), in: RoundedRectangle.studio(StudioRadius.control))
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: 6), isEnabled: enabled && !selected)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control), isEnabled: enabled && !selected)
                 .disabled(!enabled)
                 .help(enabled ? option.title : (option.template.flatMap { editor.namingAxisBlockReason(for: $0) } ?? ""))
             }
@@ -902,9 +902,9 @@ struct AddFileAxisSheet: View {
                 slopeOverrideOption(title: "Italic", isItalic: true)
             }
             .padding(StudioSpace.x0_5)
-            .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: 8))
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.surface))
             .overlay {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle.studio(StudioRadius.surface)
                     .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: StudioStroke.hairline)
             }
             if slopeOverrideIsItalic != nil {
@@ -937,12 +937,12 @@ struct AddFileAxisSheet: View {
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 .background(
                     selected ? StudioColors.registrationBackground : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 5)
+                    in: RoundedRectangle.studio(StudioRadius.control)
                 )
         }
         .buttonStyle(.plain)
         .studioHoverFill(
-            shape: .roundedRect(cornerRadius: 5),
+            shape: .roundedRect(cornerRadius: StudioRadius.control),
             isEnabled: !selected
         )
     }
@@ -968,10 +968,10 @@ struct AddFileAxisSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             (kindEnabled ? StudioColors.registrationBackground : StudioColors.surfaceMuted),
-            in: RoundedRectangle(cornerRadius: StudioRadius.row)
+            in: RoundedRectangle.studio(StudioRadius.surface)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.row)
+            RoundedRectangle.studio(StudioRadius.surface)
                 .strokeBorder(
                     kindEnabled ? StudioColors.registrationStroke : StudioColors.surfaceStrokeStrong,
                     lineWidth: StudioStroke.hairline
@@ -1026,7 +1026,7 @@ struct AddFileAxisSheet: View {
                             .padding(.horizontal, StudioSpacing.tightGap)
                             .padding(.vertical, StudioSpace.x0_5)
                             .foregroundStyle(.primary)
-                            .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                            .background(StudioColors.registrationBackground, in: RoundedRectangle.studio(StudioRadius.small))
                         Text(previewStopName)
                             .font(StudioTypography.bodyMedium)
                         Text("No fvar scale · this file")
@@ -1059,9 +1059,9 @@ struct AddFileAxisSheet: View {
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(fmtColor.opacity(0.20), in: RoundedRectangle(cornerRadius: 4))
+                            .background(fmtColor.opacity(0.20), in: RoundedRectangle.studio(StudioRadius.chip))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle.studio(StudioRadius.chip)
                                     .strokeBorder(fmtColor.opacity(0.35), lineWidth: 0.5)
                             }
                             .frame(width: FillStopPreviewLayout.formatColumnWidth, alignment: .center)
@@ -1086,7 +1086,7 @@ struct AddFileAxisSheet: View {
                                 .foregroundStyle(.primary)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 1)
-                                .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 4))
+                                .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
                                 .frame(width: FillStopPreviewLayout.codeColumnWidth, alignment: .center)
                         }
                     }
@@ -1094,9 +1094,9 @@ struct AddFileAxisSheet: View {
             }
             .padding(StudioSpacing.contentInset)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+            .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.row)
+                RoundedRectangle.studio(StudioRadius.control)
                     .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: StudioStroke.hairline)
             }
         }

@@ -118,6 +118,7 @@ struct AxisTreePanel: View {
             editingStop = nil
             resetExpansion()
             combinationDrawerContentHeight = 0
+            layout.combinationStylesDrawerExpanded = false
         }
         .onChange(of: editingStop?.id) { _, stopID in
             if stopID == nil {
@@ -267,7 +268,7 @@ struct AxisTreePanel: View {
         let infoWarnings = informationalPlanWarningsForBand
         let hasSummary = issueCount > 0
         let hasDetails = !infoWarnings.isEmpty
-        let radius = StudioRadius.row
+        let radius = StudioRadius.surface
 
         if hasSummary || hasDetails {
             // One card composed of uneven-rounded strips:
@@ -307,7 +308,8 @@ struct AxisTreePanel: View {
                                 bottomLeading: hasDetails ? 0 : radius,
                                 bottomTrailing: hasDetails ? 0 : radius,
                                 topTrailing: radius
-                            )
+                            ),
+                            style: .continuous
                         )
                     )
                 }
@@ -371,7 +373,8 @@ struct AxisTreePanel: View {
                                 bottomLeading: radius,
                                 bottomTrailing: radius,
                                 topTrailing: hasSummary ? 0 : radius
-                            )
+                            ),
+                            style: .continuous
                         )
                     )
                 }
@@ -427,33 +430,41 @@ struct AxisTreePanel: View {
                 layout.combinationStylesDrawerExpanded.toggle()
             } label: {
                 HStack(spacing: StudioSpacing.controlGap) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .frame(width: 12)
+                    StudioDisclosureChevron(isExpanded: isExpanded)
 
-                    Text("Combination styles")
+                    Text("Combinations")
                         .font(StudioTypography.emphasis)
                         .foregroundStyle(.primary)
 
-                    Text("\(compounds.count) preset\(compounds.count == 1 ? "" : "s") · format 4")
+                    Text("·")
                         .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
 
+                    Text("Format 4")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+
                     if suggestionCount > 0 {
                         Text(suggestionCount == 1
-                              ? "1 Combination"
-                              : "\(suggestionCount) Combinations")
-                            .font(StudioTypography.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, StudioSpace.x2)
+                              ? "1 suggested"
+                              : "\(suggestionCount) suggested")
+                            .font(StudioTypography.caption.weight(.medium))
+                            .foregroundStyle(StudioColors.statFormat1)
+                            .padding(.horizontal, StudioSpacing.contentInset)
                             .padding(.vertical, StudioSpace.x1)
-                            .background(StudioColors.selectionNeutralFill, in: Capsule())
+                            .background(StudioColors.statFormat4Background, in: Capsule())
                             .help("\(suggestionCount) Format 4 suggestion\(suggestionCount == 1 ? "" : "s") from fvar")
                     }
 
                     Spacer(minLength: 0)
+
+                    HStack(spacing: StudioSpacing.instanceRowVertical) {
+                        Text("\(compounds.count)")
+                            .foregroundStyle(StudioColors.metricForeground)
+                        Text(compounds.count == 1 ? "style" : "styles")
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(StudioTypography.caption)
                 }
                 .padding(.horizontal, StudioSpacing.contentInset)
                 .frame(height: StudioChromeBand.header)
@@ -464,7 +475,7 @@ struct AxisTreePanel: View {
             .overlay(alignment: .bottom) {
                 if isExpanded { Divider() }
             }
-            .help("Named multi-axis STAT points. They do not multiply the instance grid.")
+            .help("Format 4 combination names — multi-axis STAT points that do not multiply the instance grid.")
 
             if isExpanded, let font = editor.selectedFont {
                 ScrollView {
@@ -486,7 +497,7 @@ struct AxisTreePanel: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(height: combinationDrawerBodyHeight, alignment: .top)
                 .clipped()
-                .background(StudioColors.surfaceMuted.opacity(0.55))
+                .background(StudioColors.surfaceSubtle)
                 .onPreferenceChange(CombinationDrawerContentHeightKey.self) { height in
                     guard height > 0, abs(height - combinationDrawerContentHeight) > 0.5 else { return }
                     // Height tracking must not inherit drawer open/close animations —
@@ -497,11 +508,6 @@ struct AxisTreePanel: View {
                         combinationDrawerContentHeight = height
                     }
                 }
-            }
-        }
-        .onChange(of: suggestionCount) { _, count in
-            if count > 0, !layout.combinationStylesDrawerExpanded {
-                layout.combinationStylesDrawerExpanded = true
             }
         }
         .onChange(of: layout.combinationStylesDrawerExpanded) { _, expanded in
@@ -674,7 +680,7 @@ struct AxisTreePanel: View {
             .frame(width: width, height: height, alignment: .leading)
             .background(
                 StudioColors.surfaceInset,
-                in: RoundedRectangle(cornerRadius: StudioDragOutline.cornerRadius)
+                in: RoundedRectangle.studio(StudioDragOutline.cornerRadius)
             )
             .overlay {
                 StudioDragOutline.axisTreeRing(
@@ -696,7 +702,7 @@ struct AxisTreePanel: View {
             .frame(height: height)
             .background(
                 Color.secondary.opacity(0.06),
-                in: RoundedRectangle(cornerRadius: StudioDragOutline.cornerRadius)
+                in: RoundedRectangle.studio(StudioDragOutline.cornerRadius)
             )
             .overlay {
                 StudioDragOutline.axisTreeRing(

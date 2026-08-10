@@ -53,16 +53,22 @@ final class FvarStopSeederTests: XCTestCase {
         let ousd = try! XCTUnwrap(font.axes.first { $0.tag == "ousd" })
         let insd = try! XCTUnwrap(font.axes.first { $0.tag == "insd" })
         XCTAssertEqual(ousd.values.map(\.value), [0, 20, 100])
-        XCTAssertEqual(insd.values.map(\.value), [0, 50, 70, 100])
+        // 70 is combo-only — held for Import Review, not auto-promoted.
+        XCTAssertEqual(insd.values.map(\.value), [0, 50, 100])
         XCTAssertEqual(ousd.values.first { AxisCoordinate.valuesEqual($0.value, 20) }?.name, "SemiRounded")
         XCTAssertEqual(ousd.values.first { AxisCoordinate.valuesEqual($0.value, 100) }?.name, "Rounded")
         XCTAssertEqual(insd.values.first { AxisCoordinate.valuesEqual($0.value, 50) }?.name, "SemiDisplay")
         XCTAssertEqual(insd.values.first { AxisCoordinate.valuesEqual($0.value, 100) }?.name, "Display")
-        // DoubleRounded only appears with ousd off default — no univariate name for 70.
-        XCTAssertEqual(insd.values.first { AxisCoordinate.valuesEqual($0.value, 70) }?.name, "70")
+        XCTAssertNil(insd.values.first { AxisCoordinate.valuesEqual($0.value, 70) })
         XCTAssertTrue(ousd.values.first { AxisCoordinate.valuesEqual($0.value, 0) }?.elidable == true)
+        XCTAssertTrue(report.needsReview)
+        XCTAssertTrue(report.heldStopCandidates.contains {
+            $0.axisTag == "insd" && AxisCoordinate.valuesEqual($0.value, 70) && $0.classification == .comboOnly
+        })
         XCTAssertGreaterThan(report.seededStopCount, 0)
         XCTAssertTrue(report.conflicts.isEmpty)
+        XCTAssertNotNil(report.expansionPreview)
+        XCTAssertFalse(report.expansionCallouts.isEmpty)
 
         let byName = Dictionary(uniqueKeysWithValues: report.compoundSuggestions.map { ($0.name.lowercased(), $0) })
         let doubleRounded = try! XCTUnwrap(byName["doublerounded"])
@@ -77,6 +83,32 @@ final class FvarStopSeederTests: XCTestCase {
         XCTAssertEqual(fullRounded.coords["insd"], 100)
         // Weight must not appear — it varies across FullRounded in real fonts; here only one sample.
         XCTAssertNil(fullRounded.coords["wght"])
+
+        let held70 = try! XCTUnwrap(report.heldStopCandidates.first {
+            $0.axisTag == "insd" && AxisCoordinate.valuesEqual($0.value, 70)
+        })
+        let context = try! XCTUnwrap(report.expansionPreview)
+        let recommended = FvarStopSeeder.previewExpansion(
+            context: context,
+            decisions: [held70.id: .comboOnly],
+            recommended: [held70.id: .comboOnly]
+        )
+        let promoted = FvarStopSeeder.previewExpansion(
+            context: context,
+            decisions: [held70.id: .promote],
+            recommended: [held70.id: .comboOnly]
+        )
+        let recommendedCount = recommended?.inventedCombinationCount ?? 0
+        let promotedCount = promoted?.inventedCombinationCount ?? 0
+        XCTAssertGreaterThan(promotedCount, recommendedCount)
+        let sampleLabels = recommended?.sampleMissingLabels ?? []
+        XCTAssertTrue(
+            sampleLabels.contains { $0.contains("SemiRounded") && $0.contains("SemiDisplay") },
+            "Expected composed STAT name in samples, got: \(sampleLabels)"
+        )
+        XCTAssertTrue(
+            recommended?.samples.contains { !$0.composedName.isEmpty } ?? false
+        )
     }
 
     func testCompoundSuggestionsGroupConstantAxesAcrossWeights() {
@@ -150,6 +182,58 @@ final class FvarStopSeederTests: XCTestCase {
         XCTAssertNil(byName["display"])
     }
 
+    func testCompoundSuggestionsDropWeightEvenWhenConstantAcrossGroup() {
+        // Residual name only appears at one weight — without a policy filter, wght
+        // would look like a constant compound leg.
+        var font = makeFont(
+            axes: [
+                weightAxis(values: [
+                    AxisValue(id: "w100", value: 100, name: "Regular", elidable: true),
+                    AxisValue(id: "w350", value: 350, name: "Medium", elidable: false),
+                ]),
+                AxisDefinition(
+                    tag: "ousd",
+                    displayName: "Outside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+                AxisDefinition(
+                    tag: "insd",
+                    displayName: "Inside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [100, 350], observed: [100, 350]),
+                analyzed(tag: "ousd", displayName: "Outside Corners", values: [], observed: [0, 100]),
+                analyzed(tag: "insd", displayName: "Inside Corners", values: [], observed: [0, 70]),
+            ],
+            instances: [
+                instance("Regular", ["wght": 100, "ousd": 0, "insd": 0]),
+                instance("Medium", ["wght": 350, "ousd": 0, "insd": 0]),
+                instance("DoubleRounded Medium", ["wght": 350, "ousd": 100, "insd": 70]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        let suggestion = try! XCTUnwrap(
+            report.compoundSuggestions.first { $0.name.caseInsensitiveCompare("DoubleRounded") == .orderedSame }
+        )
+        XCTAssertEqual(suggestion.coords["ousd"], 100)
+        XCTAssertEqual(suggestion.coords["insd"], 70)
+        XCTAssertNil(suggestion.coords["wght"])
+        XCTAssertEqual(suggestion.coveredInstanceCount, 1)
+    }
+
     func testReportsNameConflictWhenFvarResidueDisagreesWithSTAT() {
         var font = makeFont(
             axes: [
@@ -200,6 +284,237 @@ final class FvarStopSeederTests: XCTestCase {
         let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
         XCTAssertTrue(report.conflicts.isEmpty)
         XCTAssertEqual(report.seededStopCount, 0)
+    }
+
+    func testQuietOrthogonalCatalogDoesNotNeedReview() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: [
+                    AxisValue(id: "w100", value: 100, name: "Regular", elidable: true),
+                ]),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [100], observed: [100, 400]),
+            ],
+            instances: [
+                instance("Regular", ["wght": 100]),
+                instance("Bold", ["wght": 400]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertFalse(report.needsReview)
+        XCTAssertTrue(report.heldStopCandidates.isEmpty)
+        XCTAssertEqual(font.axes[0].values.map(\.value).sorted(), [100, 400])
+        XCTAssertEqual(font.axes[0].values.first { AxisCoordinate.valuesEqual($0.value, 400) }?.name, "Bold")
+        XCTAssertTrue(report.compoundSuggestions.isEmpty)
+    }
+
+    func testEmptySubfamilyNamesTriggerSparsityCalloutButStillSeedStops() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: []),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [], observed: [100, 400]),
+            ],
+            instances: [
+                FontAnalysis.ExistingInstance(
+                    key: InstanceKeyBuilder.makeKey(coords: ["wght": 100]),
+                    composedName: "",
+                    coords: ["wght": 100],
+                    subfamilyNameID: 0,
+                    postscriptNameID: 0
+                ),
+                FontAnalysis.ExistingInstance(
+                    key: InstanceKeyBuilder.makeKey(coords: ["wght": 400]),
+                    composedName: "",
+                    coords: ["wght": 400],
+                    subfamilyNameID: 0,
+                    postscriptNameID: 0
+                ),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertTrue(report.needsReview)
+        XCTAssertEqual(report.namingSparsity?.missingSubfamilyCount, 2)
+        XCTAssertEqual(font.axes[0].values.count, 2)
+        XCTAssertTrue(report.compoundSuggestions.isEmpty)
+        XCTAssertTrue(report.heldStopCandidates.isEmpty)
+    }
+
+    func testSharedSubfamilyNameAcrossLocationsTriggersSparsity() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: []),
+                AxisDefinition(
+                    tag: "ousd",
+                    displayName: "Outside",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [], observed: [100]),
+                analyzed(tag: "ousd", displayName: "Outside", values: [], observed: [0, 50, 100]),
+            ],
+            instances: [
+                FontAnalysis.ExistingInstance(
+                    key: "a",
+                    composedName: "Style",
+                    coords: ["wght": 100, "ousd": 0],
+                    subfamilyNameID: 300,
+                    postscriptNameID: 0
+                ),
+                FontAnalysis.ExistingInstance(
+                    key: "b",
+                    composedName: "Style",
+                    coords: ["wght": 100, "ousd": 50],
+                    subfamilyNameID: 300,
+                    postscriptNameID: 0
+                ),
+                FontAnalysis.ExistingInstance(
+                    key: "c",
+                    composedName: "Style",
+                    coords: ["wght": 100, "ousd": 100],
+                    subfamilyNameID: 300,
+                    postscriptNameID: 0
+                ),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertTrue(report.needsReview)
+        XCTAssertGreaterThanOrEqual(report.namingSparsity?.sharedNameCollapseSize ?? 0, 2)
+    }
+
+    func testApplyReviewDecisionsPromotesHeldComboOnlyStop() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: [
+                    AxisValue(id: "w100", value: 100, name: "Regular", elidable: true),
+                ]),
+                AxisDefinition(
+                    tag: "ousd",
+                    displayName: "Outside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+                AxisDefinition(
+                    tag: "insd",
+                    displayName: "Inside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [100], observed: [100]),
+                analyzed(tag: "ousd", displayName: "Outside Corners", values: [], observed: [0, 100]),
+                analyzed(tag: "insd", displayName: "Inside Corners", values: [], observed: [0, 70]),
+            ],
+            instances: [
+                instance("Regular", ["wght": 100, "ousd": 0, "insd": 0]),
+                instance("DoubleRounded", ["wght": 100, "ousd": 100, "insd": 70]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        let held70 = try! XCTUnwrap(report.heldStopCandidates.first {
+            $0.axisTag == "insd" && AxisCoordinate.valuesEqual($0.value, 70)
+        })
+        let suggestion = try! XCTUnwrap(report.compoundSuggestions.first)
+
+        let remaining = FvarStopSeeder.apply(
+            reviewDecisions: .init(
+                stopDecisions: [held70.id: .comboOnly],
+                acceptedCompoundIDs: [suggestion.id]
+            ),
+            report: report,
+            to: &font
+        )
+
+        XCTAssertNil(font.axes.first { $0.tag == "insd" }?.values.first {
+            AxisCoordinate.valuesEqual($0.value, 70)
+        })
+        XCTAssertEqual(font.compoundStatValues.count, 1)
+        XCTAssertEqual(font.compoundStatValues.first?.name, suggestion.name)
+        XCTAssertTrue(remaining.isEmpty)
+    }
+
+    func testApplyReviewDecisionsUsesPromotedStopNameOverride() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: [
+                    AxisValue(id: "w100", value: 100, name: "Regular", elidable: true),
+                ]),
+                AxisDefinition(
+                    tag: "ousd",
+                    displayName: "Outside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+                AxisDefinition(
+                    tag: "insd",
+                    displayName: "Inside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [100], observed: [100]),
+                analyzed(tag: "ousd", displayName: "Outside Corners", values: [], observed: [0, 100]),
+                analyzed(tag: "insd", displayName: "Inside Corners", values: [], observed: [0, 70]),
+            ],
+            instances: [
+                instance("Regular", ["wght": 100, "ousd": 0, "insd": 0]),
+                instance("DoubleRounded", ["wght": 100, "ousd": 100, "insd": 70]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        let held70 = try! XCTUnwrap(report.heldStopCandidates.first {
+            $0.axisTag == "insd" && AxisCoordinate.valuesEqual($0.value, 70)
+        })
+
+        _ = FvarStopSeeder.apply(
+            reviewDecisions: .init(
+                stopDecisions: [held70.id: .promote],
+                promotedStopNames: [held70.id: "DeepCorners"]
+            ),
+            report: report,
+            to: &font
+        )
+
+        let stop = font.axes.first { $0.tag == "insd" }?.values.first {
+            AxisCoordinate.valuesEqual($0.value, 70)
+        }
+        XCTAssertEqual(stop?.name, "DeepCorners")
     }
 
     // MARK: - Fixtures

@@ -75,7 +75,7 @@ struct MissingFontsSheet: View {
             }
         }
         .padding(StudioSpacing.contentInset)
-        .background(StudioColors.surfaceMuted, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+        .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
     }
 
     @ViewBuilder

@@ -389,7 +389,7 @@ struct InstanceListPanel: View {
         .padding(InstanceListFilterChrome.trayInset)
         .background(
             InstanceListFilterChrome.idleFill,
-            in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
+            in: RoundedRectangle.studio(InstanceListFilterChrome.cornerRadius)
         )
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -439,7 +439,7 @@ struct InstanceListPanel: View {
             .frame(height: InstanceListFilterChrome.segmentHeight)
             .background(
                 isSelected ? InstanceListFilterChrome.activeFill : Color.clear,
-                in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.segmentcornerRadius)
+                in: RoundedRectangle.studio(InstanceListFilterChrome.segmentcornerRadius)
             )
             .contentShape(Rectangle())
         }
@@ -476,7 +476,7 @@ struct InstanceListPanel: View {
         .frame(height: InstanceListFilterChrome.searchHeight)
         .background(
             isSearchFocused ? StudioColors.fieldFillFocused : InstanceListFilterChrome.idleFill,
-            in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
+            in: RoundedRectangle.studio(InstanceListFilterChrome.cornerRadius)
         )
     }
 
@@ -505,7 +505,7 @@ struct InstanceListPanel: View {
         .frame(height: InstanceListFilterChrome.controlHeight)
         .background(
             InstanceListFilterChrome.chipFill,
-            in: RoundedRectangle(cornerRadius: 12)
+            in: RoundedRectangle.studio(StudioRadius.chip)
         )
     }
 
@@ -537,7 +537,7 @@ struct InstanceListPanel: View {
             .frame(height: InstanceListFilterChrome.controlHeight)
             .background(
                 showFilterTriggerBackground,
-                in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
+                in: RoundedRectangle.studio(InstanceListFilterChrome.cornerRadius)
             )
             .contentShape(Rectangle())
         }
@@ -592,7 +592,7 @@ struct InstanceListPanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
         .help(showFilterHelp(for: filter))
     }
 
@@ -863,7 +863,7 @@ private struct FlowAxisChipGrid: View {
                         .frame(height: InstanceListFilterChrome.controlHeight)
                         .background(
                             InstanceListFilterChrome.fill(isActive: on),
-                            in: RoundedRectangle(cornerRadius: InstanceListFilterChrome.cornerRadius)
+                            in: RoundedRectangle.studio(InstanceListFilterChrome.cornerRadius)
                         )
                         .contentShape(Rectangle())
                 }
@@ -895,7 +895,7 @@ private struct InstanceGroupHeaderBar: View {
     @State private var headerWidth: CGFloat = 0
 
     private var cornerRadii: RectangleCornerRadii {
-        let r = StudioRadius.row
+        let r = StudioRadius.control
         if isStuckToTop {
             return RectangleCornerRadii(
                 topLeading: 0,
@@ -1079,7 +1079,7 @@ private struct InstanceRowView: View {
                     isHovered: isHovered
                 )
             }
-            .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+            .contentShape(RoundedRectangle.studio(StudioRadius.control))
             .onTapGesture {
                 onSelect(NSEvent.modifierFlags.contains(.command))
             }
@@ -1178,7 +1178,7 @@ private struct InstanceRowView: View {
                         .foregroundStyle(StudioColors.pendingForeground)
                         .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                         .padding(.vertical, StudioSpacing.instanceRowGap)
-                        .background((StudioColors.pendingFill), in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                        .background((StudioColors.pendingFill), in: RoundedRectangle.studio(StudioRadius.small))
                         .help("Included in the plan but not yet written to the working font")
                         .fixedSize()
                 }
@@ -1211,7 +1211,7 @@ private struct InstanceRowView: View {
                 .foregroundStyle(StudioColors.pendingForeground)
                 .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                 .padding(.vertical, StudioSpacing.instanceRowGap)
-                .background(StudioColors.pendingFill, in: RoundedRectangle(cornerRadius: StudioRadius.small))
+                .background(StudioColors.pendingFill, in: RoundedRectangle.studio(StudioRadius.small))
                 .help("Included in the plan but not yet written to the working font")
                 .fixedSize()
         }
@@ -1261,10 +1261,10 @@ private struct InstanceCoordPillView: View {
             //
             // Opaque `chipSurface` under the wash so row selection/hover cannot
             // tint through the translucent tag fill.
-            RoundedRectangle(cornerRadius: StudioRadius.small)
+            RoundedRectangle.studio(StudioRadius.small)
                 .fill(StudioColors.chipSurface)
                 .overlay {
-                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                    RoundedRectangle.studio(StudioRadius.small)
                         .fill(StudioColors.tagBackground.opacity(muted ? 0.6 : 1))
                 }
         }
@@ -1413,10 +1413,10 @@ private struct InstanceCoordPillStrip: View {
                         .background {
                             // Same tagBackground family as the pills it summarizes —
                             // opaque-backed so selection/hover cannot tint through.
-                            RoundedRectangle(cornerRadius: StudioRadius.small)
+                            RoundedRectangle.studio(StudioRadius.small)
                                 .fill(StudioColors.chipSurface)
                                 .overlay {
-                                    RoundedRectangle(cornerRadius: StudioRadius.small)
+                                    RoundedRectangle.studio(StudioRadius.small)
                                         .fill(StudioColors.tagBackground)
                                 }
                         }

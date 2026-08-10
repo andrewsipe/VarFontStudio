@@ -373,9 +373,12 @@ extension EditorViewModel {
                 markProjectDirtyIfChanged: true
             )
             regeneratePlan()
-            compoundSuggestions = seedReport.compoundSuggestions
-            postImportSeedStatus(seedReport, fileName: url.lastPathComponent, opened: true)
-            presentFvarStatConflicts(seedReport.conflicts)
+            handleImportSeedReport(
+                seedReport,
+                fileName: url.lastPathComponent,
+                opened: true,
+                fontID: imported.fonts.first?.id
+            )
             canSave = false
         } catch let error as FontImportError {
             postStatusMessage(error.localizedDescription)
@@ -431,14 +434,50 @@ extension EditorViewModel {
             )
             publishOpenProjects()
             regeneratePlan()
-            compoundSuggestions.append(contentsOf: seedReport.compoundSuggestions)
-            postImportSeedStatus(seedReport, fileName: url.lastPathComponent, opened: false)
-            presentFvarStatConflicts(seedReport.conflicts)
+            handleImportSeedReport(
+                seedReport,
+                fileName: url.lastPathComponent,
+                opened: false,
+                fontID: newFontID,
+                appendSuggestions: true
+            )
         } catch let error as FontImportError {
             postStatusMessage(error.localizedDescription)
         } catch {
             postStatusMessage("Could not add font: \(error.localizedDescription)")
         }
+    }
+
+    private func handleImportSeedReport(
+        _ report: FvarStopSeeder.Report,
+        fileName: String,
+        opened: Bool,
+        fontID: String? = nil,
+        appendSuggestions: Bool = false
+    ) {
+        postImportSeedStatus(report, fileName: fileName, opened: opened)
+        if report.needsReview {
+            let resolvedFontID = fontID
+                ?? openProjects.first(where: { $0.id == activeProjectID })?.selectedFontID
+                ?? report.heldStopCandidates.first?.fontID
+                ?? report.compoundSuggestions.first?.fontID
+                ?? report.conflicts.first?.fontID
+            if let resolvedFontID {
+                // Hold Format 4 suggestions in the sheet until Apply / Decide later.
+                if !appendSuggestions {
+                    compoundSuggestions.removeAll { $0.fontID == resolvedFontID }
+                }
+                presentFvarImportReview(report: report, fontID: resolvedFontID)
+            }
+            return
+        }
+
+        if appendSuggestions {
+            compoundSuggestions.append(contentsOf: report.compoundSuggestions)
+        } else {
+            compoundSuggestions = report.compoundSuggestions
+        }
+        presentFvarStatConflicts(report.conflicts)
     }
 
     private func postImportSeedStatus(
@@ -452,7 +491,9 @@ extension EditorViewModel {
             let stopWord = report.seededStopCount == 1 ? "stop" : "stops"
             parts.append("seeded \(report.seededStopCount) STAT \(stopWord) from fvar")
         }
-        if !report.compoundSuggestions.isEmpty {
+        if report.needsReview {
+            parts.append("import review suggested")
+        } else if !report.compoundSuggestions.isEmpty {
             let n = report.compoundSuggestions.count
             parts.append("\(n) combination suggestion\(n == 1 ? "" : "s")")
         }

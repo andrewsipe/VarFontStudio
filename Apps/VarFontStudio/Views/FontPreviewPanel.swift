@@ -136,7 +136,7 @@ struct FontPreviewHeaderControls: View {
             .foregroundStyle(Color.secondary)
             .padding(.horizontal, chrome.horizontalPadding)
             .frame(height: chrome.controlHeight)
-            .background(chrome.idleFill, in: RoundedRectangle(cornerRadius: chrome.cornerRadius))
+            .background(chrome.idleFill, in: RoundedRectangle.studio(chrome.cornerRadius))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -160,7 +160,7 @@ struct FontPreviewHeaderControls: View {
                         .frame(width: StudioFieldMetrics.toolbarIconHitSize, height: chrome.segmentHeight)
                         .background(
                             isSelected ? chrome.activeFill : Color.clear,
-                            in: RoundedRectangle(cornerRadius: chrome.segmentcornerRadius)
+                            in: RoundedRectangle.studio(chrome.segmentcornerRadius)
                         )
                         .contentShape(Rectangle())
                 }
@@ -173,7 +173,7 @@ struct FontPreviewHeaderControls: View {
             }
         }
         .padding(chrome.trayInset)
-        .background(chrome.idleFill, in: RoundedRectangle(cornerRadius: chrome.cornerRadius))
+        .background(chrome.idleFill, in: RoundedRectangle.studio(chrome.cornerRadius))
     }
 }
 

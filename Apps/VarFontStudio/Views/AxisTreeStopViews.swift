@@ -184,12 +184,12 @@ struct AxisTreeStopRow: View {
         }
         .overlay(alignment: .leading) {
             if isConflicting {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle.studio(StudioRadius.hairline)
                     .fill(StudioColors.warningForeground.opacity(0.85))
                     .frame(width: 3)
                     .padding(.leading, StudioSpace.x0_5)
             } else if isRegistrationStop {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle.studio(StudioRadius.hairline)
                     .fill(StudioColors.registrationForeground.opacity(0.85))
                     .frame(width: 3)
                     .padding(.leading, StudioSpace.x0_5)
@@ -456,7 +456,7 @@ struct AxisTreeStopRow: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpace.x1)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
-                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: 4))
+                    .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
                     .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .center)
                     .contentShape(Rectangle())
                     .gesture(clickGesture(for: .code))

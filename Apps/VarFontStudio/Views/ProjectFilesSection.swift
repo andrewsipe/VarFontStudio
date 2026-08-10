@@ -68,7 +68,7 @@ struct ProjectInspectorFileRow: View {
         .background {
             StudioRowBackground(isSelected: isSelected, isHovered: isHovered)
         }
-        .contentShape(RoundedRectangle(cornerRadius: StudioRadius.row))
+        .contentShape(RoundedRectangle.studio(StudioRadius.control))
         .onHover { isHovered = $0 }
         .background {
             GeometryReader { geometry in

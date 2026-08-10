@@ -51,14 +51,14 @@ struct StudioComposedNameCallout: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            // Duplicate: keep a quiet leading mark only — full amber wash is reserved for
+            // Duplicate: keep a quiet leading mark only — full yellow wash is reserved for
             // actionable banners / fix loci, not every affected name callout.
             .background(
                 StudioColors.selectionFill,
-                in: RoundedRectangle(cornerRadius: StudioRadius.row)
+                in: RoundedRectangle.studio(StudioRadius.surface)
             )
             .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
+                RoundedRectangle.studio(StudioRadius.hairline)
                     .fill(isDuplicate ? StudioColors.warningForeground : StudioColors.brand)
                     .frame(width: 3)
             }
@@ -139,7 +139,7 @@ struct InspectorInstanceNamingChain: View {
                         namingSegment(link)
                             .overlay {
                                 if link.tag == conflictTag {
-                                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                                    RoundedRectangle.studio(StudioRadius.chip)
                                         .strokeBorder(
                                             StudioColors.warningForeground.opacity(0.85),
                                             lineWidth: StudioStroke.regular
@@ -182,7 +182,7 @@ struct InspectorInstanceNamingChain: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                    .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
             } else if link.kind == .compound {
                 HStack(spacing: 5) {
                     Text("F4")
@@ -430,9 +430,9 @@ struct InspectorOpenTypeSourcePill: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
             .padding(.vertical, StudioSpace.x0_5)
-            .background(fill, in: RoundedRectangle(cornerRadius: 4))
+            .background(fill, in: RoundedRectangle.studio(StudioRadius.chip))
             .overlay {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(stroke, lineWidth: StudioStroke.hairline)
             }
     }

@@ -40,7 +40,7 @@ struct AxisStopFillControls: View {
                 }
             }
             .padding(StudioSpace.x0_5)
-            .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+            .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
             .accessibilityLabel("Fill mode")
 
             switch fillMode {
@@ -107,7 +107,7 @@ struct AxisStopFillControls: View {
                 .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioSpacing.instanceRowVertical)
                 .background(
-                    isSelected ? StudioColors.brand.opacity(0.14) : StudioColors.surfaceLight,
+                    isSelected ? StudioColors.brand : StudioColors.surfaceLight,
                     in: Capsule()
                 )
         }

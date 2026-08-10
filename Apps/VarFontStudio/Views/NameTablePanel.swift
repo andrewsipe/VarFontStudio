@@ -369,7 +369,7 @@ struct NameTablePanel: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
             }
             ForEach(ids, id: \.self) { nameID in
                 addIDRow(nameID)
@@ -411,7 +411,7 @@ struct NameTablePanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
     }
 
     private func namesHeaderMeta(_ analysis: FontAnalysis) -> some View {
@@ -547,7 +547,7 @@ struct NameTablePanel: View {
                         .padding(.trailing, binding.wrappedValue.isEmpty ? 0 : NameTableLayout.clearButtonReservedWidth)
                         .frame(height: NameTableLayout.valueRowHeight, alignment: .center)
                         .background {
-                            RoundedRectangle(cornerRadius: StudioRadius.control)
+                            RoundedRectangle.studio(StudioRadius.control)
                                 .fill(StudioColors.fieldFill)
                         }
                         .overlay {
@@ -556,7 +556,7 @@ struct NameTablePanel: View {
                             // NOTE: swap Color.primary.opacity(...) for your real border/separator
                             // token if StudioColors defines one — kept generic since that file
                             // wasn't in scope here.
-                            RoundedRectangle(cornerRadius: StudioRadius.control)
+                            RoundedRectangle.studio(StudioRadius.control)
                                 .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
                         }
                         .contentShape(Rectangle())

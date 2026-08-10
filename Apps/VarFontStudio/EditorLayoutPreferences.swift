@@ -31,9 +31,8 @@ final class EditorLayoutPreferences: ObservableObject {
     }
 
     /// Combination styles drawer at the bottom of the Axis Tree panel.
-    @Published var combinationStylesDrawerExpanded: Bool {
-        didSet { UserDefaults.standard.set(combinationStylesDrawerExpanded, forKey: Keys.combinationStylesDrawerExpanded) }
-    }
+    /// Session-only — always starts closed so suggestions don’t force the drawer open.
+    @Published var combinationStylesDrawerExpanded: Bool = false
 
     @Published var axisTreeWidth: CGFloat {
         didSet { UserDefaults.standard.set(axisTreeWidth, forKey: Keys.axisTreeWidth) }
@@ -57,10 +56,9 @@ final class EditorLayoutPreferences: ObservableObject {
         showInstances = Self.storedBool(forKey: Keys.instances, default: true)
         showInspector = Self.storedBool(forKey: Keys.inspector, default: true)
         axisTreeCollapsed = Self.storedBool(forKey: Keys.axisTreeCollapsed, default: false)
-        combinationStylesDrawerExpanded = Self.storedBool(
-            forKey: Keys.combinationStylesDrawerExpanded,
-            default: true
-        )
+        // Drop any legacy persisted expand flag from when suggestions auto-opened the drawer.
+        UserDefaults.standard.removeObject(forKey: Keys.combinationStylesDrawerExpanded)
+        combinationStylesDrawerExpanded = false
         axisTreeWidth = Self.storedCGFloat(forKey: Keys.axisTreeWidth, default: StudioPanelMetrics.axisTreeDefault)
         inspectorWidth = Self.storedCGFloat(forKey: Keys.inspectorWidth, default: StudioPanelMetrics.inspectorDefault)
         defaultNameIDStrategy = StudioAppPreferences.defaultNameIDStrategy

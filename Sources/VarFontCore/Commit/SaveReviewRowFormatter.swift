@@ -47,6 +47,8 @@ public enum SaveReviewRowFormatter {
 
   public static func statFormatLabel(format: Int) -> String {
     if format == 2 { return "Format 2 range" }
+    if format == 3 { return "Format 3 linked" }
+    if format == 4 { return "Format 4 combination style" }
     return "Format \(format)"
   }
 

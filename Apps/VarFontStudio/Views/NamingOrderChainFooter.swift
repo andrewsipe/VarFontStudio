@@ -224,7 +224,7 @@ struct NamingOrderChainFooter: View {
             }
         }
         .padding(StudioSpace.x0_5)
-        .background(StudioColors.surfaceInset, in: RoundedRectangle(cornerRadius: StudioRadius.control))
+        .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
     }
 
     private func modeHelp(_ mode: StudioFooterPanelMode) -> String {
@@ -346,7 +346,7 @@ struct NamingOrderChainFooter: View {
                 .textSelection(.enabled)
                 .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioSpacing.instanceRowVertical)
-                .background(.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(.tertiary.opacity(0.6), in: RoundedRectangle.studio(StudioRadius.chip))
         }
     }
 
@@ -447,7 +447,7 @@ struct NamingOrderChainFooter: View {
                     .foregroundStyle(.primary)
                     .padding(.horizontal, StudioSpacing.tightGap)
                     .padding(.vertical, StudioSpacing.instanceRowGap)
-                    .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: 4))
+                    .background(StudioColors.registrationBackground, in: RoundedRectangle.studio(StudioRadius.chip))
 
                 Text(hasPrefix ? prefix : "Set prefix…")
                     .font(StudioTypography.caption.weight(hasPrefix ? .semibold : .regular))
@@ -459,11 +459,11 @@ struct NamingOrderChainFooter: View {
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 hasPrefix ? StudioColors.registrationBackground : StudioColors.buttonSecondaryFill,
-                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                in: RoundedRectangle.studio(StudioRadius.chip)
             )
             .overlay {
                 if hasPrefix {
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    RoundedRectangle.studio(StudioRadius.chip)
                         .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.regular)
                 }
             }
@@ -503,9 +503,9 @@ struct NamingOrderChainFooter: View {
         }
         .scrollDisabled(session.isDragging)
         .coordinateSpace(name: coordinateSpace)
-        .background(.background.opacity(0.35), in: RoundedRectangle(cornerRadius: StudioRadius.row))
+        .background(.background.opacity(0.35), in: RoundedRectangle.studio(StudioRadius.surface))
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.row)
+            RoundedRectangle.studio(StudioRadius.surface)
                 .strokeBorder(.quaternary.opacity(0.55), lineWidth: StudioStroke.regular)
         }
         .overlay(alignment: .topLeading) {
@@ -614,11 +614,11 @@ struct NamingOrderChainFooter: View {
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 inGrid ? StudioColors.surfaceMuted : Color.clear,
-                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                in: RoundedRectangle.studio(StudioRadius.chip)
             )
             .overlay {
                 // Solid hairline at rest — dashed is reserved for drag-hover affordance.
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(
                         Color.secondary.opacity(inGrid ? 0.28 : 0.35),
                         lineWidth: StudioStroke.hairline
@@ -644,9 +644,9 @@ struct NamingOrderChainFooter: View {
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-            .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .background(StudioColors.registrationBackground, in: RoundedRectangle.studio(StudioRadius.chip))
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.hairline)
             }
             .opacity(isDragging ? 0.3 : 1)
@@ -670,9 +670,9 @@ struct NamingOrderChainFooter: View {
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-            .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(StudioColors.codeStroke, lineWidth: StudioStroke.hairline)
             }
             .opacity(isDragging ? 0.3 : 1)
@@ -699,9 +699,9 @@ struct NamingOrderChainFooter: View {
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-            .background(StudioColors.clarifierBackground.opacity(0.5), in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+            .background(StudioColors.clarifierBackground.opacity(0.5), in: RoundedRectangle.studio(StudioRadius.chip))
             .overlay {
-                RoundedRectangle(cornerRadius: StudioRadius.chip)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(StudioColors.clarifierStroke, lineWidth: StudioStroke.hairline)
             }
             .opacity(isDragging ? 0.3 : 1)
@@ -731,10 +731,10 @@ struct NamingOrderChainFooter: View {
         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
         .background(
             StudioColors.registrationBackground.opacity(0.5),
-            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            in: RoundedRectangle.studio(StudioRadius.chip)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
+            RoundedRectangle.studio(StudioRadius.chip)
                 .strokeBorder(StudioColors.registrationStroke, lineWidth: StudioStroke.hairline)
         }
         .opacity(isDragging ? 0.3 : 1)
@@ -840,7 +840,7 @@ struct NamingOrderChainFooter: View {
             if let tag = session.draggingTag {
                 ghostChip(for: tag)
                     .overlay {
-                        RoundedRectangle(cornerRadius: StudioRadius.chip)
+                        RoundedRectangle.studio(StudioRadius.chip)
                             .strokeBorder(Color.secondary.opacity(0.35), lineWidth: StudioStroke.regular)
                     }
                     .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
@@ -860,7 +860,7 @@ struct NamingOrderChainFooter: View {
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-                .background(StudioColors.registrationBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(StudioColors.registrationBackground, in: RoundedRectangle.studio(StudioRadius.chip))
         } else if editor.isCodeNamingToken(tag) {
             Text("Code")
                 .font(StudioTypography.caption.weight(.semibold))
@@ -868,7 +868,7 @@ struct NamingOrderChainFooter: View {
                 .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
-                .background(StudioColors.codeBackground, in: RoundedRectangle(cornerRadius: StudioRadius.chip))
+                .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
         } else if editor.isClarifierNamingToken(tag) {
             Text(chainChipLabel(for: tag))
                 .font(StudioTypography.caption)
@@ -878,7 +878,7 @@ struct NamingOrderChainFooter: View {
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 .background(
                     StudioColors.clarifierBackground.opacity(0.5),
-                    in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    in: RoundedRectangle.studio(StudioRadius.chip)
                 )
         } else if editor.isRegistrationNamingAxis(tag: tag) {
             HStack(spacing: StudioSpacing.tightGap) {
@@ -893,7 +893,7 @@ struct NamingOrderChainFooter: View {
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 StudioColors.registrationBackground.opacity(0.5),
-                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                in: RoundedRectangle.studio(StudioRadius.chip)
             )
         } else {
             HStack(spacing: StudioSpacing.tightGap) {
@@ -908,7 +908,7 @@ struct NamingOrderChainFooter: View {
             .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
             .background(
                 StudioColors.surfaceInset,
-                in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+                in: RoundedRectangle.studio(StudioRadius.chip)
             )
         }
     }

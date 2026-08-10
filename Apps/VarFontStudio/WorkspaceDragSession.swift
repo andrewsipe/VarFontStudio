@@ -519,10 +519,10 @@ struct WorkspaceDragGhostOverlay: View {
         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
         .background(
             Color.primary.opacity(0.06),
-            in: RoundedRectangle(cornerRadius: StudioRadius.chip)
+            in: RoundedRectangle.studio(StudioRadius.chip)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
+            RoundedRectangle.studio(StudioRadius.chip)
                 .strokeBorder(StudioColors.brand.opacity(0.28), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.18), radius: 4, y: 1)

@@ -38,17 +38,17 @@ struct StudioFilterBadge: View {
                 .background {
                     ZStack {
                         if !isHidden {
-                            RoundedRectangle(cornerRadius: 4)
+                            RoundedRectangle.studio(StudioRadius.chip)
                                 .fill(category.pillStyle.background)
                         }
                         if isHovered, !isHidden, !isIsolated {
-                            RoundedRectangle(cornerRadius: 4)
+                            RoundedRectangle.studio(StudioRadius.chip)
                                 .fill(StudioColors.hoverFill)
                         }
                     }
                 }
                 .overlay {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle.studio(StudioRadius.chip)
                         .strokeBorder(
                             isIsolated ? Color.primary.opacity(0.22) : (isHidden ? Color.clear : category.pillStyle.border),
                             lineWidth: isIsolated ? 1 : 0.5
@@ -97,22 +97,22 @@ struct StudioSaveReviewTabBar: View {
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     .background(
                         isSelected ? StudioColors.surfaceLight : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 6)
+                        in: RoundedRectangle.studio(StudioRadius.control)
                     )
                     .shadow(color: isSelected ? StudioPalette.color(.ink, light: .s900, dark: .s900).opacity(0.2) : .clear, radius: 2, y: 1)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .studioHoverFill(
-                    shape: .roundedRect(cornerRadius: 6),
+                    shape: .roundedRect(cornerRadius: StudioRadius.control),
                     isEnabled: !isSelected
                 )
             }
         }
         .padding(3)
-        .background(StudioColors.surfaceSubtle, in: RoundedRectangle(cornerRadius: 8))
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle.studio(StudioRadius.surface)
                 .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
         )
     }
@@ -150,9 +150,9 @@ struct StudioSaveReviewCategoryTag: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
             .padding(.vertical, StudioSpace.x0_5)
-            .background(category.pillStyle.background, in: RoundedRectangle(cornerRadius: 4))
+            .background(category.pillStyle.background, in: RoundedRectangle.studio(StudioRadius.chip))
             .overlay {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle.studio(StudioRadius.chip)
                     .strokeBorder(category.pillStyle.border, lineWidth: 0.5)
             }
     }
@@ -163,7 +163,7 @@ struct StudioStreamlinedDiffRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle.studio(StudioRadius.hairline)
                 .fill(gutterColor)
                 .frame(width: SaveReviewLayout.gutterWidth)
                 .padding(.leading, SaveReviewLayout.gutterLeadingPadding)

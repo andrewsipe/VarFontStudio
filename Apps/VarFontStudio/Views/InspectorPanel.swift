@@ -195,9 +195,9 @@ struct InstanceInspectorContent: View {
                             .foregroundStyle(.primary)
                             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
                             .padding(.vertical, StudioSpace.x0_5)
-                            .background(StudioColors.pendingFill, in: RoundedRectangle(cornerRadius: 4))
+                            .background(StudioColors.pendingFill, in: RoundedRectangle.studio(StudioRadius.chip))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle.studio(StudioRadius.chip)
                                     .strokeBorder(
                                         StudioColors.pendingFill.opacity(0.45),
                                         lineWidth: StudioStroke.hairline
@@ -206,7 +206,7 @@ struct InstanceInspectorContent: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.row))
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
 
                 if showPlannedWrites {
                     let rows = editor.openTypePreviewRows(for: instance)

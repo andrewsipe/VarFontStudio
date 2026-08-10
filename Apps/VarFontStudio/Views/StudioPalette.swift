@@ -17,7 +17,7 @@ import SwiftUI
 //   600 in light / 300–400 in dark).
 // - **Secondary**: mid step in the same family.
 // - **Tertiary** (sparse): lightest legible step.
-// Exemplar: `statFormat1/2/3` = purple primary / secondary / tertiary.
+// Exemplar: `statFormat1/2/3` = rose primary / secondary / tertiary.
 //
 // Soft fills / banners: 50–200 in light, 800–950 in dark.
 // Solid CTAs: 300–500 in light, 500–600 in dark (verify label contrast).
@@ -127,10 +127,15 @@ enum StudioPalette {
         case .stone:
             return ["#FAFAF9", "#F5F5F4", "#E7E5E4", "#D6D3D1", "#A8A29E", "#78716C", "#57534E", "#44403C", "#292524", "#1C1917", "#0C0A09"]
         case .paper:
-            return ["#fffdf9", "#f1eee9", "#e2dfd8","#d4d0c8", "#c5c1b8", "#b7b2a8", "#a9a297", 
-            "9a9387", "#8c8477", "#7d7566", "#6f6656"]
+            return [
+                "#fffdf9", "#f1eee9", "#e2dfd8", "#d4d0c8", "#c5c1b8", "#b7b2a8",
+                "#a9a297", "#9a9387", "#8c8477", "#7d7566", "#6f6656",
+            ]
         case .ink:
-            return ["#231e15", "#211c14", "#1f1a12", "#1c1811", "#1a1610", "#18140f", "#16130d", "#14110c", "#110f0b", "#0f0d09", "#0d0b08"]
+            return [
+                "#231e15", "#211c14", "#1f1a12", "#1c1811", "#1a1610", "#18140f",
+                "#16130d", "#14110c", "#110f0b", "#0f0d09", "#0d0b08",
+            ]
         }
     }
 

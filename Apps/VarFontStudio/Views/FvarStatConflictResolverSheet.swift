@@ -99,7 +99,7 @@ struct FvarStatConflictResolverSheet: View {
                 .foregroundStyle(StudioColors.warningOnFillForeground)
                 .padding(.horizontal, StudioSpacing.tightGap)
                 .padding(.vertical, StudioSpacing.instanceRowGap)
-                .background(StudioColors.warningFill, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .background(StudioColors.warningFill, in: RoundedRectangle.studio(StudioRadius.surface))
         }
     }
 

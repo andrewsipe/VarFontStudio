@@ -229,7 +229,7 @@ struct SaveReviewWindow: View {
                 .padding(StudioSpacing.contentInset)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: StudioRadius.chip)
+                    RoundedRectangle.studio(StudioRadius.chip)
                         .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
                 )
                 .padding(.horizontal, StudioSpacing.contentInset)
@@ -315,7 +315,7 @@ struct SaveReviewWindow: View {
                     }
                     .padding(StudioSpacing.contentInset)
                     .frame(width: 360)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: StudioRadius.row))
+                    .background(.regularMaterial, in: RoundedRectangle.studio(StudioRadius.surface))
                 }
                 .ignoresSafeArea()
                 .allowsHitTesting(true)
@@ -382,7 +382,7 @@ struct SaveReviewWindow: View {
         .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
+            RoundedRectangle.studio(StudioRadius.chip)
                 .strokeBorder(StudioColors.errorStroke, lineWidth: StudioStroke.regular)
         )
     }
@@ -399,7 +399,7 @@ struct SaveReviewWindow: View {
         .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: StudioRadius.chip)
+            RoundedRectangle.studio(StudioRadius.chip)
                 .strokeBorder(StudioColors.warningStroke, lineWidth: StudioStroke.regular)
         )
     }

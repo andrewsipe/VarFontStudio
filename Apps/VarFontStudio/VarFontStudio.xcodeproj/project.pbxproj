@@ -47,6 +47,7 @@
 		B2000094 /* InspectorComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000094 /* InspectorComponents.swift */; };
 		B2000093 /* SaveReviewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000093 /* SaveReviewComponents.swift */; };
 		B2000092 /* StudioSharedLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000092 /* StudioSharedLayouts.swift */; };
+		B2000100 /* FvarImportReviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000100 /* FvarImportReviewSheet.swift */; };
 		B2000011 /* InstanceInclusionCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000010 /* InstanceInclusionCommands.swift */; };
 		B2000012 /* NamingOrderChainFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000011 /* NamingOrderChainFooter.swift */; };
 		B2000013 /* OpenProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* OpenProject.swift */; };
@@ -149,6 +150,7 @@
 		F2000022 /* InspectorSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorSupport.swift; sourceTree = "<group>"; };
 		F2000023 /* AxisConflictResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AxisConflictResolverSheet.swift; sourceTree = "<group>"; };
 		F2000091 /* FvarStatConflictResolverSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FvarStatConflictResolverSheet.swift; sourceTree = "<group>"; };
+		F2000100 /* FvarImportReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FvarImportReviewSheet.swift; sourceTree = "<group>"; };
 		F2000024 /* CommitDiffSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitDiffSheet.swift; sourceTree = "<group>"; };
 		F2000025 /* CommitPreflightSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommitPreflightSession.swift; sourceTree = "<group>"; };
 		F2000026 /* SourceFontAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceFontAccess.swift; sourceTree = "<group>"; };
@@ -307,6 +309,7 @@
 				F2000064 /* AxisTreeTabKeyMonitor.swift */,
 				F2000023 /* AxisConflictResolverSheet.swift */,
 				F2000091 /* FvarStatConflictResolverSheet.swift */,
+				F2000100 /* FvarImportReviewSheet.swift */,
 				F2000030 /* PlanIssueResolverSheet.swift */,
 				F2000031 /* CombinationStylesSection.swift */,
 				F2000024 /* CommitDiffSheet.swift */,
@@ -560,6 +563,7 @@
 				B2000089 /* EditorViewModel+ExportRefresh.swift in Sources */,
 				B2000090 /* EditorViewModel+PendingExport.swift in Sources */,
 				B2000091 /* FvarStatConflictResolverSheet.swift in Sources */,
+				B2000100 /* FvarImportReviewSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
