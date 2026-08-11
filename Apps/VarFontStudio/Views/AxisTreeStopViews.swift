@@ -84,7 +84,7 @@ struct AxisStopTableHeader: View {
             Image(systemName: valueSortSymbol)
                 .font(StudioTypography.iconGlyph)
         }
-        .foregroundStyle(valueSortAscending == nil ? Color.secondary : StudioColors.brand)
+        .foregroundStyle(valueSortAscending == nil ? Color.secondary : StudioColors.metricForeground)
         .contentShape(Rectangle())
         .help(valueSortHelp)
 

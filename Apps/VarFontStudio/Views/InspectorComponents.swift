@@ -9,7 +9,7 @@ struct StudioInspectorBlock<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             StudioSectionLabel(title: title)
             content
         }
@@ -17,51 +17,39 @@ struct StudioInspectorBlock<Content: View>: View {
 }
 
 
-struct StudioInspectorConflictBadge: View {
-    let count: Int
-    var action: (() -> Void)?
-
-    var body: some View {
-        let label = Text("\(count) conflict\(count == 1 ? "" : "s")")
-            .font(StudioTypography.caption.weight(.medium))
-            .foregroundStyle(StudioColors.warningOnFillForeground)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(StudioColors.warningFill, in: Capsule())
-
-        if let action {
-            Button(action: action) { label }
-                .buttonStyle(.plain)
-                .studioHoverFill(shape: .capsule)
-                .help("Show conflict details")
-        } else {
-            label
-        }
-    }
-}
-
 struct StudioComposedNameCallout: View {
     let name: String
     var isDuplicate: Bool = false
 
+    private var barShape: UnevenRoundedRectangle {
+        // Square into the leading brand stripe; keep trailing continuous corners.
+        UnevenRoundedRectangle(
+            cornerRadii: RectangleCornerRadii(
+                topLeading: 0,
+                bottomLeading: 0,
+                bottomTrailing: StudioRadius.surface,
+                topTrailing: StudioRadius.surface
+            ),
+            style: .continuous
+        )
+    }
+
     var body: some View {
         Text(name)
-            .font(.system(size: 15, weight: .semibold))
+            .font(StudioTypography.projectTitle)
+            .foregroundStyle(.primary)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            // Duplicate: keep a quiet leading mark only — full yellow wash is reserved for
-            // actionable banners / fix loci, not every affected name callout.
-            .background(
-                StudioColors.brandSecondaryFill,
-                in: RoundedRectangle.studio(StudioRadius.surface)
-            )
+            // Neutral selection wash — brand lives on the leading stripe only.
+            .background(StudioColors.selectionNeutralFillStrong, in: barShape)
             .overlay(alignment: .leading) {
-                RoundedRectangle.studio(StudioRadius.hairline)
+                Rectangle()
                     .fill(isDuplicate ? StudioColors.warningForeground : StudioColors.brand)
                     .frame(width: 3)
             }
+            .clipShape(barShape)
     }
 }
 
@@ -185,12 +173,7 @@ struct InspectorInstanceNamingChain: View {
                     .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
             } else if link.kind == .compound {
                 HStack(spacing: 5) {
-                    Text("F4")
-                        .font(StudioTypography.caption.weight(.semibold))
-                        .foregroundStyle(StudioColors.statFormat1)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(StudioColors.statFormat1Background, in: Capsule())
+                    StudioStatFormatBadge(format: 4)
                     Text(link.tag)
                         .font(StudioTypography.monoMeta)
                         .foregroundStyle(.secondary)
@@ -234,12 +217,12 @@ struct InspectorInstanceNamingChain: View {
 }
 
 /// Inspector axis-coordinate list columns (on-lattice).
-/// `elisionWidth` fits the spelled-out “Elidable” header — wider than stop-table “Elided”.
+/// `elisionWidth` fits the “Elided” column header + radio hit target.
 enum InspectorAxisCoordLayout {
     static let badgeWidth: CGFloat = 34
     static let chainWidth: CGFloat = StudioSpace.x3 // 12
     static let valueWidth: CGFloat = 44
-    static let elisionWidth: CGFloat = 52
+    static let elisionWidth: CGFloat = 44
 }
 
 struct InspectorAxisCoordinatesView: View {
@@ -351,8 +334,8 @@ private struct InspectorAxisCoordRowView: View {
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.vertical, 3)
-                .padding(.horizontal, 4)
+                .padding(.vertical, StudioSpace.x1_5)
+                .padding(.horizontal, StudioSpace.x1)
                 .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
                 .background {
                     StudioRowBackground(
@@ -456,80 +439,124 @@ struct InspectorOpenTypeSourcePill: View {
     }
 }
 
+/// Quiet status chip for row-level flags (elided) — neutral fill, not a table source.
+private struct InspectorOpenTypeFlagPill: View {
+    let title: String
+
+    var body: some View {
+        Text(title.uppercased())
+            .font(StudioTypography.filterBadgeLabel)
+            .tracking(0.3)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+            .padding(.vertical, StudioSpace.x0_5)
+            .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
+            .overlay {
+                RoundedRectangle.studio(StudioRadius.chip)
+                    .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
+            }
+    }
+}
+
+/// Planned OpenType write list for the instance inspector — table source chips + content,
+/// no nameID column (IDs aren’t allocated until Save Review).
 struct InspectorOpenTypeTable: View {
     let rows: [InspectorOpenTypeRow]
 
+    /// Field column width when the row lays out horizontally (wide inspector).
+    private static let fieldColumnIdeal: CGFloat = 128
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("Field")
-                    .frame(width: SaveReviewLayout.fieldColumnWidth * 0.55, alignment: .leading)
-                Text("ID")
-                    .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
-                    .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
-                    .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
-                Text("Content")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .font(StudioTypography.columnLabel)
-            .foregroundStyle(StudioColors.sectionHeading)
-            .padding(.bottom, StudioSpace.x1)
-
-            ForEach(rows) { row in
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
-                        Text(row.field)
-                            .font(StudioTypography.bodyMedium)
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                        Text(row.table)
-                            .font(StudioTypography.monoValue)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .frame(width: SaveReviewLayout.fieldColumnWidth * 0.55, alignment: .leading)
-                    .layoutPriority(1)
-
-                    Group {
-                        if let nameID = row.nameID {
-                            Text("\(nameID)")
-                                .font(StudioTypography.rowNameMono.weight(.medium))
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                                .lineLimit(1)
-                        } else {
-                            Text("—")
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.quaternary)
-                        }
-                    }
-                    .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
-                    .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
-                    .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
-                    .layoutPriority(2)
-
-                    VStack(alignment: .leading, spacing: StudioSpace.x1) {
-                        Text(row.content)
-                            .font(StudioTypography.monoValue)
-                            .foregroundStyle(row.isDerived ? .secondary : .primary)
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if !row.sources.isEmpty {
-                            HStack(spacing: StudioSpace.x1) {
-                                ForEach(row.sources, id: \.rawValue) { source in
-                                    InspectorOpenTypeSourcePill(source: source)
-                                }
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .padding(.vertical, StudioSpace.x2)
-
-                if row.id != rows.last?.id {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                if index > 0 {
                     Rectangle()
                         .fill(StudioColors.surfaceStroke)
                         .frame(height: StudioStroke.hairline)
+                }
+                writeRow(row)
+            }
+        }
+    }
+
+    private func writeRow(_ row: InspectorOpenTypeRow) -> some View {
+        // Wide inspector: chip | field | content | flags on one baseline.
+        // Narrow: fall back to stacked field/content under the chip.
+        // `minWidth` on the wide candidate so ViewThatFits can reject it when the
+        // panel is tight (a lone `maxWidth: .infinity` would always “fit”).
+        ViewThatFits(in: .horizontal) {
+            wideWriteRow(row)
+                .frame(minWidth: 280, maxWidth: .infinity, alignment: .leading)
+            compactWriteRow(row)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, StudioSpace.x2_5)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func wideWriteRow(_ row: InspectorOpenTypeRow) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.rowGap) {
+            leadingSourcePill(row)
+
+            Text(row.field)
+                .font(StudioTypography.bodyMedium.weight(.medium))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .frame(width: Self.fieldColumnIdeal, alignment: .leading)
+                .layoutPriority(1)
+
+            Text(row.content)
+                .font(StudioTypography.monoValue)
+                .foregroundStyle(row.isDerived ? .secondary : .primary)
+                .textSelection(.enabled)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            trailingFlags(row)
+        }
+    }
+
+    private func compactWriteRow(_ row: InspectorOpenTypeRow) -> some View {
+        HStack(alignment: .top, spacing: StudioSpacing.rowGap) {
+            leadingSourcePill(row)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: StudioSpace.x1) {
+                HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.rowGap) {
+                    Text(row.field)
+                        .font(StudioTypography.bodyMedium.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                    trailingFlags(row)
+                }
+
+                Text(row.content)
+                    .font(StudioTypography.monoValue)
+                    .foregroundStyle(row.isDerived ? .secondary : .primary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func leadingSourcePill(_ row: InspectorOpenTypeRow) -> some View {
+        if let source = row.sources.first {
+            InspectorOpenTypeSourcePill(source: source)
+        }
+    }
+
+    @ViewBuilder
+    private func trailingFlags(_ row: InspectorOpenTypeRow) -> some View {
+        if row.isElided || row.sources.count > 1 {
+            HStack(spacing: StudioSpace.x1) {
+                ForEach(row.sources.dropFirst(), id: \.rawValue) { source in
+                    InspectorOpenTypeSourcePill(source: source)
+                }
+                if row.isElided {
+                    InspectorOpenTypeFlagPill(title: "elided")
                 }
             }
         }

@@ -8,7 +8,16 @@ struct InspectorColumn: View {
     var body: some View {
         VStack(spacing: 0) {
             StudioPanelHeader(title: "Inspector") {
-                inspectorHeaderMeta
+                HStack(spacing: StudioSpacing.controlGap) {
+                    inspectorHeaderMeta
+
+                    StudioPanelCollapseButton(
+                        edge: .trailing,
+                        help: "Collapse inspector"
+                    ) {
+                        layout.inspectorCollapsed = true
+                    }
+                }
             }
 
             scopeSwitcher
@@ -35,9 +44,7 @@ struct InspectorColumn: View {
             editor.updateInspectorScopeForSelection()
         }
         .onChange(of: editor.inspectorFocus.revealToken) { _, _ in
-            if !layout.showInspector {
-                layout.showInspector = true
-            }
+            layout.revealInspector()
         }
     }
 

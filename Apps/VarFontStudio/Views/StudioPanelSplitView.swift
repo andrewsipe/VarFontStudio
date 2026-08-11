@@ -23,29 +23,7 @@ struct StudioPanelSplitView: View {
             }
 
             if layout.showInspector {
-                InspectorColumn()
-                    .frame(
-                        minWidth: StudioPanelMetrics.inspectorMin,
-                        idealWidth: layout.inspectorWidth,
-                        maxWidth: inspectorMaxWidth,
-                        maxHeight: .infinity,
-                        alignment: .topLeading
-                    )
-                    .modifier(
-                        TrackResizableWidth(
-                            range: StudioPanelMetrics.inspectorMin...StudioPanelMetrics.inspectorMax,
-                            storedWidth: $layout.inspectorWidth
-                        )
-                    )
-                    .registerPanelFrame(InspectorPanelFrameKey.self) { frame in
-                        editor.workspaceDrag.setInspectorPanelFrame(frame)
-                    }
-                    .workspaceDropZoneHighlight(
-                        isActive: workspaceDrag.shouldHighlightInspectorPanel(
-                            activeProjectID: editor.activeProjectID
-                        ),
-                        tint: StudioColors.dropAddExisting
-                    )
+                inspectorColumn
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -237,6 +215,45 @@ struct StudioPanelSplitView: View {
     private var inspectorMaxWidth: CGFloat? {
         layout.showInspector && !layout.showInstances ? nil : StudioPanelMetrics.inspectorMax
     }
+
+    // MARK: - Inspector column
+
+    @ViewBuilder
+    private var inspectorColumn: some View {
+        if layout.inspectorCollapsed {
+            InspectorRail {
+                layout.inspectorCollapsed = false
+            }
+            .frame(width: StudioPanelMetrics.inspectorRailWidth)
+            .frame(maxHeight: .infinity)
+            .background(.bar)
+            .zIndex(1)
+        } else {
+            InspectorColumn()
+                .frame(
+                    minWidth: StudioPanelMetrics.inspectorMin,
+                    idealWidth: layout.inspectorWidth,
+                    maxWidth: inspectorMaxWidth,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
+                .modifier(
+                    TrackResizableWidth(
+                        range: StudioPanelMetrics.inspectorMin...StudioPanelMetrics.inspectorMax,
+                        storedWidth: $layout.inspectorWidth
+                    )
+                )
+                .registerPanelFrame(InspectorPanelFrameKey.self) { frame in
+                    editor.workspaceDrag.setInspectorPanelFrame(frame)
+                }
+                .workspaceDropZoneHighlight(
+                    isActive: workspaceDrag.shouldHighlightInspectorPanel(
+                        activeProjectID: editor.activeProjectID
+                    ),
+                    tint: StudioColors.dropAddExisting
+                )
+        }
+    }
 }
 
 private extension View {
@@ -289,16 +306,12 @@ private struct AxisTreeRail: View {
     var body: some View {
         VStack(spacing: 0) {
             StudioPanelHeaderChrome {
-                Button(action: onExpand) {
-                    Image(systemName: "sidebar.left")
-                        .font(StudioTypography.bodyMedium)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .studioHoverIcon()
-                .help("Show axis tree")
+                StudioPanelCollapseButton(
+                    edge: .leading,
+                    help: "Show axis tree",
+                    action: onExpand
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             StudioSectionLabel(title: "Axis tree")
@@ -307,6 +320,36 @@ private struct AxisTreeRail: View {
                 .frame(
                     width: StudioPanelMetrics.axisTreeRailWidth,
                     height: StudioPanelMetrics.axisTreeRailLabelHeight,
+                    alignment: .center
+                )
+                .padding(.top, StudioSpace.x2)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct InspectorRail: View {
+    let onExpand: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            StudioPanelHeaderChrome {
+                StudioPanelCollapseButton(
+                    edge: .trailing,
+                    help: "Show inspector",
+                    action: onExpand
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            StudioSectionLabel(title: "Inspector")
+                .rotationEffect(.degrees(90))
+                .fixedSize()
+                .frame(
+                    width: StudioPanelMetrics.inspectorRailWidth,
+                    height: StudioPanelMetrics.inspectorRailLabelHeight,
                     alignment: .center
                 )
                 .padding(.top, StudioSpace.x2)
@@ -331,4 +374,7 @@ enum StudioPanelMetrics {
     static let inspectorMin: CGFloat = 260
     static let inspectorDefault: CGFloat = 300
     static let inspectorMax: CGFloat = 480
+    static let inspectorRailWidth: CGFloat = axisTreeRailWidth
+    /// Unrotated width of `StudioSectionLabel("Inspector")` after +90° rotation.
+    static let inspectorRailLabelHeight: CGFloat = StudioSpace.unit * 14 // 56
 }

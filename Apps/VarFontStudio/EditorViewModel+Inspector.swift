@@ -81,16 +81,16 @@ extension EditorViewModel {
         for link in instance.namingChain {
             let axisLabel = font.axes.first(where: { $0.tag == link.tag })?.displayName ?? link.tag
             let value = instance.coords[link.tag].map(StudioFormatting.axisValue) ?? "—"
-            let elideNote = link.elided ? " · elidable" : ""
             rows.append(
                 InspectorOpenTypeRow(
                     id: "stat-\(link.tag)",
                     table: "STAT",
-                    field: "Instance coordinates",
-                    content: "\(axisLabel) “\(link.name)” @ \(value)\(elideNote)",
-                    sources: [.stat, .planned],
+                    field: axisLabel,
+                    content: "“\(link.name)” @ \(value)",
+                    sources: [.stat],
                     isDerived: true,
-                    kind: .statAxisValue
+                    kind: .statAxisValue,
+                    isElided: link.elided
                 )
             )
         }
@@ -104,9 +104,9 @@ extension EditorViewModel {
             InspectorOpenTypeRow(
                 id: "fvar-coords",
                 table: "fvar",
-                field: "coordinates",
+                field: "Coordinates",
                 content: coordText,
-                sources: [.fvar, .planned],
+                sources: [.fvar],
                 isDerived: true,
                 kind: .fvarCoordinates
             )
@@ -118,7 +118,7 @@ extension EditorViewModel {
                 table: "fvar",
                 field: "Subfamily name",
                 content: "→ “\(instance.composedName)”",
-                sources: [.fvar, .planned],
+                sources: [.fvar],
                 isDerived: true,
                 kind: .fvarSubfamilyNameID
             )
@@ -140,9 +140,9 @@ extension EditorViewModel {
                     InspectorOpenTypeRow(
                         id: "name-summary",
                         table: "name",
-                        field: "summary",
+                        field: "Name table",
                         content: parts.joined(separator: " · "),
-                        sources: [.name, .planned],
+                        sources: [.name],
                         isDerived: true,
                         kind: .nameSummary
                     )

@@ -34,8 +34,8 @@ struct AxisTreePanel: View {
                         .font(StudioTypography.caption)
                     }
 
-                    StudioToolbarIconButton(
-                        systemName: "sidebar.left",
+                    StudioPanelCollapseButton(
+                        edge: .leading,
                         help: "Collapse axis tree"
                     ) {
                         layout.axisTreeCollapsed = true

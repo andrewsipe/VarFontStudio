@@ -42,4 +42,30 @@ final class FvarStopSeederLiveTests: XCTestCase {
         XCTAssertNil(byName["doublerounded"]?.coords["wght"])
         XCTAssertNil(byName["fullrounded"]?.coords["wght"])
     }
+
+    /// Import Review's headline number is `projectedStyleCount` over the post-seed font.
+    /// It has to agree with the report's own projection, or the sheet lies about the outcome.
+    func testProjectedStyleCountMatchesReportedOrthogonality() throws {
+        guard let url = easeURL else {
+            throw XCTSkip("Ease-Variable.ttf not present on this machine")
+        }
+
+        let (project, report) = try ProjectImporter.openFont(at: url)
+        let font = try XCTUnwrap(project.fonts.first)
+        let metrics = try XCTUnwrap(report.orthogonality)
+
+        let onRecommendations = FvarStopSeeder.projectedStyleCount(
+            font: font,
+            heldCandidates: report.heldStopCandidates,
+            decisions: [:]
+        )
+        XCTAssertEqual(onRecommendations, metrics.projectedAnalyticCount)
+
+        let allPromoted = FvarStopSeeder.projectedStyleCount(
+            font: font,
+            heldCandidates: report.heldStopCandidates,
+            decisions: report.heldStopCandidates.reduce(into: [:]) { $0[$1.id] = .promote }
+        )
+        XCTAssertEqual(allPromoted, metrics.projectedIfAllPromoted)
+    }
 }

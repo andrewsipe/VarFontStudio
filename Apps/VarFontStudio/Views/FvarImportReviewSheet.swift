@@ -9,27 +9,52 @@ struct FvarImportReviewSession: Identifiable {
 
 /// Import Review for non-orthogonal / sparse fvar seeding decisions.
 ///
-/// Flow: orient (summary + accept recommendations) → decide held stops with a live
-/// expansion consequence → optional Format 4 adds. Expansion is not its own decision step.
+/// The sheet is built around one live number — how many styles the project will
+/// generate — with the two kinds of decision that move it split into tabs:
+/// Stops (promote / combo-only / ignore, plus name conflicts) and Styles
+/// (Format 4 named combinations). Everything opens on its recommendation, so
+/// Apply without touching anything is the "accept recommendations" path.
 struct FvarImportReviewSheet: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(\.dismiss) private var dismiss
+
+    private enum ReviewTab {
+        case stops
+        case styles
+    }
 
     let session: FvarImportReviewSession
 
     @State private var stopDecisions: [String: FvarStopSeeder.StopDecision] = [:]
     @State private var conflictResolutions: [String: FvarStopSeeder.Resolution] = [:]
-    @State private var acceptedCompoundIDs: Set<String> = []
     @State private var dismissedCompoundIDs: Set<String> = []
     @State private var promotedStopNames: [String: String] = [:]
     @State private var keepOriginalInstancesOnly = true
-    @State private var reviewExpanded = false
+    @State private var selectedTab: ReviewTab = .stops
 
     private var report: FvarStopSeeder.Report { session.report }
 
-    private var hasInventedCombinations: Bool {
-        report.expansionCallouts.contains { $0.inventedCombinationCount > 0 }
+    private var font: FontDocument? {
+        editor.project?.fonts.first { $0.id == session.fontID }
     }
+
+    private var axisLabelByTag: [String: String] {
+        Dictionary(
+            uniqueKeysWithValues: (font?.axes ?? []).map { ($0.tag, $0.displayName ?? $0.tag) }
+        )
+    }
+
+    // MARK: - Derived state
+
+    private var hasStopsTab: Bool {
+        !report.heldStopCandidates.isEmpty
+            || !report.conflicts.isEmpty
+            || !(report.namingSparsity?.isEmpty ?? true)
+    }
+
+    private var hasStylesTab: Bool { !report.compoundSuggestions.isEmpty }
+
+    private var hasDecisionSections: Bool { hasStopsTab || hasStylesTab }
 
     private var recommendedStopDecisions: [String: FvarStopSeeder.StopDecision] {
         Dictionary(uniqueKeysWithValues: report.heldStopCandidates.map {
@@ -37,68 +62,77 @@ struct FvarImportReviewSheet: View {
         })
     }
 
-    private var liveExpansion: FvarStopSeeder.ExpansionCallout? {
-        if let context = report.expansionPreview {
-            return FvarStopSeeder.previewExpansion(
-                context: context,
-                decisions: stopDecisions,
-                recommended: recommendedStopDecisions,
-                promotedNames: promotedStopNames
-            )
-        }
-        return report.expansionCallouts.first
+    private func decision(for candidate: FvarStopSeeder.StopCandidate) -> FvarStopSeeder.StopDecision {
+        stopDecisions[candidate.id] ?? candidate.recommendedDecision
     }
 
-    private var decisionsMatchRecommendations: Bool {
-        report.heldStopCandidates.allSatisfy { candidate in
-            (stopDecisions[candidate.id] ?? candidate.recommendedDecision) == candidate.recommendedDecision
-        }
-        && report.conflicts.allSatisfy { conflict in
-            (conflictResolutions[conflict.id] ?? .keepSTAT) == .keepSTAT
-        }
-        && acceptedCompoundIDs.isEmpty
+    /// Live style-grid size. Falls back to the report's static projection when the font
+    /// is somehow unavailable (project closed out from under the sheet).
+    private var projectedStyleCount: Int? {
+        guard let font else { return report.orthogonality?.projectedAnalyticCount }
+        return FvarStopSeeder.projectedStyleCount(
+            font: font,
+            heldCandidates: report.heldStopCandidates,
+            decisions: stopDecisions
+        )
     }
+
+    private var liveExpansion: FvarStopSeeder.ExpansionCallout? {
+        guard let context = report.expansionPreview else { return report.expansionCallouts.first }
+        return FvarStopSeeder.previewExpansion(
+            context: context,
+            decisions: stopDecisions,
+            recommended: recommendedStopDecisions,
+            promotedNames: promotedStopNames
+        )
+    }
+
+    private var inventedCombinationCount: Int {
+        liveExpansion?.inventedCombinationCount ?? 0
+    }
+
+    private var isDeviatingFromRecommendations: Bool {
+        report.heldStopCandidates.contains { decision(for: $0) != $0.recommendedDecision }
+            || report.conflicts.contains { (conflictResolutions[$0.id] ?? .keepSTAT) != .keepSTAT }
+            || !dismissedCompoundIDs.isEmpty
+    }
+
+    // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpace.x5) {
             header
             ScrollView {
                 VStack(alignment: .leading, spacing: StudioSpace.x5) {
-                    summarySection
-                    if reviewExpanded || !hasDecisionSections {
-                        if let sparsity = report.namingSparsity, !sparsity.isEmpty {
-                            sparsitySection(sparsity)
-                        }
-                        if !report.conflicts.isEmpty {
-                            conflictsSection
-                        }
-                        if !report.heldStopCandidates.isEmpty {
-                            stopsSection
-                        }
-                        if !report.compoundSuggestions.isEmpty {
-                            compoundsSection
+                    outcomeSection
+                    if hasStopsTab, hasStylesTab {
+                        tabBar
+                    }
+                    if hasDecisionSections {
+                        if selectedTab == .stops, hasStopsTab {
+                            stopsTabContent
+                        } else if hasStylesTab {
+                            stylesTabContent
                         }
                     }
                 }
                 // Keep cards clear of the overlay scrollbar (sheet padding alone is not enough).
                 .padding(.trailing, StudioSpacing.contentInset)
             }
-            .frame(maxHeight: 520)
+            .frame(maxHeight: 500)
             actionBar
         }
         .padding(StudioSpace.x5)
-        .frame(minWidth: 540, idealWidth: 580)
+        .frame(minWidth: 580, idealWidth: 620)
         .onAppear { seedDefaults() }
     }
 
-    private var hasDecisionSections: Bool {
-        !report.heldStopCandidates.isEmpty
-            || !report.compoundSuggestions.isEmpty
-            || !report.conflicts.isEmpty
-            || !(report.namingSparsity?.isEmpty ?? true)
+    private func seedDefaults() {
+        resetToRecommendations()
+        selectedTab = hasStopsTab ? .stops : .styles
     }
 
-    private func seedDefaults() {
+    private func resetToRecommendations() {
         for candidate in report.heldStopCandidates {
             stopDecisions[candidate.id] = candidate.recommendedDecision
             promotedStopNames[candidate.id] = candidate.proposedName
@@ -106,19 +140,14 @@ struct FvarImportReviewSheet: View {
         for conflict in report.conflicts {
             conflictResolutions[conflict.id] = .keepSTAT
         }
-        acceptedCompoundIDs = []
         dismissedCompoundIDs = []
-        // Start on the summary path when there are real decisions; expand sparsity-only.
-        reviewExpanded = report.heldStopCandidates.isEmpty
-            && report.compoundSuggestions.isEmpty
-            && report.conflicts.isEmpty
-        keepOriginalInstancesOnly = hasInventedCombinations
+        keepOriginalInstancesOnly = inventedCombinationCount > 0
     }
 
-    // MARK: - Header / summary
+    // MARK: - Header / outcome
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
             Text("Import Review")
                 .font(StudioTypography.projectTitle)
             Text(headerSubtitle)
@@ -129,111 +158,35 @@ struct FvarImportReviewSheet: View {
     }
 
     private var headerSubtitle: String {
-        if report.heldStopCandidates.isEmpty,
-           report.compoundSuggestions.isEmpty,
-           report.conflicts.isEmpty {
-            return "A few instance names look thin or repeated. That’s fine — stops will seed normally, and you can clean up names anytime in the Axis Tree."
+        if !hasDecisionSections {
+            return "Stops seeded normally — a few instance names are just thin or repeated."
         }
-        return "This font’s instances aren’t fully orthogonal, so adding every value as a stop on the axis would create more style combinations than the font actually has. Accept our recommendations to stay close to the original, or review each value yourself."
+        return "Some of this font’s values don’t map cleanly to a style of their own."
     }
 
-    private var summarySection: some View {
+    /// The one number the whole sheet is about: how many styles the project will make.
+    private var outcomeSection: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            if let metrics = report.orthogonality {
-                HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x4) {
-                    metricBlock(value: "\(metrics.originalInstanceCount)", label: "in the font")
+            HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x4) {
+                if let original = report.orthogonality?.originalInstanceCount {
+                    metricBlock(
+                        value: "\(original)",
+                        label: "in the font",
+                        tint: .primary
+                    )
                     Image(systemName: "arrow.right")
                         .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(.tertiary)
                         .padding(.bottom, StudioSpace.x1)
-                    metricBlock(
-                        value: "\(metrics.projectedAnalyticCount)",
-                        label: "with recommendations"
-                    )
-                    if metrics.projectedIfAllPromoted > metrics.projectedAnalyticCount {
-                        metricBlock(
-                            value: "\(metrics.projectedIfAllPromoted)",
-                            label: "if everything promotes"
-                        )
-                        .opacity(0.72)
-                    }
-                    Spacer(minLength: 0)
                 }
+                if let projected = projectedStyleCount {
+                    projectedBlock(projected)
+                }
+                Spacer(minLength: 0)
             }
 
-            // Already-happened seeding context first (separate from pending decisions below).
-            if let seededContext = alreadySeededContextText {
-                Text(seededContext)
-                    .font(StudioTypography.body)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                ForEach(summaryBullets, id: \.self) { bullet in
-                    HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
-                        Circle()
-                            .fill(StudioColors.surfaceStrokeStrong)
-                            .frame(width: 4, height: 4)
-                            .padding(.top, 6)
-                        Text(bullet)
-                            .font(StudioTypography.body)
-                            .foregroundStyle(.primary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
-            if hasInventedCombinations {
-                HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
-                    StudioIncludeCheckbox(isOn: keepOriginalInstancesOnly) {
-                        keepOriginalInstancesOnly.toggle()
-                    }
-                    .help("Keep only styles from the font in export")
-                    .padding(.top, 1)
-
-                    Button {
-                        keepOriginalInstancesOnly.toggle()
-                    } label: {
-                        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
-                            Text("Keep only styles from the font")
-                                .font(StudioTypography.bodyMedium)
-                                .foregroundStyle(.primary)
-                            Text("Invented combinations stay in the plan for naming, but won’t export unless you include them later.")
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, StudioSpacing.tightGap)
-            }
-
-            if hasDecisionSections {
-                VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
-                    HStack(spacing: StudioSpacing.controlGap) {
-                        StudioFlatButton(title: "Accept recommendations", role: .primary, size: .compact) {
-                            acceptRecommendationsAndApply()
-                        }
-                        StudioFlatButton(
-                            title: reviewExpanded ? "Hide details" : "Review choices",
-                            size: .compact
-                        ) {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                reviewExpanded.toggle()
-                            }
-                        }
-                    }
-                    if !report.compoundSuggestions.isEmpty {
-                        Text("Named combinations stay in the drawer either way — add them from there anytime.")
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .padding(.top, StudioSpacing.tightGap)
+            if inventedCombinationCount > 0 {
+                keepOriginalToggle
             }
         }
         .padding(StudioSpacing.contentInset)
@@ -241,192 +194,174 @@ struct FvarImportReviewSheet: View {
         .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.surface))
     }
 
-    private var alreadySeededContextText: String? {
-        guard report.seededStopCount > 0 else { return nil }
-        let seeded =
-            "Already added \(report.seededStopCount) stop\(report.seededStopCount == 1 ? "" : "s") that were safe, unambiguous matches."
-        if let expansion = report.expansionCallouts.first, expansion.inventedCombinationCount > 0 {
-            let n = expansion.inventedCombinationCount
-            return "\(seeded) That alone created \(n) style combination\(n == 1 ? "" : "s") not in the original font — see “Consequence” below once you review stops."
+    private func projectedBlock(_ projected: Int) -> some View {
+        let delta = (report.orthogonality?.originalInstanceCount).map { projected - $0 } ?? 0
+        return VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+            Text("\(projected)")
+                .font(StudioTypography.statValue)
+                .monospacedDigit()
+                .foregroundStyle(StudioColors.metricForeground)
+            HStack(spacing: StudioSpace.x1) {
+                Text("in the project")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                if delta > 0 {
+                    Text("+\(delta)")
+                        .font(StudioTypography.caption.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(StudioColors.metricForeground)
+                }
+            }
         }
-        return seeded
     }
 
-    private func metricBlock(value: String, label: String) -> some View {
+    private func metricBlock(value: String, label: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
             Text(value)
                 .font(StudioTypography.statValue)
-                .foregroundStyle(.primary)
+                .monospacedDigit()
+                .foregroundStyle(tint)
             Text(label)
                 .font(StudioTypography.caption)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private var summaryBullets: [String] {
-        var items: [String] = []
-        let comboOnlyCount = report.heldStopCandidates.filter { $0.classification == .comboOnly }.count
-        if comboOnlyCount > 0 {
-            items.append(
-                comboOnlyCount == 1
-                    ? "One value only ever shows up paired with another axis — we’d keep it just for named combinations, not as its own style."
-                    : "\(comboOnlyCount) values only ever show up paired with another axis — we’d keep them for named combinations, not as their own styles."
-            )
-        }
-        // Expansion from already-seeded stops lives in `alreadySeededContextText`.
-        // Keep a fallback bullet only when seeding count is zero but expansion still fires.
-        if report.seededStopCount == 0,
-           let expansion = report.expansionCallouts.first,
-           expansion.inventedCombinationCount > 0 {
-            let n = expansion.inventedCombinationCount
-            items.append(
-                "Seeding already created \(n) style combination\(n == 1 ? "" : "s") that aren’t in the original font — see the consequence panel below."
-            )
-        }
-        if !report.compoundSuggestions.isEmpty {
-            let n = report.compoundSuggestions.count
-            items.append(
-                n == 1
-                    ? "We noticed one recurring name pairing two axis values — add it as its own named style now, or leave it for the Combinations drawer later."
-                    : "We noticed \(n) recurring name pairings — add them as named styles now, or leave them for the Combinations drawer later."
-            )
-        }
-        if !report.conflicts.isEmpty {
-            let n = report.conflicts.count
-            items.append(
-                n == 1
-                    ? "One stop has two different names — STAT and the font disagree."
-                    : "\(n) stops have conflicting names between STAT and the font."
-            )
-        }
-        if let sparsity = report.namingSparsity, !sparsity.isEmpty {
-            if sparsity.missingSubfamilyCount > 0 {
-                items.append("Some instances don’t have subfamily names, so their stops may just show a number until you name them.")
-            } else if sparsity.sharedNameCollapseSize >= 2 {
-                items.append("A few axis positions currently share one instance name — you can tell them apart later in the Axis Tree.")
-            }
-        }
-        if items.isEmpty, !report.reviewReason.isEmpty {
-            items.append("This font needs a quick review before seeding — take a look below.")
-        }
-        return items
-    }
-
-    // MARK: - Sections
-
-    private func sparsitySection(_ sparsity: FvarStopSeeder.NamingSparsityCallout) -> some View {
-        reviewSection(
-            title: "Instance names",
-            caption: "This won’t stop seeding — just a reminder to clean up names when you get a chance."
-        ) {
-            Text(sparsity.message)
-                .font(StudioTypography.body)
-                .fixedSize(horizontal: false, vertical: true)
-            if sparsity.missingSubfamilyCount > 0 {
-                Text("\(sparsity.missingSubfamilyCount) instance\(sparsity.missingSubfamilyCount == 1 ? "" : "s") missing a subfamily name.")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if sparsity.sharedNameCollapseSize >= 2 {
-                Text("Up to \(sparsity.sharedNameCollapseSize) distinct locations share one name.")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(sparsity.sharedNameSamples, id: \.self) { sample in
-                Text(sample)
-                    .font(StudioTypography.monoMeta)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-
-    private var conflictsSection: some View {
-        reviewSection(
-            title: "Name conflicts",
-            caption: "Pick which label to keep for each stop."
-        ) {
-            ForEach(report.conflicts) { conflict in
-                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                    Text("\(conflict.axisLabel) at \(AxisCoordinateFormat.format(conflict.value))")
-                        .font(StudioTypography.bodyMedium)
-                    Text("STAT “\(conflict.existingName)” vs font “\(conflict.fvarName)”")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: StudioSpacing.controlGap) {
-                        conflictChoice(conflict, title: "Keep STAT", resolution: .keepSTAT)
-                        conflictChoice(conflict, title: "Use font name", resolution: .takeFvar)
-                    }
+    private var keepOriginalToggle: some View {
+        let original = report.orthogonality?.originalInstanceCount
+        let title = original.map { "Export only the \($0) styles the font had" }
+            ?? "Export only the styles the font had"
+        return Button {
+            keepOriginalInstancesOnly.toggle()
+        } label: {
+            HStack(spacing: StudioSpacing.controlGap) {
+                StudioIncludeCheckbox(isOn: keepOriginalInstancesOnly) {
+                    keepOriginalInstancesOnly.toggle()
                 }
-                .padding(StudioSpacing.contentInset)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.control))
+                Text(title)
+                    .font(StudioTypography.body)
+                    .foregroundStyle(.primary)
             }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("New combinations stay in the plan so you can name them, but won’t export unless you include them later.")
+    }
+
+    // MARK: - Tabs
+
+    private var tabBar: some View {
+        HStack(spacing: StudioSpace.x1) {
+            tabButton(
+                .stops,
+                title: "Stops",
+                count: report.heldStopCandidates.count + report.conflicts.count
+            )
+            tabButton(.styles, title: "Styles", count: report.compoundSuggestions.count)
+            Spacer(minLength: 0)
         }
     }
 
-    private func conflictChoice(
-        _ conflict: FvarStopSeeder.NameConflict,
-        title: String,
-        resolution: FvarStopSeeder.Resolution
-    ) -> some View {
-        let selected = conflictResolutions[conflict.id] == resolution
-        return choiceChip(title: title, selected: selected) {
-            conflictResolutions[conflict.id] = resolution
+    private func tabButton(_ tab: ReviewTab, title: String, count: Int) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            selectedTab = tab
+        } label: {
+            HStack(spacing: StudioSpacing.tightGap) {
+                Text(title)
+                    .font(StudioTypography.bodyMedium.weight(isSelected ? .semibold : .regular))
+                if count > 0 {
+                    StudioCountBadge(text: "\(count)", highlighted: isSelected)
+                }
+            }
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
+            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+            .background(
+                isSelected ? StudioColors.surfaceInset : Color.clear,
+                in: RoundedRectangle.studio(StudioRadius.chip)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Stops tab
+
+    private var stopsTabContent: some View {
+        VStack(alignment: .leading, spacing: StudioSpace.x5) {
+            if !report.conflicts.isEmpty {
+                conflictsSection
+            }
+            if !report.heldStopCandidates.isEmpty {
+                stopsSection
+            }
+            if let sparsity = report.namingSparsity, !sparsity.isEmpty {
+                sparsitySection(sparsity)
+            }
         }
     }
 
     private var stopsSection: some View {
         reviewSection(
             title: "Stops to decide",
-            caption: "Choose what happens with each value below. The panel at the bottom updates live as you pick."
+            caption: "Each one opens on our recommendation — change any of them."
         ) {
-            ForEach(report.heldStopCandidates) { candidate in
-                let decision = stopDecisions[candidate.id] ?? candidate.recommendedDecision
-                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(candidate.axisLabel)
-                            .font(StudioTypography.bodyMedium)
-                        Text(AxisCoordinateFormat.format(candidate.value))
-                            .font(StudioTypography.monoValue)
-                            .foregroundStyle(.secondary)
-                        Spacer(minLength: StudioSpacing.controlGap)
-                    }
-                    Text(classificationLabel(candidate.classification))
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: StudioSpacing.controlGap) {
-                        stopChoice(candidate, title: "Promote", decision: .promote)
-                        stopChoice(candidate, title: "Combo only", decision: .comboOnly)
-                        stopChoice(candidate, title: "Ignore", decision: .ignore)
-                    }
-                    Text(decisionOutcome(decision))
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if decision == .promote {
-                        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
-                            Text("Stop name (optional)")
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.tertiary)
-                            TextField(
-                                "Name",
-                                text: promotedNameBinding(for: candidate)
-                            )
-                            .textFieldStyle(.roundedBorder)
-                            .font(StudioTypography.body)
-                        }
-                    }
-                }
-                .padding(StudioSpacing.contentInset)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.control))
+            rowStack(report.heldStopCandidates) { candidate in
+                stopRow(candidate)
             }
-
-            if let expansion = liveExpansion {
-                expansionConsequence(expansion)
+            if inventedCombinationCount > 0, let expansion = liveExpansion {
+                inventedCombinations(expansion)
             } else if report.expansionPreview != nil {
-                expansionClearCallout
+                Text("No styles beyond the ones already in the font.")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func stopRow(_ candidate: FvarStopSeeder.StopCandidate) -> some View {
+        let current = decision(for: candidate)
+        return VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+            HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
+                Text(candidate.axisLabel)
+                    .font(StudioTypography.bodyMedium)
+                Text(AxisCoordinateFormat.format(candidate.value))
+                    .font(StudioTypography.monoValue)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: StudioSpace.x4)
+                HStack(spacing: StudioSpacing.tightGap) {
+                    stopChoice(candidate, title: "Promote", decision: .promote)
+                    stopChoice(candidate, title: "Combo only", decision: .comboOnly)
+                    stopChoice(candidate, title: "Ignore", decision: .ignore)
+                }
+            }
+            HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
+                Text(classificationLabel(candidate.classification))
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: StudioSpace.x4)
+                if current != candidate.recommendedDecision {
+                    Button("Reset to \(decisionTitle(candidate.recommendedDecision))") {
+                        stopDecisions[candidate.id] = candidate.recommendedDecision
+                    }
+                    .buttonStyle(.plain)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(StudioColors.metricForeground)
+                }
+            }
+            if current == .promote {
+                HStack(spacing: StudioSpacing.controlGap) {
+                    Text("Stop name")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                    TextField("Name", text: promotedNameBinding(for: candidate))
+                        .textFieldStyle(.roundedBorder)
+                        .font(StudioTypography.body)
+                        .frame(maxWidth: 220)
+                }
+                .padding(.top, StudioSpacing.tightGap)
             }
         }
     }
@@ -434,22 +369,44 @@ struct FvarImportReviewSheet: View {
     private func classificationLabel(_ classification: FvarStopSeeder.StopClassification) -> String {
         switch classification {
         case .safeUnivariate:
-            return "Safe to add — this won’t create any new combinations."
+            return "Safe to add on its own."
         case .comboOnly:
-            return "Recommended: only use this inside named combinations, not as its own style — adding it standalone multiplies your total style count."
+            return "Only ever appears paired with another axis."
         case .ambiguous:
-            return "We’re not confident this maps to one clear style — worth a look before adding it."
+            return "No clear style of its own in the instance names."
         }
     }
 
-    private func decisionOutcome(_ decision: FvarStopSeeder.StopDecision) -> String {
+    private func decisionTitle(_ decision: FvarStopSeeder.StopDecision) -> String {
+        switch decision {
+        case .promote: return "Promote"
+        case .comboOnly: return "Combo only"
+        case .ignore: return "Ignore"
+        }
+    }
+
+    private func decisionHelp(_ decision: FvarStopSeeder.StopDecision) -> String {
         switch decision {
         case .promote:
-            return "Adds this as a real stop on the axis — every existing style gets a version at this value too."
+            return "Add as a stop on the axis — every existing style gets a version at this value."
         case .comboOnly:
-            return "No standalone stop added — this value stays available only inside named combinations."
+            return "No stop of its own — the value stays available inside named combinations."
         case .ignore:
-            return "Skip it completely — it won’t be added anywhere."
+            return "Leave this value out entirely."
+        }
+    }
+
+    private func stopChoice(
+        _ candidate: FvarStopSeeder.StopCandidate,
+        title: String,
+        decision: FvarStopSeeder.StopDecision
+    ) -> some View {
+        choiceChip(
+            title: title,
+            selected: self.decision(for: candidate) == decision,
+            help: decisionHelp(decision)
+        ) {
+            stopDecisions[candidate.id] = decision
         }
     }
 
@@ -460,144 +417,167 @@ struct FvarImportReviewSheet: View {
         )
     }
 
-    private func stopChoice(
-        _ candidate: FvarStopSeeder.StopCandidate,
-        title: String,
-        decision: FvarStopSeeder.StopDecision
-    ) -> some View {
-        let selected = (stopDecisions[candidate.id] ?? candidate.recommendedDecision) == decision
-        return choiceChip(title: title, selected: selected) {
-            stopDecisions[candidate.id] = decision
-        }
-    }
-
-    private func expansionConsequence(_ callout: FvarStopSeeder.ExpansionCallout) -> some View {
-        let promotingHeld = report.heldStopCandidates.contains {
-            (stopDecisions[$0.id] ?? $0.recommendedDecision) == .promote
-        }
-        return VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            Text("Consequence of current choices")
+    private func inventedCombinations(_ callout: FvarStopSeeder.ExpansionCallout) -> some View {
+        let count = callout.inventedCombinationCount
+        return VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+            Text("\(count) combination\(count == 1 ? "" : "s") the font didn’t have")
                 .font(StudioTypography.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Text(consequenceHeadline(callout, promotingHeld: promotingHeld))
-                .font(StudioTypography.bodyMedium)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("These names come from combining the axis values above — they don’t exist in the original font.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                ForEach(Array(callout.samples.enumerated()), id: \.offset) { _, sample in
-                    VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
-                        Text(sample.composedName.isEmpty ? sample.coordLabel : sample.composedName)
-                            .font(StudioTypography.bodyMedium)
-                        if !sample.composedName.isEmpty {
-                            Text(sample.coordLabel)
-                                .font(StudioTypography.caption)
-                                .foregroundStyle(.tertiary)
-                        }
+            ForEach(Array(callout.samples.enumerated()), id: \.offset) { _, sample in
+                HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
+                    Text(sample.composedName.isEmpty ? sample.coordLabel : sample.composedName)
+                        .font(StudioTypography.body)
+                    Spacer(minLength: StudioSpace.x4)
+                    if !sample.composedName.isEmpty {
+                        Text(sample.coordLabel)
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.tertiary)
                     }
                 }
-                let remaining = callout.inventedCombinationCount - callout.samples.count
-                if remaining > 0 {
-                    Text("+\(remaining) more")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.tertiary)
-                }
             }
-            if promotingHeld {
-                Text("Want fewer invented combinations? Change a stop above from Promote to Combo only or Ignore.")
+            let remaining = count - callout.samples.count
+            if remaining > 0 {
+                Text("+\(remaining) more")
                     .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))
-        .overlay(alignment: .leading) {
-            RoundedRectangle.studio(StudioRadius.chip)
-                .fill(StudioColors.surfaceStrokeStrong)
-                .frame(width: 3)
-                .padding(.vertical, StudioSpacing.controlGap)
-                .padding(.leading, StudioSpace.x0_5)
+        .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.control))
+    }
+
+    private var conflictsSection: some View {
+        reviewSection(
+            title: "Name conflicts",
+            caption: "STAT and the font disagree on these labels."
+        ) {
+            rowStack(report.conflicts) { conflict in
+                VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                    HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
+                        Text(conflict.axisLabel)
+                            .font(StudioTypography.bodyMedium)
+                        Text(AxisCoordinateFormat.format(conflict.value))
+                            .font(StudioTypography.monoValue)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: StudioSpace.x4)
+                        HStack(spacing: StudioSpacing.tightGap) {
+                            conflictChoice(conflict, title: conflict.existingName, resolution: .keepSTAT)
+                            conflictChoice(conflict, title: conflict.fvarName, resolution: .takeFvar)
+                        }
+                    }
+                    Text(
+                        (conflictResolutions[conflict.id] ?? .keepSTAT) == .keepSTAT
+                            ? "Keeping the STAT label"
+                            : "Using the name from the font"
+                    )
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
-    private var expansionClearCallout: some View {
-        Text("Good — with these choices, you won’t end up with any styles beyond what’s already in the font.")
-            .font(StudioTypography.caption)
-            .foregroundStyle(.secondary)
+    private func conflictChoice(
+        _ conflict: FvarStopSeeder.NameConflict,
+        title: String,
+        resolution: FvarStopSeeder.Resolution
+    ) -> some View {
+        choiceChip(
+            title: title,
+            selected: (conflictResolutions[conflict.id] ?? .keepSTAT) == resolution,
+            help: resolution == .keepSTAT ? "Keep the STAT label" : "Use the name from the font"
+        ) {
+            conflictResolutions[conflict.id] = resolution
+        }
+    }
+
+    private func sparsitySection(_ sparsity: FvarStopSeeder.NamingSparsityCallout) -> some View {
+        reviewSection(
+            title: "Instance names",
+            caption: "Nothing to decide — just worth cleaning up in the Axis Tree later."
+        ) {
+            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                Text(sparsity.message)
+                    .font(StudioTypography.body)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(sparsity.sharedNameSamples, id: \.self) { sample in
+                    Text(sample)
+                        .font(StudioTypography.monoMeta)
+                        .foregroundStyle(.tertiary)
+                }
+            }
             .padding(StudioSpacing.contentInset)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))
-    }
-
-    private func consequenceHeadline(
-        _ callout: FvarStopSeeder.ExpansionCallout,
-        promotingHeld: Bool
-    ) -> String {
-        let n = callout.inventedCombinationCount
-        if promotingHeld {
-            return "Promoting this would create \(n) new style combination\(n == 1 ? "" : "s") that don’t exist in the original font."
+            .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.control))
         }
-        return "\(n) style combination\(n == 1 ? "" : "s") already exist from the stops we auto-seeded — nothing above adds to that."
     }
 
-    private var compoundsSection: some View {
+    // MARK: - Styles tab
+
+    private var stylesTabContent: some View {
         reviewSection(
             title: "Named combinations",
-            caption: "Optional — these are recurring name pairings we noticed across axes. Add them now, or handle them later from the Combinations drawer."
+            caption: "Recurring pairings found in the instance names, included by default."
         ) {
-            ForEach(report.compoundSuggestions) { suggestion in
-                let accepted = acceptedCompoundIDs.contains(suggestion.id)
-                let dismissed = dismissedCompoundIDs.contains(suggestion.id)
-                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                    HStack(alignment: .firstTextBaseline) {
+            rowStack(report.compoundSuggestions) { suggestion in
+                compoundRow(suggestion)
+            }
+        }
+    }
+
+    private func compoundRow(_ suggestion: FvarStopSeeder.CompoundSuggestion) -> some View {
+        let included = !dismissedCompoundIDs.contains(suggestion.id)
+        return Button {
+            toggleCompound(suggestion)
+        } label: {
+            HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+                StudioIncludeCheckbox(isOn: included) {
+                    toggleCompound(suggestion)
+                }
+                VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                    HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
                         Text(suggestion.name)
                             .font(StudioTypography.bodyMedium)
-                        Spacer(minLength: StudioSpacing.controlGap)
-                        Text("covers \(suggestion.coveredInstanceCount) of your original style\(suggestion.coveredInstanceCount == 1 ? "" : "s")")
+                        Spacer(minLength: StudioSpace.x4)
+                        Text(coverageLabel(suggestion))
                             .font(StudioTypography.caption)
                             .foregroundStyle(.secondary)
                     }
                     Text(compoundLegSummary(suggestion))
                         .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
-                    HStack(spacing: StudioSpacing.controlGap) {
-                        StudioFlatButton(
-                            title: dismissed ? "Dismissed" : "Dismiss",
-                            size: .compact,
-                            isEnabled: !accepted
-                        ) {
-                            acceptedCompoundIDs.remove(suggestion.id)
-                            dismissedCompoundIDs.insert(suggestion.id)
-                        }
-                        StudioFlatButton(
-                            title: accepted ? "Added" : "Add",
-                            role: .primary,
-                            size: .compact,
-                            isEnabled: !dismissed
-                        ) {
-                            dismissedCompoundIDs.remove(suggestion.id)
-                            acceptedCompoundIDs.insert(suggestion.id)
-                        }
-                    }
                 }
-                .padding(StudioSpacing.contentInset)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.control))
-                .opacity(dismissed ? 0.55 : 1)
             }
+            .opacity(included ? 1 : 0.5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleCompound(_ suggestion: FvarStopSeeder.CompoundSuggestion) {
+        if dismissedCompoundIDs.contains(suggestion.id) {
+            dismissedCompoundIDs.remove(suggestion.id)
+        } else {
+            dismissedCompoundIDs.insert(suggestion.id)
         }
     }
 
+    private func coverageLabel(_ suggestion: FvarStopSeeder.CompoundSuggestion) -> String {
+        guard let original = report.orthogonality?.originalInstanceCount, original > 0 else {
+            return "covers \(suggestion.coveredInstanceCount) styles"
+        }
+        return "covers \(suggestion.coveredInstanceCount) of \(original)"
+    }
+
     private func compoundLegSummary(_ suggestion: FvarStopSeeder.CompoundSuggestion) -> String {
-        suggestion.coords.keys.sorted().map { tag in
-            let value = AxisCoordinateFormat.format(suggestion.coords[tag] ?? 0)
+        let axisLabels = axisLabelByTag
+        return suggestion.coords.keys.sorted().map { tag in
+            let axisLabel = axisLabels[tag] ?? tag
             if let label = suggestion.legLabels[tag], !label.isEmpty {
-                return "\(label)"
+                return "\(axisLabel) \(label)"
             }
-            return "\(value) \(tag)"
+            return "\(axisLabel) \(AxisCoordinateFormat.format(suggestion.coords[tag] ?? 0))"
         }.joined(separator: " × ")
     }
 
@@ -609,7 +589,7 @@ struct FvarImportReviewSheet: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(StudioTypography.emphasis)
                     .foregroundStyle(.primary)
@@ -622,11 +602,38 @@ struct FvarImportReviewSheet: View {
         }
     }
 
-    private func choiceChip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    /// One surface for a set of decisions, hairline-separated — avoids a stack of
+    /// competing card boxes when several rows sit under the same heading.
+    private func rowStack<Item: Identifiable, Row: View>(
+        _ items: [Item],
+        @ViewBuilder row: @escaping (Item) -> Row
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if index > 0 {
+                    Rectangle()
+                        .fill(StudioColors.surfaceStroke)
+                        .frame(height: StudioStroke.hairline)
+                }
+                row(item)
+                    .padding(StudioSpacing.contentInset)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.control))
+    }
+
+    private func choiceChip(
+        title: String,
+        selected: Bool,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Text(title)
                 .font(StudioTypography.caption.weight(selected ? .semibold : .regular))
                 .foregroundStyle(selected ? .primary : .secondary)
+                .lineLimit(1)
                 .padding(.horizontal, StudioSpacing.contentInset)
                 .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
                 .background(
@@ -642,50 +649,33 @@ struct FvarImportReviewSheet: View {
                 }
         }
         .buttonStyle(.plain)
+        .help(help)
     }
 
     private var actionBar: some View {
-        // When the summary’s “Accept recommendations” is the obvious primary path
-        // (collapsed + still on defaults), don’t also offer “Apply recommendations.”
-        let showApply = reviewExpanded
-            || !decisionsMatchRecommendations
-            || !hasDecisionSections
-        return HStack(spacing: StudioSpacing.controlGap) {
-            Spacer()
-            StudioFlatButton(title: "Decide later", size: .compact) {
-                editor.deferFvarImportReview()
-                dismiss()
-            }
-            if showApply {
-                StudioFlatButton(title: "Apply", role: .primary, size: .compact) {
-                    applyCurrentDecisions()
+        HStack(spacing: StudioSpacing.controlGap) {
+            if isDeviatingFromRecommendations {
+                StudioFlatButton(title: "Reset to recommendations", size: .compact) {
+                    resetToRecommendations()
                 }
             }
+            Spacer()
+            StudioFlatButton(title: "Apply", role: .primary, size: .compact) {
+                applyCurrentDecisions()
+            }
         }
-    }
-
-    private func acceptRecommendationsAndApply() {
-        for candidate in report.heldStopCandidates {
-            stopDecisions[candidate.id] = candidate.recommendedDecision
-        }
-        for conflict in report.conflicts {
-            conflictResolutions[conflict.id] = .keepSTAT
-        }
-        // Leave Format 4 for the Combinations drawer — recommendations don’t auto-add.
-        acceptedCompoundIDs = []
-        dismissedCompoundIDs = []
-        applyCurrentDecisions()
     }
 
     private func applyCurrentDecisions() {
+        let accepted = Set(report.compoundSuggestions.map(\.id)).subtracting(dismissedCompoundIDs)
         editor.applyFvarImportReview(
             FvarStopSeeder.ReviewDecisions(
                 stopDecisions: stopDecisions,
                 conflictResolutions: conflictResolutions,
-                acceptedCompoundIDs: acceptedCompoundIDs,
+                acceptedCompoundIDs: accepted,
                 dismissedCompoundIDs: dismissedCompoundIDs,
                 promotedStopNames: promotedStopNames,
-                keepOriginalInstancesOnly: hasInventedCombinations && keepOriginalInstancesOnly
+                keepOriginalInstancesOnly: inventedCombinationCount > 0 && keepOriginalInstancesOnly
             )
         )
         dismiss()

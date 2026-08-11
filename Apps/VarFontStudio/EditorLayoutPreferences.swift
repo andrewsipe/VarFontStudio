@@ -30,6 +30,11 @@ final class EditorLayoutPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(axisTreeCollapsed, forKey: Keys.axisTreeCollapsed) }
     }
 
+    /// Inspector collapsed to a trailing rail (canvas-first layout).
+    @Published var inspectorCollapsed: Bool {
+        didSet { UserDefaults.standard.set(inspectorCollapsed, forKey: Keys.inspectorCollapsed) }
+    }
+
     /// Combination styles drawer at the bottom of the Axis Tree panel.
     /// Session-only — always starts closed so suggestions don’t force the drawer open.
     @Published var combinationStylesDrawerExpanded: Bool = false
@@ -48,7 +53,7 @@ final class EditorLayoutPreferences: ObservableObject {
     }
 
     var panelVisibilityToken: String {
-        "\(showAxisTree)-\(axisTreeCollapsed)-\(showInstances)-\(showInspector)"
+        "\(showAxisTree)-\(axisTreeCollapsed)-\(showInstances)-\(showInspector)-\(inspectorCollapsed)"
     }
 
     init() {
@@ -56,6 +61,7 @@ final class EditorLayoutPreferences: ObservableObject {
         showInstances = Self.storedBool(forKey: Keys.instances, default: true)
         showInspector = Self.storedBool(forKey: Keys.inspector, default: true)
         axisTreeCollapsed = Self.storedBool(forKey: Keys.axisTreeCollapsed, default: false)
+        inspectorCollapsed = Self.storedBool(forKey: Keys.inspectorCollapsed, default: false)
         // Drop any legacy persisted expand flag from when suggestions auto-opened the drawer.
         UserDefaults.standard.removeObject(forKey: Keys.combinationStylesDrawerExpanded)
         combinationStylesDrawerExpanded = false
@@ -70,7 +76,14 @@ final class EditorLayoutPreferences: ObservableObject {
     }
 
     func inspectorOccupiedWidth() -> CGFloat {
-        showInspector ? inspectorWidth : 0
+        guard showInspector else { return 0 }
+        return inspectorCollapsed ? StudioPanelMetrics.inspectorRailWidth : inspectorWidth
+    }
+
+    /// Expand inspector if revealed programmatically (focus / reveal token).
+    func revealInspector() {
+        showInspector = true
+        inspectorCollapsed = false
     }
 
     private enum Keys {
@@ -78,6 +91,7 @@ final class EditorLayoutPreferences: ObservableObject {
         static let instances = "studio.showInstances"
         static let inspector = "studio.showInspector"
         static let axisTreeCollapsed = "studio.axisTreeCollapsed"
+        static let inspectorCollapsed = "studio.inspectorCollapsed"
         static let combinationStylesDrawerExpanded = "studio.combinationStylesDrawerExpanded"
         static let axisTreeWidth = "studio.axisTreeWidth"
         static let inspectorWidth = "studio.inspectorWidth"

@@ -187,7 +187,7 @@ struct InstanceListPanel: View {
                         Text("·")
                             .foregroundStyle(.quaternary)
                         Text("\(display.pendingExportCount)")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StudioColors.pendingForeground)
                         Text("pending export")
                             .foregroundStyle(.secondary)
                     }
@@ -387,7 +387,7 @@ struct InstanceListPanel: View {
         // Same SF Symbol marks as Show’s Included/Excluded (not StudioIncludeCheckbox).
         Image(systemName: includePickerSymbolName)
             .font(InstanceListFilterChrome.symbolFont)
-            .foregroundStyle(StudioColors.brand)
+            .foregroundStyle(StudioColors.metricForeground)
     }
 
     private var includePickerSymbolName: String {
@@ -470,7 +470,7 @@ struct InstanceListPanel: View {
             HStack(spacing: StudioSpacing.tightGap) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(StudioColors.brand)
+                    .foregroundStyle(StudioColors.metricForeground)
                     .opacity(isSelected ? 1 : 0)
                     .frame(width: 12, alignment: .leading)
                 Text(title)
@@ -479,7 +479,7 @@ struct InstanceListPanel: View {
                 Spacer(minLength: 0)
                 Image(systemName: mark.systemImage)
                     .font(InstanceListFilterChrome.symbolFont)
-                    .foregroundStyle(StudioColors.brand)
+                    .foregroundStyle(StudioColors.metricForeground)
             }
             .padding(.horizontal, StudioSpace.x1_5)
             .padding(.vertical, StudioSpacing.panelVertical)
@@ -703,7 +703,7 @@ struct InstanceListPanel: View {
             HStack(spacing: StudioSpacing.tightGap) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(StudioColors.brand)
+                    .foregroundStyle(StudioColors.metricForeground)
                     .opacity(isSelected ? 1 : 0)
                     .frame(width: 12, alignment: .leading)
                 Text(filter.label)
@@ -781,7 +781,7 @@ struct InstanceListPanel: View {
     private func showFilterSymbolForeground(for filter: InstanceFilter) -> Color {
         switch filter {
         case .included, .excluded:
-            return StudioColors.brand
+            return StudioColors.metricForeground
         case .duplicates:
             return StudioColors.warningForeground
         case .pendingExport:

@@ -831,6 +831,32 @@ public enum FvarStopSeeder {
         return customKeys.count >= 3
     }
 
+    /// Live Import Review preview: projected style-grid size under the current promote set.
+    ///
+    /// Mirrors `buildOrthogonalityMetrics`, but reads the font as it stands once safe stops
+    /// have been seeded, so only still-held candidates need folding in. With every candidate
+    /// left on its recommendation this reproduces `OrthogonalityMetrics.projectedAnalyticCount`.
+    public static func projectedStyleCount(
+        font: FontDocument,
+        heldCandidates: [StopCandidate],
+        decisions: [String: StopDecision]
+    ) -> Int {
+        var product = 1
+        for axis in font.axes where axis.role == .instance && axis.hasFvarScale {
+            var values = axis.values.map(\.value)
+            for candidate in heldCandidates where candidate.axisTag == axis.tag {
+                let decision = decisions[candidate.id] ?? candidate.recommendedDecision
+                guard decision == .promote else { continue }
+                values.append(candidate.value)
+            }
+            product *= max(uniqueSorted(values).count, 1)
+            if product > 10_000 {
+                return 10_000
+            }
+        }
+        return product
+    }
+
     /// Live Import Review preview: invent count under the current promote set.
     public static func previewExpansion(
         context: ExpansionPreviewContext,

@@ -396,9 +396,9 @@ private enum StudioIconForeground {
 // orange text and similar) — too finicky to maintain across every semantic and appearance.
 //
 // ## Token tiers
-// 1. **Brand** (`brand`, `brandSecondaryFill`, `metricForeground`) — CTA, selected
-//    tab/segment chrome, app tint, computed totals. Never axis/file semantics.
-//    List row selection uses neutral fills — not brand washes.
+// 1. **Brand** (`brand`, `brandSecondaryFill`) — CTA fill, selected tab/segment
+//    chrome, app tint. **Metrics / small marks on neutrals** use `metricForeground`
+//    (sky family) so dark-mode digits don’t vibrate against charcoal.
 // 2. **Semantic marks** (`*Foreground` paired with `*Fill` / `*Stroke`) — hue
 //    carriers for marks only. Despite the `Foreground` suffix, these are **not**
 //    for body text after migration. Prefer the `*Fill` / `*Stroke` sibling at
@@ -699,9 +699,9 @@ enum StudioColors {
         dark: 0.22
     )
     static let successStroke = StudioPalette.color(.green, light: .s600, dark: .s400).opacity(0.45)
-    /// Mark hue — success icons and include-checkbox checkmark when on. Do not use as
-    /// standalone text/foreground color on a matching-hue fill — pair with `.primary`/
-    /// `.secondary` text and reserve the hue for the icon/mark/stroke.
+    /// Mark hue — success icons. Do not use as standalone text/foreground color on a
+    /// matching-hue fill — pair with `.primary`/`.secondary` text and reserve the hue
+    /// for the icon/mark/stroke. Include-checkbox marks use `metricForeground` (sky).
     static let successForeground = StudioPalette.color(.green, light: .s600, dark: .s400)
     /// Mark hue — error icons, severe collision flags, destructive emphasis. Same pairing
     /// rule as `successForeground`: text stays neutral, hue lives on the mark.
@@ -780,11 +780,12 @@ enum StudioColors {
     /// headers (Save Review phases, Instancer groups) must fully cover scrolling rows —
     /// translucent `surfaceMuted` alone let content bleed through.
     static let stickyHeaderFill = StudioOpaquePanelWash.make(name: "stickyHeaderFill", light: 0.07, dark: 0.04)
-    /// Scannable metric digits — panel header counts, `StudioCountBadge`, summary cards.
-    /// Same stop as `brand` (primary blue) so totals scan as brand attention on neutral
-    /// surfaces. Never pair with `brandSecondaryFill` / navy washes — use on-accent
-    /// chrome (`studioOnAccentFill`) for metrics sitting on secondary-blue chips.
-    static let metricForeground = brand
+    /// Scannable metric digits / small marks on neutral chrome (header counts,
+    /// `StudioCountBadge`, include checkmarks, active sort headers).
+    /// Tailwind **sky** — lighter than brand blue so dark-mode digits don’t vibrate
+    /// against charcoal. Light `700` / dark `300`. CTAs stay on `brand` (blue-600).
+    /// On `brandSecondaryFill` chips use on-accent white (`studioOnAccentFill`), not this.
+    static let metricForeground = StudioPalette.color(.sky, light: .s700, dark: .s300)
 
     // MARK: Custom palette — registration & classification (dual-tone)
 
@@ -1482,7 +1483,7 @@ struct StudioIncludeCheckbox: View {
                 RoundedRectangle.studio(StudioRadius.small)
                     .strokeBorder(
                         isOn || isIndeterminate
-                            ? StudioColors.brand.opacity(0.55)
+                            ? StudioColors.metricForeground.opacity(0.65)
                             : Color.secondary.opacity(0.35),
                         lineWidth: StudioStroke.regular
                     )
@@ -1494,7 +1495,7 @@ struct StudioIncludeCheckbox: View {
                 } else if isOn {
                     Image(systemName: "checkmark")
                         .font(StudioTypography.iconGlyph.weight(.bold))
-                        .foregroundStyle(StudioColors.brand)
+                        .foregroundStyle(StudioColors.metricForeground)
                 }
             }
             .frame(width: Self.hitSize, height: Self.hitSize)
@@ -2305,6 +2306,55 @@ struct StudioToolbarIconButton: View {
                     width: StudioFieldMetrics.toolbarIconHitSize,
                     height: StudioFieldMetrics.toolbarIconHitSize
                 )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(StudioIconButtonStyle())
+        .studioInteractiveCursor()
+        .help(help)
+    }
+}
+
+/// Panel-header collapse / expand control (`sidebar.left` / `sidebar.right`).
+///
+/// Lays out at glyph size so the trailing edge matches other headers’ `contentInset`
+/// (a full `toolbarIconHitSize` square was optically short on the divider). Hit area
+/// expands toward the title, not past the inset.
+struct StudioPanelCollapseButton: View {
+    enum Edge {
+        case leading
+        case trailing
+
+        var systemName: String {
+            switch self {
+            case .leading: "sidebar.left"
+            case .trailing: "sidebar.right"
+            }
+        }
+    }
+
+    var edge: Edge
+    var help: String
+    let action: () -> Void
+
+    private var hitPad: CGFloat {
+        (StudioFieldMetrics.toolbarIconHitSize - StudioFieldMetrics.toolbarIconPointSize) / 2
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: edge.systemName)
+                .font(.system(
+                    size: StudioFieldMetrics.toolbarIconPointSize,
+                    weight: StudioChromeScale.symbolWeight
+                ))
+                .symbolRenderingMode(.monochrome)
+                .frame(
+                    width: StudioFieldMetrics.toolbarIconPointSize,
+                    height: StudioFieldMetrics.toolbarIconPointSize
+                )
+                // Grow hit toward the title; keep glyph flush with header content inset.
+                .padding(.leading, hitPad * 2)
+                .padding(.vertical, hitPad)
                 .contentShape(Rectangle())
         }
         .buttonStyle(StudioIconButtonStyle())

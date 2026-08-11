@@ -361,7 +361,7 @@ struct MainEditorView: View {
         }
         actions.append(
             StudioConfirmDialog.Action(
-                title: "Discard",
+                title: "Remove Project",
                 role: .destructiveAction
             ) {
                 editor.confirmCloseProjectDiscardAction()
@@ -401,7 +401,7 @@ struct MainEditorView: View {
         }
         actions.append(
             StudioConfirmDialog.Action(
-                title: "Discard",
+                title: "Remove Project",
                 role: .destructiveAction
             ) {
                 editor.confirmQuitDiscardAction()

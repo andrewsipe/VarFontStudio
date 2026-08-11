@@ -10,11 +10,7 @@ struct InstanceInspectorContent: View {
     var body: some View {
         Group {
             if let instance = resolvedInspectorInstance {
-                VStack(spacing: 0) {
-                    instanceHeaderBar(instance)
-
-                    instanceInspector(instance)
-                }
+                instanceInspector(instance)
             } else {
                 emptyInspector
             }
@@ -31,20 +27,6 @@ struct InstanceInspectorContent: View {
         return live
     }
 
-    private func instanceHeaderBar(_ instance: PlannedInstance) -> some View {
-        HStack(spacing: StudioSpacing.controlGap) {
-            Spacer(minLength: 0)
-            if let bundle = editor.primaryConflictAxis(for: instance) {
-                StudioInspectorConflictBadge(count: 1) {
-                    editor.presentConflictResolver(bundle: bundle)
-                }
-                .help("Open conflict resolver for \(bundle.axisLabel)")
-            }
-        }
-        .padding(.horizontal, StudioSpacing.contentInset)
-        .padding(.vertical, StudioSpacing.panelVertical)
-    }
-
     private var emptyInspector: some View {
         ContentUnavailableView(
             editor.activeInstanceSelection.isEmpty ? "No Instance Selected" : "Select One Instance",
@@ -59,14 +41,13 @@ struct InstanceInspectorContent: View {
 
     private func instanceInspector(_ instance: PlannedInstance) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: StudioSpacing.sectionGap + 4) {
+            VStack(alignment: .leading, spacing: StudioSpacing.sheetSectionSpacing) {
                 StudioComposedNameCallout(
                     name: instance.composedName,
                     isDuplicate: instance.duplicate
                 )
 
-                // One primary amber CTA: prefer the fix locus (axis conflict) over the
-                // downstream symptom (shared composed name).
+                // Primary amber CTA + locus marks on chain/coords — no sparse header badge.
                 if let bundle = editor.primaryConflictAxis(for: instance) {
                     StudioConflictAlert(
                         message: "Naming conflict on \(bundle.axisLabel) affects this instance.",
@@ -101,24 +82,47 @@ struct InstanceInspectorContent: View {
     private func inclusionSection(_ instance: PlannedInstance) -> some View {
         StudioInspectorBlock(title: "Export inclusion") {
             let included = editor.isInstanceIncluded(instance.key)
-            HStack(spacing: StudioSpacing.controlGap) {
-                Image(systemName: included ? "checkmark.circle.fill" : "minus.circle.fill")
-                    .foregroundStyle(included ? StudioColors.successForeground : StudioColors.warningForeground)
+            HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
+                StudioIncludeCheckbox(isOn: included) {
+                    editor.setInstanceIncluded(instance.key, included: !included)
+                }
+
                 VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
-                    Text(included ? "Included in export" : "Excluded (not included)")
-                        .font(StudioTypography.bodyMedium)
+                    Text(included ? "Included" : "Excluded")
+                        .font(StudioTypography.filterBadgeLabel)
+                        .tracking(0.3)
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+                        .padding(.vertical, StudioSpace.x0_5)
+                        .background(
+                            included ? StudioColors.successFill : StudioColors.warningFill,
+                            in: RoundedRectangle.studio(StudioRadius.chip)
+                        )
+                        .overlay {
+                            RoundedRectangle.studio(StudioRadius.chip)
+                                .strokeBorder(
+                                    (included
+                                        ? StudioColors.successForeground
+                                        : StudioColors.warningForeground
+                                    ).opacity(0.45),
+                                    lineWidth: StudioStroke.hairline
+                                )
+                        }
+
                     if !included {
                         Text("This instance will not be written to output.")
                             .font(StudioTypography.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
+
                 Spacer(minLength: 0)
-                StudioIncludeCheckbox(isOn: included) {
-                    editor.setInstanceIncluded(instance.key, included: !included)
-                }
             }
             .frame(minHeight: StudioFieldMetrics.listRowMinHeight)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                editor.setInstanceIncluded(instance.key, included: !included)
+            }
         }
     }
 
@@ -135,15 +139,16 @@ struct InstanceInspectorContent: View {
 
     private func axisCoordinatesSection(_ instance: PlannedInstance) -> some View {
         let rows = editor.inspectorAxisCoordRows(for: instance)
-        let showsElidableColumn = rows.contains(where: \.showsElisionToggle)
+        let showsElidedColumn = rows.contains(where: \.showsElisionToggle)
         let conflictBundle = editor.primaryConflictAxis(for: instance)
 
         return StudioInspectorBlock(title: "Axis coordinates") {
+            // Nest under the section label like Axis Tree stop tables under an axis header.
             VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                if showsElidableColumn {
+                if showsElidedColumn {
                     HStack(spacing: StudioSpacing.controlGap) {
                         Spacer(minLength: 0)
-                        Text("Elidable")
+                        Text("Elided")
                             .font(StudioTypography.columnLabel)
                             .foregroundStyle(StudioColors.sectionHeading)
                             .lineLimit(1)
@@ -171,56 +176,65 @@ struct InstanceInspectorContent: View {
                     }
                 )
             }
+            .padding(.leading, AxisBlockLayout.stopIndentWidth)
         }
     }
 
     private func nameTableSection(_ instance: PlannedInstance) -> some View {
-        StudioInspectorBlock(title: "Name table IDs") {
-            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                Button {
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        showPlannedWrites.toggle()
-                    }
-                } label: {
-                    HStack(spacing: StudioSpacing.tightGap) {
-                        StudioNestedDisclosureChevron(isExpanded: showPlannedWrites)
-                        Text("Planned table writes")
-                            .font(StudioTypography.caption.weight(.medium))
-                            .foregroundStyle(.primary)
-                        Spacer(minLength: 0)
-                        // Same emerald language as Instances “Pending export” / Save Review planned rows.
-                        Text("planned")
-                            .font(StudioTypography.filterBadgeLabel)
-                            .tracking(0.3)
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, StudioSpacing.tagHorizontalInset)
-                            .padding(.vertical, StudioSpace.x0_5)
-                            .background(StudioColors.pendingFill, in: RoundedRectangle.studio(StudioRadius.chip))
-                            .overlay {
-                                RoundedRectangle.studio(StudioRadius.chip)
-                                    .strokeBorder(
-                                        StudioColors.pendingFill.opacity(0.45),
-                                        lineWidth: StudioStroke.hairline
-                                    )
-                            }
-                    }
-                }
-                .buttonStyle(.plain)
-                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+        let rows = editor.openTypePreviewRows(for: instance)
+        return VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+            tableWritesHeader(rowCount: rows.count)
 
-                if showPlannedWrites {
-                    let rows = editor.openTypePreviewRows(for: instance)
+            if showPlannedWrites {
+                VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
                     if rows.isEmpty {
-                        Text("No planned writes for this instance.")
+                        Text("Nothing to write for this instance yet.")
                             .font(StudioTypography.caption)
                             .foregroundStyle(.tertiary)
-                            .padding(.top, StudioSpacing.tightGap)
+                            .padding(.horizontal, StudioSpacing.rowHorizontal)
+                            .padding(.vertical, StudioSpacing.panelVertical)
                     } else {
                         InspectorOpenTypeTable(rows: rows)
-                            .padding(.top, StudioSpacing.panelVertical)
+                            .padding(.horizontal, StudioSpacing.rowHorizontal)
+                            .padding(.vertical, StudioSpacing.panelVertical)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.control))
             }
         }
+    }
+
+    private func tableWritesHeader(rowCount: Int) -> some View {
+        // Count sits next to the title (Fonts-section pattern) — not trailing across the panel.
+        Button {
+            withAnimation(.easeOut(duration: 0.12)) {
+                showPlannedWrites.toggle()
+            }
+        } label: {
+            HStack(spacing: StudioSpacing.tightGap) {
+                StudioDisclosureChevron(isExpanded: showPlannedWrites)
+                StudioSectionLabel(title: "Table writes")
+                Text("\(rowCount)")
+                    .font(StudioTypography.filterBadgeLabel)
+                    .tracking(0.3)
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, StudioSpacing.tagHorizontalInset)
+                    .padding(.vertical, StudioSpace.x0_5)
+                    .background(StudioColors.pendingFill, in: RoundedRectangle.studio(StudioRadius.chip))
+                    .overlay {
+                        RoundedRectangle.studio(StudioRadius.chip)
+                            .strokeBorder(
+                                StudioColors.pendingForeground.opacity(0.45),
+                                lineWidth: StudioStroke.hairline
+                            )
+                    }
+                    .opacity(rowCount == 0 ? 0.45 : 1)
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(.plain)
+        .studioHoverLink(.primary)
+        .accessibilityLabel("Table writes, \(rowCount) planned")
     }
 }

@@ -26,7 +26,10 @@ struct InspectorOpenTypeRow: Identifiable, Sendable {
     var sources: [InspectorOpenTypeSource]
     var isDerived: Bool
     var kind: InspectorOpenTypeRowKind
-    /// Name-table slot when this write maps to a known nameID (Save Review alignment).
+    /// Stop label is elided from the composed style — shown as a chip, not inline prose.
+    var isElided: Bool = false
+    /// Name-table slot when this write maps to a known nameID (Save Review only;
+    /// inspector preview leaves this nil until IDs are allocated).
     var nameID: Int? = nil
 }
 
