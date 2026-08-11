@@ -347,19 +347,23 @@ public enum FvarStopSeeder {
         public var dismissedCompoundIDs: Set<String>
         /// Optional Format 1 names when promoting held stops (candidate id → name).
         public var promotedStopNames: [String: String]
+        /// When true, export whitelist is seeded to plan keys matching original fvar.
+        public var keepOriginalInstancesOnly: Bool
 
         public init(
             stopDecisions: [String: StopDecision] = [:],
             conflictResolutions: [String: Resolution] = [:],
             acceptedCompoundIDs: Set<String> = [],
             dismissedCompoundIDs: Set<String> = [],
-            promotedStopNames: [String: String] = [:]
+            promotedStopNames: [String: String] = [:],
+            keepOriginalInstancesOnly: Bool = false
         ) {
             self.stopDecisions = stopDecisions
             self.conflictResolutions = conflictResolutions
             self.acceptedCompoundIDs = acceptedCompoundIDs
             self.dismissedCompoundIDs = dismissedCompoundIDs
             self.promotedStopNames = promotedStopNames
+            self.keepOriginalInstancesOnly = keepOriginalInstancesOnly
         }
     }
 

@@ -112,7 +112,12 @@ struct ProjectFileSubBar: View {
                             .lineLimit(1)
                     }
                 } trailing: {
-                    chipTrailing(font: font, projectID: projectID, projectFontCount: projectFontCount)
+                    chipTrailing(
+                        font: font,
+                        projectID: projectID,
+                        projectFontCount: projectFontCount,
+                        isSelected: isSelected
+                    )
                 }
             }
         }
@@ -137,17 +142,19 @@ struct ProjectFileSubBar: View {
     private func chipTrailing(
         font: FontDocument,
         projectID: String,
-        projectFontCount: Int
+        projectFontCount: Int,
+        isSelected: Bool
     ) -> some View {
+        let secondaryForeground: Color = isSelected ? Color.white.opacity(0.85) : Color.secondary
         HStack(spacing: StudioSpacing.tightGap) {
             if let savedName = editor.savedOutputLabel(for: font) {
                 Image(systemName: "square.and.arrow.up.badge.checkmark")
                     .font(StudioTypography.iconGlyph)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryForeground)
                     .help("Exported to \(savedName)")
                 Text(savedName)
                     .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(secondaryForeground)
                     .lineLimit(1)
             }
 

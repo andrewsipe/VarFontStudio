@@ -71,18 +71,47 @@ extension EditorViewModel {
         guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
             return
         }
+        pushUndoSnapshot()
         var font = project.fonts[fontIndex]
-        if included {
-            font.excludedInstanceKeys.removeAll { $0 == key }
-        } else if !font.excludedInstanceKeys.contains(key) {
-            font.excludedInstanceKeys.append(key)
-        }
+        Self.applyInclusion(keys: [key], included: included, to: &font)
         font.dirty = true
         project.fonts[fontIndex] = font
         project.modified = Date()
         self.project = project
         canSave = true
         regeneratePlan()
+    }
+
+    /// Include/exclude helpers that respect whitelist vs exclude-list mode.
+    static func applyInclusion(keys: some Collection<String>, included: Bool, to font: inout FontDocument) {
+        let keySet = Set(keys)
+        guard !keySet.isEmpty else { return }
+        if !font.includedInstanceKeys.isEmpty {
+            if included {
+                for key in keySet where !font.includedInstanceKeys.contains(key) {
+                    font.includedInstanceKeys.append(key)
+                }
+            } else {
+                font.includedInstanceKeys.removeAll { keySet.contains($0) }
+            }
+        } else if included {
+            font.excludedInstanceKeys.removeAll { keySet.contains($0) }
+        } else {
+            for key in keySet where !font.excludedInstanceKeys.contains(key) {
+                font.excludedInstanceKeys.append(key)
+            }
+        }
+    }
+
+    /// Whitelist plan keys that match fvar; clears exclude list.
+    static func applyTrimNonOriginals(keys: [String], to font: inout FontDocument) {
+        font.includedInstanceKeys = keys
+        font.excludedInstanceKeys = []
+    }
+
+    /// Leave whitelist mode (all styles included unless excluded).
+    static func clearTrimToOriginals(to font: inout FontDocument) {
+        font.includedInstanceKeys = []
     }
 
     func setAxisInstanceGridEnabled(tag: String, enabled: Bool) {

@@ -660,13 +660,7 @@ final class EditorViewModel: ObservableObject {
 
         pushUndoSnapshot()
         var font = project.fonts[fontIndex]
-        if included {
-            font.excludedInstanceKeys.removeAll { keys.contains($0) }
-        } else {
-            for key in keys where !font.excludedInstanceKeys.contains(key) {
-                font.excludedInstanceKeys.append(key)
-            }
-        }
+        EditorViewModel.applyInclusion(keys: keys, included: included, to: &font)
         font.dirty = true
         project.fonts[fontIndex] = font
         project.modified = Date()
@@ -688,12 +682,90 @@ final class EditorViewModel: ObservableObject {
         return includedCount > 0 && includedCount < visible.count
     }
 
+    var isTrimmedToOriginals: Bool {
+        guard let font = selectedFont else { return false }
+        return InstanceInclusion.isTrimmedToOriginals(font)
+    }
+
+    /// Show Trim Non-Originals when already trimmed, or when included styles await export
+    /// (invented cartesian cells typically show up as pending vs fvar).
+    var showsTrimNonOriginalsAction: Bool {
+        isTrimmedToOriginals || !pendingExportInstanceKeys.isEmpty
+    }
+
     func setAllVisibleInstancesIncluded(_ included: Bool) {
-        setFilteredInstancesIncluded(included)
+        if included {
+            includeAllVisibleInstances()
+        } else {
+            excludeAllVisibleInstances()
+        }
     }
 
     func toggleAllVisibleInstancesIncluded() {
         setAllVisibleInstancesIncluded(!allVisibleInstancesIncluded)
+    }
+
+    /// Include All for the visible filter — clears originals trim when leaving whitelist mode.
+    func includeAllVisibleInstances() {
+        guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
+            return
+        }
+        let keys = Set(filteredInstances.map(\.key))
+        guard !keys.isEmpty || isTrimmedToOriginals else { return }
+        pushUndoSnapshot()
+        var font = project.fonts[fontIndex]
+        if !font.includedInstanceKeys.isEmpty {
+            EditorViewModel.clearTrimToOriginals(to: &font)
+        } else {
+            guard !keys.isEmpty else { return }
+            EditorViewModel.applyInclusion(keys: keys, included: true, to: &font)
+        }
+        font.dirty = true
+        project.fonts[fontIndex] = font
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
+    }
+
+    func excludeAllVisibleInstances() {
+        setFilteredInstancesIncluded(false)
+    }
+
+    /// Rebuild whitelist from plan keys that match the working font's fvar instances.
+    func trimNonOriginalInstances() {
+        guard var project,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }),
+              let font = selectedFont,
+              let plan = instancePlan
+        else { return }
+
+        let sourcePath = font.sourcePath
+        let bookmark = sourceBookmarks[font.id]
+        let analysis: FontAnalysis
+        do {
+            analysis = try SourceFontAccess.withReadableSourceURL(
+                bookmark: bookmark,
+                fallbackPath: sourcePath
+            ) { sourceURL in
+                try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+            }
+        } catch {
+            return
+        }
+
+        let keys = InstanceInclusion.planKeysMatchingFvar(plan: plan, analysis: analysis)
+        guard !keys.isEmpty else { return }
+
+        pushUndoSnapshot()
+        var updated = project.fonts[fontIndex]
+        EditorViewModel.applyTrimNonOriginals(keys: keys, to: &updated)
+        updated.dirty = true
+        project.fonts[fontIndex] = updated
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
     }
 }
 

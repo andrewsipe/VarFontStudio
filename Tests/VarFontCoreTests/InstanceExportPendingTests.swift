@@ -47,6 +47,35 @@ final class InstanceExportPendingTests: XCTestCase {
         XCTAssertEqual(pending, ["wdth:100|wght:400"])
     }
 
+    func testPlanKeysMatchingFvarReturnsPlanKeysForAlignedFvarInstances() {
+        let plan = planWithInstances([
+            ("ital:0|opsz:12|wdth:100|wght:400", ["ital": 0, "opsz": 12, "wdth": 100, "wght": 400], included: true),
+            ("ital:0|opsz:12|wdth:100|wght:700", ["ital": 0, "opsz": 12, "wdth": 100, "wght": 700], included: true),
+            ("ital:0|opsz:12|wdth:125|wght:400", ["ital": 0, "opsz": 12, "wdth": 125, "wght": 400], included: true),
+        ])
+        let analysis = analysisWithFvarInstances([
+            ["wdth": 100, "wght": 400],
+            ["wdth": 100, "wght": 700],
+        ])
+
+        let keys = InstanceInclusion.planKeysMatchingFvar(plan: plan, analysis: analysis)
+        XCTAssertEqual(
+            keys,
+            [
+                "ital:0|opsz:12|wdth:100|wght:400",
+                "ital:0|opsz:12|wdth:100|wght:700",
+            ]
+        )
+    }
+
+    func testPlanKeysMatchingFvarEmptyWhenNoFvarInstances() {
+        let plan = planWithInstances([
+            ("wdth:100|wght:400", ["wdth": 100, "wght": 400], included: true),
+        ])
+        let analysis = analysisWithFvarInstances([])
+        XCTAssertTrue(InstanceInclusion.planKeysMatchingFvar(plan: plan, analysis: analysis).isEmpty)
+    }
+
     private func planWithInstances(
         _ rows: [(key: String, coords: [String: Double], included: Bool)]
     ) -> InstancePlan {

@@ -162,46 +162,11 @@ struct MainEditorView: View {
                 Text(editor.removeFontConfirmationMessage(for: request))
             }
         }
-        .confirmationDialog(
-            "Close Project?",
-            isPresented: closeProjectConfirmBinding,
-            titleVisibility: .visible
-        ) {
-            if let projectID = editor.workspace.confirmCloseProjectID,
-               editor.projectNeedsProjectFileSave(projectID: projectID) {
-                Button("Save Project") {
-                    editor.confirmCloseProjectSaveAction()
-                }
-            }
-            Button("Discard", role: .destructive) {
-                editor.confirmCloseProjectDiscardAction()
-            }
-            Button("Cancel", role: .cancel) {
-                editor.workspace.confirmCloseProjectID = nil
-            }
-        } message: {
-            if let projectID = editor.workspace.confirmCloseProjectID {
-                Text(editor.closeProjectConfirmationMessage(for: projectID))
-            }
+        .sheet(isPresented: closeProjectConfirmBinding) {
+            closeProjectConfirmSheet
         }
-        .confirmationDialog(
-            "Quit VarFont Studio?",
-            isPresented: quitConfirmBinding,
-            titleVisibility: .visible
-        ) {
-            if editor.canSaveProjectOnQuit {
-                Button("Save Project") {
-                    editor.confirmQuitSaveProjectAction()
-                }
-            }
-            Button("Discard", role: .destructive) {
-                editor.confirmQuitDiscardAction()
-            }
-            Button("Cancel", role: .cancel) {
-                editor.confirmQuitCancelAction()
-            }
-        } message: {
-            Text(editor.quitConfirmationMessage())
+        .sheet(isPresented: quitConfirmBinding) {
+            quitConfirmSheet
         }
         .confirmationDialog(
             "Move font?",
@@ -367,6 +332,90 @@ struct MainEditorView: View {
             get: { editor.workspace.confirmCloseProjectID != nil },
             set: { if !$0 { editor.workspace.confirmCloseProjectID = nil } }
         )
+    }
+
+    private var closeProjectConfirmSheet: some View {
+        let projectID = editor.workspace.confirmCloseProjectID
+        let needsSave = projectID.map { editor.projectNeedsProjectFileSave(projectID: $0) } ?? false
+        let message = projectID.map { editor.closeProjectConfirmationMessage(for: $0) }
+            ?? "Close this project?"
+        return StudioConfirmDialog(
+            title: "Close Project?",
+            message: message,
+            actions: closeProjectConfirmActions(needsSave: needsSave)
+        )
+    }
+
+    private func closeProjectConfirmActions(needsSave: Bool) -> [StudioConfirmDialog.Action] {
+        var actions: [StudioConfirmDialog.Action] = []
+        if needsSave {
+            actions.append(
+                StudioConfirmDialog.Action(
+                    title: "Save Project",
+                    role: .primary,
+                    isDefaultAction: true
+                ) {
+                    editor.confirmCloseProjectSaveAction()
+                }
+            )
+        }
+        actions.append(
+            StudioConfirmDialog.Action(
+                title: "Discard",
+                role: .destructiveAction
+            ) {
+                editor.confirmCloseProjectDiscardAction()
+            }
+        )
+        actions.append(
+            StudioConfirmDialog.Action(
+                title: "Cancel",
+                isCancelAction: true
+            ) {
+                editor.workspace.confirmCloseProjectID = nil
+            }
+        )
+        return actions
+    }
+
+    private var quitConfirmSheet: some View {
+        StudioConfirmDialog(
+            title: "Quit VarFont Studio?",
+            message: editor.quitConfirmationMessage(),
+            actions: quitConfirmActions
+        )
+    }
+
+    private var quitConfirmActions: [StudioConfirmDialog.Action] {
+        var actions: [StudioConfirmDialog.Action] = []
+        if editor.canSaveProjectOnQuit {
+            actions.append(
+                StudioConfirmDialog.Action(
+                    title: "Save Project",
+                    role: .primary,
+                    isDefaultAction: true
+                ) {
+                    editor.confirmQuitSaveProjectAction()
+                }
+            )
+        }
+        actions.append(
+            StudioConfirmDialog.Action(
+                title: "Discard",
+                role: .destructiveAction
+            ) {
+                editor.confirmQuitDiscardAction()
+            }
+        )
+        actions.append(
+            StudioConfirmDialog.Action(
+                title: "Cancel",
+                isCancelAction: true
+            ) {
+                editor.confirmQuitCancelAction()
+            }
+        )
+        return actions
     }
 
     private var moveFontConfirmBinding: Binding<Bool> {

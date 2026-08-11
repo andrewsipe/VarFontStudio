@@ -54,7 +54,7 @@ struct StudioComposedNameCallout: View {
             // Duplicate: keep a quiet leading mark only — full yellow wash is reserved for
             // actionable banners / fix loci, not every affected name callout.
             .background(
-                StudioColors.selectionFill,
+                StudioColors.brandSecondaryFill,
                 in: RoundedRectangle.studio(StudioRadius.surface)
             )
             .overlay(alignment: .leading) {
@@ -440,7 +440,7 @@ struct InspectorOpenTypeSourcePill: View {
     private var fill: Color {
         switch source {
         case .stat: return StudioColors.registrationBackground
-        case .fvar: return StudioColors.brandBackground
+        case .fvar: return StudioColors.fvarBackground
         case .name: return StudioColors.codeBackground
         case .planned: return StudioColors.pendingFill
         }
@@ -449,7 +449,7 @@ struct InspectorOpenTypeSourcePill: View {
     private var stroke: Color {
         switch source {
         case .stat: return StudioColors.registrationStroke
-        case .fvar: return StudioColors.selectionStroke
+        case .fvar: return StudioColors.fvarStroke
         case .name: return StudioColors.codeStroke
         case .planned: return StudioColors.pendingForeground.opacity(0.45)
         }

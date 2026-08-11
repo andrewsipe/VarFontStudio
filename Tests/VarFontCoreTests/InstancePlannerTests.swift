@@ -43,6 +43,36 @@ final class InstancePlannerTests: XCTestCase {
         XCTAssertEqual(plan.formula.totalExcluded, 2)
     }
 
+    func testIncludedWhitelistWinsOverExcludes() {
+        let keepKey = "wght:400"
+        let otherKey = "wght:700"
+        let font = FontDocument(
+            id: "test",
+            sourcePath: "/tmp/test.ttf",
+            dirty: false,
+            axes: [
+                AxisDefinition(
+                    tag: "wght",
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "a", value: 400, name: "Regular", elidable: true),
+                        AxisValue(id: "b", value: 700, name: "Bold", elidable: false),
+                    ]
+                ),
+            ],
+            includedInstanceKeys: [keepKey],
+            excludedInstanceKeys: [keepKey, otherKey]
+        )
+
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["wght"], elidedFallback: "Regular")
+        )
+        XCTAssertEqual(plan.formula.totalGenerated, 2)
+        XCTAssertEqual(plan.formula.totalIncluded, 1)
+        XCTAssertEqual(Set(plan.instances.filter(\.included).map(\.key)), [keepKey])
+    }
+
     func testMultipleElidableProducesWarning() {
         let font = FontDocument(
             id: "test",

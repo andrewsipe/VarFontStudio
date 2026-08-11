@@ -222,7 +222,8 @@ extension RoundedRectangle {
 ///   close/dismiss, `.fill` (`xmark.circle.fill`) for in-row / in-field remove.
 ///   Never a naked `xmark`; never `minus.circle` to mean "remove".
 /// - Overflow: `StudioOverflowMenu` only (`.toolbar` or `.chip` scale). It never
-///   renders the system menu chevron.
+///   renders the system menu chevron. Neutral idle/hover (not brand) — overrides
+///   app `studioBrandTint()` with an explicit `.tint`.
 /// - Selection radio: `StudioElidableRadio` (or a sibling taking `isOn`) for every
 ///   mutually-exclusive "picked" control. NOTE: an include/exclude control that
 ///   carries its own meaning (check vs minus) is a *different* control — do not
@@ -358,7 +359,14 @@ private enum StudioLinkForeground {
 }
 
 private enum StudioIconForeground {
-    static func resolve(tint: Color?, state: StudioInteractionState) -> Color {
+    static func resolve(tint: Color?, state: StudioInteractionState, onAccent: Bool = false) -> Color {
+        if onAccent {
+            // White chrome on `brandSecondaryFill` — brand/secondary blues wash out there.
+            switch state {
+            case .idle: return Color.white.opacity(0.88)
+            case .hovered, .pressed: return .white
+            }
+        }
         if let tint {
             return StudioInteractionRule.resolve(base: tint, state: state)
         }
@@ -388,8 +396,9 @@ private enum StudioIconForeground {
 // orange text and similar) — too finicky to maintain across every semantic and appearance.
 //
 // ## Token tiers
-// 1. **Brand** (`brand`, `selectionFill`, `metricForeground`) — interaction,
-//    selection, app tint, computed totals. Never axis/file semantics.
+// 1. **Brand** (`brand`, `brandSecondaryFill`, `metricForeground`) — CTA, selected
+//    tab/segment chrome, app tint, computed totals. Never axis/file semantics.
+//    List row selection uses neutral fills — not brand washes.
 // 2. **Semantic marks** (`*Foreground` paired with `*Fill` / `*Stroke`) — hue
 //    carriers for marks only. Despite the `Foreground` suffix, these are **not**
 //    for body text after migration. Prefer the `*Fill` / `*Stroke` sibling at
@@ -580,15 +589,18 @@ enum StudioColors {
     /// Tier 1 — mark hue + primary CTA fill (Export, Include checkbox fill, tab underline).
     /// Light/dark both `600` so white button labels clear ~5:1 AA.
     static let brand = StudioPalette.color(.blue, light: .s600, dark: .s600)
-    /// Soft brand wash — selected rows, selected segments, brand chips (`fvar` pill),
-    /// Inspector composed-name header. Light `300` so the wash reads on white chrome;
-    /// dark `950` matches the deep navy used with the brand leading stripe (not `900`,
-    /// which sat too close to `brand` and killed segment label contrast).
+    /// Soft brand wash — reserved for rare tinted chrome (not selected tabs/rows).
+    /// Prefer `brandSecondaryFill` (tabs/segments) or `selectionNeutralFill*` (list rows).
+    /// Dark `950` + sky labels was the sky-on-navy failure mode — do not pair with
+    /// `metricForeground` for selected control labels.
     static let selectionFill = StudioPalette.color(.blue, light: .s300, dark: .s950)
     /// Quieter brand wash — soft highlights only (one step under `selectionFill` in light).
     static let selectionFillSoft = StudioPalette.color(.blue, light: .s200, dark: .s900)
-    /// Brand chip / badge fill — same stop as selection so chips and rows match.
-    static let brandBackground = selectionFill
+    /// Secondary selected control fill — tabs / segments. Mid blue + white (or `.primary`)
+    /// labels — not navy fill with sky text. Sits under primary CTA `brand` (600).
+    static let brandSecondaryFill = StudioPalette.color(.blue, light: .s500, dark: .s700)
+    /// Legacy alias — prefer `brandSecondaryFill` or semantic source fills (`fvarBackground`).
+    static let brandBackground = brandSecondaryFill
     /// Disabled primary button fill (was `brand.opacity(0.22)`).
     static let brandFillDisabled = StudioPalette.color(.blue, light: .s100, dark: .s800)
     /// Selection / focus ring edge — opacity OK (edge, not area fill).
@@ -769,10 +781,10 @@ enum StudioColors {
     /// translucent `surfaceMuted` alone let content bleed through.
     static let stickyHeaderFill = StudioOpaquePanelWash.make(name: "stickyHeaderFill", light: 0.07, dark: 0.04)
     /// Scannable metric digits — panel header counts, `StudioCountBadge`, summary cards.
-    /// Same Tailwind family as `brand`, one step off so totals don't compete with CTAs. Numbers.
-    static let metricForeground = StudioPalette.color(.blue, light: .s700, dark: .s300)
-    /// Brand mark — elided STAT fallback segment in naming chains (neutral text + brand dot).
-    static let elidedFallbackForeground = StudioPalette.color(.blue, light: .s600, dark: .s400)
+    /// Same stop as `brand` (primary blue) so totals scan as brand attention on neutral
+    /// surfaces. Never pair with `brandSecondaryFill` / navy washes — use on-accent
+    /// chrome (`studioOnAccentFill`) for metrics sitting on secondary-blue chips.
+    static let metricForeground = brand
 
     // MARK: Custom palette — registration & classification (dual-tone)
 
@@ -789,6 +801,10 @@ enum StudioColors {
     static let codeForeground = StudioPalette.color(.teal, light: .s700, dark: .s400)
     static let codeBackground = StudioOpaqueFill.make(name: "codeBackground", hue: codeForeground, light: 0.22, dark: 0.22)
     static let codeStroke = codeForeground.opacity(0.45)
+    /// Mark hue — OpenType `fvar` source chip. Cyan (not brand blue / not code teal).
+    static let fvarForeground = StudioPalette.color(.cyan, light: .s600, dark: .s400)
+    static let fvarBackground = StudioOpaqueFill.make(name: "fvarBackground", hue: fvarForeground, light: 0.22, dark: 0.22)
+    static let fvarStroke = fvarForeground.opacity(0.45)
 
     // MARK: Semantic marks — STAT format badges
 
@@ -1140,6 +1156,7 @@ struct StudioCountBadge: View {
     var highlighted: Bool = true
     var fixedWidth: CGFloat? = nil
     var help: String = ""
+    @Environment(\.studioOnAccentFill) private var onAccent
 
     var body: some View {
         Text(text)
@@ -1147,17 +1164,31 @@ struct StudioCountBadge: View {
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.75)
-            .foregroundStyle(highlighted ? AnyShapeStyle(StudioColors.metricForeground) : AnyShapeStyle(.secondary))
+            .foregroundStyle(digitForeground)
             .frame(width: fixedWidth)
             // Free (non-aligned) badges need breathing room; fixed-width column
             // badges (axis headers) keep their exact alignment slot.
             .padding(.horizontal, fixedWidth == nil ? 6 : 0)
             .padding(.vertical, 2)
-            .background(
-                highlighted ? StudioColors.selectionFill : StudioColors.surfaceSubtle,
-                in: Capsule()
-            )
+            .background(capsuleFill, in: Capsule())
             .help(help)
+    }
+
+    private var digitForeground: AnyShapeStyle {
+        if onAccent {
+            return AnyShapeStyle(Color.white)
+        }
+        return highlighted
+            ? AnyShapeStyle(StudioColors.metricForeground)
+            : AnyShapeStyle(.secondary)
+    }
+
+    private var capsuleFill: Color {
+        if onAccent {
+            // Soft white wash on secondary-blue chips — keeps the count readable.
+            return Color.white.opacity(0.22)
+        }
+        return highlighted ? StudioColors.surfaceMuted : StudioColors.surfaceSubtle
     }
 }
 
@@ -1964,6 +1995,10 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
     @State private var isHovered = false
 
+    /// Selected / highlighted chips use `brandSecondaryFill` — children switch to
+    /// white on-accent chrome via this environment (counts, dirty dots, dismiss).
+    private var onAccentFill: Bool { isSelected || isHighlighted }
+
     var body: some View {
         HStack(spacing: 5) {
             label()
@@ -1972,6 +2007,8 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
         .padding(.horizontal, StudioFieldMetrics.tabChipHorizontalPadding)
         .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
         .frame(minHeight: StudioFieldMetrics.tabChipRowHeight)
+        .environment(\.studioOnAccentFill, onAccentFill)
+        .foregroundStyle(onAccentFill ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
         .background {
             switch shape {
             case .capsule:
@@ -2025,7 +2062,7 @@ struct StudioTabChip<Label: View, Trailing: View>: View {
 
     private var chipFill: Color {
         if isSelected || isHighlighted {
-            return StudioColors.selectionFill
+            return StudioColors.brandSecondaryFill
         }
         if isHovered {
             return StudioColors.hoverFill
@@ -2142,10 +2179,15 @@ struct StudioDismissButton: View {
 
 /// Unified overflow (ellipsis) menu. Never renders the system menu chevron so it
 /// reads as a single icon next to its neighbors. Replaces `StudioToolbarIconMenu`.
+///
+/// Neutral chrome by design — app-level `studioBrandTint()` would otherwise paint
+/// `Menu` labels brand blue. On selected tab chips (`studioOnAccentFill`), uses white.
 struct StudioOverflowMenu<Content: View>: View {
     var scale: StudioChromeScale = .toolbar
     var help: String = "Actions"
     @ViewBuilder var content: () -> Content
+    @Environment(\.studioOnAccentFill) private var onAccent
+    @State private var isHovered = false
 
     var body: some View {
         Menu {
@@ -2160,8 +2202,18 @@ struct StudioOverflowMenu<Content: View>: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .studioHoverIcon()
+        // Override app `studioBrandTint()` — Menu ignores label `foregroundStyle`.
+        .tint(menuTint)
+        .onHover { isHovered = $0 }
         .help(help)
+    }
+
+    private var menuTint: Color {
+        StudioIconForeground.resolve(
+            tint: nil,
+            state: isHovered ? .hovered : .idle,
+            onAccent: onAccent
+        )
     }
 }
 
@@ -2266,6 +2318,8 @@ struct StudioToolbarIconButton: View {
 struct StudioToolbarIconMenu<Content: View>: View {
     var help: String = "Actions"
     @ViewBuilder var content: () -> Content
+    @Environment(\.studioOnAccentFill) private var onAccent
+    @State private var isHovered = false
 
     var body: some View {
         Menu {
@@ -2285,7 +2339,12 @@ struct StudioToolbarIconMenu<Content: View>: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .studioHoverIcon()
+        .tint(StudioIconForeground.resolve(
+            tint: nil,
+            state: isHovered ? .hovered : .idle,
+            onAccent: onAccent
+        ))
+        .onHover { isHovered = $0 }
         .help(help)
     }
 }
@@ -2397,6 +2456,7 @@ private struct StudioHoverIconModifier: ViewModifier {
     var isEnabled: Bool
     var tint: Color?
     @State private var isHovered = false
+    @Environment(\.studioOnAccentFill) private var onAccent
 
     func body(content: Content) -> some View {
         Group {
@@ -2417,7 +2477,7 @@ private struct StudioHoverIconModifier: ViewModifier {
     }
 
     private var resolvedForeground: Color {
-        StudioIconForeground.resolve(tint: tint, state: interactionState)
+        StudioIconForeground.resolve(tint: tint, state: interactionState, onAccent: onAccent)
     }
 }
 
@@ -2485,10 +2545,21 @@ private struct StudioDragCursorGateKey: EnvironmentKey {
     static var defaultValue: StudioDragCursorGate? = nil
 }
 
+private struct StudioOnAccentFillKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     fileprivate var studioDragCursorGate: StudioDragCursorGate? {
         get { self[StudioDragCursorGateKey.self] }
         set { self[StudioDragCursorGateKey.self] = newValue }
+    }
+
+    /// True inside selected/highlighted `StudioTabChip` (`brandSecondaryFill`).
+    /// Counts, dirty/master marks, and icon chrome switch to white on-accent.
+    var studioOnAccentFill: Bool {
+        get { self[StudioOnAccentFillKey.self] }
+        set { self[StudioOnAccentFillKey.self] = newValue }
     }
 }
 
@@ -3257,6 +3328,14 @@ struct StudioFlatButton: View {
                 background: StudioColors.warningFillHover
             )
         }
+
+        /// Destructive choice on secondary fill — red label, not a solid red chip.
+        static var destructiveAction: Role {
+            .tinted(
+                foreground: StudioColors.errorForeground,
+                background: StudioColors.buttonSecondaryFill
+            )
+        }
     }
 
     enum Size {
@@ -3427,6 +3506,7 @@ struct StudioIconButtonStyle: ButtonStyle {
     var tint: Color?
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.studioOnAccentFill) private var onAccent
     @State private var isHovered = false
 
     func makeBody(configuration: Configuration) -> some View {
@@ -3438,7 +3518,7 @@ struct StudioIconButtonStyle: ButtonStyle {
             )
         }()
         configuration.label
-            .foregroundStyle(StudioIconForeground.resolve(tint: tint, state: state))
+            .foregroundStyle(StudioIconForeground.resolve(tint: tint, state: state, onAccent: onAccent))
             .onHover { isHovered = $0 }
     }
 }
@@ -3469,7 +3549,7 @@ struct StudioSegmentButtonStyle: ButtonStyle {
 
     private func segmentBackground(state: StudioInteractionState) -> Color {
         if isSelected {
-            return StudioColors.selectionFill
+            return StudioColors.brandSecondaryFill
         }
         switch state {
         case .idle: return .clear
@@ -3487,6 +3567,62 @@ private struct StudioDefaultActionModifier: ViewModifier {
             content.keyboardShortcut(.defaultAction)
         } else {
             content
+        }
+    }
+}
+
+/// Compact confirm sheet with stacked `StudioFlatButton`s.
+/// Prefer this over `.confirmationDialog` / `.alert` when chrome must match the studio.
+struct StudioConfirmDialog: View {
+    struct Action {
+        let title: String
+        var role: StudioFlatButton.Role = .secondary
+        var isDefaultAction: Bool = false
+        var isCancelAction: Bool = false
+        let perform: () -> Void
+    }
+
+    let title: String
+    let message: String
+    let actions: [Action]
+
+    var body: some View {
+        VStack(spacing: StudioSpace.x5) {
+            VStack(spacing: StudioSpacing.tightGap) {
+                Text(title)
+                    .font(StudioTypography.emphasis)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(StudioTypography.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
+
+            VStack(spacing: StudioSpacing.controlGap) {
+                ForEach(Array(actions.enumerated()), id: \.offset) { _, action in
+                    actionButton(action)
+                }
+            }
+        }
+        .padding(StudioSpace.x5)
+        .frame(width: 340)
+    }
+
+    @ViewBuilder
+    private func actionButton(_ action: Action) -> some View {
+        let button = StudioFlatButton(
+            title: action.title,
+            role: action.role,
+            expands: true,
+            isDefaultAction: action.isDefaultAction,
+            action: action.perform
+        )
+        if action.isCancelAction {
+            button.keyboardShortcut(.cancelAction)
+        } else {
+            button
         }
     }
 }
@@ -3549,11 +3685,9 @@ struct StudioSegmentButton: View {
             HStack(spacing: StudioSpace.x1) {
                 Text(title)
                     .font(font.weight(isSelected ? .semibold : .regular))
-                    // Selected label uses `metricForeground` (700/400), not `brand` (600):
-                    // brand-on-selectionFill only clears ~2:1 in dark / ~3.7:1 in light.
-                    // Metric is the same brand family, lighter in dark (matches the leading
-                    // stripe’s bright read) and darker in light so it clears the wash.
-                    .foregroundStyle(isSelected ? StudioColors.metricForeground : Color.primary.opacity(0.78))
+                    // Selected = white on `brandSecondaryFill` (mid blue). Avoids the
+                    // former sky-on-navy pairing of `metricForeground` + `selectionFill`.
+                    .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.78))
                 if showsWarning {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 9))
@@ -3578,7 +3712,9 @@ enum StudioRowChrome {
             return isHovered ? StudioColors.warningFillStrong : StudioColors.warningFill
         }
         if isSelected {
-            return StudioColors.selectionFill
+            // Neutral selected row — same language as hover, one step stronger.
+            // Brand / secondary blue stays on CTAs and tabs, not list chrome.
+            return StudioColors.selectionNeutralFillStrong
         }
         if isHovered {
             return StudioColors.hoverFill
@@ -3588,9 +3724,11 @@ enum StudioRowChrome {
 }
 
 struct StudioDirtyDot: View {
+    @Environment(\.studioOnAccentFill) private var onAccent
+
     var body: some View {
         Circle()
-            .fill(StudioColors.brand)
+            .fill(onAccent ? Color.white : StudioColors.brand)
             .frame(width: StudioFieldMetrics.dirtyDotSize, height: StudioFieldMetrics.dirtyDotSize)
             .frame(width: StudioFieldMetrics.statusBadgeSlot, height: StudioFieldMetrics.statusBadgeSlot)
     }
@@ -3599,10 +3737,12 @@ struct StudioDirtyDot: View {
 /// Master-font star. Shares `statusBadgeSlot` with `StudioDirtyDot` so the pair
 /// centers on the same axis when adjacent in a chip/row.
 struct StudioMasterStar: View {
+    @Environment(\.studioOnAccentFill) private var onAccent
+
     var body: some View {
         Image(systemName: "star.fill")
             .font(.system(size: StudioFieldMetrics.masterStarPointSize))
-            .foregroundStyle(StudioColors.brand)
+            .foregroundStyle(onAccent ? Color.white : StudioColors.brand)
             // `star.fill` sits optically low in its glyph box relative to a true
             // circle; nudge so it shares a visual center with StudioDirtyDot.
             .offset(y: -1)

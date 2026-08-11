@@ -262,11 +262,7 @@ struct NamingOrderChainFooter: View {
         if isPreviewMode {
             return AnyShapeStyle(.tertiary)
         }
-        return AnyShapeStyle(
-            editor.namingChainPreviewIsElidedFallback
-                ? StudioColors.elidedFallbackForeground
-                : .primary
-        )
+        return AnyShapeStyle(.primary)
     }
 
     private func coordsCaption(for instance: PlannedInstance) -> String {
@@ -314,8 +310,7 @@ struct NamingOrderChainFooter: View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             namingExampleLine(
                 label: "Name Preview",
-                value: editor.namingChainPreviewName,
-                accentValue: editor.namingChainPreviewIsElidedFallback
+                value: editor.namingChainPreviewName
             )
             namingExampleLine(label: "PostScript Preview", value: editor.namingChainPreviewPostScript)
 
@@ -329,8 +324,7 @@ struct NamingOrderChainFooter: View {
 
     private func namingExampleLine(
         label: String,
-        value: String,
-        accentValue: Bool = false
+        value: String
     ) -> some View {
         HStack(spacing: StudioSpacing.rowGap) {
             Text(label)
@@ -341,7 +335,7 @@ struct NamingOrderChainFooter: View {
             Text(value)
                 .font(StudioTypography.bodyMedium)
                 .fontWeight(label == "PostScript" ? .medium : .semibold)
-                .foregroundStyle(accentValue ? StudioColors.elidedFallbackForeground : .primary)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .textSelection(.enabled)
                 .padding(.horizontal, StudioSpacing.contentInset)
@@ -379,13 +373,24 @@ struct NamingOrderChainFooter: View {
                             text: stored,
                             font: StudioTypography.bodyMedium,
                             rowHeight: StudioFieldMetrics.bodyMediumRowHeight,
-                            foreground: StudioColors.elidedFallbackForeground
+                            foreground: .primary
                         )
+                        .overlay(alignment: .trailing) {
+                            Image(systemName: StudioSymbols.edit)
+                                .font(.system(
+                                    size: StudioChromeScale.chip.pointSize,
+                                    weight: StudioChromeScale.symbolWeight
+                                ))
+                                .foregroundStyle(.tertiary)
+                                .padding(.trailing, StudioFieldMetrics.horizontalPadding)
+                                .accessibilityHidden(true)
+                        }
                         .frame(maxWidth: 180, alignment: .leading)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+                    .help("Edit elided fallback name")
                 }
             }
 

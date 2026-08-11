@@ -143,7 +143,7 @@ private struct ProjectTabChip: View {
             }
         } trailing: {
             HStack(spacing: StudioSpacing.tightGap) {
-                StudioCountBadge(text: "\(openProject.document.fonts.count)", highlighted: false)
+                StudioCountBadge(text: "\(openProject.document.fonts.count)")
 
                 StudioDismissButton(scale: .toolbar, help: "Close project") {
                     editor.requestCloseProject(id: openProject.id)

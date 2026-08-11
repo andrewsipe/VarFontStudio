@@ -221,16 +221,23 @@ struct VarFontStudioApp: App {
 
             CommandMenu("Instances") {
                 Button(InstanceInclusionCommands.includeAllShownTitle) {
-                    editor.setAllVisibleInstancesIncluded(true)
+                    editor.includeAllVisibleInstances()
                 }
                 .keyboardShortcut(InstanceInclusionCommands.includeAllShownShortcut)
-                .disabled(editor.filteredInstances.isEmpty)
+                .disabled(editor.filteredInstances.isEmpty && !editor.isTrimmedToOriginals)
 
                 Button(InstanceInclusionCommands.excludeAllShownTitle) {
-                    editor.setAllVisibleInstancesIncluded(false)
+                    editor.excludeAllVisibleInstances()
                 }
                 .keyboardShortcut(InstanceInclusionCommands.excludeAllShownShortcut)
                 .disabled(editor.filteredInstances.isEmpty)
+
+                if editor.showsTrimNonOriginalsAction {
+                    Button(InstanceInclusionCommands.trimNonOriginalsTitle) {
+                        editor.trimNonOriginalInstances()
+                    }
+                    .disabled(editor.instancePlan == nil)
+                }
 
                 Divider()
 

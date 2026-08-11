@@ -22,9 +22,14 @@ struct FvarImportReviewSheet: View {
     @State private var acceptedCompoundIDs: Set<String> = []
     @State private var dismissedCompoundIDs: Set<String> = []
     @State private var promotedStopNames: [String: String] = [:]
+    @State private var keepOriginalInstancesOnly = true
     @State private var reviewExpanded = false
 
     private var report: FvarStopSeeder.Report { session.report }
+
+    private var hasInventedCombinations: Bool {
+        report.expansionCallouts.contains { $0.inventedCombinationCount > 0 }
+    }
 
     private var recommendedStopDecisions: [String: FvarStopSeeder.StopDecision] {
         Dictionary(uniqueKeysWithValues: report.heldStopCandidates.map {
@@ -107,6 +112,7 @@ struct FvarImportReviewSheet: View {
         reviewExpanded = report.heldStopCandidates.isEmpty
             && report.compoundSuggestions.isEmpty
             && report.conflicts.isEmpty
+        keepOriginalInstancesOnly = hasInventedCombinations
     }
 
     // MARK: - Header / summary
@@ -176,6 +182,34 @@ struct FvarImportReviewSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+            }
+
+            if hasInventedCombinations {
+                HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
+                    StudioIncludeCheckbox(isOn: keepOriginalInstancesOnly) {
+                        keepOriginalInstancesOnly.toggle()
+                    }
+                    .help("Keep only styles from the font in export")
+                    .padding(.top, 1)
+
+                    Button {
+                        keepOriginalInstancesOnly.toggle()
+                    } label: {
+                        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                            Text("Keep only styles from the font")
+                                .font(StudioTypography.bodyMedium)
+                                .foregroundStyle(.primary)
+                            Text("Invented combinations stay in the plan for naming, but won’t export unless you include them later.")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, StudioSpacing.tightGap)
             }
 
             if hasDecisionSections {
@@ -464,6 +498,12 @@ struct FvarImportReviewSheet: View {
                         }
                     }
                 }
+                let remaining = callout.inventedCombinationCount - callout.samples.count
+                if remaining > 0 {
+                    Text("+\(remaining) more")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
             if promotingHeld {
                 Text("Want fewer invented combinations? Change a stop above from Promote to Combo only or Ignore.")
@@ -605,20 +645,21 @@ struct FvarImportReviewSheet: View {
     }
 
     private var actionBar: some View {
-        HStack(spacing: StudioSpacing.controlGap) {
+        // When the summary’s “Accept recommendations” is the obvious primary path
+        // (collapsed + still on defaults), don’t also offer “Apply recommendations.”
+        let showApply = reviewExpanded
+            || !decisionsMatchRecommendations
+            || !hasDecisionSections
+        return HStack(spacing: StudioSpacing.controlGap) {
             Spacer()
             StudioFlatButton(title: "Decide later", size: .compact) {
                 editor.deferFvarImportReview()
                 dismiss()
             }
-            StudioFlatButton(
-                title: decisionsMatchRecommendations && !reviewExpanded
-                    ? "Apply recommendations"
-                    : "Apply",
-                role: .primary,
-                size: .compact
-            ) {
-                applyCurrentDecisions()
+            if showApply {
+                StudioFlatButton(title: "Apply", role: .primary, size: .compact) {
+                    applyCurrentDecisions()
+                }
             }
         }
     }
@@ -643,7 +684,8 @@ struct FvarImportReviewSheet: View {
                 conflictResolutions: conflictResolutions,
                 acceptedCompoundIDs: acceptedCompoundIDs,
                 dismissedCompoundIDs: dismissedCompoundIDs,
-                promotedStopNames: promotedStopNames
+                promotedStopNames: promotedStopNames,
+                keepOriginalInstancesOnly: hasInventedCombinations && keepOriginalInstancesOnly
             )
         )
         dismiss()

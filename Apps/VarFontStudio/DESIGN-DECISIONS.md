@@ -494,7 +494,11 @@ fvar.
 Stop choices teach on select: Promote = Format 1 (optional name field, default value-as-name);
 Combo only = Format 4 reservation only; Ignore = neither.
 
-**Follow-up (not this pass):** “Include Original Only” via plan prune / `includedInstanceKeys`
-(or exclude invented), plus Instance panel Include/Exclude toggle for fonts whose analytic
-grid exceeds original fvar. Prefer prune over demoting orthogonal Format 1 into Format 4.
+**Shipped:** “Keep only styles from the font” / **Trim Non-Originals** via plan prune —
+`includedInstanceKeys` whitelist (plan keys matching fvar through `InstanceInclusion`).
+Import Review defaults the checkbox on when invented combinations exist; Instance panel
+**Include** menu carries Include All / Exclude All / Trim Non-Originals. Prefer prune
+over demoting orthogonal Format 1 into Format 4. Checkboxes edit the whitelist when
+active; Include All clears the whitelist (Cmd+Z restores). Re-trim after stop edits via
+the Include menu — not auto on every plan change.
 

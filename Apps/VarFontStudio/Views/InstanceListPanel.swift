@@ -51,6 +51,7 @@ struct InstanceListPanel: View {
     @AppStorage("namingChainHideStatOnly") private var hidePinnedAxes = true
     @FocusState private var isSearchFocused: Bool
     @State private var showFilterMenu = false
+    @State private var showIncludeMenu = false
     @State private var axisDrawerOpen = false
 
     /// When hosted under middle-column chrome, the column owns the title header.
@@ -174,6 +175,13 @@ struct InstanceListPanel: View {
                         .foregroundStyle(StudioColors.metricForeground)
                     Text("included")
                         .foregroundStyle(.secondary)
+
+                    if editor.isTrimmedToOriginals {
+                        Text("·")
+                            .foregroundStyle(.quaternary)
+                        Text("trimmed")
+                            .foregroundStyle(.secondary)
+                    }
 
                     if display.pendingExportCount > 0 {
                         Text("·")
@@ -329,16 +337,7 @@ struct InstanceListPanel: View {
 
     private func filterBarRow2(contentModeIcons: Bool) -> some View {
         HStack(alignment: .center, spacing: StudioSpacing.rowGap + 1) {
-            StudioCompactToggleButton(
-                title: "Include all",
-                isActive: editor.allVisibleInstancesIncluded && !editor.hasMixedVisibleInclusion,
-                isEnabled: !editor.filteredInstances.isEmpty,
-                showsCheckbox: true,
-                checkboxOn: editor.allVisibleInstancesIncluded,
-                checkboxIndeterminate: editor.hasMixedVisibleInclusion
-            ) {
-                editor.toggleAllVisibleInstancesIncluded()
-            }
+            includePicker
 
             StudioCompactToggleButton(
                 title: "Hide elided",
@@ -354,6 +353,140 @@ struct InstanceListPanel: View {
 
             showFilterPicker
         }
+    }
+
+    private var includePicker: some View {
+        Button {
+            showIncludeMenu = true
+        } label: {
+            HStack(spacing: StudioSpacing.tightGap) {
+                includePickerMark
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, InstanceListFilterChrome.horizontalPadding)
+            .frame(height: InstanceListFilterChrome.controlHeight)
+            .background(
+                InstanceListFilterChrome.idleFill,
+                in: RoundedRectangle.studio(InstanceListFilterChrome.cornerRadius)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: InstanceListFilterChrome.cornerRadius))
+        .disabled(editor.filteredInstances.isEmpty && !editor.isTrimmedToOriginals)
+        .help(includePickerHelp)
+        .popover(isPresented: $showIncludeMenu, arrowEdge: .bottom) {
+            includeMenuContent
+        }
+    }
+
+    @ViewBuilder
+    private var includePickerMark: some View {
+        // Same SF Symbol marks as Show’s Included/Excluded (not StudioIncludeCheckbox).
+        Image(systemName: includePickerSymbolName)
+            .font(InstanceListFilterChrome.symbolFont)
+            .foregroundStyle(StudioColors.brand)
+    }
+
+    private var includePickerSymbolName: String {
+        if editor.isTrimmedToOriginals || editor.hasMixedVisibleInclusion {
+            return "minus.square"
+        }
+        if editor.allVisibleInstancesIncluded {
+            return "checkmark.square"
+        }
+        return "square"
+    }
+
+    private var includePickerHelp: String {
+        if editor.isTrimmedToOriginals {
+            return "Export includes only styles that match the original font"
+        }
+        return "Include or exclude visible instances for export"
+    }
+
+    private var includeMenuContent: some View {
+        VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
+            includeMenuRow(
+                title: InstanceInclusionCommands.includeAllTitle,
+                mark: .checked,
+                isSelected: editor.allVisibleInstancesIncluded
+                    && !editor.hasMixedVisibleInclusion
+                    && !editor.isTrimmedToOriginals
+            ) {
+                editor.includeAllVisibleInstances()
+                showIncludeMenu = false
+            }
+            includeMenuRow(
+                title: InstanceInclusionCommands.excludeAllTitle,
+                mark: .unchecked,
+                isSelected: !editor.allVisibleInstancesIncluded
+                    && !editor.hasMixedVisibleInclusion
+                    && !editor.isTrimmedToOriginals
+                    && !editor.filteredInstances.isEmpty == false
+            ) {
+                editor.excludeAllVisibleInstances()
+                showIncludeMenu = false
+            }
+            if editor.showsTrimNonOriginalsAction {
+                Divider().padding(.vertical, StudioSpace.x0_5)
+                includeMenuRow(
+                    title: InstanceInclusionCommands.trimNonOriginalsTitle,
+                    mark: .indeterminate,
+                    isSelected: editor.isTrimmedToOriginals
+                ) {
+                    editor.trimNonOriginalInstances()
+                    showIncludeMenu = false
+                }
+            }
+        }
+        .padding(StudioSpace.x0_5)
+        .frame(minWidth: 188)
+    }
+
+    private enum IncludeMenuMark {
+        case checked
+        case unchecked
+        case indeterminate
+
+        var systemImage: String {
+            switch self {
+            case .checked: "checkmark.square"
+            case .unchecked: "square"
+            case .indeterminate: "minus.square"
+            }
+        }
+    }
+
+    private func includeMenuRow(
+        title: String,
+        mark: IncludeMenuMark,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: StudioSpacing.tightGap) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(StudioColors.brand)
+                    .opacity(isSelected ? 1 : 0)
+                    .frame(width: 12, alignment: .leading)
+                Text(title)
+                    .font(InstanceListFilterChrome.labelFont)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                Image(systemName: mark.systemImage)
+                    .font(InstanceListFilterChrome.symbolFont)
+                    .foregroundStyle(StudioColors.brand)
+            }
+            .padding(.horizontal, StudioSpace.x1_5)
+            .padding(.vertical, StudioSpacing.panelVertical)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
     }
 
     private func contentModeTray(iconsOnly: Bool) -> some View {

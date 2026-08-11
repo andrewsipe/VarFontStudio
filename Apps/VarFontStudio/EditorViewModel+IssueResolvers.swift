@@ -138,7 +138,40 @@ extension EditorViewModel {
         compoundSuggestions.append(contentsOf: remaining)
 
         regeneratePlan()
+
+        if decisions.keepOriginalInstancesOnly {
+            seedOriginalInstancesWhitelist(fontID: session.fontID)
+        }
+
         issueResolvers.dismissFvarImportReview()
+    }
+
+    /// After Import Review, whitelist plan keys that match the working font's fvar.
+    private func seedOriginalInstancesWhitelist(fontID: String) {
+        guard var project,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == fontID })
+        else { return }
+        let font = project.fonts[fontIndex]
+        let plan = InstancePlanner.plan(font: font, naming: project.naming)
+        let analysis: FontAnalysis
+        do {
+            analysis = try SourceFontAccess.withReadableSourceURL(
+                bookmark: sourceBookmarks[fontID],
+                fallbackPath: font.sourcePath
+            ) { sourceURL in
+                try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+            }
+        } catch {
+            return
+        }
+        let keys = InstanceInclusion.planKeysMatchingFvar(plan: plan, analysis: analysis)
+        guard !keys.isEmpty else { return }
+        EditorViewModel.applyTrimNonOriginals(keys: keys, to: &project.fonts[fontIndex])
+        project.fonts[fontIndex].dirty = true
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        regeneratePlan()
     }
 
     func deferFvarImportReview() {
