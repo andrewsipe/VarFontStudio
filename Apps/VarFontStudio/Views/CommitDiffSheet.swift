@@ -55,16 +55,13 @@ private struct SaveReviewActionBar: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: StudioSpacing.controlGap) {
             HStack(spacing: StudioSpacing.controlGap) {
-                Button {
+                StudioToolbarIconButton(
+                    systemName: "arrow.clockwise",
+                    help: "Re-read the font on disk and rebuild the diff"
+                ) {
                     editor.refreshCommitDiffPreview(forProjectID: projectID, fontID: session.fontID)
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.plain)
-                .studioHoverIcon()
                 .disabled(!canRefresh || isLoading)
-                .help("Re-read the font on disk and rebuild the diff")
 
                 StudioFlatButton(title: "Save Project", isEnabled: editor.canSaveProject) {
                     editor.saveProject()
@@ -295,7 +292,7 @@ struct SaveReviewWindow: View {
         .overlay {
             if editor.isBusy {
                 ZStack {
-                    Color.black.opacity(0.35)
+                    Color.black.opacity(0.12)
                     VStack(alignment: .leading, spacing: StudioSpace.x3) {
                         Text(editor.busyStatus ?? "Working…")
                             .font(StudioTypography.bodyMedium)

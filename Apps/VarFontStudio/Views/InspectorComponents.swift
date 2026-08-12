@@ -141,15 +141,7 @@ struct InspectorInstanceNamingChain: View {
     }
 
     private var namingArrow: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(StudioColors.brand.opacity(0.3))
-                .frame(width: 8, height: 1.5)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 7, weight: .light))
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 4)
+        StudioChainArrow()
     }
 
     private func namingSegment(_ link: NamingChainLink) -> some View {

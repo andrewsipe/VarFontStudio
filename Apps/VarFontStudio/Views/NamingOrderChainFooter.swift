@@ -929,16 +929,7 @@ struct NamingOrderChainFooter: View {
     }
 
     private func chainLink(isActive: Bool) -> some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(Color.secondary.opacity(isActive ? 0.45 : 0.22))
-                .frame(width: 10, height: 2)
-
-            Image(systemName: "chevron.right")
-                .font(StudioTypography.linkChevronMicro)
-                .foregroundStyle(Color.secondary.opacity(isActive ? 0.55 : 0.45))
-        }
-        .padding(.horizontal, StudioSpacing.instanceRowGap)
+        StudioChainArrow(isActive: isActive)
     }
 
     // MARK: - Drag gesture

@@ -660,7 +660,7 @@ final class EditorViewModel: ObservableObject {
 
         pushUndoSnapshot()
         var font = project.fonts[fontIndex]
-        EditorViewModel.applyInclusion(keys: keys, included: included, to: &font)
+        EditorViewModel.applyInclusion(keys: keys, included: included, to: &font, allInstanceKeys: plannedInstanceKeys)
         font.dirty = true
         project.fonts[fontIndex] = font
         project.modified = Date()
@@ -718,7 +718,12 @@ final class EditorViewModel: ObservableObject {
             EditorViewModel.clearTrimToOriginals(to: &font)
         } else {
             guard !keys.isEmpty else { return }
-            EditorViewModel.applyInclusion(keys: keys, included: true, to: &font)
+            EditorViewModel.applyInclusion(
+                keys: keys,
+                included: true,
+                to: &font,
+                allInstanceKeys: plannedInstanceKeys
+            )
         }
         font.dirty = true
         project.fonts[fontIndex] = font

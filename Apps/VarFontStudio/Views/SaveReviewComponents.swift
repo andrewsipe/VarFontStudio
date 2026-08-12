@@ -18,43 +18,95 @@ extension SaveReviewDisplayCategory {
 }
 
 struct StudioFilterBadge: View {
-    let category: SaveReviewDisplayCategory
+    let title: String
     let count: Int
+    var fill: Color
+    var border: Color
+    var labelColor: Color = .primary
+    var markColor: Color? = nil
     var isHidden: Bool
     var isIsolated: Bool
     let action: (_ commandClick: Bool) -> Void
     @State private var isHovered = false
 
+    init(
+        title: String,
+        count: Int,
+        fill: Color,
+        border: Color,
+        labelColor: Color = .primary,
+        markColor: Color? = nil,
+        isHidden: Bool,
+        isIsolated: Bool,
+        action: @escaping (_ commandClick: Bool) -> Void
+    ) {
+        self.title = title
+        self.count = count
+        self.fill = fill
+        self.border = border
+        self.labelColor = labelColor
+        self.markColor = markColor
+        self.isHidden = isHidden
+        self.isIsolated = isIsolated
+        self.action = action
+    }
+
+    init(
+        category: SaveReviewDisplayCategory,
+        count: Int,
+        isHidden: Bool,
+        isIsolated: Bool,
+        action: @escaping (_ commandClick: Bool) -> Void
+    ) {
+        self.init(
+            title: category.filterLabel,
+            count: count,
+            fill: category.pillStyle.background,
+            border: isIsolated ? Color.primary.opacity(0.35) : category.pillStyle.stroke,
+            labelColor: StudioColors.chipLabel,
+            isHidden: isHidden,
+            isIsolated: isIsolated,
+            action: action
+        )
+    }
+
     var body: some View {
         Button {
             action(NSEvent.modifierFlags.contains(.command))
         } label: {
-            Text("\(category.filterLabel.uppercased()) \(count)")
-                .font(StudioTypography.filterBadgeLabel)
-                .tracking(0.3)
-                .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Color.primary))
-                .padding(.horizontal, StudioSpacing.pillHorizontalInset)
-                .padding(.vertical, StudioSpacing.instanceRowVertical)
-                .background {
-                    ZStack {
-                        if !isHidden {
-                            RoundedRectangle.studio(StudioRadius.chip)
-                                .fill(category.pillStyle.background)
-                        }
-                        if isHovered, !isHidden, !isIsolated {
-                            RoundedRectangle.studio(StudioRadius.chip)
-                                .fill(StudioColors.hoverFill)
-                        }
+            HStack(spacing: StudioSpacing.tightGap) {
+                if let markColor {
+                    Text("◆")
+                        .font(StudioTypography.filterBadgeLabel)
+                        .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(markColor))
+                }
+                Text("\(title.uppercased()) \(count)")
+                    .font(StudioTypography.filterBadgeLabel)
+                    .tracking(0.3)
+            }
+            .foregroundStyle(isHidden ? AnyShapeStyle(.tertiary) : AnyShapeStyle(labelColor))
+            .padding(.horizontal, StudioSpacing.pillHorizontalInset)
+            .padding(.vertical, StudioSpacing.instanceRowVertical)
+            .background {
+                ZStack {
+                    if !isHidden {
+                        RoundedRectangle.studio(StudioRadius.chip)
+                            .fill(fill)
+                    }
+                    if isHovered, !isHidden, !isIsolated {
+                        RoundedRectangle.studio(StudioRadius.chip)
+                            .fill(StudioColors.hoverFill)
                     }
                 }
-                .overlay {
-                    RoundedRectangle.studio(StudioRadius.chip)
-                        .strokeBorder(
-                            isIsolated ? Color.primary.opacity(0.22) : (isHidden ? Color.clear : category.pillStyle.border),
-                            lineWidth: isIsolated ? 1 : 0.5
-                        )
-                }
-                .opacity(isHidden ? 0.32 : 1)
+            }
+            .overlay {
+                RoundedRectangle.studio(StudioRadius.chip)
+                    .strokeBorder(
+                        isHidden ? Color.clear : border,
+                        lineWidth: isIsolated ? 1 : 0.5
+                    )
+            }
+            .opacity(isHidden ? 0.32 : 1)
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
@@ -66,55 +118,23 @@ struct StudioSaveReviewTabBar: View {
     @Binding var selectedTab: SaveReviewTableTab
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: StudioCompactControlChrome.trayInset) {
             ForEach(tabs, id: \.tabID) { tab in
-                let isSelected = selectedTab == tab.id
                 let hasChanges = tab.changedCount > 0
-                Button {
+                StudioSegmentButton(
+                    title: tab.label,
+                    isSelected: selectedTab == tab.id,
+                    expands: true,
+                    font: StudioTypography.bodyMedium,
+                    badge: "\(tab.changedCount) of \(tab.totalCount)",
+                    badgeEmphasis: hasChanges ? .warning : .muted
+                ) {
                     selectedTab = tab.id
-                } label: {
-                    HStack(spacing: 7) {
-                        Text(tab.label)
-                            .font(StudioTypography.bodyMedium.weight(isSelected ? .semibold : .regular))
-                        Text("\(tab.changedCount) of \(tab.totalCount)")
-                            .font(StudioTypography.columnLabel)
-                            .monospacedDigit()
-                            .foregroundStyle(
-                                hasChanges
-                                    ? StudioColors.warningOnFillForeground
-                                    : Color.secondary.opacity(0.7)
-                            )
-                            .padding(.horizontal, StudioSpace.x1_5)
-                            .padding(.vertical, StudioSpacing.instanceRowGap)
-                            .background(
-                                hasChanges ? StudioColors.warningFill : StudioColors.selectionNeutralFill,
-                                in: Capsule()
-                            )
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .background(
-                        isSelected ? StudioColors.surfaceLight : Color.clear,
-                        in: RoundedRectangle.studio(StudioRadius.control)
-                    )
-                    .shadow(color: isSelected ? StudioPalette.color(.ink, light: .s900, dark: .s900).opacity(0.2) : .clear, radius: 2, y: 1)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .studioHoverFill(
-                    shape: .roundedRect(cornerRadius: StudioRadius.control),
-                    isEnabled: !isSelected
-                )
             }
         }
-        .padding(3)
-        .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))
-        .overlay(
-            RoundedRectangle.studio(StudioRadius.surface)
-                .strokeBorder(StudioColors.surfaceStrokeStrong, lineWidth: 0.5)
-        )
+        .padding(StudioCompactControlChrome.trayInset)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
     }
 }
 
@@ -147,13 +167,13 @@ struct StudioSaveReviewCategoryTag: View {
         Text(category.filterLabel.uppercased())
             .font(StudioTypography.filterBadgeLabel)
             .tracking(0.3)
-            .foregroundStyle(.primary)
+            .foregroundStyle(StudioColors.chipLabel)
             .padding(.horizontal, StudioSpacing.tagHorizontalInset)
             .padding(.vertical, StudioSpace.x0_5)
             .background(category.pillStyle.background, in: RoundedRectangle.studio(StudioRadius.chip))
             .overlay {
                 RoundedRectangle.studio(StudioRadius.chip)
-                    .strokeBorder(category.pillStyle.border, lineWidth: 0.5)
+                    .strokeBorder(category.pillStyle.stroke, lineWidth: 0.5)
             }
     }
 }

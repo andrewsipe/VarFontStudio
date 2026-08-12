@@ -2,9 +2,9 @@ import SwiftUI
 
 /// Shared titles and shortcuts for instance inclusion actions (menu bar + context menu).
 enum InstanceInclusionCommands {
-    static let includeAllTitle = "Include All"
-    static let excludeAllTitle = "Exclude All"
-    static let trimNonOriginalsTitle = "Original File Instances Only"
+    static let includeAllTitle = "Include All Instances"
+    static let excludeAllTitle = "Exclude All Instances"
+    static let trimNonOriginalsTitle = "Origin File's Instances Only"
 
     static let includeAllShownTitle = "Include All Shown"
     static let excludeAllShownTitle = "Exclude All Shown"

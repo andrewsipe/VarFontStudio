@@ -626,7 +626,12 @@ extension EditorViewModel {
 
         pushUndoSnapshot()
         var font = project.fonts[fontIndex]
-        EditorViewModel.applyInclusion(keys: keys, included: included, to: &font)
+        EditorViewModel.applyInclusion(
+            keys: keys,
+            included: included,
+            to: &font,
+            allInstanceKeys: plannedInstanceKeys
+        )
         font.dirty = true
         project.fonts[fontIndex] = font
         project.modified = Date()

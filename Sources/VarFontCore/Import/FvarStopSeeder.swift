@@ -1097,23 +1097,21 @@ public enum FvarStopSeeder {
             let key = InstanceKeyBuilder.makeKey(coords: product)
             if originalKeys.contains(key) { continue }
             invented += 1
-            if samples.count < 4 {
-                let coordLabel = orderedTags.compactMap { tag -> String? in
-                    guard let value = product[tag] else { return nil }
-                    let name = axisLabels[tag] ?? tag
-                    return "\(name) \(AxisCoordinateFormat.format(value))"
-                }.joined(separator: " × ")
-                var coords = pinDefaults
-                for (tag, value) in product {
-                    coords[tag] = value
-                }
-                let composed = NamingComposer.compose(
-                    coords: coords,
-                    axes: composeAxes,
-                    naming: naming
-                ).name
-                samples.append(InventedSample(coordLabel: coordLabel, composedName: composed))
+            let coordLabel = orderedTags.compactMap { tag -> String? in
+                guard let value = product[tag] else { return nil }
+                let name = axisLabels[tag] ?? tag
+                return "\(name) \(AxisCoordinateFormat.format(value))"
+            }.joined(separator: " × ")
+            var coords = pinDefaults
+            for (tag, value) in product {
+                coords[tag] = value
             }
+            let composed = NamingComposer.compose(
+                coords: coords,
+                axes: composeAxes,
+                naming: naming
+            ).name
+            samples.append(InventedSample(coordLabel: coordLabel, composedName: composed))
         }
 
         guard invented > 0 else { return nil }

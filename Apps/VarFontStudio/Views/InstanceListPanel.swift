@@ -340,7 +340,7 @@ struct InstanceListPanel: View {
             includePicker
 
             StudioCompactToggleButton(
-                title: "Hide elided",
+                title: "Hide Elided",
                 isActive: hideElidedNames,
                 isEnabled: !editor.filteredInstances.isEmpty
             ) {
@@ -444,6 +444,7 @@ struct InstanceListPanel: View {
         }
         .padding(StudioSpace.x0_5)
         .frame(minWidth: 188)
+        .presentationBackground(StudioColors.chipSurface)
     }
 
     private enum IncludeMenuMark {
@@ -690,6 +691,7 @@ struct InstanceListPanel: View {
         }
         .padding(StudioSpace.x0_5)
         .frame(width: 168)
+        .presentationBackground(StudioColors.chipSurface)
     }
 
     private func showFilterMenuRow(_ filter: InstanceFilter) -> some View {

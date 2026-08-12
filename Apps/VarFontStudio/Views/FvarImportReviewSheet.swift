@@ -29,7 +29,7 @@ struct FvarImportReviewSheet: View {
     @State private var conflictResolutions: [String: FvarStopSeeder.Resolution] = [:]
     @State private var dismissedCompoundIDs: Set<String> = []
     @State private var promotedStopNames: [String: String] = [:]
-    @State private var keepOriginalInstancesOnly = true
+    @State private var keepOriginalInstancesOnly = false
     @State private var selectedTab: ReviewTab = .stops
 
     private var report: FvarStopSeeder.Report { session.report }
@@ -141,7 +141,8 @@ struct FvarImportReviewSheet: View {
             conflictResolutions[conflict.id] = .keepSTAT
         }
         dismissedCompoundIDs = []
-        keepOriginalInstancesOnly = inventedCombinationCount > 0
+        // Default: export all projected instances (checked). Uncheck to keep origin-only.
+        keepOriginalInstancesOnly = false
     }
 
     // MARK: - Header / outcome
@@ -174,7 +175,7 @@ struct FvarImportReviewSheet: View {
                         label: "in the font",
                         tint: .primary
                     )
-                    Image(systemName: "arrow.right")
+                    Image(systemName: "arrowshape.right.fill")
                         .font(StudioTypography.caption.weight(.semibold))
                         .foregroundStyle(.tertiary)
                         .padding(.bottom, StudioSpace.x1)
@@ -228,14 +229,26 @@ struct FvarImportReviewSheet: View {
     }
 
     private var keepOriginalToggle: some View {
+        let exportAllInstances = !keepOriginalInstancesOnly
         let original = report.orthogonality?.originalInstanceCount
-        let title = original.map { "Export only the \($0) styles the font had" }
-            ?? "Export only the styles the font had"
+        let projected = projectedStyleCount
+        let title: String = {
+            if exportAllInstances {
+                if let projected {
+                    return "Activate Export for all \(projected) instances."
+                }
+                return "Activate Export for all instances."
+            }
+            if let original {
+                return "Activate Export for origin file’s \(original) instances only."
+            }
+            return "Activate Export for origin file’s instances only."
+        }()
         return Button {
             keepOriginalInstancesOnly.toggle()
         } label: {
             HStack(spacing: StudioSpacing.controlGap) {
-                StudioIncludeCheckbox(isOn: keepOriginalInstancesOnly) {
+                StudioIncludeCheckbox(isOn: exportAllInstances) {
                     keepOriginalInstancesOnly.toggle()
                 }
                 Text(title)
@@ -245,7 +258,11 @@ struct FvarImportReviewSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("New combinations stay in the plan so you can name them, but won’t export unless you include them later.")
+        .help(
+            exportAllInstances
+                ? "Exports every projected style, including combinations the font didn’t have."
+                : "New combinations stay in the plan so you can name them, but won’t export unless you include them later."
+        )
     }
 
     // MARK: - Tabs
@@ -356,10 +373,13 @@ struct FvarImportReviewSheet: View {
                     Text("Stop name")
                         .font(StudioTypography.caption)
                         .foregroundStyle(.tertiary)
-                    TextField("Name", text: promotedNameBinding(for: candidate))
-                        .textFieldStyle(.roundedBorder)
-                        .font(StudioTypography.body)
-                        .frame(maxWidth: 220)
+                    StudioTextField(
+                        placeholder: "Name",
+                        text: promotedNameBinding(for: candidate),
+                        font: StudioTypography.body,
+                        rowHeight: StudioFieldMetrics.bodyRowHeight
+                    )
+                    .frame(maxWidth: 220)
                 }
                 .padding(.top, StudioSpacing.tightGap)
             }
@@ -419,28 +439,33 @@ struct FvarImportReviewSheet: View {
 
     private func inventedCombinations(_ callout: FvarStopSeeder.ExpansionCallout) -> some View {
         let count = callout.inventedCombinationCount
+        let samples = callout.samples
         return VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-            Text("\(count) combination\(count == 1 ? "" : "s") the font didn’t have")
-                .font(StudioTypography.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            ForEach(Array(callout.samples.enumerated()), id: \.offset) { _, sample in
-                HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
-                    Text(sample.composedName.isEmpty ? sample.coordLabel : sample.composedName)
-                        .font(StudioTypography.body)
-                    Spacer(minLength: StudioSpace.x4)
-                    if !sample.composedName.isEmpty {
-                        Text(sample.coordLabel)
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            }
-            let remaining = count - callout.samples.count
-            if remaining > 0 {
-                Text("+\(remaining) more")
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(count) combination\(count == 1 ? "" : "s") the font didn’t have")
+                    .font(StudioTypography.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text("Shown at one weight — each repeats across every weight.")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
             }
+            ScrollView {
+                VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+                    ForEach(Array(samples.enumerated()), id: \.offset) { _, sample in
+                        HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
+                            Text(sample.composedName.isEmpty ? sample.coordLabel : sample.composedName)
+                                .font(StudioTypography.body)
+                            Spacer(minLength: StudioSpace.x4)
+                            if !sample.composedName.isEmpty {
+                                Text(sample.coordLabel)
+                                    .font(StudioTypography.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: samples.count > 4 ? 140 : nil)
         }
         .padding(StudioSpacing.contentInset)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -528,6 +553,7 @@ struct FvarImportReviewSheet: View {
 
     private func compoundRow(_ suggestion: FvarStopSeeder.CompoundSuggestion) -> some View {
         let included = !dismissedCompoundIDs.contains(suggestion.id)
+        let tags = suggestion.coords.keys.sorted()
         return Button {
             toggleCompound(suggestion)
         } label: {
@@ -535,10 +561,17 @@ struct FvarImportReviewSheet: View {
                 StudioIncludeCheckbox(isOn: included) {
                     toggleCompound(suggestion)
                 }
+                .padding(.top, 1)
                 VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                     HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
-                        Text(suggestion.name)
-                            .font(StudioTypography.bodyMedium)
+                        HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+                            Text(suggestion.name)
+                                .font(StudioTypography.bodyMedium)
+                            Text("=")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.tertiary)
+                            compoundCoordTokens(tags: tags, suggestion: suggestion)
+                        }
                         Spacer(minLength: StudioSpace.x4)
                         Text(coverageLabel(suggestion))
                             .font(StudioTypography.caption)
@@ -553,6 +586,26 @@ struct FvarImportReviewSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func compoundCoordTokens(
+        tags: [String],
+        suggestion: FvarStopSeeder.CompoundSuggestion
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+            ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
+                if index > 0 {
+                    Text("×")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                Text(AxisCoordinateFormat.format(suggestion.coords[tag] ?? 0))
+                    .font(StudioTypography.monoValue)
+                    .foregroundStyle(.secondary)
+                StudioTagPill(text: tag, compact: true)
+            }
+        }
     }
 
     private func toggleCompound(_ suggestion: FvarStopSeeder.CompoundSuggestion) {
@@ -570,15 +623,34 @@ struct FvarImportReviewSheet: View {
         return "covers \(suggestion.coveredInstanceCount) of \(original)"
     }
 
+    /// Axis-label line. Quoted stop names update live when a matching held stop is promoted.
     private func compoundLegSummary(_ suggestion: FvarStopSeeder.CompoundSuggestion) -> String {
         let axisLabels = axisLabelByTag
         return suggestion.coords.keys.sorted().map { tag in
             let axisLabel = axisLabels[tag] ?? tag
-            if let label = suggestion.legLabels[tag], !label.isEmpty {
-                return "\(axisLabel) \(label)"
-            }
-            return "\(axisLabel) \(AxisCoordinateFormat.format(suggestion.coords[tag] ?? 0))"
+            let value = suggestion.coords[tag] ?? 0
+            let stopName = resolvedStopName(tag: tag, value: value, suggestion: suggestion)
+            return "\(axisLabel) “\(stopName)”"
         }.joined(separator: " × ")
+    }
+
+    private func resolvedStopName(
+        tag: String,
+        value: Double,
+        suggestion: FvarStopSeeder.CompoundSuggestion
+    ) -> String {
+        if let held = report.heldStopCandidates.first(where: {
+            $0.axisTag == tag && AxisCoordinate.valuesEqual($0.value, value)
+        }), decision(for: held) == .promote {
+            let override = (promotedStopNames[held.id] ?? held.proposedName)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !override.isEmpty { return override }
+        }
+        if let label = suggestion.legLabels[tag]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !label.isEmpty {
+            return label
+        }
+        return AxisCoordinateFormat.format(value)
     }
 
     // MARK: - Shared chrome

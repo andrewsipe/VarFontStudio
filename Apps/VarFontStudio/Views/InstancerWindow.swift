@@ -134,7 +134,7 @@ private struct InstancerWindowContent: View {
                 }
                 .padding(.horizontal, StudioSpace.x3)
                 .padding(.vertical, StudioSpace.x2)
-                .background(.ultraThinMaterial, in: RoundedRectangle.studio(StudioRadius.surface))
+                .background(StudioColors.chipSurface, in: RoundedRectangle.studio(StudioRadius.surface))
                 .padding(.bottom, StudioSpace.x6)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -245,6 +245,10 @@ private struct InstancerWindowContent: View {
                 HStack(spacing: StudioSpacing.controlGap) {
                     StudioFlatButton(
                         title: "Add Instance…",
+                        role: .tinted(
+                            foreground: .primary,
+                            background: StudioColors.customFill
+                        ),
                         isEnabled: session.hasSource && !session.isLoading,
                         help: "Add a custom instance at any coordinate — not written back to the source font"
                     ) {
@@ -404,13 +408,32 @@ private struct InstancerWindowContent: View {
     }
 
     private func filterBadge(_ kind: InstancerFilterKind, count: Int, tint: Color? = nil) -> some View {
-        InstancerFilterBadgeButton(
-            kind: kind,
+        let isolated = session.filterKind == kind && kind != .all
+        let dimmed = session.filterKind != .all && session.filterKind != kind
+        let accent = tint ?? Color.primary
+        let showsMark = kind == .custom || kind == .collision || kind == .attention
+        return StudioFilterBadge(
+            title: kind.title,
             count: count,
-            tint: tint,
-            session: session,
-            statusOverride: $statusOverride
-        )
+            fill: isolated
+                ? StudioColors.opaqueFill(accent, light: 0.16, dark: 0.16)
+                : Color.clear,
+            border: isolated
+                ? accent.opacity(0.45)
+                : (dimmed ? Color.clear : StudioColors.selectionNeutralFillStrong),
+            markColor: showsMark ? accent : nil,
+            isHidden: dimmed,
+            isIsolated: isolated
+        ) { _ in
+            if session.filterKind == kind && kind != .all {
+                session.filterKind = .all
+            } else {
+                session.filterKind = kind
+            }
+        }
+        .onHover { hovering in
+            statusOverride = hovering ? kind.hint : nil
+        }
     }
 
     private var fixStudioTitle: String {
@@ -458,7 +481,8 @@ private struct InstancerWindowContent: View {
         HStack(spacing: StudioSpace.x3) {
             StudioSearchField(
                 text: $session.filterText,
-                placeholder: "Search"
+                placeholder: "Search",
+                compact: true
             )
             .frame(maxWidth: 220)
             .disabled(!session.hasSource || session.isLoading)
@@ -477,7 +501,7 @@ private struct InstancerWindowContent: View {
         .padding(.horizontal, InstancerLayout.horizontalPadding)
         .padding(.vertical, InstancerLayout.toolRowVerticalPadding)
         .frame(minHeight: InstancerLayout.toolRowMinHeight)
-        .background(StudioColors.surfaceSubtle.opacity(0.5))
+        .background(InstancerLayout.toolRowBackground)
         .overlay(alignment: .bottom) {
             Rectangle().fill(StudioColors.surfaceStroke).frame(height: 0.5)
         }
@@ -488,10 +512,14 @@ private struct InstancerWindowContent: View {
 
     private var familyNameControls: some View {
         HStack(spacing: StudioSpace.x2) {
-            Text("Family")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize()
+            StudioFieldLabel(
+                text: "Family",
+                font: StudioTypography.caption,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                foreground: .secondary,
+                showsFieldChrome: false
+            )
+            .fixedSize()
             StudioTextField(
                 placeholder: "Family name",
                 text: $session.familyName,
@@ -512,10 +540,14 @@ private struct InstancerWindowContent: View {
 
     private var psPrefixControls: some View {
         HStack(spacing: StudioSpace.x2) {
-            Text("PostScript prefix")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize()
+            StudioFieldLabel(
+                text: "PostScript prefix",
+                font: StudioTypography.caption,
+                rowHeight: StudioFieldMetrics.monoValueRowHeight,
+                foreground: .secondary,
+                showsFieldChrome: false
+            )
+            .fixedSize()
             StudioTextField(
                 placeholder: "Prefix",
                 text: $session.psPrefix,
@@ -910,8 +942,9 @@ private struct InstancerRowView: View, Equatable {
         .padding(.vertical, StudioSpace.x2)
         .background(rowBackground)
         .overlay(alignment: .bottom) {
-            Divider()
-                .opacity(0.55)
+            Rectangle()
+                .fill(StudioColors.surfaceStroke)
+                .frame(height: 0.5)
         }
         .opacity(sessionIsGenerating && !selected && !isActivelyGenerating ? 0.55 : 1)
         .contentShape(Rectangle())
@@ -944,9 +977,7 @@ private struct InstancerRowView: View, Equatable {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if overridden {
-                        Circle()
-                            .fill(StudioColors.editedForeground)
-                            .frame(width: 6, height: 6)
+                        StudioDirtyDot(tint: StudioColors.editedForeground)
                     }
                     StudioToolbarIconButton(
                         systemName: StudioSymbols.edit,
@@ -965,7 +996,7 @@ private struct InstancerRowView: View, Equatable {
 
     private var subtitle: (text: String, color: Color)? {
         if overridden {
-            return ("overridden for this static file", Color.secondary.opacity(0.7))
+            return ("overridden for this static file", StudioColors.mutedForeground)
         }
         if willFail {
             return ("no usable name — fvar incomplete and no STAT value either. This will fail to generate.", StudioColors.errorForeground)
@@ -1045,29 +1076,32 @@ private struct InstancerRowView: View, Equatable {
         return StudioFlagLabel(symbol: "◆", text: label, tint: tint)
     }
 
+    private var rowTint: Color? {
+        if willFail || collision == .exact || collision == .identical { return StudioColors.errorForeground }
+        if collision == .collision { return StudioColors.collisionForeground }
+        if row.origin == .custom { return StudioColors.customForeground }
+        if fallback { return StudioColors.warningForeground }
+        return nil
+    }
+
+    private var rowWash: Color? {
+        if willFail || collision == .exact || collision == .identical { return StudioColors.errorFill }
+        if collision == .collision { return StudioColors.collisionFill }
+        if row.origin == .custom { return StudioColors.customFill }
+        if fallback { return StudioColors.warningFillSoft }
+        return nil
+    }
+
     private var rowBackground: some View {
-        let tint: Color? = {
-            if willFail || collision == .exact || collision == .identical { return StudioColors.errorForeground }
-            if collision == .collision { return StudioColors.collisionForeground }
-            if row.origin == .custom && !overridden { return StudioColors.customForeground }
-            if fallback && !overridden { return StudioColors.warningForeground }
-            return nil
-        }()
+        let isSelected = selected || isActivelyGenerating
         return ZStack(alignment: .leading) {
-            // Full-bleed table chrome — not rounded, so hover/selection reads as a grid row.
-            if isActivelyGenerating {
-                Rectangle().fill(StudioColors.selectionFill)
-            } else if selected {
-                Rectangle().fill(StudioColors.selectionFill)
+            Rectangle().fill(selectionHoverFill(isSelected: isSelected))
+            // Semantic wash stays on top of selection so custom/collision rows
+            // don't get painted over by the blue tint.
+            if let wash = rowWash {
+                Rectangle().fill(wash)
             }
-            if isHovered {
-                Rectangle().fill(
-                    selected || isActivelyGenerating
-                        ? StudioColors.selectionNeutralFill
-                        : StudioColors.hoverFill
-                )
-            }
-            if let tint {
+            if let tint = rowTint {
                 HStack(spacing: 0) {
                     StudioSemanticLeadingStripe(color: tint)
                     Spacer(minLength: 0)
@@ -1075,62 +1109,15 @@ private struct InstancerRowView: View, Equatable {
             }
         }
     }
-}
 
-private struct InstancerFilterBadgeButton: View {
-    let kind: InstancerFilterKind
-    let count: Int
-    var tint: Color?
-    @ObservedObject var session: InstancerSessionState
-    @Binding var statusOverride: String?
-
-    var body: some View {
-        let isolated = session.filterKind == kind && kind != .all
-        let dimmed = session.filterKind != .all && session.filterKind != kind
-        let accent = tint ?? Color.primary
-        Button {
-            if session.filterKind == kind && kind != .all {
-                session.filterKind = .all
-            } else {
-                session.filterKind = kind
-            }
-        } label: {
-            HStack(spacing: StudioSpacing.tightGap) {
-                if kind == .custom || kind == .collision || kind == .attention {
-                    Text("◆")
-                        .font(StudioTypography.filterBadgeLabel)
-                        .foregroundStyle(accent)
-                }
-                Text("\(kind.title.uppercased()) \(count)")
-                    .font(StudioTypography.filterBadgeLabel)
-                    .tracking(0.3)
-            }
-            .foregroundStyle(dimmed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(accent))
-            .padding(.horizontal, StudioSpacing.pillHorizontalInset)
-            .padding(.vertical, StudioSpacing.instanceRowVertical)
-            .background {
-                if isolated {
-                    RoundedRectangle.studio(StudioRadius.small)
-                        .fill(StudioColors.opaqueFill(accent, light: 0.16, dark: 0.16))
-                }
-            }
-            .overlay {
-                RoundedRectangle.studio(StudioRadius.small)
-                    .strokeBorder(
-                        isolated ? accent.opacity(0.45) : (dimmed ? Color.clear : StudioColors.selectionNeutralFillStrong),
-                        lineWidth: isolated ? StudioStroke.regular : StudioStroke.hairline
-                    )
-            }
-            .opacity(dimmed ? 0.45 : 1)
+    private func selectionHoverFill(isSelected: Bool) -> Color {
+        if isSelected {
+            return isHovered ? StudioColors.selectionRowFillHover : StudioColors.selectionRowFill
         }
-        .buttonStyle(.plain)
-        .studioHoverFill(
-            shape: .roundedRect(cornerRadius: StudioRadius.small),
-            isEnabled: !isolated
-        )
-        .onHover { hovering in
-            statusOverride = hovering ? kind.hint : nil
+        if isHovered {
+            return StudioColors.selectionNeutralFill
         }
+        return .clear
     }
 }
 

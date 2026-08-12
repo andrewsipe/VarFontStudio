@@ -252,7 +252,8 @@ struct CommitDiffReviewView: View {
                             }
                         }
                     ),
-                    placeholder: "Search rows"
+                    placeholder: "Search rows",
+                    compact: true
                 )
                 .frame(maxWidth: 220)
 
@@ -274,23 +275,26 @@ struct CommitDiffReviewView: View {
                 Rectangle().fill(StudioColors.surfaceStroke).frame(height: 0.5)
             }
         }
-        .background(StudioColors.surfaceSubtle.opacity(0.5))
+        .background(SaveReviewLayout.toolRowBackground)
     }
 
     private var nameidStrategyPreference: some View {
         let current = editor.nameidStrategy(forProjectID: projectID, fontID: session.fontID)
         let isLoading = editor.isSaveReviewLoading(forProjectID: projectID, fontID: session.fontID)
         return HStack(spacing: StudioSpacing.controlGap) {
-            Text("Feature labels")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize()
+            StudioFieldLabel(
+                text: "Feature labels",
+                font: StudioTypography.caption,
+                rowHeight: StudioFieldMetrics.captionRowHeight,
+                foreground: .secondary,
+                showsFieldChrome: false
+            )
+            .fixedSize()
 
             HStack(spacing: StudioSpacing.instanceRowGap) {
-                nameidStrategySegment(
+                StudioSegmentButton(
                     title: "Preserve",
-                    isSelected: current == .preserve,
-                    isEnabled: !isLoading
+                    isSelected: current == .preserve
                 ) {
                     editor.setNameIDStrategy(
                         forProjectID: projectID,
@@ -298,10 +302,10 @@ struct CommitDiffReviewView: View {
                         strategy: .preserve
                     )
                 }
-                nameidStrategySegment(
+                .disabled(isLoading)
+                StudioSegmentButton(
                     title: "Reflow",
-                    isSelected: current == .reflow,
-                    isEnabled: !isLoading
+                    isSelected: current == .reflow
                 ) {
                     editor.setNameIDStrategy(
                         forProjectID: projectID,
@@ -309,8 +313,9 @@ struct CommitDiffReviewView: View {
                         strategy: .reflow
                     )
                 }
+                .disabled(isLoading)
             }
-            .padding(StudioSpace.x0_5)
+            .padding(StudioCompactControlChrome.trayInset)
             .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
             .fixedSize()
         }
@@ -320,34 +325,6 @@ struct CommitDiffReviewView: View {
                 + "Reflow renumbers feature labels starting at 256 so they stay clear of reserved IDs. "
                 + "Override for this file only — Settings sets the default."
         )
-    }
-
-    private func nameidStrategySegment(
-        title: String,
-        isSelected: Bool,
-        isEnabled: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(StudioTypography.caption)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? StudioColors.brand : .secondary)
-                .padding(.horizontal, StudioSpacing.contentInset)
-                .padding(.vertical, StudioSpacing.tightGap)
-                .background {
-                    RoundedRectangle.studio(StudioRadius.small)
-                        .fill(isSelected ? StudioColors.brand.opacity(0.12) : Color.clear)
-                }
-                .contentShape(RoundedRectangle.studio(StudioRadius.small))
-        }
-        .buttonStyle(.plain)
-        .studioHoverFill(
-            shape: .roundedRect(cornerRadius: StudioRadius.small),
-            isEnabled: isEnabled && !isSelected,
-            emphasized: isSelected
-        )
-        .disabled(!isEnabled)
     }
 
     @ViewBuilder

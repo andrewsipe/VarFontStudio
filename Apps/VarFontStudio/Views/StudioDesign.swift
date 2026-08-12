@@ -35,8 +35,8 @@ enum StudioTypography {
     static let linkGlyph = Font.system(size: 10, weight: .regular)
     /// Instancer / Save Review filter count badges (8.5pt bold).
     static let filterBadgeLabel = Font.system(size: 8.5, weight: .bold)
-    /// Naming-chain micro chevron (optical; lighter than `iconGlyph`).
-    static let linkChevronMicro = Font.system(size: 7, weight: .light)
+    /// Naming-chain connector (`arrowshape.right.fill`) between chips.
+    static let chainArrow = Font.system(size: 8, weight: .semibold)
     /// Empty-workspace drop hero glyph.
     static let dropHeroIcon = Font.system(size: 36)
 }
@@ -596,6 +596,10 @@ enum StudioColors {
     static let selectionFill = StudioPalette.color(.blue, light: .s300, dark: .s950)
     /// Quieter brand wash — soft highlights only (one step under `selectionFill` in light).
     static let selectionFillSoft = StudioPalette.color(.blue, light: .s200, dark: .s900)
+    /// Checkbox-list row selection (Instancer). Brand baked over the window —
+    /// not a solid `blue-900` step, which reads as a full-row blue blast.
+    static let selectionRowFill = StudioOpaqueFill.make(name: "selectionRowFill", hue: brand, light: 0.10, dark: 0.16)
+    static let selectionRowFillHover = StudioOpaqueFill.make(name: "selectionRowFillHover", hue: brand, light: 0.14, dark: 0.22)
     /// Secondary selected control fill — tabs / segments. Mid blue + white (or `.primary`)
     /// labels — not navy fill with sky text. Sits under primary CTA `brand` (600).
     static let brandSecondaryFill = StudioPalette.color(.blue, light: .s500, dark: .s700)
@@ -618,6 +622,9 @@ enum StudioColors {
     /// over the window background — `surfaceMuted` itself is a translucent wash,
     /// so using it alone still let selection/hover bleed through the pills.
     static let chipSurface = StudioOpaquePanelWash.make(name: "chipSurface", light: 0.07, dark: 0.04)
+    /// Punch-out label on Review chips — window/panel background, so dark charcoal
+    /// in dark mode and paper-light in light mode (the reverse of `.primary`).
+    static let chipLabel = Color(nsColor: .windowBackgroundColor)
 
     // MARK: Semantic marks — axis & instancer
 
@@ -706,6 +713,7 @@ enum StudioColors {
     /// Mark hue — error icons, severe collision flags, destructive emphasis. Same pairing
     /// rule as `successForeground`: text stays neutral, hue lives on the mark.
     static let errorForeground = StudioPalette.color(.red, light: .s600, dark: .s400)
+    static let errorFill = StudioOpaqueFill.make(name: "errorFill", hue: errorForeground, light: 0.22, dark: 0.32)
     static let errorStroke = errorForeground.opacity(0.5)
 
     // MARK: Semantic marks — instancer row state
@@ -713,12 +721,12 @@ enum StudioColors {
     /// Mark hue — name-only collision (distinct from amber fallback / red severe).
     /// Pink family primary mark steps (3:1 non-text).
     static let collisionForeground = StudioPalette.color(.pink, light: .s600, dark: .s300)
-    static let collisionFill = StudioOpaqueFill.make(name: "collisionFill", hue: collisionForeground, light: 0.24, dark: 0.24)
+    static let collisionFill = StudioOpaqueFill.make(name: "collisionFill", hue: collisionForeground, light: 0.22, dark: 0.36)
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
     /// Indigo family (kept far from teal `editedForeground` and brand blue).
     static let customForeground = StudioPalette.color(.indigo, light: .s500, dark: .s300)
-    static let customFill = StudioOpaqueFill.make(name: "customFill", hue: customForeground, light: 0.24, dark: 0.24)
+    static let customFill = StudioOpaqueFill.make(name: "customFill", hue: customForeground, light: 0.28, dark: 0.52)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
     /// Teal family — do not reuse for pending export (see `pendingForeground`).
     static let editedForeground = StudioPalette.color(.teal, light: .s600, dark: .s300)
@@ -785,7 +793,7 @@ enum StudioColors {
     /// Tailwind **sky** — lighter than brand blue so dark-mode digits don’t vibrate
     /// against charcoal. Light `700` / dark `300`. CTAs stay on `brand` (blue-600).
     /// On `brandSecondaryFill` chips use on-accent white (`studioOnAccentFill`), not this.
-    static let metricForeground = StudioPalette.color(.sky, light: .s700, dark: .s300)
+    static let metricForeground = StudioPalette.color(.blue, light: .s700, dark: .s500)
 
     // MARK: Custom palette — registration & classification (dual-tone)
 
@@ -809,20 +817,23 @@ enum StudioColors {
 
     // MARK: Semantic marks — STAT format badges
 
-    /// Rose tonal ramp — primary → tertiary within one family
+    /// Lime tonal ramp — primary → tertiary within one family
     /// (F1 common → richest legible; F4 combinations → lightest legible).
-    static let statFormat1 = StudioPalette.color(.rose, step: .s600)
-    static let statFormat2 = StudioPalette.color(.rose, step: .s500)
-    static let statFormat3 = StudioPalette.color(.rose, step: .s400)
-    /// Format 4 (multi-axis combination) — lightest step on the STAT rose ramp.
-    static let statFormat4 = StudioPalette.color(.rose, step: .s300)
-    /// Soft rose wash for Format 4 chrome (combination drawer suggestion pill, etc.).
+    static let statFormat1 = StudioPalette.color(.lime, light: .s600, dark: .s600)
+    static let statFormat2 = StudioPalette.color(.lime, light: .s700, dark: .s500)
+    static let statFormat3 = StudioPalette.color(.lime, light: .s800, dark: .s400)
+    /// Format 4 (multi-axis combination) — lightest step on the STAT lime ramp.
+    static let statFormat4 = StudioPalette.color(.lime, light: .s900, dark: .s300)
+    /// Soft lime wash for Format 4 chrome (combination CTA, suggestion pill, builder hint).
+    /// Strength matches `registrationBackground` so Add Combination reads like Add Naming Axis.
     static let statFormat4Background = StudioOpaqueFill.make(
         name: "statFormat4Background",
         hue: statFormat1,
-        light: 0.16,
-        dark: 0.16
+        light: 0.22,
+        dark: 0.22
     )
+    /// Edge on Format 4 tinted surfaces (builder chrome, policy box).
+    static let statFormat4Stroke = statFormat1.opacity(0.35)
     /// Baked badge fill for the `statFormat1` compound-name capsule — opaque composite,
     /// not `statFormat1.opacity()`.
     static let statFormat1Background = StudioOpaqueFill.make(
@@ -1035,19 +1046,22 @@ enum StudioDiffPillStyle {
         case .protected: Self.protectedFill
         }
     }
-    var border: Color {
-        switch self {
-        case .changed: foreground.opacity(0.55)
-        default: foreground.opacity(0.35)
-        }
+    /// Punch-out text — panel background, not `.primary`.
+    var label: Color { StudioColors.chipLabel }
+
+    /// Light hue edge on a darker fill — Review chips in both appearances.
+    var stroke: Color {
+        foreground.opacity(0.75)
     }
 
-    private static let removedFill = StudioOpaqueFill.make(name: "diffPillRemoved", hue: StudioColors.diffRemoved, light: 0.20, dark: 0.20)
-    private static let addedFill = StudioOpaqueFill.make(name: "diffPillAdded", hue: StudioColors.diffAdded, light: 0.20, dark: 0.20)
-    private static let changedFill = StudioOpaqueFill.make(name: "diffPillChanged", hue: StudioColors.diffRenamed, light: 0.34, dark: 0.34)
-    private static let reflowedFill = StudioOpaqueFill.make(name: "diffPillReflowed", hue: StudioColors.diffReflowed, light: 0.20, dark: 0.20)
-    private static let unchangedFill = StudioOpaqueFill.make(name: "diffPillUnchanged", hue: .secondary, light: 0.20, dark: 0.20)
-    private static let protectedFill = StudioOpaqueFill.make(name: "diffPillProtected", hue: StudioColors.diffProtected, light: 0.20, dark: 0.20)
+    var border: Color { stroke }
+
+    private static let removedFill = StudioOpaqueFill.make(name: "diffPillRemoved", hue: StudioColors.diffRemoved, light: 0.52, dark: 0.58)
+    private static let addedFill = StudioOpaqueFill.make(name: "diffPillAdded", hue: StudioColors.diffAdded, light: 0.52, dark: 0.58)
+    private static let changedFill = StudioOpaqueFill.make(name: "diffPillChanged", hue: StudioColors.diffRenamed, light: 0.58, dark: 0.64)
+    private static let reflowedFill = StudioOpaqueFill.make(name: "diffPillReflowed", hue: StudioColors.diffReflowed, light: 0.52, dark: 0.58)
+    private static let unchangedFill = StudioOpaqueFill.make(name: "diffPillUnchanged", hue: .secondary, light: 0.42, dark: 0.46)
+    private static let protectedFill = StudioOpaqueFill.make(name: "diffPillProtected", hue: StudioColors.diffProtected, light: 0.42, dark: 0.46)
 }
 
 struct StudioSemanticPill: View {
@@ -1057,11 +1071,11 @@ struct StudioSemanticPill: View {
     var body: some View {
         Text(text)
             .font(StudioTypography.pillLabel)
-            .foregroundStyle(style == .unchanged ? .secondary : .primary)
+            .foregroundStyle(style.label)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(style.background, in: Capsule())
-            .overlay(Capsule().strokeBorder(style.border, lineWidth: 0.5))
+            .overlay(Capsule().strokeBorder(style.stroke, lineWidth: 0.5))
     }
 }
 
@@ -1153,11 +1167,22 @@ struct StudioFlagLabel: View {
 /// Use 36pt+ for 4-digit totals. Trailing cluster today: optional Resolve button, count badge,
 /// Pin compact toggle — not the legacy switch / "Pinned" label.
 struct StudioCountBadge: View {
+    enum Emphasis {
+        case metric
+        case muted
+        case warning
+    }
+
     let text: String
     var highlighted: Bool = true
+    var emphasis: Emphasis? = nil
     var fixedWidth: CGFloat? = nil
     var help: String = ""
     @Environment(\.studioOnAccentFill) private var onAccent
+
+    private var resolvedEmphasis: Emphasis {
+        emphasis ?? (highlighted ? .metric : .muted)
+    }
 
     var body: some View {
         Text(text)
@@ -1179,9 +1204,11 @@ struct StudioCountBadge: View {
         if onAccent {
             return AnyShapeStyle(Color.white)
         }
-        return highlighted
-            ? AnyShapeStyle(StudioColors.metricForeground)
-            : AnyShapeStyle(.secondary)
+        switch resolvedEmphasis {
+        case .metric: return AnyShapeStyle(StudioColors.metricForeground)
+        case .muted: return AnyShapeStyle(.secondary)
+        case .warning: return AnyShapeStyle(StudioColors.warningOnFillForeground)
+        }
     }
 
     private var capsuleFill: Color {
@@ -1189,7 +1216,11 @@ struct StudioCountBadge: View {
             // Soft white wash on secondary-blue chips — keeps the count readable.
             return Color.white.opacity(0.22)
         }
-        return highlighted ? StudioColors.surfaceMuted : StudioColors.surfaceSubtle
+        switch resolvedEmphasis {
+        case .metric: return StudioColors.surfaceMuted
+        case .muted: return StudioColors.surfaceSubtle
+        case .warning: return StudioColors.warningFill
+        }
     }
 }
 
@@ -1204,6 +1235,19 @@ struct StudioDisclosureChevron: View {
             .font(StudioTypography.disclosureChevron)
             .foregroundStyle(.tertiary)
             .frame(width: 12)
+    }
+}
+
+/// Connector between naming-chain chips (Inspector + Naming Order). Single SF Symbol —
+/// not a dash + chevron mashup, which read as “- >”.
+struct StudioChainArrow: View {
+    var isActive: Bool = true
+
+    var body: some View {
+        Image(systemName: "arrowshape.right.fill")
+            .font(StudioTypography.chainArrow)
+            .foregroundStyle(Color.secondary.opacity(isActive ? 0.55 : 0.35))
+            .padding(.horizontal, StudioSpacing.rowGap)
     }
 }
 
@@ -1826,6 +1870,8 @@ struct StudioSearchField: View {
     @Binding var text: String
     var placeholder: String = "Search"
     var isFocused: FocusState<Bool>.Binding? = nil
+    /// Instances / Review / Instancer tool rows — 28pt compact chrome.
+    var compact: Bool = false
 
     @FocusState private var internalFocus: Bool
 
@@ -1838,14 +1884,18 @@ struct StudioSearchField: View {
     }
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: compact ? StudioSpacing.tightGap : 4) {
             Image(systemName: "magnifyingglass")
-                .font(StudioTypography.caption)
+                .font(compact ? StudioCompactControlChrome.symbolFont : StudioTypography.caption)
                 .foregroundStyle(StudioColors.textPlaceholder)
 
             StudioTextField(
                 placeholder: placeholder,
                 text: $text,
+                font: compact ? StudioCompactControlChrome.labelFont : StudioTypography.caption,
+                rowHeight: compact
+                    ? StudioCompactControlChrome.searchHeight - 4
+                    : StudioFieldMetrics.captionRowHeight,
                 showsFieldChrome: false,
                 focusBinding: activeFocus
             )
@@ -1856,11 +1906,15 @@ struct StudioSearchField: View {
                 }
             }
         }
-        .padding(.horizontal, 7)
-        .frame(height: StudioFieldMetrics.captionRowHeight + 8)
+        .padding(.horizontal, compact ? StudioCompactControlChrome.horizontalPadding : 7)
+        .frame(height: compact ? StudioCompactControlChrome.searchHeight : StudioFieldMetrics.captionRowHeight + 8)
         .background(
-            isFieldFocused ? StudioColors.fieldFillFocused : StudioColors.fieldFill,
-            in: RoundedRectangle.studio(StudioRadius.control)
+            isFieldFocused
+                ? StudioColors.fieldFillFocused
+                : (compact ? StudioCompactControlChrome.idleFill : StudioColors.fieldFill),
+            in: RoundedRectangle.studio(
+                compact ? StudioCompactControlChrome.cornerRadius : StudioRadius.control
+            )
         )
     }
 }
@@ -3728,6 +3782,8 @@ struct StudioSegmentButton: View {
     /// Marks the segment when its panel holds unresolved issues, so the user does not
     /// have to open the tab to find out.
     var showsWarning: Bool = false
+    var badge: String? = nil
+    var badgeEmphasis: StudioCountBadge.Emphasis = .muted
     let action: () -> Void
 
     var body: some View {
@@ -3738,6 +3794,9 @@ struct StudioSegmentButton: View {
                     // Selected = white on `brandSecondaryFill` (mid blue). Avoids the
                     // former sky-on-navy pairing of `metricForeground` + `selectionFill`.
                     .foregroundStyle(isSelected ? Color.white : Color.primary.opacity(0.78))
+                if let badge {
+                    StudioCountBadge(text: badge, emphasis: badgeEmphasis)
+                }
                 if showsWarning {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 9))
@@ -3745,8 +3804,9 @@ struct StudioSegmentButton: View {
                 }
             }
             .frame(maxWidth: expands ? .infinity : nil)
-            .padding(.horizontal, expands ? 0 : StudioSpacing.contentInset)
+            .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, expands ? StudioSpacing.panelVertical : StudioSpacing.tightGap)
+            .environment(\.studioOnAccentFill, isSelected)
         }
         .buttonStyle(StudioSegmentButtonStyle(isSelected: isSelected, expands: expands))
         .help(help)
@@ -3774,11 +3834,12 @@ enum StudioRowChrome {
 }
 
 struct StudioDirtyDot: View {
+    var tint: Color = StudioColors.brand
     @Environment(\.studioOnAccentFill) private var onAccent
 
     var body: some View {
         Circle()
-            .fill(onAccent ? Color.white : StudioColors.brand)
+            .fill(onAccent ? Color.white : tint)
             .frame(width: StudioFieldMetrics.dirtyDotSize, height: StudioFieldMetrics.dirtyDotSize)
             .frame(width: StudioFieldMetrics.statusBadgeSlot, height: StudioFieldMetrics.statusBadgeSlot)
     }

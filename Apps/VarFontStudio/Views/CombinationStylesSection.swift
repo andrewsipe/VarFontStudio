@@ -134,27 +134,35 @@ struct CombinationStylesSection: View {
                 suggestionsBanner
             }
 
-            if compounds.isEmpty {
-                emptyState
-            } else {
-                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                    ForEach(compounds) { compound in
-                        compoundCard(compound)
-                    }
-                }
-            }
-
+            // Add CTA / builder sit above existing styles so the drawer can stay short
+            // while the Axis Tree remains visible for reference.
             if canAddCombination {
                 if isBuilderOpen {
                     inlineBuilder
                 } else {
                     StudioFlatButton(
-                        title: "Add combination",
+                        title: "Add Combination",
                         systemImage: "plus",
+                        role: .tinted(
+                            foreground: .primary,
+                            background: StudioColors.statFormat4Background
+                        ),
                         size: .row,
                         help: "Create a Format 4 name at a multi-axis location"
                     ) {
                         openBuilder()
+                    }
+                }
+            }
+
+            if compounds.isEmpty {
+                if !canAddCombination {
+                    emptyState
+                }
+            } else {
+                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                    ForEach(compounds) { compound in
+                        compoundCard(compound)
                     }
                 }
             }
@@ -166,9 +174,7 @@ struct CombinationStylesSection: View {
     }
 
     private var emptyState: some View {
-        Text(canAddCombination
-              ? "No combination styles yet. Add one when a name only applies at a multi-axis location."
-              : "Need at least two instance axes to create a Format 4 combination.")
+        Text("Need at least two instance axes to create a Format 4 combination.")
             .font(StudioTypography.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -717,89 +723,86 @@ struct CombinationStylesSection: View {
     }
 
     private var inlineBuilder: some View {
-        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-            Text("Name a multi-axis location. Use existing stops or any value in range — combo-only values don’t need a Format 1 stop and don’t grow the instance grid.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Chain")
-                .font(StudioTypography.columnLabel)
-                .foregroundStyle(.tertiary)
-
-            if chainLocked {
-                lockedChainSummary
-            } else {
-                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                    ForEach(Array(builderLegs.enumerated()), id: \.element.id) { index, leg in
-                        builderLegRow(leg, index: index)
-                    }
+        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+                HStack(spacing: StudioSpacing.tightGap) {
+                    StudioStatFormatBadge(format: 4)
+                    Text("Add combination")
+                        .font(StudioTypography.emphasis)
+                        .foregroundStyle(.primary)
                 }
 
-                HStack(spacing: StudioSpacing.controlGap) {
-                    Button {
-                        addBuilderLeg()
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(StudioTypography.iconGlyph)
-                            .foregroundStyle(canAddLeg ? .primary : .tertiary)
-                            .frame(width: StudioChromeScale.chip.hitSize, height: StudioChromeScale.chip.hitSize)
-                            .background(StudioColors.surfaceMuted, in: RoundedRectangle.studio(StudioRadius.chip))
-                            .overlay {
-                                RoundedRectangle.studio(StudioRadius.chip)
-                                    .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
-                            }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canAddLeg)
-                    .help(canAddLeg ? "Add another axis + value" : "Need two complete legs and another unused axis")
+                format4HintBox
+            }
 
-                    Button {
-                        chainLocked = true
-                    } label: {
-                        Image(systemName: "lock.open")
-                            .font(StudioTypography.iconGlyph)
-                            .foregroundStyle(legsComplete ? .primary : .tertiary)
-                            .frame(width: StudioChromeScale.chip.hitSize, height: StudioChromeScale.chip.hitSize)
-                            .background(
-                                legsComplete ? StudioColors.surfaceInset : StudioColors.surfaceMuted,
-                                in: RoundedRectangle.studio(StudioRadius.chip)
-                            )
-                            .overlay {
-                                RoundedRectangle.studio(StudioRadius.chip)
-                                    .strokeBorder(
-                                        legsComplete ? StudioColors.surfaceStrokeStrong : StudioColors.surfaceStroke,
-                                        lineWidth: StudioStroke.hairline
-                                    )
-                            }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!legsComplete)
-                    .help(legsComplete ? "Lock chain and name this Format 4 stop" : "Set at least two axis + value legs first")
+            VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+                Text("Chain")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.tertiary)
 
-                    Spacer(minLength: 0)
+                if chainLocked {
+                    lockedChainSummary
+                } else {
+                    VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                        ForEach(Array(builderLegs.enumerated()), id: \.element.id) { index, leg in
+                            builderLegRow(leg, index: index)
+                        }
+                    }
+
+                    HStack(spacing: StudioSpacing.controlGap) {
+                        StudioFlatButton(
+                            title: "Add Axis",
+                            systemImage: "plus",
+                            size: .compact,
+                            isEnabled: canAddLeg,
+                            help: canAddLeg
+                                ? "Add another axis + value to this combination"
+                                : "Need two complete legs and another unused axis"
+                        ) {
+                            addBuilderLeg()
+                        }
+
+                        StudioFlatButton(
+                            title: "Name Combination",
+                            role: .tinted(
+                                foreground: .primary,
+                                background: StudioColors.statFormat4Background
+                            ),
+                            size: .compact,
+                            isEnabled: legsComplete,
+                            help: legsComplete
+                                ? "Accept this axis chain and name the Format 4 style"
+                                : "Set at least two axis + value legs first"
+                        ) {
+                            chainLocked = true
+                        }
+
+                        Spacer(minLength: 0)
+                    }
                 }
             }
 
             if chainLocked {
-                StudioTextField(
-                    placeholder: "Name this Format 4 stop",
-                    text: Binding(
-                        get: { nameText },
-                        set: { newValue in
-                            nameText = newValue
-                            nameEdited = true
-                        }
-                    ),
-                    rowHeight: StudioFieldMetrics.bodyRowHeight
-                )
+                VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
+                    StudioTextField(
+                        placeholder: "Name this Format 4 stop",
+                        text: Binding(
+                            get: { nameText },
+                            set: { newValue in
+                                nameText = newValue
+                                nameEdited = true
+                            }
+                        ),
+                        rowHeight: StudioFieldMetrics.bodyRowHeight
+                    )
 
-                Text(coveredInstanceCount == 1
-                      ? "Would cover 1 instance in the current grid — doesn’t grow the grid."
-                      : "Would cover \(coveredInstanceCount) instances in the current grid — doesn’t grow the grid.")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(coveredInstanceCount == 1
+                          ? "Would cover 1 instance in the current grid — doesn’t grow the grid."
+                          : "Would cover \(coveredInstanceCount) instances in the current grid — doesn’t grow the grid.")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             HStack(spacing: StudioSpacing.controlGap) {
@@ -814,21 +817,36 @@ struct CombinationStylesSection: View {
                 }
             }
         }
-        .padding(StudioSpacing.controlGap)
+        .padding(StudioSpacing.contentInset)
         .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.surface))
         .overlay {
             RoundedRectangle.studio(StudioRadius.surface)
-                .strokeBorder(StudioColors.surfaceStroke, lineWidth: StudioStroke.hairline)
+                .strokeBorder(StudioColors.statFormat4Stroke, lineWidth: StudioStroke.hairline)
+        }
+    }
+
+    /// Format 4 policy hint — same role as the naming-axis sheet’s tinted policy box.
+    private var format4HintBox: some View {
+        VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
+            Text("Format 4")
+                .font(StudioTypography.caption.weight(.semibold))
+                .foregroundStyle(StudioColors.statFormat1)
+            Text("Name a multi-axis location. Use existing stops or any value in range — combo-only values don’t need a Format 1 stop and don’t grow the instance grid.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(StudioSpacing.contentInset)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StudioColors.statFormat4Background, in: RoundedRectangle.studio(StudioRadius.surface))
+        .overlay {
+            RoundedRectangle.studio(StudioRadius.surface)
+                .strokeBorder(StudioColors.statFormat4Stroke, lineWidth: StudioStroke.hairline)
         }
     }
 
     private var lockedChainSummary: some View {
         HStack(alignment: .center, spacing: StudioSpace.x1) {
-            Image(systemName: "lock.fill")
-                .font(StudioTypography.iconGlyph)
-                .foregroundStyle(.secondary)
-                .help("Chain locked — unlock to edit legs")
-
             ForEach(Array(builderLegs.enumerated()), id: \.element.id) { index, leg in
                 if index > 0 {
                     Text("+")
@@ -854,15 +872,13 @@ struct CombinationStylesSection: View {
 
             Spacer(minLength: 0)
 
-            Button {
+            StudioFlatButton(
+                title: "Edit Chain",
+                size: .compact,
+                help: "Go back and change axis + value legs"
+            ) {
                 chainLocked = false
-            } label: {
-                Text("Unlock")
-                    .font(StudioTypography.caption)
-                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
-            .help("Edit axis + value legs")
         }
         .padding(StudioSpacing.contentInset)
         .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.surface))

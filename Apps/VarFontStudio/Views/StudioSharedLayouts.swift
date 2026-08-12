@@ -28,6 +28,8 @@ enum SaveReviewLayout {
     /// Sticky section band in the diff table — opaque so pinned headers fully
     /// cover scrolling rows (translucent `surfaceMuted` let content bleed through).
     static let phaseHeaderBackground = StudioColors.stickyHeaderFill
+    /// Search / filter tool row — same opaque bake as pinned phase headers.
+    static let toolRowBackground = StudioColors.stickyHeaderFill
 }
 
 /// Spacing tokens for the Instancer window — shares Review density where chrome matches.
@@ -37,6 +39,7 @@ enum InstancerLayout {
     static let filterBadgeGap: CGFloat = SaveReviewLayout.filterBadgeGap
     static let toolRowMinHeight: CGFloat = SaveReviewLayout.toolRowMinHeight
     static let toolRowVerticalPadding: CGFloat = SaveReviewLayout.toolRowVerticalPadding
+    static let toolRowBackground = SaveReviewLayout.toolRowBackground
     static let statusBarHeight: CGFloat = StudioSpace.x7 // 28
     static let searchFieldWidth: CGFloat = 180
 
