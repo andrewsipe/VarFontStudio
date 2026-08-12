@@ -11,7 +11,7 @@ public enum AxisStopNamingDefaults {
         case "wdth": return "Normal"
         case "ital": return "Roman"
         case "slnt": return "Upright"
-        case "opsz": return "Regular"
+        case "opsz": return "Standard"
         default: return nil
         }
     }

@@ -309,7 +309,17 @@ public enum FvarStopSeeder {
         public var existingStopID: String
         public var existingName: String
         public var fvarName: String
+        /// True when the STAT stop’s raw name was blank — `existingName` is then the coordinate.
+        public var existingNameWasEmpty: Bool
+        /// True when the fvar-attributed name was blank — `fvarName` is then the coordinate.
+        public var fvarNameWasEmpty: Bool
         public var sampleInstanceNames: [String]
+
+        public var recommendedResolution: Resolution {
+            if existingNameWasEmpty && !fvarNameWasEmpty { return .takeFvar }
+            if fvarNameWasEmpty && !existingNameWasEmpty { return .keepSTAT }
+            return .keepSTAT
+        }
 
         public init(
             id: String = UUID().uuidString,
@@ -320,6 +330,8 @@ public enum FvarStopSeeder {
             existingStopID: String,
             existingName: String,
             fvarName: String,
+            existingNameWasEmpty: Bool = false,
+            fvarNameWasEmpty: Bool = false,
             sampleInstanceNames: [String] = []
         ) {
             self.id = id
@@ -330,6 +342,8 @@ public enum FvarStopSeeder {
             self.existingStopID = existingStopID
             self.existingName = existingName
             self.fvarName = fvarName
+            self.existingNameWasEmpty = existingNameWasEmpty
+            self.fvarNameWasEmpty = fvarNameWasEmpty
             self.sampleInstanceNames = sampleInstanceNames
         }
     }
@@ -402,20 +416,27 @@ public enum FvarStopSeeder {
                 )
 
                 if let existing = AxisCoordinate.matchingStop(in: font.axes[axisIndex].values, coordinate: value) {
-                    if let fvarName = attributed?.name,
-                       !namesEqual(existing.name, fvarName) {
-                        conflicts.append(
-                            NameConflict(
-                                fontID: font.id,
-                                axisTag: axis.tag,
-                                axisLabel: axis.displayName ?? axis.tag,
-                                value: value,
-                                existingStopID: existing.id,
-                                existingName: existing.name,
-                                fvarName: fvarName,
-                                sampleInstanceNames: attributed?.samples ?? []
+                    if let fvarName = attributed?.name {
+                        let existingTrimmed = existing.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let fvarTrimmed = fvarName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let existingEffective = effectiveConflictStopName(existing.name, value: value)
+                        let fvarEffective = effectiveConflictStopName(fvarName, value: value)
+                        if !namesEqual(existingEffective, fvarEffective) {
+                            conflicts.append(
+                                NameConflict(
+                                    fontID: font.id,
+                                    axisTag: axis.tag,
+                                    axisLabel: axis.displayName ?? axis.tag,
+                                    value: value,
+                                    existingStopID: existing.id,
+                                    existingName: existingEffective,
+                                    fvarName: fvarEffective,
+                                    existingNameWasEmpty: existingTrimmed.isEmpty,
+                                    fvarNameWasEmpty: fvarTrimmed.isEmpty,
+                                    sampleInstanceNames: attributed?.samples ?? []
+                                )
                             )
-                        )
+                        }
                     }
                     continue
                 }
@@ -584,7 +605,11 @@ public enum FvarStopSeeder {
 
         switch resolution {
         case .keepSTAT:
-            break
+            let trimmed = font.axes[axisIndex].values[stopIndex].name
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                font.axes[axisIndex].values[stopIndex].name = conflict.existingName
+            }
         case .takeFvar:
             font.axes[axisIndex].values[stopIndex].name = conflict.fvarName
         case .custom(let name):
@@ -771,6 +796,15 @@ public enum FvarStopSeeder {
     private static func namesEqual(_ lhs: String, _ rhs: String) -> Bool {
         lhs.trimmingCharacters(in: .whitespacesAndNewlines)
             .caseInsensitiveCompare(rhs.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+    }
+
+    /// Conflict UI never offers a blank label — fall back to the stop coordinate.
+    private static func effectiveConflictStopName(_ name: String, value: Double) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return AxisCoordinateFormat.format(value)
+        }
+        return trimmed
     }
 
     private static func isNumericOnly(_ name: String, value: Double) -> Bool {

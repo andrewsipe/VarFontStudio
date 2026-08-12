@@ -185,6 +185,33 @@ extension EditorViewModel {
         issueResolvers.dismissFvarImportReview()
     }
 
+    /// Abandon this import — remove the font from the project (closes the project if it was the only file).
+    func cancelFvarImportReview() {
+        guard let session = issueResolvers.fvarImportReviewRequest else {
+            issueResolvers.dismissFvarImportReview()
+            return
+        }
+        let fontID = session.fontID
+        issueResolvers.dismissFvarImportReview()
+        compoundSuggestions.removeAll { $0.fontID == fontID }
+
+        guard let project = openProjects.first(where: {
+            $0.document.fonts.contains { $0.id == fontID }
+        }),
+              let font = project.document.fonts.first(where: { $0.id == fontID })
+        else {
+            postStatusMessage("Import cancelled")
+            return
+        }
+
+        let name = fontBasename(for: font)
+        let wasOnlyFont = project.document.fonts.count == 1
+        let message = wasOnlyFont
+            ? "Import cancelled"
+            : "Import cancelled — \(name) not added"
+        removeFont(id: fontID, fromProjectID: project.id, statusMessage: message)
+    }
+
     // MARK: - Naming / compound helpers (remain on editor)
 
     func setElidedFallback(_ value: String) {

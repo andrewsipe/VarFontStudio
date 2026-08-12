@@ -74,6 +74,96 @@ extension EditorViewModel {
         presentSaveProjectAsPanel()
     }
 
+    /// Saves every open project that needs a `.varf` write. Known paths save silently;
+    /// untitled projects get one Save panel at a time (same chain as quit-with-save).
+    func saveAllProjects() {
+        guard canSaveAllProjects else {
+            postStatusMessage("All projects are saved.")
+            finishSaveAllProjectsChain(didSaveAll: true)
+            return
+        }
+        saveProjectThenContinueSaveAll()
+    }
+
+    /// After Save All succeeds, close every project tab (used by File → Close All).
+    func saveAllProjectsThenCloseAll() {
+        pendingCloseAllAfterSaveAll = true
+        if canSaveAllProjects {
+            saveProjectThenContinueSaveAll()
+        } else {
+            finishSaveAllProjectsChain(didSaveAll: true)
+        }
+    }
+
+    func saveProjectThenContinueSaveAll() {
+        guard let projectID = firstProjectNeedingProjectFileSave() else {
+            postStatusMessage("Saved all projects.")
+            finishSaveAllProjectsChain(didSaveAll: true)
+            return
+        }
+        guard let open = openProject(for: projectID) else { return }
+        if let url = open.projectFileURL {
+            Task { @MainActor in
+                await self.saveProject(document: open.document, to: url, projectID: projectID)
+                if self.openProject(for: projectID)?.projectFileDirty == false {
+                    self.saveProjectThenContinueSaveAll()
+                } else {
+                    self.finishSaveAllProjectsChain(didSaveAll: false)
+                }
+            }
+        } else {
+            presentSaveProjectAsPanelForSaveAll(projectID: projectID)
+        }
+    }
+
+    func presentSaveProjectAsPanelForSaveAll(projectID: String) {
+        guard let open = openProject(for: projectID) else { return }
+        let panel = NSSavePanel()
+        configureProjectSavePanel(
+            panel,
+            for: open,
+            title: "Save Project",
+            message: defaultSaveAllPanelMessage()
+        )
+        panel.begin { [weak self] response in
+            guard let self else { return }
+            guard response == .OK, let url = panel.url else {
+                let remaining = self.openProjects.filter {
+                    self.projectNeedsProjectFileSave(projectID: $0.id)
+                }.count
+                if remaining > 0 {
+                    self.postStatusMessage(
+                        "Save All stopped — \(remaining) project\(remaining == 1 ? "" : "s") still need saving."
+                    )
+                }
+                self.finishSaveAllProjectsChain(didSaveAll: false)
+                return
+            }
+            let normalized = Self.normalizedProjectFileURL(url)
+            Task { @MainActor in
+                await self.saveProject(document: open.document, to: normalized, projectID: projectID)
+                if self.openProject(for: projectID)?.projectFileDirty == false {
+                    self.saveProjectThenContinueSaveAll()
+                } else {
+                    self.finishSaveAllProjectsChain(didSaveAll: false)
+                }
+            }
+        }
+    }
+
+    private func finishSaveAllProjectsChain(didSaveAll: Bool) {
+        guard pendingCloseAllAfterSaveAll else { return }
+        pendingCloseAllAfterSaveAll = false
+        guard didSaveAll else { return }
+        closeAllProjects(force: true)
+    }
+
+    func defaultSaveAllPanelMessage() -> String {
+        let needing = openProjects.filter { projectNeedsProjectFileSave(projectID: $0.id) }.count
+        guard needing > 1 else { return "" }
+        return "\(needing) projects still need saving."
+    }
+
     func presentSaveProjectAsPanel() {
         guard let projectID = activeProjectID,
               let open = openProject(for: projectID) else {
@@ -82,10 +172,7 @@ extension EditorViewModel {
         }
 
         let panel = NSSavePanel()
-        panel.title = "Save Project As"
-        panel.canCreateDirectories = true
-        panel.allowedContentTypes = [.varfontProject]
-        panel.nameFieldStringValue = defaultProjectFilename(for: open)
+        configureProjectSavePanel(panel, for: open, title: "Save Project As")
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             let normalized = Self.normalizedProjectFileURL(url)
@@ -93,6 +180,33 @@ extension EditorViewModel {
                 await self?.saveProject(document: open.document, to: normalized, projectID: projectID)
             }
         }
+    }
+
+    func configureProjectSavePanel(
+        _ panel: NSSavePanel,
+        for open: OpenProject,
+        title: String,
+        message: String = ""
+    ) {
+        panel.title = title
+        panel.message = message
+        panel.canCreateDirectories = true
+        panel.allowedContentTypes = [.varfontProject]
+        panel.nameFieldStringValue = defaultProjectFilename(for: open)
+        if let directory = defaultProjectSaveDirectory(for: open) {
+            panel.directoryURL = directory
+        }
+    }
+
+    /// Default folder for new `.varf` saves — alongside the master (or first) source font.
+    func defaultProjectSaveDirectory(for open: OpenProject) -> URL? {
+        guard let fontID = masterFontID(for: open.id),
+              let font = open.document.fonts.first(where: { $0.id == fontID }) else { return nil }
+        let directory = URL(fileURLWithPath: font.sourcePath).deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return nil }
+        return directory
     }
 
     func defaultProjectFilename(for open: OpenProject) -> String {
@@ -109,9 +223,29 @@ extension EditorViewModel {
         ProjectFileFormat.normalizedProjectFileURL(url)
     }
 
+    /// When the save path changes (first save or Save As), keep tab, inspector title, and PS prefix aligned with the filename stem.
+    func applyProjectNameFromSavedFileIfNeeded(
+        to url: URL,
+        projectID: String,
+        previousURL: URL?
+    ) {
+        let normalized = url.standardizedFileURL
+        guard previousURL?.standardizedFileURL != normalized else { return }
+        guard let idx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        let stem = url.deletingPathExtension().lastPathComponent
+        guard let name = normalizedProjectNaming(stem) else { return }
+        pushUndoSnapshot()
+        syncProjectDisplayNameAndPrefix(name, on: &openProjects[idx].document)
+        openProjects[idx].document.modified = Date()
+        regeneratePlan()
+        canSave = true
+    }
+
     @MainActor
     func saveProject(document: ProjectDocument, to url: URL, projectID: String) async {
         guard let idx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
+        let previousURL = openProjects[idx].projectFileURL
+        applyProjectNameFromSavedFileIfNeeded(to: url, projectID: projectID, previousURL: previousURL)
         isBusy = true
         defer { isBusy = false }
         do {
@@ -317,10 +451,7 @@ extension EditorViewModel {
     func presentSaveProjectAsPanelForQuit(projectID: String) {
         guard let open = openProject(for: projectID) else { return }
         let panel = NSSavePanel()
-        panel.title = "Save Project Before Quit"
-        panel.canCreateDirectories = true
-        panel.allowedContentTypes = [.varfontProject]
-        panel.nameFieldStringValue = defaultProjectFilename(for: open)
+        configureProjectSavePanel(panel, for: open, title: "Save Project Before Quit")
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else {
                 self?.confirmQuitCancelAction()

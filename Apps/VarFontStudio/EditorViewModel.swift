@@ -172,6 +172,8 @@ final class EditorViewModel: ObservableObject {
     var debouncedPlanTask: Task<Void, Never>?
     private var statusMessageDismissTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+    /// When true, a successful Save All chain finishes by closing every project tab.
+    var pendingCloseAllAfterSaveAll = false
     let commitService = CommitService()
     let instanceService = InstanceService()
     var sourceBookmarks: [String: Data] = [:]
@@ -206,6 +208,10 @@ final class EditorViewModel: ObservableObject {
 
     var canSaveProjectOnQuit: Bool {
         firstProjectNeedingProjectFileSave() != nil
+    }
+
+    var canSaveAllProjects: Bool {
+        openProjects.contains { projectNeedsProjectFileSave(projectID: $0.id) }
     }
 
     func quitConfirmationMessage() -> String {

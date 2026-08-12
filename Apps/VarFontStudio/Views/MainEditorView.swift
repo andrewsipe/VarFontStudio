@@ -165,6 +165,9 @@ struct MainEditorView: View {
         .sheet(isPresented: closeProjectConfirmBinding) {
             closeProjectConfirmSheet
         }
+        .sheet(isPresented: closeAllConfirmBinding) {
+            closeAllConfirmSheet
+        }
         .sheet(isPresented: quitConfirmBinding) {
             quitConfirmSheet
         }
@@ -334,6 +337,19 @@ struct MainEditorView: View {
         )
     }
 
+    private var closeAllConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.workspace.confirmCloseAllRequested },
+            set: {
+                if $0 {
+                    editor.workspace.confirmCloseAllRequested = true
+                } else {
+                    editor.confirmCloseAllCancelAction()
+                }
+            }
+        )
+    }
+
     private var closeProjectConfirmSheet: some View {
         let projectID = editor.workspace.confirmCloseProjectID
         let needsSave = projectID.map { editor.projectNeedsProjectFileSave(projectID: $0) } ?? false
@@ -343,6 +359,15 @@ struct MainEditorView: View {
             title: "Close Project?",
             message: message,
             actions: closeProjectConfirmActions(needsSave: needsSave)
+        )
+    }
+
+    private var closeAllConfirmSheet: some View {
+        let needsSave = editor.canSaveAllProjects
+        return StudioConfirmDialog(
+            title: "Close All Projects?",
+            message: editor.closeAllConfirmationMessage(),
+            actions: closeAllConfirmActions(needsSave: needsSave)
         )
     }
 
@@ -373,6 +398,38 @@ struct MainEditorView: View {
                 isCancelAction: true
             ) {
                 editor.workspace.confirmCloseProjectID = nil
+            }
+        )
+        return actions
+    }
+
+    private func closeAllConfirmActions(needsSave: Bool) -> [StudioConfirmDialog.Action] {
+        var actions: [StudioConfirmDialog.Action] = []
+        if needsSave {
+            actions.append(
+                StudioConfirmDialog.Action(
+                    title: "Save All Projects",
+                    role: .primary,
+                    isDefaultAction: true
+                ) {
+                    editor.confirmCloseAllSaveAction()
+                }
+            )
+        }
+        actions.append(
+            StudioConfirmDialog.Action(
+                title: "Remove All",
+                role: .destructiveAction
+            ) {
+                editor.confirmCloseAllDiscardAction()
+            }
+        )
+        actions.append(
+            StudioConfirmDialog.Action(
+                title: "Cancel",
+                isCancelAction: true
+            ) {
+                editor.confirmCloseAllCancelAction()
             }
         )
         return actions

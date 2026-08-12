@@ -52,12 +52,12 @@ struct CommitDiffReviewView: View {
                 rowScrollContent(for: activeTab)
                     .layoutPriority(1)
             } else if session.preflight.ok {
-                Text("No changes to review — this export won't modify anything.")
-                    .font(StudioTypography.body)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, SaveReviewLayout.horizontalPadding)
-                    .padding(.vertical, StudioSpace.x6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ContentUnavailableView(
+                    "No changes",
+                    systemImage: "checkmark.circle",
+                    description: Text(StudioEmptyCopy.reviewNoChanges)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxHeight: fillsAvailableHeight ? .infinity : nil, alignment: .top)
@@ -102,13 +102,9 @@ struct CommitDiffReviewView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-            Text("Review")
-                .font(StudioTypography.emphasis)
-            Text("Planned write preview — after values with change context")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-        }
+        Text("Planned write preview — after values with change context")
+            .font(StudioTypography.caption)
+            .foregroundStyle(.secondary)
     }
 
     @ViewBuilder
@@ -362,12 +358,13 @@ struct CommitDiffReviewView: View {
     private func rowScrollContent(for tab: SaveReviewTabPresentation) -> some View {
         let sections = filteredSections(for: tab)
         if sections.isEmpty {
-            Text("No rows match the current filters.")
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
-                .padding(.vertical, StudioSpace.x6)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: fillsAvailableHeight ? 200 : 420, maxHeight: fillsAvailableHeight ? .infinity : 420)
+            ContentUnavailableView(
+                "No matching rows",
+                systemImage: "line.3.horizontal.decrease.circle",
+                description: Text(StudioEmptyCopy.reviewNoFilterMatch)
+            )
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: fillsAvailableHeight ? 200 : 420, maxHeight: fillsAvailableHeight ? .infinity : 420)
         } else {
             ScrollView {
                 LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
@@ -474,14 +471,7 @@ struct CommitDiffReviewView: View {
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
             ForEach(Array(errors.enumerated()), id: \.offset) { _, error in
-                HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
-                    Image(systemName: "xmark.octagon.fill")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(StudioColors.errorForeground)
-                    Text(error.message)
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.primary)
-                }
+                StudioErrorMessage(message: error.message)
             }
         }
         .padding(StudioSpacing.contentInset)

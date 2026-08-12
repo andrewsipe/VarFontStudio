@@ -156,7 +156,7 @@ extension EditorViewModel {
         removeFont(id: request.fontID, fromProjectID: request.projectID)
     }
 
-    func removeFont(id fontID: String, fromProjectID projectID: String) {
+    func removeFont(id fontID: String, fromProjectID projectID: String, statusMessage: String? = nil) {
         guard let pIdx = openProjects.firstIndex(where: { $0.id == projectID }) else { return }
         let removedWasMaster = masterFontID(for: projectID) == fontID
         openProjects[pIdx].document.fonts.removeAll { $0.id == fontID }
@@ -164,7 +164,7 @@ extension EditorViewModel {
 
         if openProjects[pIdx].document.fonts.isEmpty {
             closeProject(id: projectID, force: true)
-            postStatusMessage("Project closed — no files remaining")
+            postStatusMessage(statusMessage ?? "Project closed — no files remaining")
             return
         }
 
@@ -181,7 +181,7 @@ extension EditorViewModel {
         publishOpenProjects()
         refreshCanSave()
         regeneratePlan()
-        postStatusMessage("Removed font from project")
+        postStatusMessage(statusMessage ?? "Removed font from project")
     }
 
     func isMasterFont(fontID: String, projectID: String) -> Bool {
@@ -449,6 +449,69 @@ extension EditorViewModel {
         closeProject(id: id, force: true)
     }
 
+    func requestCloseActiveProject() {
+        guard let id = activeProjectID else { return }
+        requestCloseProject(id: id)
+    }
+
+    func requestCloseAllProjects() {
+        guard hasOpenProjects else { return }
+        if firstProjectNeedingCloseConfirmation() != nil {
+            workspace.confirmCloseAllRequested = true
+            return
+        }
+        closeAllProjects(force: true)
+    }
+
+    func confirmCloseAllSaveAction() {
+        workspace.confirmCloseAllRequested = false
+        saveAllProjectsThenCloseAll()
+    }
+
+    func confirmCloseAllDiscardAction() {
+        workspace.confirmCloseAllRequested = false
+        pendingCloseAllAfterSaveAll = false
+        closeAllProjects(force: true)
+    }
+
+    func confirmCloseAllCancelAction() {
+        workspace.confirmCloseAllRequested = false
+        pendingCloseAllAfterSaveAll = false
+    }
+
+    func closeAllProjects(force: Bool) {
+        if !force, firstProjectNeedingCloseConfirmation() != nil {
+            workspace.confirmCloseAllRequested = true
+            return
+        }
+        for project in openProjects {
+            clearSaveReviewState(forProjectID: project.id)
+            for font in project.document.fonts {
+                removeSourceBookmark(fontID: font.id)
+            }
+        }
+        openProjects.removeAll()
+        activeProjectID = nil
+        selectedFontID = nil
+        selectedInstanceKey = nil
+        selectedInstanceKeys = []
+        selectedAxisStopID = nil
+        instancePlan = nil
+        instanceListDisplay = .empty
+        canSave = false
+        compoundSuggestions = []
+        workspace.confirmCloseProjectID = nil
+        postStatusMessage("Closed all projects.")
+    }
+
+    func closeAllConfirmationMessage() -> String {
+        let needing = openProjects.filter { projectNeedsProjectFileSave(projectID: $0.id) }.count
+        if needing > 0 {
+            return "Close all projects? \(needing) project\(needing == 1 ? "" : "s") have unsaved changes."
+        }
+        return "Close all open projects?"
+    }
+
     func projectNeedsCloseConfirmation(projectID: String) -> Bool {
         // Only the .varf project file gates close/quit. Font `dirty` means “needs Export”,
         // which is optional and must not block discarding the in-memory workspace.
@@ -485,10 +548,7 @@ extension EditorViewModel {
     func presentSaveProjectAsPanelForClose(projectID: String) {
         guard let open = openProject(for: projectID) else { return }
         let panel = NSSavePanel()
-        panel.title = "Save Project Before Closing"
-        panel.canCreateDirectories = true
-        panel.allowedContentTypes = [.varfontProject]
-        panel.nameFieldStringValue = defaultProjectFilename(for: open)
+        configureProjectSavePanel(panel, for: open, title: "Save Project Before Closing")
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             let normalized = Self.normalizedProjectFileURL(url)

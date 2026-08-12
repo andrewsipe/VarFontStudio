@@ -12,6 +12,8 @@ struct InstancerWindow: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            StudioPanelHeader(title: "Static Instancer")
+
             if let workspace = editor.instancer.workspace(forKey: windowKey), workspace.hasTabs {
                 InstancerFileTabBar(windowKey: windowKey)
                 Divider()
@@ -48,7 +50,7 @@ private struct InstancerFileTabBar: View {
                 }
             }
             .padding(.horizontal, InstancerLayout.horizontalPadding)
-            .padding(.vertical, StudioSpace.x2)
+            .frame(height: StudioChromeBand.scope)
             .background(.bar)
         }
     }
@@ -92,6 +94,7 @@ private struct InstancerWindowContent: View {
     @State private var toastMessage: String?
     @State private var toastRevealPath: String?
     @State private var statusOverride: String?
+    @State private var showSelectMenu = false
 
     private var tabCount: Int {
         editor.instancer.workspace(forKey: windowKey)?.tabKeys.count ?? 0
@@ -147,8 +150,6 @@ private struct InstancerWindowContent: View {
         VStack(alignment: .leading, spacing: InstancerLayout.chromeSectionGap) {
             HStack(alignment: .top, spacing: StudioSpace.x4) {
                 VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                    Text("Static Instancer")
-                        .font(StudioTypography.emphasis)
                     Text("Generate static fonts from named instances — names follow fvar, with STAT as a fallback.")
                         .font(StudioTypography.caption)
                         .foregroundStyle(.secondary)
@@ -570,14 +571,40 @@ private struct InstancerWindowContent: View {
         .layoutPriority(1)
     }
 
+    private var visibleSelectionMark: StudioBulkSelectMark {
+        let visibleIDs = session.visibleRows.map(\.id)
+        guard !visibleIDs.isEmpty else { return .none }
+        let selectedCount = visibleIDs.filter { session.selectedIDs.contains($0) }.count
+        if selectedCount == 0 { return .none }
+        if selectedCount == visibleIDs.count { return .all }
+        return .mixed
+    }
+
     private var headline: some View {
         HStack(spacing: StudioSpace.x3) {
             if session.hasSource, !session.isLoading, !session.isGenerating {
-                StudioPlainLinkButton(title: "Select All", role: .secondary) {
-                    session.visibleRows.forEach { session.selectedIDs.insert($0.id) }
-                }
-                StudioPlainLinkButton(title: "Deselect All", role: .secondary) {
-                    session.visibleRows.forEach { session.selectedIDs.remove($0.id) }
+                StudioBulkSelectMenu(
+                    mark: visibleSelectionMark,
+                    help: "Select or deselect visible instances",
+                    isEnabled: !session.visibleRows.isEmpty,
+                    isPresented: $showSelectMenu
+                ) {
+                    StudioBulkSelectMenuRow(
+                        title: "Select All",
+                        mark: .all,
+                        isSelected: visibleSelectionMark == .all
+                    ) {
+                        session.visibleRows.forEach { session.selectedIDs.insert($0.id) }
+                        showSelectMenu = false
+                    }
+                    StudioBulkSelectMenuRow(
+                        title: "Deselect All",
+                        mark: .none,
+                        isSelected: visibleSelectionMark == .none && !session.visibleRows.isEmpty
+                    ) {
+                        session.visibleRows.forEach { session.selectedIDs.remove($0.id) }
+                        showSelectMenu = false
+                    }
                 }
             }
 

@@ -56,11 +56,11 @@ struct FvarStatConflictResolverSheet: View {
         .padding(StudioSpacing.contentInset)
         .frame(minWidth: 460)
         .onAppear {
-            choice = .keepSTAT
+            choice = conflict.recommendedResolution == .takeFvar ? .takeFvar : .keepSTAT
             customName = conflict.fvarName
         }
         .onChange(of: conflict.id) { _, _ in
-            choice = .keepSTAT
+            choice = conflict.recommendedResolution == .takeFvar ? .takeFvar : .keepSTAT
             customName = conflict.fvarName
         }
     }
@@ -109,7 +109,7 @@ struct FvarStatConflictResolverSheet: View {
                 title: "Keep STAT name",
                 detail: "Leave “\(conflict.existingName)” unchanged.",
                 selected: choice == .keepSTAT,
-                recommended: true
+                recommended: conflict.recommendedResolution == .keepSTAT
             ) {
                 choice = .keepSTAT
             }
@@ -117,7 +117,7 @@ struct FvarStatConflictResolverSheet: View {
                 title: "Use fvar name",
                 detail: "Rename stop to “\(conflict.fvarName)”.",
                 selected: choice == .takeFvar,
-                recommended: false
+                recommended: conflict.recommendedResolution == .takeFvar
             ) {
                 choice = .takeFvar
             }

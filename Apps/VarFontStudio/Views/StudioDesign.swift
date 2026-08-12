@@ -725,7 +725,7 @@ enum StudioColors {
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
     /// Indigo family (kept far from teal `editedForeground` and brand blue).
-    static let customForeground = StudioPalette.color(.indigo, light: .s500, dark: .s300)
+    static let customForeground = StudioPalette.color(.fuchsia, light: .s500, dark: .s700)
     static let customFill = StudioOpaqueFill.make(name: "customFill", hue: customForeground, light: 0.28, dark: 0.52)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
     /// Teal family — do not reuse for pending export (see `pendingForeground`).
@@ -1412,6 +1412,9 @@ enum StudioEmptyCopy {
     static let openOrDropFontOrProject = "Open or drop fonts or projects to get started."
     static let instancerListHint = "Select a project font tab to load its named instances."
     static let noProjectInspector = "Open or drop fonts or projects to get started."
+    static let reviewNoChanges = "No changes to review — this export won't modify anything."
+    static let reviewNoFilterMatch = "No rows match the current filters."
+    static let reviewNoPreview = "No preview loaded yet."
 }
 
 /// Shared panel header band with bottom divider — use for section headers and collapsed panel rails.
@@ -3303,6 +3306,96 @@ enum StudioCompactControlChrome {
 
     /// Segment height inside a tray (tray inset on top + bottom).
     static var segmentHeight: CGFloat { controlHeight - trayInset * 2 }
+}
+
+/// Checkbox mark for bulk-select triggers (Instances Include, Instancer Select).
+enum StudioBulkSelectMark {
+    case all
+    case none
+    case mixed
+
+    var systemImage: String {
+        switch self {
+        case .all: "checkmark.square"
+        case .none: "square"
+        case .mixed: "minus.square"
+        }
+    }
+}
+
+/// Compact check / square / minus.square trigger with an opaque action popover.
+struct StudioBulkSelectMenu<Content: View>: View {
+    var mark: StudioBulkSelectMark
+    var help: String = ""
+    var isEnabled: Bool = true
+    @Binding var isPresented: Bool
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        Button {
+            isPresented = true
+        } label: {
+            HStack(spacing: StudioSpacing.tightGap) {
+                Image(systemName: mark.systemImage)
+                    .font(StudioCompactControlChrome.symbolFont)
+                    .foregroundStyle(StudioColors.metricForeground)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, StudioCompactControlChrome.horizontalPadding)
+            .frame(height: StudioCompactControlChrome.controlHeight)
+            .background(
+                StudioCompactControlChrome.idleFill,
+                in: RoundedRectangle.studio(StudioCompactControlChrome.cornerRadius)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioCompactControlChrome.cornerRadius))
+        .disabled(!isEnabled)
+        .help(help)
+        .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
+                content()
+            }
+            .padding(StudioSpace.x0_5)
+            .frame(minWidth: 188)
+            .presentationBackground(StudioColors.chipSurface)
+        }
+    }
+}
+
+/// One action row inside `StudioBulkSelectMenu` — leading check, title, trailing mark.
+struct StudioBulkSelectMenuRow: View {
+    let title: String
+    var mark: StudioBulkSelectMark
+    var isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: StudioSpacing.tightGap) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(StudioColors.metricForeground)
+                    .opacity(isSelected ? 1 : 0)
+                    .frame(width: 12, alignment: .leading)
+                Text(title)
+                    .font(StudioCompactControlChrome.labelFont)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                Image(systemName: mark.systemImage)
+                    .font(StudioCompactControlChrome.symbolFont)
+                    .foregroundStyle(StudioColors.metricForeground)
+            }
+            .padding(.horizontal, StudioSpace.x1_5)
+            .padding(.vertical, StudioSpacing.panelVertical)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+    }
 }
 
 /// Semantic active tint for compact toggles (hue lives in fill/stroke; label stays readable).

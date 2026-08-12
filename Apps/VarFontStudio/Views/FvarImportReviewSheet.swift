@@ -93,7 +93,9 @@ struct FvarImportReviewSheet: View {
 
     private var isDeviatingFromRecommendations: Bool {
         report.heldStopCandidates.contains { decision(for: $0) != $0.recommendedDecision }
-            || report.conflicts.contains { (conflictResolutions[$0.id] ?? .keepSTAT) != .keepSTAT }
+            || report.conflicts.contains {
+                (conflictResolutions[$0.id] ?? $0.recommendedResolution) != $0.recommendedResolution
+            }
             || !dismissedCompoundIDs.isEmpty
     }
 
@@ -138,7 +140,7 @@ struct FvarImportReviewSheet: View {
             promotedStopNames[candidate.id] = candidate.proposedName
         }
         for conflict in report.conflicts {
-            conflictResolutions[conflict.id] = .keepSTAT
+            conflictResolutions[conflict.id] = conflict.recommendedResolution
         }
         dismissedCompoundIDs = []
         // Default: export all projected instances (checked). Uncheck to keep origin-only.
@@ -341,6 +343,7 @@ struct FvarImportReviewSheet: View {
         let current = decision(for: candidate)
         return VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
             HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
+                StudioTagPill(text: candidate.axisTag, compact: true)
                 Text(candidate.axisLabel)
                     .font(StudioTypography.bodyMedium)
                 Text(AxisCoordinateFormat.format(candidate.value))
@@ -491,15 +494,22 @@ struct FvarImportReviewSheet: View {
                             conflictChoice(conflict, title: conflict.fvarName, resolution: .takeFvar)
                         }
                     }
-                    Text(
-                        (conflictResolutions[conflict.id] ?? .keepSTAT) == .keepSTAT
-                            ? "Keeping the STAT label"
-                            : "Using the name from the font"
-                    )
+                    Text(conflictStatus(conflict))
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+
+    private func conflictStatus(_ conflict: FvarStopSeeder.NameConflict) -> String {
+        switch conflictResolutions[conflict.id] ?? conflict.recommendedResolution {
+        case .keepSTAT:
+            return "Keeping “\(conflict.existingName)”"
+        case .takeFvar:
+            return "Using “\(conflict.fvarName)” from the font"
+        case .custom(let name):
+            return "Using “\(name)”"
         }
     }
 
@@ -510,7 +520,7 @@ struct FvarImportReviewSheet: View {
     ) -> some View {
         choiceChip(
             title: title,
-            selected: (conflictResolutions[conflict.id] ?? .keepSTAT) == resolution,
+            selected: (conflictResolutions[conflict.id] ?? conflict.recommendedResolution) == resolution,
             help: resolution == .keepSTAT ? "Keep the STAT label" : "Use the name from the font"
         ) {
             conflictResolutions[conflict.id] = resolution
@@ -726,6 +736,10 @@ struct FvarImportReviewSheet: View {
 
     private var actionBar: some View {
         HStack(spacing: StudioSpacing.controlGap) {
+            StudioFlatButton(title: "Cancel import", role: .destructiveAction, size: .compact) {
+                editor.cancelFvarImportReview()
+                dismiss()
+            }
             if isDeviatingFromRecommendations {
                 StudioFlatButton(title: "Reset to recommendations", size: .compact) {
                     resetToRecommendations()

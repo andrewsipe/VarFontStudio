@@ -264,6 +264,40 @@ final class FvarStopSeederTests: XCTestCase {
         XCTAssertEqual(font.axes[0].values[0].name, "Book")
     }
 
+    func testEmptySTATNameUsesCoordinateInConflictAndPrefersFvarName() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: [
+                    AxisValue(id: "w400", value: 400, name: "", elidable: false),
+                ]),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [400], observed: [400]),
+            ],
+            instances: [
+                instance("Regular", ["wght": 400]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+
+        XCTAssertEqual(report.conflicts.count, 1)
+        let conflict = try! XCTUnwrap(report.conflicts.first)
+        XCTAssertEqual(conflict.existingName, "400")
+        XCTAssertEqual(conflict.fvarName, "Regular")
+        XCTAssertTrue(conflict.existingNameWasEmpty)
+        XCTAssertEqual(conflict.recommendedResolution, .takeFvar)
+
+        FvarStopSeeder.apply(resolution: .keepSTAT, conflict: conflict, to: &font)
+        XCTAssertEqual(font.axes[0].values[0].name, "400")
+
+        font.axes[0].values[0].name = ""
+        FvarStopSeeder.apply(resolution: .takeFvar, conflict: conflict, to: &font)
+        XCTAssertEqual(font.axes[0].values[0].name, "Regular")
+    }
+
     func testDoesNotConflictWhenNamesMatchIgnoringCase() {
         var font = makeFont(
             axes: [

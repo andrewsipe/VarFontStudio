@@ -95,6 +95,12 @@ struct VarFontStudioApp: App {
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .disabled(!editor.hasOpenProjects)
 
+                Button("Save All Projects") {
+                    editor.saveAllProjects()
+                }
+                .keyboardShortcut("s", modifiers: [.command, .option])
+                .disabled(!editor.canSaveAllProjects)
+
                 Divider()
 
                 if editor.canSaveToRememberedPathForSelection {
@@ -145,7 +151,24 @@ struct VarFontStudioApp: App {
                     editor.presentInstancerWindow()
                 }
                 .disabled(!editor.canPresentInstancer)
+
+                Divider()
+
+                Button("Close") {
+                    editor.requestCloseActiveProject()
+                }
+                .keyboardShortcut("w", modifiers: .command)
+                .disabled(!editor.hasOpenProjects)
+
+                Button("Close All") {
+                    editor.requestCloseAllProjects()
+                }
+                .keyboardShortcut("w", modifiers: [.command, .option])
+                .disabled(!editor.hasOpenProjects)
             }
+
+            // Suppress system Save / Close Window — those actions live in `.newItem` above.
+            CommandGroup(replacing: .saveItem) {}
 
             CommandGroup(replacing: .help) {
                 Button("VarFont Studio Shortcuts…") {
@@ -269,6 +292,7 @@ struct VarFontStudioApp: App {
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var editor: EditorViewModel?
+    private var menuTrackingObserver: NSObjectProtocol?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         SaveReviewWindowLifecycle.closeRestoredWindows()
@@ -287,6 +311,66 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             for window in mains where window !== keep {
                 window.close()
             }
+        }
+        Self.stripSystemFileCloseItems()
+        menuTrackingObserver = NotificationCenter.default.addObserver(
+            forName: NSMenu.didBeginTrackingNotification,
+            object: nil,
+            queue: .main
+        ) { note in
+            guard let menu = note.object as? NSMenu,
+                  menu.items.contains(where: {
+                      $0.title == "Save All Projects" || $0.title == "Open Font…" || $0.title == "Open Font..."
+                  }) else { return }
+            Self.stripSystemFileCloseItems()
+        }
+    }
+
+    /// Removes AppKit's File → Close / Close All Windows so only project Close / Close All remain.
+    private static func stripSystemFileCloseItems() {
+        guard let fileMenu = NSApp.mainMenu?.items.first(where: { item in
+            item.submenu?.items.contains(where: {
+                $0.title == "Open Font…" || $0.title == "Open Font..." || $0.title == "Save All Projects"
+            }) == true
+        })?.submenu else { return }
+
+        let systemCloseActions: Set<String> = [
+            "performClose:",
+            "closeAll:",
+            "closeAllWindows:",
+        ]
+        let systemCloseTitles: Set<String> = [
+            "Close Window",
+            "Close All Windows",
+        ]
+
+        var removeIndexes: [Int] = []
+        for (index, item) in fileMenu.items.enumerated() {
+            let actionName = item.action.map { NSStringFromSelector($0) } ?? ""
+            let isSystemCloseAction = systemCloseActions.contains(actionName)
+            let isSystemCloseTitle = systemCloseTitles.contains(item.title)
+            // Bare system "Close" usually has no key equivalent once we claimed ⌘W.
+            let isOrphanSystemClose = item.title == "Close" && item.keyEquivalent.isEmpty
+            if isSystemCloseAction || isSystemCloseTitle || isOrphanSystemClose {
+                removeIndexes.append(index)
+            }
+        }
+
+        for index in removeIndexes.reversed() {
+            fileMenu.removeItem(at: index)
+        }
+
+        // Drop a trailing divider left behind after removing system Close.
+        while let last = fileMenu.items.last, last.isSeparatorItem {
+            fileMenu.removeItem(last)
+        }
+        // Collapse double separators.
+        var i = fileMenu.items.count - 1
+        while i > 0 {
+            if fileMenu.items[i].isSeparatorItem, fileMenu.items[i - 1].isSeparatorItem {
+                fileMenu.removeItem(at: i)
+            }
+            i -= 1
         }
     }
 

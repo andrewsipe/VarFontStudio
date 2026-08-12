@@ -356,62 +356,15 @@ struct InstanceListPanel: View {
     }
 
     private var includePicker: some View {
-        Button {
-            showIncludeMenu = true
-        } label: {
-            HStack(spacing: StudioSpacing.tightGap) {
-                includePickerMark
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, InstanceListFilterChrome.horizontalPadding)
-            .frame(height: InstanceListFilterChrome.controlHeight)
-            .background(
-                InstanceListFilterChrome.idleFill,
-                in: RoundedRectangle.studio(InstanceListFilterChrome.cornerRadius)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: InstanceListFilterChrome.cornerRadius))
-        .disabled(editor.filteredInstances.isEmpty && !editor.isTrimmedToOriginals)
-        .help(includePickerHelp)
-        .popover(isPresented: $showIncludeMenu, arrowEdge: .bottom) {
-            includeMenuContent
-        }
-    }
-
-    @ViewBuilder
-    private var includePickerMark: some View {
-        // Same SF Symbol marks as Show’s Included/Excluded (not StudioIncludeCheckbox).
-        Image(systemName: includePickerSymbolName)
-            .font(InstanceListFilterChrome.symbolFont)
-            .foregroundStyle(StudioColors.metricForeground)
-    }
-
-    private var includePickerSymbolName: String {
-        if editor.isTrimmedToOriginals || editor.hasMixedVisibleInclusion {
-            return "minus.square"
-        }
-        if editor.allVisibleInstancesIncluded {
-            return "checkmark.square"
-        }
-        return "square"
-    }
-
-    private var includePickerHelp: String {
-        if editor.isTrimmedToOriginals {
-            return "Export includes only styles that match the original font"
-        }
-        return "Include or exclude visible instances for export"
-    }
-
-    private var includeMenuContent: some View {
-        VStack(alignment: .leading, spacing: StudioSpace.x0_5) {
-            includeMenuRow(
+        StudioBulkSelectMenu(
+            mark: includePickerMark,
+            help: includePickerHelp,
+            isEnabled: !(editor.filteredInstances.isEmpty && !editor.isTrimmedToOriginals),
+            isPresented: $showIncludeMenu
+        ) {
+            StudioBulkSelectMenuRow(
                 title: InstanceInclusionCommands.includeAllTitle,
-                mark: .checked,
+                mark: .all,
                 isSelected: editor.allVisibleInstancesIncluded
                     && !editor.hasMixedVisibleInclusion
                     && !editor.isTrimmedToOriginals
@@ -419,9 +372,9 @@ struct InstanceListPanel: View {
                 editor.includeAllVisibleInstances()
                 showIncludeMenu = false
             }
-            includeMenuRow(
+            StudioBulkSelectMenuRow(
                 title: InstanceInclusionCommands.excludeAllTitle,
-                mark: .unchecked,
+                mark: .none,
                 isSelected: !editor.allVisibleInstancesIncluded
                     && !editor.hasMixedVisibleInclusion
                     && !editor.isTrimmedToOriginals
@@ -432,9 +385,9 @@ struct InstanceListPanel: View {
             }
             if editor.showsTrimNonOriginalsAction {
                 Divider().padding(.vertical, StudioSpace.x0_5)
-                includeMenuRow(
+                StudioBulkSelectMenuRow(
                     title: InstanceInclusionCommands.trimNonOriginalsTitle,
-                    mark: .indeterminate,
+                    mark: .mixed,
                     isSelected: editor.isTrimmedToOriginals
                 ) {
                     editor.trimNonOriginalInstances()
@@ -442,52 +395,23 @@ struct InstanceListPanel: View {
                 }
             }
         }
-        .padding(StudioSpace.x0_5)
-        .frame(minWidth: 188)
-        .presentationBackground(StudioColors.chipSurface)
     }
 
-    private enum IncludeMenuMark {
-        case checked
-        case unchecked
-        case indeterminate
-
-        var systemImage: String {
-            switch self {
-            case .checked: "checkmark.square"
-            case .unchecked: "square"
-            case .indeterminate: "minus.square"
-            }
+    private var includePickerMark: StudioBulkSelectMark {
+        if editor.isTrimmedToOriginals || editor.hasMixedVisibleInclusion {
+            return .mixed
         }
+        if editor.allVisibleInstancesIncluded {
+            return .all
+        }
+        return .none
     }
 
-    private func includeMenuRow(
-        title: String,
-        mark: IncludeMenuMark,
-        isSelected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: StudioSpacing.tightGap) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(StudioColors.metricForeground)
-                    .opacity(isSelected ? 1 : 0)
-                    .frame(width: 12, alignment: .leading)
-                Text(title)
-                    .font(InstanceListFilterChrome.labelFont)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-                Image(systemName: mark.systemImage)
-                    .font(InstanceListFilterChrome.symbolFont)
-                    .foregroundStyle(StudioColors.metricForeground)
-            }
-            .padding(.horizontal, StudioSpace.x1_5)
-            .padding(.vertical, StudioSpacing.panelVertical)
-            .contentShape(Rectangle())
+    private var includePickerHelp: String {
+        if editor.isTrimmedToOriginals {
+            return "Export includes only styles that match the original font"
         }
-        .buttonStyle(.plain)
-        .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+        return "Include or exclude visible instances for export"
     }
 
     private func contentModeTray(iconsOnly: Bool) -> some View {

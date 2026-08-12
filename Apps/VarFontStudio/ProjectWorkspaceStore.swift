@@ -10,6 +10,7 @@ final class ProjectWorkspaceStore: ObservableObject {
     @Published var confirmCombineProjects: ProjectCombineRequest?
     @Published var confirmSplitFont: FontSplitRequest?
     @Published var confirmCloseProjectID: String?
+    @Published var confirmCloseAllRequested = false
     @Published var confirmQuitRequested = false
     @Published var missingFontsRequest: MissingFontsRequest?
     @Published var confirmSetAsMasterFontID: String?
@@ -22,6 +23,7 @@ final class ProjectWorkspaceStore: ObservableObject {
     func clearCombineProjects() { confirmCombineProjects = nil }
     func clearSplitFont() { confirmSplitFont = nil }
     func clearCloseProject() { confirmCloseProjectID = nil }
+    func clearCloseAll() { confirmCloseAllRequested = false }
     func clearQuit() { confirmQuitRequested = false }
     func clearSetAsMaster() { confirmSetAsMasterFontID = nil }
     func clearPushAxisTree() { confirmPushAxisTree = false }
