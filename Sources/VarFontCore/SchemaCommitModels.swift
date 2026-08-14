@@ -277,7 +277,7 @@ public struct CommitDiffStatRow: Codable, Equatable, Sendable, Identifiable {
     public var afterLinkedValue: Double?
     public var change: CommitDiffChangeKind
 
-    public var id: String { "\(tag):\(value)" }
+    public var id: String { "\(tag):\(AxisCoordinateFormat.format(value))" }
 
     enum CodingKeys: String, CodingKey {
         case tag, value, beforeName, afterName, beforeNameID, afterNameID, change

@@ -1058,6 +1058,11 @@ struct AxisTreePanel: View {
 
     private func gridFormulaText(_ plan: InstancePlan) -> String {
         let parts = plan.formula.parts.map(String.init).joined(separator: " × ")
+        let orthogonal = plan.formula.parts.reduce(1, *)
+        let extras = plan.formula.totalGenerated - orthogonal
+        if extras > 0 {
+            return "\(parts) + \(extras) = \(plan.formula.totalGenerated)"
+        }
         return "\(parts) = \(plan.formula.totalGenerated)"
     }
 

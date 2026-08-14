@@ -90,13 +90,13 @@ final class FvarStopSeederTests: XCTestCase {
         let context = try! XCTUnwrap(report.expansionPreview)
         let recommended = FvarStopSeeder.previewExpansion(
             context: context,
-            decisions: [held70.id: .comboOnly],
-            recommended: [held70.id: .comboOnly]
+            decisions: [held70.id: .combo],
+            recommended: [held70.id: .combo]
         )
         let promoted = FvarStopSeeder.previewExpansion(
             context: context,
-            decisions: [held70.id: .promote],
-            recommended: [held70.id: .comboOnly]
+            decisions: [held70.id: .stop],
+            recommended: [held70.id: .combo]
         )
         let recommendedCount = recommended?.inventedCombinationCount ?? 0
         let promotedCount = promoted?.inventedCombinationCount ?? 0
@@ -432,6 +432,95 @@ final class FvarStopSeederTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(report.namingSparsity?.sharedNameCollapseSize ?? 0, 2)
     }
 
+    func testCodedInstanceNamesStripPrefixAndDoNotWriteStopCode() {
+        var font = makeFont(
+            axes: [
+                AxisDefinition(
+                    tag: "wdth",
+                    displayName: "Width",
+                    min: 75,
+                    default: 100,
+                    max: 100,
+                    role: .instance,
+                    values: []
+                ),
+                weightAxis(values: []),
+            ]
+        )
+        font.axes[1].min = 400
+        font.axes[1].default = 400
+        font.axes[1].max = 700
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wdth", displayName: "Width", values: [], observed: [75, 100]),
+                analyzed(tag: "wght", displayName: "Weight", values: [], observed: [400, 700]),
+            ],
+            instances: [
+                instance("24 Condensed Regular", ["wdth": 75, "wght": 400]),
+                instance("27 Condensed Bold", ["wdth": 75, "wght": 700]),
+                instance("44 Normal Regular", ["wdth": 100, "wght": 400]),
+                instance("47 Normal Bold", ["wdth": 100, "wght": 700]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertTrue(report.needsReview)
+        XCTAssertEqual(report.codedNaming?.prefixes, ["24", "27", "44", "47"])
+        XCTAssertTrue(report.reviewReason.contains("coded instance names"))
+        XCTAssertTrue(report.heldStopCandidates.isEmpty, "Coded naming is awareness-only — still seed stops")
+
+        let wdth = try! XCTUnwrap(font.axes.first { $0.tag == "wdth" })
+        let wght = try! XCTUnwrap(font.axes.first { $0.tag == "wght" })
+        XCTAssertEqual(wdth.values.first { AxisCoordinate.valuesEqual($0.value, 75) }?.name, "Condensed")
+        XCTAssertEqual(wdth.values.first { AxisCoordinate.valuesEqual($0.value, 100) }?.name, "Normal")
+        XCTAssertEqual(wght.values.first { AxisCoordinate.valuesEqual($0.value, 400) }?.name, "Regular")
+        XCTAssertEqual(wght.values.first { AxisCoordinate.valuesEqual($0.value, 700) }?.name, "Bold")
+        XCTAssertTrue(font.axes.flatMap(\.values).allSatisfy { $0.code == nil })
+    }
+
+    func testCodedDetectionLeavesExistingSTATNamesAlone() {
+        var font = makeFont(
+            axes: [
+                AxisDefinition(
+                    tag: "wdth",
+                    displayName: "Width",
+                    min: 75,
+                    default: 100,
+                    max: 100,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "w75", value: 75, name: "24 Condensed", elidable: false),
+                        AxisValue(id: "w100", value: 100, name: "Normal", elidable: true),
+                    ]
+                ),
+                weightAxis(values: [
+                    AxisValue(id: "w400", value: 400, name: "Regular", elidable: true),
+                    AxisValue(id: "w700", value: 700, name: "Bold", elidable: false),
+                ]),
+            ]
+        )
+        font.axes[1].min = 400
+        font.axes[1].default = 400
+        font.axes[1].max = 700
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wdth", displayName: "Width", values: [75, 100], observed: [75, 100]),
+                analyzed(tag: "wght", displayName: "Weight", values: [400, 700], observed: [400, 700]),
+            ],
+            instances: [
+                instance("24 Condensed Regular", ["wdth": 75, "wght": 400]),
+                instance("27 Condensed Bold", ["wdth": 75, "wght": 700]),
+                instance("44 Normal Regular", ["wdth": 100, "wght": 400]),
+                instance("47 Normal Bold", ["wdth": 100, "wght": 700]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertNotNil(report.codedNaming)
+        let wdth = try! XCTUnwrap(font.axes.first { $0.tag == "wdth" })
+        XCTAssertEqual(wdth.values.first { AxisCoordinate.valuesEqual($0.value, 75) }?.name, "24 Condensed")
+    }
+
     func testApplyReviewDecisionsPromotesHeldComboOnlyStop() {
         var font = makeFont(
             axes: [
@@ -478,7 +567,7 @@ final class FvarStopSeederTests: XCTestCase {
 
         let remaining = FvarStopSeeder.apply(
             reviewDecisions: .init(
-                stopDecisions: [held70.id: .comboOnly],
+                stopDispositions: [held70.id: .combo],
                 acceptedCompoundIDs: [suggestion.id]
             ),
             report: report,
@@ -538,7 +627,7 @@ final class FvarStopSeederTests: XCTestCase {
 
         _ = FvarStopSeeder.apply(
             reviewDecisions: .init(
-                stopDecisions: [held70.id: .promote],
+                stopDispositions: [held70.id: .stop],
                 promotedStopNames: [held70.id: "DeepCorners"]
             ),
             report: report,
@@ -549,6 +638,251 @@ final class FvarStopSeederTests: XCTestCase {
             AxisCoordinate.valuesEqual($0.value, 70)
         }
         XCTAssertEqual(stop?.name, "DeepCorners")
+    }
+
+    func testShearedWeightLadderPromotesExtremesAndHoldsEntangledLightEnd() {
+        // Interchange-Variable.ttf's real coordinates: 10 named weights × 4 optical sizes, wght
+        // opsz-compensated (same name, different coordinate per opsz), opsz itself clean.
+        let roles = ["Micro", "", "Title", "Poster"]
+        let opszByRole: [String: Double] = ["Micro": 1.0, "": 19.73, "Title": 54.51, "Poster": 100.0]
+        let weightLadder: [String: [Double]] = [
+            "Extra Thin": [15.01, 10.36, 5.66, 1.00],
+            "Thin": [20.26, 15.24, 10.18, 5.16],
+            "Extra Light": [28.08, 23.02, 17.91, 12.80],
+            "Light": [37.55, 32.73, 27.99, 23.24],
+            "Regular": [48.12, 44.02, 39.91, 35.80],
+            "Medium": [59.25, 55.92, 52.55, 49.18],
+            "Bold": [69.95, 67.65, 65.38, 63.08],
+            "Extra Bold": [80.80, 79.37, 77.94, 76.51],
+            "Black": [90.45, 89.94, 89.43, 88.92],
+            "Extra Black": [100.00, 100.00, 100.00, 100.00],
+        ]
+
+        var instances: [FontAnalysis.ExistingInstance] = []
+        var allWght: Set<Double> = []
+        for (weightName, values) in weightLadder {
+            for (index, role) in roles.enumerated() {
+                let wght = values[index]
+                allWght.insert(wght)
+                let name = role.isEmpty ? weightName : "\(role) \(weightName)"
+                instances.append(instance(name, ["wght": wght, "opsz": opszByRole[role]!]))
+            }
+        }
+
+        var font = makeFont(
+            axes: [
+                AxisDefinition(tag: "wght", displayName: "Weight", min: 1, default: 34, max: 100, role: .instance, values: []),
+                AxisDefinition(tag: "opsz", displayName: "Optical Size", min: 1, default: 1, max: 100, role: .instance, values: []),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [], observed: Array(allWght)),
+                analyzed(tag: "opsz", displayName: "Optical Size", values: [], observed: [1.0, 19.73, 54.51, 100.0]),
+            ],
+            instances: instances
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertTrue(report.needsReview)
+
+        func candidate(_ tag: String, _ value: Double) -> FvarStopSeeder.StopCandidate? {
+            report.heldStopCandidates.first { $0.axisTag == tag && AxisCoordinate.valuesEqual($0.value, value) }
+        }
+
+        // opsz: clean, no entanglement — every coordinate is named from the font. The
+        // axis-default slice (Micro, opsz=1.0) is safe enough to auto-apply immediately;
+        // the rest are held for review but still recommended as stops.
+        let opszAxis = try! XCTUnwrap(font.axes.first { $0.tag == "opsz" })
+        XCTAssertEqual(opszAxis.values.first { AxisCoordinate.valuesEqual($0.value, 1.0) }?.name, "Micro")
+        XCTAssertEqual(candidate("opsz", 54.51)?.proposedName, "Title")
+        XCTAssertEqual(candidate("opsz", 100.0)?.proposedName, "Poster")
+        for value in [19.73, 54.51, 100.0] {
+            XCTAssertEqual(candidate("opsz", value)?.recommendedDisposition, .stop, "opsz=\(value)")
+        }
+
+        // Clean weights (heavies + gray band): exactly one Stop coordinate per name, rest Neither.
+        for name in ["Extra Black", "Black", "Extra Bold", "Bold", "Medium", "Regular"] {
+            let members = report.heldStopCandidates.filter { $0.axisTag == "wght" && $0.clusterName == name }
+            XCTAssertFalse(members.isEmpty, name)
+            XCTAssertEqual(
+                members.filter { $0.recommendedDisposition.asStop }.count, 1,
+                "\(name) should promote exactly one canonical coordinate"
+            )
+            XCTAssertTrue(
+                members.filter { !$0.recommendedDisposition.asStop }.allSatisfy { $0.recommendedDisposition.isNeither },
+                "\(name) non-canonical members should be Neither, not Combo"
+            )
+        }
+
+        // Light end: overlapping ranges — Combo only (Format 4 with wght as a leg).
+        for name in ["Extra Thin", "Thin", "Extra Light", "Light"] {
+            let members = report.heldStopCandidates.filter { $0.axisTag == "wght" && $0.clusterName == name }
+            XCTAssertEqual(members.count, 4, name)
+            XCTAssertTrue(members.allSatisfy { $0.recommendedDisposition == .combo }, name)
+        }
+
+        // Combo styles for each light-end instance (4 opsz × 4 weights), named from fvar.
+        let lightNames = ["Extra Thin", "Thin", "Extra Light", "Light"]
+        for weight in lightNames {
+            let combos = report.compoundSuggestions.filter {
+                $0.legLabels["wght"]?.caseInsensitiveCompare(weight) == .orderedSame
+            }
+            XCTAssertEqual(combos.count, 4, "\(weight) combos: \(combos.map(\.name))")
+        }
+        XCTAssertTrue(report.compoundSuggestions.contains {
+            $0.name == "Poster Extra Thin"
+                && AxisCoordinate.valuesEqual($0.coords["wght"] ?? -1, 1.00)
+                && AxisCoordinate.valuesEqual($0.coords["opsz"] ?? -1, 100.0)
+        })
+    }
+
+    func testCharacterSetAddOnsDoNotDropLightCombos() {
+        let roles = ["Micro", "", "Title", "Poster"]
+        let opszByRole: [String: Double] = ["Micro": 1.0, "": 19.73, "Title": 54.51, "Poster": 100.0]
+        let weightLadder: [String: [Double]] = [
+            "Extra Thin": [15.01, 10.36, 5.66, 1.00],
+            "Thin": [20.26, 15.24, 10.18, 5.16],
+            "Extra Light": [28.08, 23.02, 17.91, 12.80],
+            "Light": [37.55, 32.73, 27.99, 23.24],
+            "Regular": [48.12, 44.02, 39.91, 35.80],
+            "Medium": [59.25, 55.92, 52.55, 49.18],
+            "Bold": [69.95, 67.65, 65.38, 63.08],
+            "Extra Bold": [80.80, 79.37, 77.94, 76.51],
+            "Black": [90.45, 89.94, 89.43, 88.92],
+            "Extra Black": [100.00, 100.00, 100.00, 100.00],
+        ]
+        var instances: [FontAnalysis.ExistingInstance] = []
+        var allWght: Set<Double> = []
+        for (weightName, values) in weightLadder {
+            for (index, role) in roles.enumerated() {
+                let wght = values[index]
+                allWght.insert(wght)
+                let name = role.isEmpty ? weightName : "\(role) \(weightName)"
+                instances.append(instance(name, ["wght": wght, "opsz": opszByRole[role]!]))
+            }
+        }
+        instances.append(instance("Character Set Regular", ["wght": 44.02, "opsz": 19.73]))
+        instances.append(instance("Poster Character Set Regular", ["wght": 35.8, "opsz": 100.0]))
+
+        var font = makeFont(axes: [
+            AxisDefinition(tag: "wght", displayName: "Weight", min: 1, default: 34, max: 100, role: .instance, values: []),
+            AxisDefinition(tag: "opsz", displayName: "Optical Size", min: 1, default: 1, max: 100, role: .instance, values: []),
+        ])
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [], observed: Array(allWght)),
+                analyzed(tag: "opsz", displayName: "Optical Size", values: [], observed: [1.0, 19.73, 54.51, 100.0]),
+            ],
+            instances: instances
+        )
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        for weight in ["Extra Thin", "Thin", "Extra Light", "Light"] {
+            let combos = report.compoundSuggestions.filter {
+                $0.legLabels["wght"]?.caseInsensitiveCompare(weight) == .orderedSame
+            }
+            XCTAssertEqual(combos.count, 4, "\(weight): \(combos.map(\.name))")
+        }
+    }
+
+    /// Interchange ships a broken STAT: wght Format 1 stops in the wrong coordinate space
+    /// (names like Poster/Title, values up to 220) and opsz stops that don't match fvar.
+    /// Seed must drop those so Import Review choices actually control the instance grid.
+    func testWrongSpaceSTATIsPrunedSoReviewChoicesControlTheGrid() {
+        let roles = ["Micro", "", "Title", "Poster"]
+        let opszByRole: [String: Double] = ["Micro": 1.0, "": 19.73, "Title": 54.51, "Poster": 100.0]
+        let weightLadder: [String: [Double]] = [
+            "Extra Thin": [15.01, 10.36, 5.66, 1.00],
+            "Thin": [20.26, 15.24, 10.18, 5.16],
+            "Extra Light": [28.08, 23.02, 17.91, 12.80],
+            "Light": [37.55, 32.73, 27.99, 23.24],
+            "Regular": [48.12, 44.02, 39.91, 35.80],
+            "Medium": [59.25, 55.92, 52.55, 49.18],
+            "Bold": [69.95, 67.65, 65.38, 63.08],
+            "Extra Bold": [80.80, 79.37, 77.94, 76.51],
+            "Black": [90.45, 89.94, 89.43, 88.92],
+            "Extra Black": [100.00, 100.00, 100.00, 100.00],
+        ]
+        var instances: [FontAnalysis.ExistingInstance] = []
+        var allWght: Set<Double> = []
+        for (weightName, values) in weightLadder {
+            for (index, role) in roles.enumerated() {
+                let wght = values[index]
+                allWght.insert(wght)
+                let name = role.isEmpty ? weightName : "\(role) \(weightName)"
+                instances.append(instance(name, ["wght": wght, "opsz": opszByRole[role]!]))
+            }
+        }
+
+        // Real Interchange STAT fragments: foreign wght ladder + opsz at non-fvar coords.
+        let bogusWghtSTAT: [(Double, String)] = [
+            (4, "Poster"), (13.2, "Poster"), (35, "Micro"), (89.8, "Regular"),
+            (149.9, "Bold"), (220, "Black"),
+        ]
+        let bogusOpszSTAT: [(Double, String)] = [
+            (6, "Micro"), (20, "Extra"), (46, "Title"), (80, "Poster"),
+        ]
+
+        var font = makeFont(axes: [
+            AxisDefinition(
+                tag: "wght", displayName: "Weight", min: 1, default: 34, max: 100, role: .instance,
+                values: bogusWghtSTAT.map { AxisValue(id: "w-\($0.0)", value: $0.0, name: $0.1, elidable: false) }
+            ),
+            AxisDefinition(
+                tag: "opsz", displayName: "Optical Size", min: 1, default: 1, max: 100, role: .instance,
+                values: bogusOpszSTAT.map { AxisValue(id: "o-\($0.0)", value: $0.0, name: $0.1, elidable: false) }
+            ),
+        ])
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: bogusWghtSTAT.map(\.0), observed: Array(allWght)),
+                analyzed(tag: "opsz", displayName: "Optical Size", values: bogusOpszSTAT.map(\.0), observed: [1.0, 19.73, 54.51, 100.0]),
+            ],
+            instances: instances
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertTrue(report.needsReview)
+
+        // Foreign STAT gone — none of those coordinates survive on the axes.
+        let wght = try! XCTUnwrap(font.axes.first { $0.tag == "wght" })
+        let opsz = try! XCTUnwrap(font.axes.first { $0.tag == "opsz" })
+        for (value, _) in bogusWghtSTAT {
+            XCTAssertNil(wght.values.first { AxisCoordinate.valuesEqual($0.value, value) }, "wght \(value)")
+        }
+        for (value, _) in bogusOpszSTAT {
+            XCTAssertNil(opsz.values.first { AxisCoordinate.valuesEqual($0.value, value) }, "opsz \(value)")
+        }
+
+        // Accept recommendations → clean ladder, not 40×STAT pollution.
+        let decisions = FvarStopSeeder.ReviewDecisions(
+            stopDispositions: Dictionary(uniqueKeysWithValues: report.heldStopCandidates.map {
+                ($0.id, $0.recommendedDisposition)
+            }),
+            acceptedCompoundIDs: Set(report.compoundSuggestions.map { $0.id })
+        )
+        _ = FvarStopSeeder.apply(reviewDecisions: decisions, report: report, to: &font)
+
+        let wghtAfter = try! XCTUnwrap(font.axes.first { $0.tag == "wght" })
+        let opszAfter = try! XCTUnwrap(font.axes.first { $0.tag == "opsz" })
+        // One stop per promoted weight name; light end stays off Format 1.
+        XCTAssertEqual(wghtAfter.values.count, 6, wghtAfter.values.map { "\($0.name)=\($0.value)" }.joined(separator: ", "))
+        XCTAssertEqual(Set(wghtAfter.values.map { $0.name }), Set(["Regular", "Medium", "Bold", "Extra Bold", "Black", "Extra Black"]))
+        XCTAssertEqual(opszAfter.values.count, 4, opszAfter.values.map { "\($0.name)=\($0.value)" }.joined(separator: ", "))
+
+        let projected = FvarStopSeeder.projectedStyleCount(
+            font: font,
+            heldCandidates: [],
+            decisions: [:],
+            acceptedCompoundCoords: font.compoundStatValues.map(\.coords)
+        )
+        XCTAssertEqual(projected, 40, "6×4 orthogonal + 16 Format 4")
+        XCTAssertEqual(font.compoundStatValues.count, 16)
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["opsz", "wght"], elidedFallback: "Regular")
+        )
+        XCTAssertEqual(plan.formula.totalGenerated, 40)
     }
 
     // MARK: - Fixtures

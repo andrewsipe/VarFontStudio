@@ -36,6 +36,63 @@ extension EditorViewModel {
         instancer.presentInstancerWindow(projectID: targetProjectID, fontID: targetFontID)
     }
 
+    var activeInstancerWindowKey: String? {
+        guard let id = activeProjectID else { return nil }
+        return InstancerStore.projectWindowKey(projectID: id)
+    }
+
+    var isActiveInstancerWindowOpen: Bool {
+        guard let key = activeInstancerWindowKey else { return false }
+        return instancer.isInstancerWindowOpen(windowKey: key)
+    }
+
+    func closeActiveInstancerWindow() {
+        guard let key = activeInstancerWindowKey else { return }
+        instancer.closeInstancerWindow(windowKey: key)
+    }
+
+    func canGenerateFocusedInstancerFile(windowKey: String?) -> Bool {
+        guard let windowKey,
+              let session = instancer.selectedSession(forWindowKey: windowKey) else { return false }
+        return session.canGenerate && !session.isGenerating && !instancer.isGenerateBusy
+    }
+
+    func canGenerateAllFocusedInstancer(windowKey: String?) -> Bool {
+        guard let windowKey,
+              let workspace = instancer.workspace(forKey: windowKey) else { return false }
+        return workspace.tabKeys.contains { key in
+            instancer.session(forKey: key)?.canGenerate == true
+        } && !instancer.isGenerateBusy
+    }
+
+    func generateFocusedInstancerFile(windowKey: String?) {
+        guard let windowKey,
+              let session = instancer.selectedSession(forWindowKey: windowKey) else { return }
+        Task { @MainActor in
+            _ = await instancer.presentGenerate(session: session)
+        }
+    }
+
+    func generateAllFocusedInstancer(windowKey: String?) {
+        guard let windowKey else { return }
+        Task { @MainActor in
+            _ = await instancer.presentGenerateAll(windowKey: windowKey)
+        }
+    }
+
+    func canAddFocusedInstancerInstance(windowKey: String?) -> Bool {
+        guard let windowKey,
+              let session = instancer.selectedSession(forWindowKey: windowKey) else { return false }
+        return session.hasSource && !session.isLoading
+    }
+
+    func beginAddFocusedInstancerInstance(windowKey: String?) {
+        guard let windowKey,
+              let session = instancer.selectedSession(forWindowKey: windowKey) else { return }
+        session.showComposer = true
+        session.resetComposer()
+    }
+
     private func instancerBlockedMessage(projectID: String?) -> String {
         if openProjects.isEmpty {
             return "Open a project with at least one font to use Instancer."

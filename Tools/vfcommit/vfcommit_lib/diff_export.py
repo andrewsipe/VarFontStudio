@@ -48,6 +48,13 @@ def build_commit_diff(
             "elided_fallback",
         )
 
+    for compound_id, nid in sorted(
+        plan.compound_value_ids.items(),
+        key=lambda item: item[1],
+    ):
+        label = plan.compound_value_names.get(compound_id, compound_id)
+        add_record(nid, label, "stat_format4")
+
     for composed, nid in sorted(plan.instance_ids.items(), key=lambda item: item[1]):
         add_record(nid, composed, "instance_subfamily")
         ps_name = plan.instance_postscript_names.get(composed)

@@ -57,15 +57,90 @@ final class FvarStopSeederLiveTests: XCTestCase {
         let onRecommendations = FvarStopSeeder.projectedStyleCount(
             font: font,
             heldCandidates: report.heldStopCandidates,
-            decisions: [:]
+            decisions: [:] as [String: FvarStopSeeder.StopDisposition]
         )
         XCTAssertEqual(onRecommendations, metrics.projectedAnalyticCount)
 
         let allPromoted = FvarStopSeeder.projectedStyleCount(
             font: font,
             heldCandidates: report.heldStopCandidates,
-            decisions: report.heldStopCandidates.reduce(into: [:]) { $0[$1.id] = .promote }
+            decisions: report.heldStopCandidates.reduce(into: [:]) { $0[$1.id] = .stop }
         )
         XCTAssertEqual(allPromoted, metrics.projectedIfAllPromoted)
+    }
+
+    func testInterchangeImportPrunesWrongSpaceSTATAndProjectsCleanGrid() throws {
+        let path = "/Users/skymacbook/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable.ttf"
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw XCTSkip("Interchange-Variable.ttf not present on this machine")
+        }
+        let url = URL(fileURLWithPath: path)
+        let (project, report) = try ProjectImporter.openFont(at: url)
+        var font = try XCTUnwrap(project.fonts.first)
+
+        XCTAssertTrue(report.needsReview)
+        // Broken STAT (Poster@4, Black@220, opsz@6/20/46/80, …) must not survive seed.
+        let wght = try XCTUnwrap(font.axes.first { $0.tag == "wght" })
+        let opsz = try XCTUnwrap(font.axes.first { $0.tag == "opsz" })
+        XCTAssertNil(wght.values.first { AxisCoordinate.valuesEqual($0.value, 220) })
+        XCTAssertNil(wght.values.first { AxisCoordinate.valuesEqual($0.value, 4) })
+        XCTAssertNil(opsz.values.first { AxisCoordinate.valuesEqual($0.value, 6) })
+        XCTAssertNil(opsz.values.first { AxisCoordinate.valuesEqual($0.value, 80) })
+
+        let onRecommendations = FvarStopSeeder.projectedStyleCount(
+            font: font,
+            heldCandidates: report.heldStopCandidates,
+            decisions: Dictionary(uniqueKeysWithValues: report.heldStopCandidates.map {
+                ($0.id, $0.recommendedDisposition)
+            }),
+            acceptedCompoundCoords: report.compoundSuggestions.map(\.coords)
+        )
+        // 6 promoted weights × 4 optical sizes + 16 off-grid Format 4 light styles.
+        XCTAssertEqual(onRecommendations, 40)
+
+        _ = FvarStopSeeder.apply(
+            reviewDecisions: .init(
+                stopDispositions: Dictionary(uniqueKeysWithValues: report.heldStopCandidates.map {
+                    ($0.id, $0.recommendedDisposition)
+                }),
+                acceptedCompoundIDs: Set(report.compoundSuggestions.map(\.id))
+            ),
+            report: report,
+            to: &font
+        )
+        XCTAssertEqual(font.axes.first { $0.tag == "wght" }?.values.count, 6)
+        XCTAssertEqual(font.axes.first { $0.tag == "opsz" }?.values.count, 4)
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["opsz", "wght"], elidedFallback: "Regular")
+        )
+        XCTAssertEqual(plan.formula.totalGenerated, 40)
+        XCTAssertEqual(font.compoundStatValues.count, 16)
+    }
+
+    func testPatchedInterchangeReimportKeepsFormat4WithoutComboReview() throws {
+        let path = "/Users/skymacbook/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable-patched.ttf"
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw XCTSkip("Interchange-Variable-patched.ttf not present on this machine")
+        }
+        let (project, report) = try ProjectImporter.openFont(at: URL(fileURLWithPath: path))
+        let font = try XCTUnwrap(project.fonts.first)
+
+        XCTAssertEqual(font.compoundStatValues.count, 16)
+        XCTAssertFalse(font.compoundStatValues.contains { $0.coords.keys.contains("?") })
+        XCTAssertFalse(
+            report.heldStopCandidates.contains { $0.classification == .comboOnly },
+            "STAT Format 4 already encodes combo-only lights — Import Review should not re-ask"
+        )
+        XCTAssertTrue(
+            report.compoundSuggestions.isEmpty,
+            "Existing Format 4 compounds should not be re-suggested"
+        )
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["opsz", "wght", "ital"], elidedFallback: "Regular")
+        )
+        XCTAssertFalse(plan.warnings.contains { $0.code == "compound_axis_missing" })
+        XCTAssertEqual(plan.formula.totalGenerated, 40)
     }
 }

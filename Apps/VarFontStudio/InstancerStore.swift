@@ -330,6 +330,39 @@ final class InstancerStore: ObservableObject {
         workspaces[key]
     }
 
+    /// PostScript / filename stem from project naming order (hyphen split, Format 4 legs).
+    func composedPostscriptName(for row: InstancerRow, session: InstancerSessionState) -> String? {
+        let prefix = session.psPrefix.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let host,
+              let projectID = session.projectID,
+              let fontID = session.fontID,
+              let open = host.openProject(for: projectID),
+              let font = open.document.fonts.first(where: { $0.id == fontID })
+        else {
+            return nil
+        }
+        let familyPrefix = prefix.isEmpty ? "Font" : prefix
+        let name = PostScriptNaming.composeInstanceName(
+            familyPrefix: familyPrefix,
+            coords: row.coords,
+            axes: font.axes,
+            naming: open.document.naming,
+            fileRole: font.fileRole,
+            fileStatRegistration: font.fileStatRegistration,
+            compounds: font.compoundStatValues
+        )
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    func outputFileName(for row: InstancerRow, session: InstancerSessionState) -> String? {
+        InstancerNaming.outputFileName(
+            psPrefix: session.psPrefix,
+            row: row,
+            composedPostscriptName: composedPostscriptName(for: row, session: session)
+        )
+    }
+
     func session(forKey key: String) -> InstancerSessionState? {
         sessions[key]
     }
@@ -977,12 +1010,11 @@ final class InstancerStore: ObservableObject {
                 with: "",
                 options: .regularExpression
             )
-            let postscript: String?
-            if psPrefix.isEmpty {
-                postscript = style
-            } else {
-                postscript = "\(psPrefix)-\(style)"
-            }
+            let postscript = composedPostscriptName(for: row, session: session)
+                ?? {
+                    if psPrefix.isEmpty { return style }
+                    return PostScriptNaming.composeFullName(familyPrefix: psPrefix, styleSegment: style)
+                }()
             return InstanceSpec(id: row.id, name: name, coordinates: coords, postscriptName: postscript)
         }
 

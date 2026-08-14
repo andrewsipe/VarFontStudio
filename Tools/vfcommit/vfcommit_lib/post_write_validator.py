@@ -197,18 +197,40 @@ def validate_written_font(
 
         for record in value_records:
             value_name_id = getattr(record, "ValueNameID", None)
-            if value_name_id is None:
-                continue
-            if not _resolve_name(font, value_name_id):
-                axis_index = getattr(record, "AxisIndex", "?")
+            fmt = int(getattr(record, "Format", 0) or 0)
+            if value_name_id is not None and not _resolve_name(font, value_name_id):
                 _add(
                     issues,
                     "dangling_nameid",
                     "error",
-                    f"STAT AxisValue axisIndex={axis_index}: ValueNameID {value_name_id} does not resolve",
+                    f"STAT AxisValue format={fmt}: ValueNameID {value_name_id} does not resolve",
                 )
+
+            if fmt == 4:
+                axis_value_records = list(getattr(record, "AxisValueRecord", []) or [])
+                if len(axis_value_records) < 2:
+                    name = _resolve_name(font, value_name_id) or f"nameID {value_name_id}"
+                    _add(
+                        issues,
+                        "stat_empty_format4",
+                        "error",
+                        f"STAT Format 4 {name!r} has {len(axis_value_records)} AxisValueRecord(s); expected ≥2",
+                    )
+                for avr in axis_value_records:
+                    axis_index = getattr(avr, "AxisIndex", None)
+                    if axis_index is None or not design_axes:
+                        continue
+                    if not isinstance(axis_index, int) or axis_index < 0 or axis_index >= len(design_axes):
+                        _add(
+                            issues,
+                            "stat_bad_axis_index",
+                            "error",
+                            f"STAT Format 4 AxisValueRecord references invalid AxisIndex {axis_index!r}",
+                        )
+                continue
+
             axis_index = getattr(record, "AxisIndex", None)
-            if axis_index is not None and design_axes:
+            if isinstance(axis_index, int) and design_axes:
                 if axis_index < 0 or axis_index >= len(design_axes):
                     _add(
                         issues,

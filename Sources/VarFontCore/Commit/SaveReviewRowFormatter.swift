@@ -4,10 +4,17 @@ import Foundation
 public enum SaveReviewRowFormatter {
   // MARK: - STAT
 
-  public static func statAfterValue(_ row: CommitDiffStatRow) -> String? {
+  public static func statAfterValue(
+    _ row: CommitDiffStatRow,
+    rangeMin: Double? = nil,
+    rangeMax: Double? = nil
+  ) -> String? {
     guard let name = row.afterName else { return nil }
     if row.afterStatFormat == 3, let linked = row.afterLinkedValue {
       return "\(quoted(name)) → \(AxisCoordinateFormat.format(linked))"
+    }
+    if row.afterStatFormat == 2, let rangeMin, let rangeMax {
+      return "\(quoted(name)) · \(format2RangeText(min: rangeMin, nominal: row.value, max: rangeMax))"
     }
     return quoted(name)
   }
@@ -40,9 +47,14 @@ public enum SaveReviewRowFormatter {
   public static func statFieldSubtitle(
     row: CommitDiffStatRow,
     beforeFormat: Int?,
-    namingAxis: Bool = false
+    namingAxis: Bool = false,
+    elidable: Bool = false
   ) -> String {
-    stopValueFieldSubtitle(format: row.afterStatFormat ?? beforeFormat, namingAxis: namingAxis)
+    stopValueFieldSubtitle(
+      format: row.afterStatFormat ?? beforeFormat,
+      namingAxis: namingAxis,
+      elidable: elidable
+    )
   }
 
   public static func statFormatLabel(format: Int) -> String {
@@ -52,11 +64,54 @@ public enum SaveReviewRowFormatter {
     return "Format \(format)"
   }
 
-  public static func stopValueFieldSubtitle(format: Int?, namingAxis: Bool = false) -> String {
+  public static func stopValueFieldSubtitle(
+    format: Int?,
+    namingAxis: Bool = false,
+    elidable: Bool = false
+  ) -> String {
     var parts: [String] = []
     if namingAxis { parts.append("Naming axis") }
     parts.append("Stop value")
     if let format { parts.append(statFormatLabel(format: format)) }
+    if elidable { parts.append("Elided") }
+    return parts.joined(separator: " · ")
+  }
+
+  public static func format2RangeText(min: Double, nominal: Double, max: Double) -> String {
+    [
+      AxisCoordinateFormat.format(min),
+      AxisCoordinateFormat.format(nominal),
+      AxisCoordinateFormat.format(max),
+    ].joined(separator: "–")
+  }
+
+  public static func namingOrderTokenLabel(_ token: String) -> String {
+    if NamingToken.isPostscriptHyphen(token) { return "[-]" }
+    if NamingToken.isCode(token) { return "code" }
+    return token
+  }
+
+  public static func namingOrderAfterValue(_ order: [String]) -> String {
+    order.map(namingOrderTokenLabel).joined(separator: " · ")
+  }
+
+  public static func namingOrderFieldSubtitle(_ order: [String] = []) -> String {
+    var parts = ["Instance names", "[-] is the PostScript hyphen split"]
+    if order.contains(where: NamingToken.isCode) {
+      parts.append("code joins Axis Tree stop codes")
+    }
+    return parts.joined(separator: " · ")
+  }
+
+  public static func compoundFieldSubtitle(
+    coords: [String: Double],
+    namingOrder: [String],
+    elidable: Bool
+  ) -> String {
+    var parts = [statFormatLabel(format: 4)]
+    let coordText = instanceSubtitle(coords: coords, namingOrder: namingOrder)
+    if !coordText.isEmpty { parts.append(coordText) }
+    if elidable { parts.append("Elided") }
     return parts.joined(separator: " · ")
   }
 
@@ -119,15 +174,23 @@ public enum SaveReviewRowFormatter {
 
   public static func instanceSubtitle(
     coords: [String: Double]?,
-    namingOrder: [String]
+    namingOrder: [String],
+    instanceCode: String? = nil
   ) -> String {
-    guard let coords, !coords.isEmpty else { return "" }
-    let extra = coords.keys.filter { !namingOrder.contains($0) }.sorted()
-    let tags = namingOrder.filter { coords[$0] != nil } + extra
-    return tags.compactMap { tag -> String? in
-      guard let value = coords[tag] else { return nil }
-      return "\(tag)=\(AxisCoordinateFormat.format(value))"
-    }.joined(separator: " ")
+    var parts: [String] = []
+    if let coords, !coords.isEmpty {
+      let extra = coords.keys.filter { !namingOrder.contains($0) }.sorted()
+      let tags = namingOrder.filter { coords[$0] != nil } + extra
+      let coordText = tags.compactMap { tag -> String? in
+        guard let value = coords[tag] else { return nil }
+        return "\(tag)=\(AxisCoordinateFormat.format(value))"
+      }.joined(separator: " ")
+      if !coordText.isEmpty { parts.append(coordText) }
+    }
+    if let instanceCode, !instanceCode.isEmpty {
+      parts.append("code \(instanceCode)")
+    }
+    return parts.joined(separator: " · ")
   }
 
   public static let fvarProtectedNote = "read-only — fvar axis order and scales are not written on save"
@@ -216,6 +279,8 @@ public enum SaveReviewRowFormatter {
         return "\(otFeatureTag) feature label"
       }
       return row.afterString ?? "OpenType label"
+    case "stat_format4":
+      return "Combination style"
     default:
       return "nameID \(row.id)"
     }
@@ -224,16 +289,26 @@ public enum SaveReviewRowFormatter {
   public static func nameFieldSubtitle(
     row: CommitDiffNameIDRow,
     tagValue: (tag: String, value: Double)?,
-    statFormat: Int? = nil
+    statFormat: Int? = nil,
+    elidable: Bool = false,
+    format4Coords: [String: Double]? = nil,
+    namingOrder: [String] = []
   ) -> String {
     if row.reflowedFromNameID != nil, let source = row.reflowedFromNameID {
       return "Slot moved from nameID \(source)"
     }
     if row.afterRole == "stat_axis_value" {
-      return stopValueFieldSubtitle(format: statFormat)
+      return stopValueFieldSubtitle(format: statFormat, elidable: elidable)
     }
     if row.afterRole == "axis_display_name" {
       return "Axis display name slot"
+    }
+    if row.afterRole == "stat_format4" {
+      return compoundFieldSubtitle(
+        coords: format4Coords ?? [:],
+        namingOrder: namingOrder,
+        elidable: elidable
+      )
     }
     return ""
   }

@@ -27,6 +27,10 @@ struct InstancerWindow: View {
         .navigationTitle(editor.instancer.windowTitle(forWindowKey: windowKey))
         .background(InstancerWindowConfigurator())
         .background(AuxiliaryWindowOpenBridge())
+        .focusedSceneValue(
+            \.studioFocus,
+            StudioFocus(surface: .instancer, instancerWindowKey: windowKey)
+        )
     }
 }
 
@@ -708,6 +712,10 @@ private struct InstancerWindowContent: View {
                                         axisTags: session.axisTags,
                                         columns: columns,
                                         psPrefix: session.psPrefix,
+                                        composedPostscriptName: editor.instancer.composedPostscriptName(
+                                            for: row,
+                                            session: session
+                                        ),
                                         selected: session.selectedIDs.contains(row.id),
                                         collision: session.collisions[row.id],
                                         isActivelyGenerating: session.generatingRowID == row.id,
@@ -892,6 +900,7 @@ private struct InstancerRowView: View, Equatable {
     let axisTags: [String]
     let columns: InstancerLayout.ColumnWidths
     let psPrefix: String
+    let composedPostscriptName: String?
     let selected: Bool
     let collision: InstancerCollisionKind?
     let isActivelyGenerating: Bool
@@ -917,6 +926,7 @@ private struct InstancerRowView: View, Equatable {
             && lhs.axisTags == rhs.axisTags
             && lhs.columns == rhs.columns
             && lhs.psPrefix == rhs.psPrefix
+            && lhs.composedPostscriptName == rhs.composedPostscriptName
             && lhs.selected == rhs.selected
             && lhs.collision == rhs.collision
             && lhs.isActivelyGenerating == rhs.isActivelyGenerating
@@ -953,14 +963,26 @@ private struct InstancerRowView: View, Equatable {
                 .frame(width: InstancerLayout.styleColumnWidth, alignment: .leading)
                 .padding(.leading, InstancerLayout.textColumnLeadingGap)
 
-            Text(InstancerNaming.outputFileName(psPrefix: psPrefix, row: row) ?? "—")
+            Text(
+                InstancerNaming.outputFileName(
+                    psPrefix: psPrefix,
+                    row: row,
+                    composedPostscriptName: composedPostscriptName
+                ) ?? "—"
+            )
                 .font(StudioTypography.monoMeta)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(width: columns.output, alignment: .leading)
                 .padding(.leading, InstancerLayout.textColumnLeadingGap)
-                .help(InstancerNaming.outputFileName(psPrefix: psPrefix, row: row) ?? "")
+                .help(
+                    InstancerNaming.outputFileName(
+                        psPrefix: psPrefix,
+                        row: row,
+                        composedPostscriptName: composedPostscriptName
+                    ) ?? ""
+                )
 
             flagCell
                 .frame(width: InstancerLayout.flagColumnWidth, alignment: .leading)
@@ -1114,7 +1136,9 @@ private struct InstancerRowView: View, Equatable {
     private var rowWash: Color? {
         if willFail || collision == .exact || collision == .identical { return StudioColors.errorFill }
         if collision == .collision { return StudioColors.collisionFill }
-        if row.origin == .custom { return StudioColors.customFill }
+        if row.origin == .custom {
+            return (selected || isActivelyGenerating) ? StudioColors.customFill : StudioColors.customFillSoft
+        }
         if fallback { return StudioColors.warningFillSoft }
         return nil
     }

@@ -250,6 +250,7 @@ extension EditorViewModel {
 
     func addCompoundStatValue(name: String, coords: [String: Double]) {
         guard coords.count >= 2 else { return }
+        let namingOrder = project?.naming.order ?? []
         mutateSelectedFont { font in
             var compound = CompoundStatValue(
                 id: "compound-\(UUID().uuidString.prefix(8))",
@@ -264,6 +265,11 @@ extension EditorViewModel {
                 designAxisOrder: font.axes
             )
             font.compoundStatValues.append(compound)
+            font.compoundStatValues = CompoundStatNaming.sortedByAxisOrder(
+                font.compoundStatValues,
+                axes: font.axes,
+                namingOrder: namingOrder
+            )
         }
         let canonical = coords.mapValues(AxisCoordinateFormat.canonical)
         compoundSuggestions.removeAll { suggestion in

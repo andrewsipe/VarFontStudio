@@ -234,6 +234,26 @@ final class EditorViewModel: ObservableObject {
         ensureMainWindowVisible()
     }
 
+    /// Close the key Studio / Review / Instancer window without discarding projects.
+    func closeKeyWindow(focus: StudioFocus?) {
+        switch focus?.surface {
+        case .review:
+            if let id = focus?.reviewProjectID ?? activeProjectID {
+                closeSaveReviewWindow(forProjectID: id)
+            }
+        case .instancer:
+            if let key = focus?.instancerWindowKey ?? activeInstancerWindowKey {
+                instancer.closeInstancerWindow(windowKey: key)
+            }
+        default:
+            MainWindowLifecycle.closeExistingMainWindow()
+        }
+    }
+
+    var canCloseKeyWindow: Bool {
+        NSApp.keyWindow != nil || MainWindowLifecycle.existingMainWindow() != nil
+    }
+
     var canDragProjectForCombine: Bool { openProjects.count > 1 }
 
     var isWorkspaceDragActive: Bool { workspaceDrag.isActive }

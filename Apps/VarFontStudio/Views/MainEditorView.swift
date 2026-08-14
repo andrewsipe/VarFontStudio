@@ -543,6 +543,7 @@ struct MainEditorView: View {
         }
         .navigationTitle(activeNavigationTitle)
         .background(MainWindowConfigurator(title: activeNavigationTitle))
+        .focusedSceneValue(\.studioFocus, StudioFocus(surface: .studio))
     }
 
     private var projectChrome: some View {

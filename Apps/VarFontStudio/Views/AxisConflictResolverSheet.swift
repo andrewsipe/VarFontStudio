@@ -255,10 +255,15 @@ struct AxisConflictResolverSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.sheetSectionSpacing) {
             header
-            stopsSection
-            symptomSection
-            fixSection
-            previewSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: StudioSpacing.sheetSectionSpacing) {
+                    stopsSection
+                    symptomSection
+                    fixSection
+                    previewSection
+                }
+            }
+            .frame(maxHeight: 480)
             actions
         }
         .padding(StudioSpacing.contentInset)
@@ -290,6 +295,11 @@ struct AxisConflictResolverSheet: View {
                     .padding(.horizontal, StudioSpacing.contentInset)
                     .padding(.vertical, StudioSpacing.instanceRowVertical)
                     .background(StudioColors.warningFill, in: Capsule())
+                if involvedStops.count > 1 {
+                    Text("\(involvedStops.count) stops")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -352,18 +362,21 @@ struct AxisConflictResolverSheet: View {
     }
 
     private var stopsSectionTitle: String {
+        let count = involvedStops.count
+        let base: String
         switch selectedStrategy {
         case .renameEach:
-            return "Set a name for each stop"
+            base = "Set a name for each stop"
         case .revalueEach:
-            return "Set a value for each stop"
+            base = "Set a value for each stop"
         case .keepOneStop:
-            return "Select the stop to keep"
+            base = "Select the stop to keep"
         case .removeSelected:
-            return "Select stops to remove"
+            base = "Select stops to remove"
         default:
-            return "Select the stop to change"
+            base = "Select the stop to change"
         }
+        return count > 1 ? "\(base) (\(count))" : base
     }
 
     private var stopTableHeader: some View {

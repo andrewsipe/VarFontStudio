@@ -30,4 +30,9 @@ enum MainWindowLifecycle {
         NSApp.activate(ignoringOtherApps: true)
         return true
     }
+
+    /// Hide the Studio window without discarding open projects (same as the traffic light).
+    static func closeExistingMainWindow() {
+        existingMainWindow()?.close()
+    }
 }

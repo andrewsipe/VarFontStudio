@@ -171,4 +171,50 @@ final class CommitRequestBuilderTests: XCTestCase {
         )
         XCTAssertEqual(CommitRequestBuilder.resolvedDesignAxisTags(for: font), ["wght", "ital"])
     }
+
+    func testIncludedKeysFollowPlanOrderNotWhitelistStorageOrder() {
+        var font = FontDocument(
+            id: "f1",
+            sourcePath: "/tmp/Interleave.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "opsz",
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "o1", value: 1, name: "Micro", elidable: false),
+                        AxisValue(id: "o2", value: 100, name: "Poster", elidable: false),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "wght",
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "w400", value: 400, name: "Regular", elidable: true),
+                        AxisValue(id: "w700", value: 700, name: "Bold", elidable: false),
+                    ]
+                ),
+            ]
+        )
+        font.compoundStatValues = [
+            CompoundStatValue(
+                id: "c1",
+                coords: ["opsz": 1, "wght": 100],
+                axisIndices: [],
+                axisValues: [],
+                name: "Micro Thin",
+                elidable: false
+            )
+        ]
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["opsz", "wght"], elidedFallback: "Regular")
+        )
+        let planOrder = plan.instances.filter(\.included).map(\.key)
+        // Deliberately reverse the whitelist so storage order disagrees with the plan.
+        font.includedInstanceKeys = Array(planOrder.reversed())
+
+        let keys = CommitRequestBuilder.includedInstanceKeys(font: font, plan: plan)
+        XCTAssertEqual(keys, planOrder)
+        XCTAssertNotEqual(keys, font.includedInstanceKeys)
+    }
 }

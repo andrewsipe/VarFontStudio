@@ -322,55 +322,22 @@ public enum CommitDiffBuilder {
         }
     }
 
+    /// Identity is tag + canonical coordinate. Raw `String(double)` splits 16.16
+    /// Fixed values from the file (`19.72999…`) and project Doubles (`19.73`) into
+    /// a ghost ADDED+REMOVED pair that Review then renders twice.
     private static func statKey(tag: String, stop: AxisValue) -> String {
-        statKey(
-            tag: tag,
-            value: stop.value,
-            statFormat: stop.statFormat,
-            rangeMin: stop.rangeMin,
-            rangeMax: stop.rangeMax
-        )
+        statKey(tag: tag, value: stop.value)
     }
 
     private static func statKey(tag: String, record: FontAnalysis.StatValueRecord) -> String {
-        statKey(
-            tag: tag,
-            value: record.value ?? record.nominal ?? 0,
-            statFormat: record.format,
-            rangeMin: record.rangeMin,
-            rangeMax: record.rangeMax
-        )
+        statKey(tag: tag, value: record.value ?? record.nominal ?? 0)
     }
 
     private static func statKey(tag: String, planned: CommitDiffStatValuePlanned) -> String {
-        statKey(
-            tag: tag,
-            value: planned.value,
-            statFormat: planned.statFormat,
-            rangeMin: planned.rangeMin,
-            rangeMax: planned.rangeMax
-        )
-    }
-
-    private static func statKey(
-        tag: String,
-        value: Double,
-        statFormat: Int,
-        rangeMin: Double?,
-        rangeMax: Double?
-    ) -> String {
-        let formatted = formatCoord(value)
-        if statFormat == 2, let rangeMin, let rangeMax {
-            return "\(tag):\(formatted)@\(formatCoord(rangeMin))-\(formatCoord(rangeMax))"
-        }
-        return "\(tag):\(formatted)"
-    }
-
-    private static func formatCoord(_ value: Double) -> String {
-        value.rounded() == value ? String(Int(value)) : String(value)
+        statKey(tag: tag, value: planned.value)
     }
 
     private static func statKey(tag: String, value: Double) -> String {
-        statKey(tag: tag, value: value, statFormat: 1, rangeMin: nil, rangeMax: nil)
+        "\(tag):\(AxisCoordinateFormat.format(value))"
     }
 }

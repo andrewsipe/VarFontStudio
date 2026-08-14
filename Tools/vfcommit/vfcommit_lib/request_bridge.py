@@ -73,12 +73,11 @@ def compound_stat_values_from_request(
         coords = {str(tag): float(value) for tag, value in raw_coords.items()}
         axis_indices = [int(index) for index in (item.get("axis_indices") or [])]
         axis_values = [float(value) for value in (item.get("axis_values") or [])]
-        if not axis_indices:
-            if coords:
-                tags = sorted(coords.keys())
-                axis_indices = list(range(len(tags)))
-                axis_values = [coords[tag] for tag in tags]
+        # Do not invent DesignAxisRecord indices from sorted tags — writer resolves
+        # indices from coords against the live STAT axis order on write.
         if not axis_indices and not coords:
+            continue
+        if axis_indices and axis_values and len(axis_indices) != len(axis_values):
             continue
         result.append(
             CompoundStatValueDef(

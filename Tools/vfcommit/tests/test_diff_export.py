@@ -57,6 +57,45 @@ class DiffExportTests(unittest.TestCase):
         self.assertEqual(len(diff["instances_planned"]), 1)
         self.assertTrue(any(rec["role"] == "instance_subfamily" for rec in diff["name_records_planned"]))
 
+    def test_build_commit_diff_includes_format4_compounds(self) -> None:
+        plan = NameIDPlan(
+            protected={},
+            axis_value_ids={("wght", 400.0): 280},
+            instance_ids={"Micro Light": 282},
+            axis_name_ids={"wght": 279},
+            axis_names={"wght": "Weight"},
+            elided_fallback_name="Regular",
+            elided_fallback_id=281,
+            free_start=279,
+            free_end=283,
+            compound_value_ids={"micro-light": 283},
+            compound_value_names={"micro-light": "Micro Light"},
+        )
+        axis_defs = [
+            AxisDef(
+                tag="wght",
+                display_name="Weight",
+                min_value=400,
+                default_value=400,
+                max_value=700,
+                values=[AxisValueDef(value=400, name="Regular", elidable=True)],
+            )
+        ]
+        diff = build_commit_diff(plan, axis_defs)
+        format4 = [
+            rec for rec in diff["name_records_planned"] if rec["role"] == "stat_format4"
+        ]
+        self.assertEqual(len(format4), 1)
+        self.assertEqual(format4[0]["id"], 283)
+        self.assertEqual(format4[0]["string"], "Micro Light")
+        sequenced_roles = [rec["role"] for rec in diff["name_records_sequenced"]]
+        self.assertIn("stat_format4", sequenced_roles)
+        # Compounds appear before instance subfamily in write order.
+        self.assertLess(
+            sequenced_roles.index("stat_format4"),
+            sequenced_roles.index("instance_subfamily"),
+        )
+
     def test_name_records_sequenced_preserves_build_order(self) -> None:
         plan = NameIDPlan(
             protected={},

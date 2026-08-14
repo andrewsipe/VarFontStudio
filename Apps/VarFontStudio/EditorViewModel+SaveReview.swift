@@ -56,4 +56,28 @@ extension EditorViewModel {
         saveReview.canPreviewSaveReview(forProjectID: projectID)
     }
     var canPreviewSaveReview: Bool { saveReview.canPreviewSaveReview }
+
+    var isActiveReviewWindowOpen: Bool {
+        guard let id = activeProjectID else { return false }
+        return saveReview.isSaveReviewWindowOpen(forProjectID: id)
+    }
+
+    func closeActiveReviewWindow() {
+        guard let id = activeProjectID else { return }
+        saveReview.closeSaveReviewWindow(forProjectID: id)
+    }
+
+    func refreshActiveReview(projectID: String? = nil) {
+        let targetID = projectID ?? activeProjectID
+        guard let targetID else { return }
+        let fontID = saveReview.saveReviewSelectedFontID(forProjectID: targetID)
+        refreshCommitDiffPreview(forProjectID: targetID, fontID: fontID)
+    }
+
+    func canRefreshReview(projectID: String?) -> Bool {
+        guard let projectID,
+              let fontID = saveReview.saveReviewSelectedFontID(forProjectID: projectID) else { return false }
+        return saveReview.canPreviewSaveReview(forProjectID: projectID, fontID: fontID)
+            && !saveReview.isSaveReviewLoading(forProjectID: projectID, fontID: fontID)
+    }
 }

@@ -113,6 +113,66 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(removed?.rows.first?.category, .removed)
     }
 
+    func testCombinationsSectionShowsFormat4Rows() {
+        var font = makeFont()
+        font.compoundStatValues = [
+            CompoundStatValue(
+                id: "c1",
+                coords: ["opsz": 36, "wght": 100],
+                axisIndices: [0, 1],
+                axisValues: [36, 100],
+                name: "Poster Extrathin",
+                elidable: false
+            ),
+        ]
+        let report = CommitDiffReport(
+            statRows: [],
+            instanceRows: [],
+            nameIDRows: [
+                CommitDiffNameIDRow(
+                    id: 270,
+                    beforeString: "Poster Extrathin",
+                    afterString: "Poster Extrathin",
+                    afterRole: "stat_format4",
+                    change: .unchanged
+                ),
+            ]
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: makeAnalysis(),
+            font: font,
+            plan: makePlan(),
+            report: report,
+            diff: CommitDiff(
+                nameRecordsSequenced: [
+                    .init(id: 270, string: "Poster Extrathin", role: "stat_format4"),
+                ]
+            ),
+            naming: makeNaming()
+        )
+        let combinations = presentation.tabs.first { $0.id == .name }?
+            .sections.first { $0.title == "Combinations" }
+        XCTAssertEqual(combinations?.rows.count, 1)
+        XCTAssertEqual(combinations?.rows.first?.fieldTitle, "Combination style")
+        XCTAssertEqual(
+            combinations?.rows.first?.fieldSubtitle,
+            "Format 4 combination style · wght=100 opsz=36"
+        )
+        XCTAssertEqual(combinations?.rows.first?.afterValue, "\"Poster Extrathin\"")
+        XCTAssertEqual(combinations?.rows.first?.category, .same)
+
+        let statCombinations = presentation.tabs.first { $0.id == .stat }?
+            .sections.first { $0.title == "Combinations" }
+        XCTAssertEqual(statCombinations?.rows.count, 1)
+        XCTAssertEqual(statCombinations?.rows.first?.fieldTitle, "Poster Extrathin")
+        XCTAssertEqual(statCombinations?.rows.first?.nameID, 270)
+        XCTAssertEqual(
+            statCombinations?.rows.first?.fieldSubtitle,
+            "Format 4 combination style · wght=100 opsz=36"
+        )
+        XCTAssertEqual(statCombinations?.rows.first?.roleLabel, "stat_format4")
+    }
+
     func testNameAxisDisplayRowsIncludeAxisTag() {
         let analysis = makeAnalysis()
         let font = makeFont()
@@ -251,6 +311,54 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
         XCTAssertEqual(weightSection?.rows.count, 1)
         XCTAssertEqual(weightSection?.rows.first?.fieldTitle, "wght = 400")
         XCTAssertEqual(weightSection?.rows.first?.wasLine, "was \"Not for desktop use\"")
+    }
+
+    func testFractionalStatGhostPairsCollapseToOneRow() {
+        var analysis = makeAnalysis()
+        analysis.statValues = [
+            .init(format: 1, tag: "wght", name: "Regular", elidable: false, nameID: 263, value: 35.79998779296875),
+        ]
+        let report = CommitDiffReport(
+            statRows: [
+                CommitDiffStatRow(
+                    tag: "wght",
+                    value: 35.79998779296875,
+                    beforeName: "Regular",
+                    afterName: nil,
+                    beforeNameID: 263,
+                    afterNameID: nil,
+                    change: .removed
+                ),
+                CommitDiffStatRow(
+                    tag: "wght",
+                    value: 35.8,
+                    beforeName: nil,
+                    afterName: "Regular",
+                    beforeNameID: nil,
+                    afterNameID: 263,
+                    change: .added
+                ),
+            ],
+            instanceRows: [],
+            nameIDRows: []
+        )
+        var font = makeFont()
+        font.axes[0].values = [
+            AxisValue(id: "w1", value: 35.8, name: "Regular", elidable: false),
+        ]
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: analysis,
+            font: font,
+            plan: makePlan(),
+            report: report,
+            diff: nil,
+            naming: makeNaming()
+        )
+        let weightSection = presentation.tabs.first { $0.id == .stat }?
+            .sections.first { $0.title == "Weight" || $0.title == "wght" }
+        XCTAssertEqual(weightSection?.rows.count, 1)
+        XCTAssertEqual(weightSection?.rows.first?.category, .added)
+        XCTAssertEqual(weightSection?.rows.first?.fieldTitle, "wght = 35.8")
     }
 
     func testFvarInstanceRowsIncludePostscriptName() {
@@ -400,6 +508,200 @@ final class SaveReviewPresentationBuilderTests: XCTestCase {
         XCTAssertNotNil(statRows.first { $0.fieldTitle == "wght = 100" }?.conflictHint, "Conflicting stop should be flagged")
         XCTAssertNotNil(statRows.first { $0.fieldTitle == "wght = 200" }?.conflictHint, "Conflicting stop should be flagged")
         XCTAssertNil(statRows.first { $0.fieldTitle == "wght = 350" }?.conflictHint, "Non-conflicting stop stays clean")
+    }
+
+    func testStatStopShowsFormat2RangeAndElided() {
+        var font = makeFont()
+        font.axes[0].values = [
+            AxisValue(
+                id: "v1",
+                value: 400,
+                name: "Regular",
+                elidable: true,
+                statFormat: 2,
+                rangeMin: 250,
+                rangeMax: 550,
+                code: "4"
+            ),
+        ]
+        let report = CommitDiffReport(
+            statRows: [
+                CommitDiffStatRow(
+                    tag: "wght",
+                    value: 400,
+                    beforeName: "Regular",
+                    afterName: "Regular",
+                    beforeNameID: 256,
+                    afterNameID: 256,
+                    afterStatFormat: 2,
+                    afterLinkedValue: nil,
+                    change: .unchanged
+                ),
+            ],
+            instanceRows: [],
+            nameIDRows: []
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: makeAnalysis(),
+            font: font,
+            plan: makePlan(),
+            report: report,
+            diff: CommitDiff(
+                statValuesPlanned: [
+                    .init(
+                        tag: "wght",
+                        value: 400,
+                        name: "Regular",
+                        elidable: true,
+                        statFormat: 2,
+                        nameID: 256,
+                        rangeMin: 250,
+                        rangeMax: 550
+                    ),
+                ]
+            ),
+            naming: makeNaming()
+        )
+        let row = presentation.tabs.first { $0.id == .stat }?
+            .sections.first { $0.title == "Weight" || $0.title == "wght" }?.rows.first
+        XCTAssertEqual(row?.afterValue, "\"Regular\" · 250–400–550")
+        XCTAssertEqual(row?.fieldSubtitle, "Stop value · Format 2 range · Elided")
+        XCTAssertFalse(row?.fieldSubtitle.contains("code") == true)
+    }
+
+    func testFvarTabLabelsNamingOrderAndPostScriptHyphen() {
+        var font = makeFont()
+        font.axes.insert(
+            AxisDefinition(
+                tag: "opsz",
+                displayName: "Optical Size",
+                min: 6,
+                default: 12,
+                max: 144,
+                role: .instance,
+                values: []
+            ),
+            at: 0
+        )
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: makeAnalysis(),
+            font: font,
+            plan: makePlan(),
+            report: CommitDiffReport(statRows: [], instanceRows: [], nameIDRows: []),
+            diff: nil,
+            naming: NamingPolicy(order: ["opsz", "@pshyphen", "wght", "@code"])
+        )
+        let section = presentation.tabs.first { $0.id == .fvar }?
+            .sections.first { $0.title == "Naming order" }
+        XCTAssertEqual(section?.rows.count, 1)
+        XCTAssertEqual(section?.rows.first?.afterValue, "opsz · [-] · wght · code")
+        XCTAssertEqual(
+            section?.rows.first?.fieldSubtitle,
+            "Instance names · [-] is the PostScript hyphen split · code joins Axis Tree stop codes"
+        )
+        XCTAssertEqual(section?.rows.first?.category, .same)
+    }
+
+    func testFvarInstanceSubtitleShowsComposedCodeNotStat() {
+        var font = makeFont()
+        font.axes[0].values[0].code = "4"
+        font.axes[0].values[1].code = "7"
+        let report = CommitDiffReport(
+            statRows: [
+                CommitDiffStatRow(
+                    tag: "wght",
+                    value: 400,
+                    beforeName: "Regular",
+                    afterName: "Regular",
+                    beforeNameID: 256,
+                    afterNameID: 256,
+                    afterStatFormat: 1,
+                    change: .unchanged
+                ),
+            ],
+            instanceRows: [
+                CommitDiffInstanceRow(
+                    key: "i1",
+                    beforeName: "Regular",
+                    afterName: "Regular",
+                    coords: ["wght": 400],
+                    change: .unchanged
+                ),
+            ],
+            nameIDRows: []
+        )
+        let withCode = SaveReviewPresentationBuilder.build(
+            analysis: makeAnalysis(),
+            font: font,
+            plan: makePlan(),
+            report: report,
+            diff: nil,
+            naming: NamingPolicy(order: ["@pshyphen", "wght", "@code"])
+        )
+        let instanceRow = withCode.tabs.first { $0.id == .fvar }?
+            .sections.first { $0.title == "Instances" }?.rows.first
+        XCTAssertEqual(instanceRow?.fieldSubtitle, "wght=400 · code 4")
+
+        let statRow = withCode.tabs.first { $0.id == .stat }?
+            .sections.first { $0.title == "Weight" || $0.title == "wght" }?.rows.first
+        XCTAssertEqual(statRow?.fieldSubtitle, "Stop value · Format 1 · Elided")
+        XCTAssertFalse(statRow?.fieldSubtitle.contains("code") == true)
+
+        let withoutToken = SaveReviewPresentationBuilder.build(
+            analysis: makeAnalysis(),
+            font: font,
+            plan: makePlan(),
+            report: report,
+            diff: nil,
+            naming: makeNaming()
+        )
+        let plainInstance = withoutToken.tabs.first { $0.id == .fvar }?
+            .sections.first { $0.title == "Instances" }?.rows.first
+        XCTAssertEqual(plainInstance?.fieldSubtitle, "wght=400")
+    }
+
+    func testTabAddedRemovedCountsMatchFilterCategories() {
+        let presentation = SaveReviewPresentationBuilder.build(
+            analysis: makeAnalysis(),
+            font: makeFont(),
+            plan: makePlan(),
+            report: CommitDiffReport(
+                statRows: [
+                    CommitDiffStatRow(
+                        tag: "wght",
+                        value: 700,
+                        beforeName: nil,
+                        afterName: "Bold",
+                        beforeNameID: nil,
+                        afterNameID: 281,
+                        afterStatFormat: 1,
+                        change: .added
+                    ),
+                    CommitDiffStatRow(
+                        tag: "wght",
+                        value: 300,
+                        beforeName: "Light",
+                        afterName: nil,
+                        beforeNameID: 280,
+                        afterNameID: nil,
+                        afterStatFormat: 1,
+                        change: .removed
+                    ),
+                ],
+                instanceRows: [],
+                nameIDRows: [
+                    CommitDiffNameIDRow(id: 290, beforeString: "Stale", afterString: nil, change: .removed),
+                ]
+            ),
+            diff: nil,
+            naming: makeNaming()
+        )
+        let stat = presentation.tabs.first { $0.id == .stat }
+        XCTAssertEqual(stat?.addedRowCount, 1)
+        XCTAssertEqual(stat?.removedRowCount, 1)
+        let names = presentation.tabs.first { $0.id == .name }
+        XCTAssertEqual(names?.removedRowCount, 1)
+        XCTAssertEqual(names?.addedRowCount, 0)
     }
 
     // MARK: - Fixtures

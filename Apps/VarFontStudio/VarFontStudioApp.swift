@@ -6,6 +6,7 @@ struct VarFontStudioApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var editor = EditorViewModel()
     @StateObject private var layout = EditorLayoutPreferences()
+    @FocusedValue(\.studioFocus) private var studioFocus
 
     init() {
         NSWindow.allowsAutomaticWindowTabbing = false
@@ -32,6 +33,14 @@ struct VarFontStudioApp: App {
         .defaultSize(width: 1280, height: 820)
         .commands {
             mainWindowCommands
+        }
+        .commands {
+            CommandGroup(after: .windowArrangement) {
+                Button("Close Window") {
+                    editor.closeKeyWindow(focus: studioFocus)
+                }
+                .disabled(!editor.canCloseKeyWindow)
+            }
         }
 
         Settings {
@@ -141,20 +150,7 @@ struct VarFontStudioApp: App {
 
                 Divider()
 
-                Button("Open Review…") {
-                    editor.presentSaveReviewWindow()
-                }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-                .disabled(!editor.canPreviewSaveReview)
-
-                Button("Instance Static Fonts…") {
-                    editor.presentInstancerWindow()
-                }
-                .disabled(!editor.canPresentInstancer)
-
-                Divider()
-
-                Button("Close") {
+                Button("Close Project") {
                     editor.requestCloseActiveProject()
                 }
                 .keyboardShortcut("w", modifiers: .command)
@@ -210,24 +206,23 @@ struct VarFontStudioApp: App {
 
                 Divider()
 
-                Button("Toggle Review Window") {
-                    editor.toggleSaveReviewWindow()
-                }
+                Toggle("Review", isOn: Binding(
+                    get: { editor.isActiveReviewWindowOpen },
+                    set: { _ in editor.toggleSaveReviewWindow() }
+                ))
                 .keyboardShortcut("4", modifiers: [.command, .control])
-                .disabled(!editor.canPreviewSaveReview)
+                .disabled(!editor.canPreviewSaveReview && !editor.isActiveReviewWindowOpen)
 
-                Button("Toggle Instancer Window") {
-                    editor.toggleInstancerWindow()
-                }
+                Toggle("Instancer", isOn: Binding(
+                    get: { editor.isActiveInstancerWindowOpen },
+                    set: { _ in editor.toggleInstancerWindow() }
+                ))
                 .keyboardShortcut("5", modifiers: [.command, .control])
-                .disabled(!editor.canPresentInstancer)
+                .disabled(!editor.canPresentInstancer && !editor.isActiveInstancerWindowOpen)
             }
 
             CommandGroup(after: .windowList) {
-                if editor.openProjects.isEmpty {
-                    Button("No Open Projects") {}
-                        .disabled(true)
-                } else {
+                Menu("Projects") {
                     ForEach(editor.openProjects) { project in
                         Button {
                             editor.focusProjectInMainWindow(projectID: project.id)
@@ -240,6 +235,7 @@ struct VarFontStudioApp: App {
                         }
                     }
                 }
+                .disabled(!editor.hasOpenProjects)
             }
 
             CommandMenu("Instances") {
@@ -287,6 +283,67 @@ struct VarFontStudioApp: App {
                 )
                 .disabled(editor.project == nil)
             }
+
+            CommandMenu("Review") {
+                Button("Show Review") {
+                    editor.presentSaveReviewWindow()
+                }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(!editor.canPreviewSaveReview)
+
+                Button("Close Review") {
+                    editor.closeActiveReviewWindow()
+                }
+                .disabled(!editor.isActiveReviewWindowOpen)
+
+                Divider()
+
+                Button("Refresh") {
+                    editor.refreshActiveReview(projectID: studioFocus?.reviewProjectID ?? editor.activeProjectID)
+                }
+                .disabled(!editor.canRefreshReview(projectID: studioFocus?.reviewProjectID ?? editor.activeProjectID))
+            }
+
+            CommandMenu("Instancer") {
+                Button("Show Instancer") {
+                    editor.presentInstancerWindow()
+                }
+                .disabled(!editor.canPresentInstancer)
+
+                Button("Close Instancer") {
+                    editor.closeActiveInstancerWindow()
+                }
+                .disabled(!editor.isActiveInstancerWindowOpen)
+
+                Divider()
+
+                Button("Generate This File…") {
+                    editor.generateFocusedInstancerFile(
+                        windowKey: studioFocus?.instancerWindowKey ?? editor.activeInstancerWindowKey
+                    )
+                }
+                .disabled(!editor.canGenerateFocusedInstancerFile(
+                    windowKey: studioFocus?.instancerWindowKey ?? editor.activeInstancerWindowKey
+                ))
+
+                Button("Generate All…") {
+                    editor.generateAllFocusedInstancer(
+                        windowKey: studioFocus?.instancerWindowKey ?? editor.activeInstancerWindowKey
+                    )
+                }
+                .disabled(!editor.canGenerateAllFocusedInstancer(
+                    windowKey: studioFocus?.instancerWindowKey ?? editor.activeInstancerWindowKey
+                ))
+
+                Button("Add Instance…") {
+                    editor.beginAddFocusedInstancerInstance(
+                        windowKey: studioFocus?.instancerWindowKey ?? editor.activeInstancerWindowKey
+                    )
+                }
+                .disabled(!editor.canAddFocusedInstancerInstance(
+                    windowKey: studioFocus?.instancerWindowKey ?? editor.activeInstancerWindowKey
+                ))
+            }
     }
 }
 
@@ -313,20 +370,28 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         Self.stripSystemFileCloseItems()
+        Self.stripAppleHelpFeedbackItems()
         menuTrackingObserver = NotificationCenter.default.addObserver(
             forName: NSMenu.didBeginTrackingNotification,
             object: nil,
             queue: .main
         ) { note in
-            guard let menu = note.object as? NSMenu,
-                  menu.items.contains(where: {
-                      $0.title == "Save All Projects" || $0.title == "Open Font…" || $0.title == "Open Font..."
-                  }) else { return }
-            Self.stripSystemFileCloseItems()
+            guard let menu = note.object as? NSMenu else { return }
+            let titles = menu.items.map(\.title)
+            if titles.contains(where: {
+                $0 == "Save All Projects" || $0 == "Open Font…" || $0 == "Open Font..."
+            }) {
+                Self.stripSystemFileCloseItems()
+            }
+            if titles.contains(where: {
+                $0.contains("Shortcuts") || $0.localizedCaseInsensitiveContains("Feedback")
+            }) {
+                Self.stripAppleHelpFeedbackItems(from: menu)
+            }
         }
     }
 
-    /// Removes AppKit's File → Close / Close All Windows so only project Close / Close All remain.
+    /// Removes AppKit's File → Close / Close All Windows so only Close Project / Close All remain.
     private static func stripSystemFileCloseItems() {
         guard let fileMenu = NSApp.mainMenu?.items.first(where: { item in
             item.submenu?.items.contains(where: {
@@ -360,15 +425,47 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             fileMenu.removeItem(at: index)
         }
 
-        // Drop a trailing divider left behind after removing system Close.
-        while let last = fileMenu.items.last, last.isSeparatorItem {
-            fileMenu.removeItem(last)
+        collapseExtraSeparators(in: fileMenu)
+    }
+
+    /// Removes the leftover Apple “Send … Feedback” item from Help.
+    private static func stripAppleHelpFeedbackItems(from menu: NSMenu? = nil) {
+        let helpMenu = menu ?? NSApp.mainMenu?.items.first(where: { item in
+            item.submenu?.items.contains(where: {
+                $0.title.contains("Shortcuts") || $0.title.localizedCaseInsensitiveContains("Feedback")
+            }) == true
+        })?.submenu
+        guard let helpMenu else { return }
+
+        var removeIndexes: [Int] = []
+        for (index, item) in helpMenu.items.enumerated() {
+            let actionName = item.action.map { NSStringFromSelector($0) } ?? ""
+            let isFeedbackTitle = item.title.localizedCaseInsensitiveContains("Feedback to Apple")
+                || (
+                    item.title.localizedCaseInsensitiveContains("Feedback")
+                    && item.title.localizedCaseInsensitiveContains("Apple")
+                )
+            let isFeedbackAction = actionName == "sendFeedback:"
+            if isFeedbackTitle || isFeedbackAction {
+                removeIndexes.append(index)
+            }
         }
-        // Collapse double separators.
-        var i = fileMenu.items.count - 1
+
+        for index in removeIndexes.reversed() {
+            helpMenu.removeItem(at: index)
+        }
+
+        collapseExtraSeparators(in: helpMenu)
+    }
+
+    private static func collapseExtraSeparators(in menu: NSMenu) {
+        while let last = menu.items.last, last.isSeparatorItem {
+            menu.removeItem(last)
+        }
+        var i = menu.items.count - 1
         while i > 0 {
-            if fileMenu.items[i].isSeparatorItem, fileMenu.items[i - 1].isSeparatorItem {
-                fileMenu.removeItem(at: i)
+            if menu.items[i].isSeparatorItem, menu.items[i - 1].isSeparatorItem {
+                menu.removeItem(at: i)
             }
             i -= 1
         }

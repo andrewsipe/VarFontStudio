@@ -155,11 +155,20 @@ public enum InstancerNaming {
         resolvedName(for: row)?.replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
     }
 
-    public static func outputFileName(psPrefix: String, row: InstancerRow, ext: String = "ttf") -> String? {
+    public static func outputFileName(
+        psPrefix: String,
+        row: InstancerRow,
+        composedPostscriptName: String? = nil,
+        ext: String = "ttf"
+    ) -> String? {
+        if let composed = composedPostscriptName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !composed.isEmpty {
+            return "\(composed).\(ext)"
+        }
         guard let style = outputStyleToken(for: row) else { return nil }
         let prefix = psPrefix.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prefix.isEmpty else { return "\(style).\(ext)" }
-        return "\(prefix)-\(style).\(ext)"
+        return "\(PostScriptNaming.composeFullName(familyPrefix: prefix, styleSegment: style)).\(ext)"
     }
 
     /// Fully specified coordinate fingerprint across `axisTags` (defaults fill missing keys).

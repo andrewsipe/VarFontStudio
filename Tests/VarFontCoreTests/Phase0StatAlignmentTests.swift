@@ -52,7 +52,7 @@ final class ElidedFallbackResolverTests: XCTestCase {
 }
 
 final class StatParserFormat4Tests: XCTestCase {
-    func testParsesFormat4CompoundEntry() {
+    func testParsesFormat4CompoundEntry() throws {
         var data = Data()
         func appendUInt16(_ v: UInt16) {
             data.append(UInt8((v >> 8) & 0xFF))
@@ -68,37 +68,71 @@ final class StatParserFormat4Tests: XCTestCase {
             let fixed = Int32(value * 65536.0)
             appendUInt32(UInt32(bitPattern: fixed))
         }
+        func appendTag(_ tag: String) {
+            data.append(contentsOf: Array(tag.utf8.prefix(4)))
+        }
 
+        // STAT 1.2 header — two design axes, one Format 4 value.
         appendUInt32(0x0001_0002)
-        appendUInt16(8)
-        appendUInt16(1)
-        appendUInt32(22)
-        appendUInt16(1)
-        appendUInt32(30)
-        appendUInt16(0)
+        appendUInt16(8) // designAxisSize
+        appendUInt16(2) // designAxisCount
+        appendUInt32(20) // designAxesOffset
+        appendUInt16(1) // axisValueCount
+        appendUInt32(36) // axisValueOffsets
+        appendUInt16(2) // elidedFallbackNameID
 
-        appendUInt16(0)
-
-        data.append(contentsOf: [0x77, 0x67, 0x68, 0x74])
+        // Design axes at 20
+        appendTag("opsz")
         appendUInt16(256)
         appendUInt16(0)
+        appendTag("wght")
+        appendUInt16(257)
+        appendUInt16(1)
 
+        // AxisValue offset array at 36 — first record 2 bytes later
         appendUInt16(2)
 
-        appendUInt16(4)
-        appendUInt16(1)
-        appendUInt16(0)
-        appendUInt16(0)
-        appendUInt16(300)
-        appendFixed(700)
+        // Format 4 at 38: flags/nameID before interleaved AxisValueRecords
+        appendUInt16(4) // format
+        appendUInt16(2) // axisCount
+        appendUInt16(0) // flags
+        appendUInt16(300) // valueNameID
+        appendUInt16(0) // opsz index
+        appendFixed(100)
+        appendUInt16(1) // wght index
+        appendFixed(1)
 
         guard let parsed = StatParser.parse(data) else {
             XCTFail("parse returned nil")
             return
         }
+        XCTAssertEqual(parsed.designAxes.map(\.tag), ["opsz", "wght"])
         XCTAssertEqual(parsed.values.count, 0)
         XCTAssertEqual(parsed.compoundValues.count, 1)
-        XCTAssertEqual(parsed.compoundValues.first?.axisIndices, [0])
-        XCTAssertEqual(parsed.compoundValues.first?.axisValues.first ?? 0, 700, accuracy: 0.001)
+        let compound = try XCTUnwrap(parsed.compoundValues.first)
+        XCTAssertEqual(compound.nameID, 300)
+        XCTAssertEqual(compound.axisIndices, [0, 1])
+        XCTAssertEqual(compound.axisValues[0], 100, accuracy: 0.001)
+        XCTAssertEqual(compound.axisValues[1], 1, accuracy: 0.001)
+    }
+
+    func testParsesFormat4FromLivePatchedInterchange() throws {
+        let path = "/Users/skymacbook/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable-patched.ttf"
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw XCTSkip("patched Interchange not on disk")
+        }
+        let analysis = try FontAnalysisReader.analyze(url: URL(fileURLWithPath: path))
+        XCTAssertEqual(analysis.compoundStatValues.count, 16)
+        XCTAssertFalse(analysis.compoundStatValues.contains { $0.coords.keys.contains("?") })
+        XCTAssertTrue(analysis.compoundStatValues.contains { compound in
+            compound.coords["opsz"] != nil && compound.coords["wght"] != nil
+        })
+        let posterExtrathin = analysis.compoundStatValues.first {
+            $0.name.localizedCaseInsensitiveContains("Poster")
+                && $0.name.localizedCaseInsensitiveContains("Thin")
+                && ($0.coords["wght"] ?? 100) < 10
+        }
+        XCTAssertNotNil(posterExtrathin)
+        XCTAssertEqual(posterExtrathin?.coords["opsz"] ?? 0, 100, accuracy: 0.01)
     }
 }

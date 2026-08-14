@@ -105,6 +105,119 @@ final class CommitDiffBuilderTests: XCTestCase {
         }
     }
 
+    func testFixed16_16StatCoordinatesDoNotDuplicateRows() {
+        // After export, analysis re-reads STAT as 16.16 Fixed (19.72999…) while the
+        // Axis Tree still holds the project Double (19.73). Those must be one SAME row.
+        let analysis = FontAnalysis(
+            schemaVersion: 1,
+            source: .init(path: "/t.ttf", format: "ttf", familyName: "Test", fullName: "Test", isVariable: true),
+            readiness: .init(hasFvar: true, hasStat: true, hasDesignAxisRecord: true, writable: true, blockers: []),
+            axes: [],
+            statValues: [
+                .init(
+                    format: 2,
+                    tag: "opsz",
+                    name: "Standard",
+                    elidable: false,
+                    nameID: 260,
+                    value: 19.729995727539062,
+                    rangeMin: 10.0,
+                    rangeMax: 40.0,
+                    nominal: 19.729995727539062
+                ),
+                .init(
+                    format: 1,
+                    tag: "wght",
+                    name: "Regular",
+                    elidable: false,
+                    nameID: 263,
+                    value: 35.79998779296875
+                ),
+            ],
+            instancesExisting: [],
+            instancesExistingMeta: .init(total: 0, sampleCount: 0),
+            nameAudit: .init(freeStart: 256, used: [], elidedFallbackID: 261, elidedFallbackName: "Regular"),
+            inferred: .init(isItalicFont: false, gridAxisTags: ["opsz", "wght"], namingOrderSuggested: ["opsz", "wght"]),
+            designAxisTags: ["opsz", "wght"]
+        )
+
+        let font = FontDocument(
+            id: "f1",
+            sourcePath: "/t.ttf",
+            outputPath: nil,
+            analysisSnapshotID: nil,
+            dirty: false,
+            axes: [
+                AxisDefinition(
+                    tag: "opsz",
+                    displayName: "Optical size",
+                    min: 1,
+                    default: 19.73,
+                    max: 100,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "o1", value: 19.73, name: "Standard", elidable: false, statFormat: 2, rangeMin: 10, rangeMax: 40),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "wght",
+                    displayName: "Weight",
+                    min: 1,
+                    default: 35.8,
+                    max: 100,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "w1", value: 35.8, name: "Regular", elidable: false, statFormat: 1),
+                    ]
+                ),
+            ]
+        )
+
+        let diff = CommitDiff(
+            statValuesPlanned: [
+                .init(tag: "opsz", value: 19.73, name: "Standard", elidable: false, statFormat: 2, nameID: 260, rangeMin: 10, rangeMax: 40),
+                .init(tag: "wght", value: 35.8, name: "Regular", elidable: false, statFormat: 1, nameID: 263),
+            ]
+        )
+
+        let plan = InstancePlan(
+            schemaVersion: 1,
+            fontID: "f1",
+            formula: PlanFormula(parts: [1], totalGenerated: 0, totalIncluded: 0, totalExcluded: 0),
+            instances: [],
+            warnings: [],
+            namePlanSummary: nil
+        )
+
+        let report = CommitDiffBuilder.build(
+            analysis: analysis,
+            font: font,
+            plan: plan,
+            result: CommitResult(
+                schemaVersion: 1,
+                requestID: "r1",
+                ok: true,
+                outputPath: nil,
+                dryRun: true,
+                summary: nil,
+                diff: diff,
+                validation: nil,
+                warnings: [],
+                errors: []
+            )
+        )
+
+        let opsz = report.statRows.filter { $0.tag == "opsz" }
+        XCTAssertEqual(opsz.count, 1)
+        XCTAssertEqual(opsz.first?.change, .unchanged)
+        XCTAssertEqual(SaveReviewDisplayCategoryMapper.category(for: opsz[0]), .same)
+
+        let wght = report.statRows.filter { $0.tag == "wght" }
+        XCTAssertEqual(wght.count, 1)
+        XCTAssertEqual(wght.first?.change, .unchanged)
+        XCTAssertEqual(SaveReviewDisplayCategoryMapper.category(for: wght[0]), .same)
+    }
+
     func testOtReflowShowsMovedNameIDRow() {
         let analysis = FontAnalysis(
             schemaVersion: 1,

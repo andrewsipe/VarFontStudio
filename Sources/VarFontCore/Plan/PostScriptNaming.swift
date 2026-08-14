@@ -63,7 +63,11 @@ public enum PostScriptNaming {
             fileStatRegistration: fileStatRegistration
         )
         let selected = CompoundStatNaming.selectedMatches(compounds: compounds, coords: coords)
-        let plan = CompoundStatNaming.emitPlan(selected: selected, namingOrder: order)
+        let plan = CompoundStatNaming.emitPlan(
+            selected: selected,
+            namingOrder: order,
+            splitAtHyphen: true
+        )
 
         for token in order {
             if NamingToken.isPostscriptHyphen(token) {
@@ -71,7 +75,7 @@ public enum PostScriptNaming {
                 continue
             }
 
-            guard let part = namingPart(
+            guard var part = namingPart(
                 token: token,
                 coords: coords,
                 axes: axes,
@@ -82,6 +86,11 @@ public enum PostScriptNaming {
                 namingOrder: order,
                 emitPlan: plan
             ) else { continue }
+
+            if pastHyphen, plan.emitAtTag[token] != nil {
+                part = stripLeadingNameParts(part, prefixes: beforeHyphen)
+                if part.isEmpty { continue }
+            }
 
             if pastHyphen {
                 afterHyphen.append(part)
@@ -151,6 +160,21 @@ public enum PostScriptNaming {
     }
 
     // MARK: - Private
+
+    /// Drop already-emitted before-hyphen tokens from a Format 4 name
+    /// (`"Micro Extrathin"` + prefix `Micro` → `"Extrathin"`).
+    static func stripLeadingNameParts(_ name: String, prefixes: [String]) -> String {
+        var rest = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in prefixes {
+            let token = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !token.isEmpty else { continue }
+            if rest.lowercased().hasPrefix(token.lowercased()) {
+                rest = String(rest.dropFirst(token.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return rest
+    }
 
     private static func namingPart(
         token: String,

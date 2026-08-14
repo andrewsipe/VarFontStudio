@@ -168,6 +168,32 @@ def _values_equal(lhs: float, rhs: float, tolerance: float = 0.001) -> bool:
     return abs(lhs - rhs) < tolerance
 
 
+def resolve_axis_value_for_coord(
+    tag: str,
+    value: float,
+    values_by_tag: Dict[str, Dict[float, AxisValueDef]],
+) -> AxisValueDef:
+    """Look up a Format 1 stop, or synthesize one for off-grid Format 4 coordinates.
+
+    Off-grid sheared weights (and similar) are real fvar instance locations even when
+    they are not univariate STAT stops. Synthetic names are placeholders — Format 4
+    compound matching supplies the composed subfamily name.
+    """
+    table = values_by_tag.get(tag, {})
+    fv = float(value)
+    hit = table.get(fv)
+    if hit is not None:
+        return hit
+    for key, av in table.items():
+        if _values_equal(float(key), fv):
+            return av
+    if fv == int(fv):
+        label = str(int(fv))
+    else:
+        label = f"{fv:.6f}".rstrip("0").rstrip(".")
+    return AxisValueDef(value=fv, name=label, elidable=False)
+
+
 def _selected_compound_matches(
     compounds: List[CompoundStatValueDef],
     coords: Dict[str, float],
@@ -197,17 +223,35 @@ def _selected_compound_matches(
 def _compound_emit_plan(
     selected: List[CompoundStatValueDef],
     naming_order: List[str],
+    *,
+    split_at_hyphen: bool = False,
 ) -> tuple[Dict[str, CompoundStatValueDef], set[str]]:
+    hyphen_idx = naming_order.index(PSHYPHEN_TOKEN) if split_at_hyphen and PSHYPHEN_TOKEN in naming_order else None
+    before = set(naming_order[:hyphen_idx]) if hyphen_idx is not None else set()
+    after = set(naming_order[hyphen_idx + 1 :]) if hyphen_idx is not None else set()
     emit_at: Dict[str, CompoundStatValueDef] = {}
     claimed: set[str] = set()
     for compound in selected:
         tags = set(compound.coords.keys())
-        claimed |= tags
+        spans = hyphen_idx is not None and bool(tags & before) and bool(tags & after)
+        keep = tags - before if spans else tags
+        claimed |= keep
         for token in naming_order:
-            if token in tags:
+            if token in keep:
                 emit_at[token] = compound
                 break
     return emit_at, claimed
+
+
+def _strip_leading_name_parts(name: str, prefixes: List[str]) -> str:
+    rest = (name or "").strip()
+    for prefix in prefixes:
+        token = (prefix or "").strip()
+        if not token:
+            continue
+        if rest.lower().startswith(token.lower()):
+            rest = rest[len(token) :].strip()
+    return rest
 
 
 def compose_name_from_order(
@@ -302,7 +346,11 @@ def compose_postscript_style_from_order(
     for tag, value in registration.items():
         coords.setdefault(tag, float(value))
     selected = _selected_compound_matches(compounds or [], coords)
-    emit_at, claimed = _compound_emit_plan(selected, naming_order)
+    emit_at, claimed = _compound_emit_plan(
+        selected,
+        naming_order,
+        split_at_hyphen=True,
+    )
     before: List[str] = []
     after: List[str] = []
     past_hyphen = False
@@ -346,6 +394,10 @@ def compose_postscript_style_from_order(
 
         if not part:
             continue
+        if past_hyphen and token in emit_at:
+            part = _strip_leading_name_parts(part, before)
+            if not part:
+                continue
         if past_hyphen:
             after.append(part)
         else:
@@ -495,6 +547,16 @@ def _stat_slot_key(tag: str, value: float) -> Tuple[str, float]:
     return (tag, float(value))
 
 
+def _format4_coord_key(coords: Dict[str, float]) -> Tuple[Tuple[str, float], ...]:
+    """Stable multi-axis key for Format 4 snapshot reuse."""
+    return tuple(
+        sorted(
+            (_stat_slot_key(tag, float(value)) for tag, value in coords.items()),
+            key=lambda item: item[0],
+        )
+    )
+
+
 def _snapshot_role_name_ids(font: TTFont) -> Dict[str, object]:
     """
     Existing nameIDs bound to semantic roles in STAT/fvar.
@@ -503,6 +565,8 @@ def _snapshot_role_name_ids(font: TTFont) -> Dict[str, object]:
     """
     axis_name_ids: Dict[str, int] = {}
     axis_value_ids: Dict[Tuple[str, float], int] = {}
+    format4_coords: Dict[Tuple[Tuple[str, float], ...], int] = {}
+    format4_names: Dict[str, int] = {}
     elided_fallback_id: Optional[int] = None
     fvar_instances: Dict[str, Tuple[int, Optional[int]]] = {}
 
@@ -524,6 +588,18 @@ def _snapshot_role_name_ids(font: TTFont) -> Dict[str, object]:
             for av in avarray.AxisValue:
                 fmt = av.Format
                 if fmt == 4:
+                    coords: Dict[str, float] = {}
+                    for rec in list(getattr(av, "AxisValueRecord", []) or []):
+                        tag = idx_to_tag.get(int(rec.AxisIndex))
+                        if not tag:
+                            continue
+                        coords[tag] = float(rec.Value)
+                    nid = int(av.ValueNameID)
+                    if nid >= 256 and len(coords) >= 2:
+                        format4_coords[_format4_coord_key(coords)] = nid
+                        label = (font["name"].getDebugName(nid) or "").strip()
+                        if label:
+                            format4_names.setdefault(label, nid)
                     continue
                 tag = idx_to_tag.get(av.AxisIndex)
                 if not tag:
@@ -553,6 +629,8 @@ def _snapshot_role_name_ids(font: TTFont) -> Dict[str, object]:
     return {
         "axis_names": axis_name_ids,
         "axis_values": axis_value_ids,
+        "format4_coords": format4_coords,
+        "format4_names": format4_names,
         "elided_fallback": elided_fallback_id,
         "fvar_instances": fvar_instances,
     }
@@ -773,11 +851,9 @@ def iterate_instance_name_entries(
                 if tag not in coords:
                     ok = False
                     break
-                av = values_by_tag.get(tag, {}).get(float(coords[tag]))
-                if av is None:
-                    ok = False
-                    break
-                combo.append(av)
+                combo.append(
+                    resolve_axis_value_for_coord(tag, float(coords[tag]), values_by_tag)
+                )
             if not ok:
                 continue
             yield from _emit(combo)
@@ -832,6 +908,10 @@ def build_allocation_plan(
     role_snapshot = _snapshot_role_name_ids(font)
     snapshot_axis_names: Dict[str, int] = role_snapshot["axis_names"]  # type: ignore[assignment]
     snapshot_axis_values: Dict[Tuple[str, float], int] = role_snapshot["axis_values"]  # type: ignore[assignment]
+    snapshot_format4_coords: Dict[Tuple[Tuple[str, float], ...], int] = role_snapshot[
+        "format4_coords"
+    ]  # type: ignore[assignment]
+    snapshot_format4_names: Dict[str, int] = role_snapshot["format4_names"]  # type: ignore[assignment]
     snapshot_elided_fallback: Optional[int] = role_snapshot["elided_fallback"]  # type: ignore[assignment]
     snapshot_fvar_instances: Dict[str, Tuple[int, Optional[int]]] = role_snapshot["fvar_instances"]  # type: ignore[assignment]
 
@@ -922,7 +1002,13 @@ def build_allocation_plan(
     compound_value_ids: Dict[str, int] = {}
     compound_value_names: Dict[str, str] = {}
     for compound in preserved_compounds:
-        compound_value_ids[compound.id] = alloc_id()
+        label = (compound.name or "").strip() or compound.id
+        reuse_nid: Optional[int] = None
+        if compound.coords:
+            reuse_nid = snapshot_format4_coords.get(_format4_coord_key(compound.coords))
+        if reuse_nid is None and label:
+            reuse_nid = snapshot_format4_names.get(label)
+        compound_value_ids[compound.id] = alloc_or_reuse(reuse_nid, label)
         compound_value_names[compound.id] = compound.name
 
     # 3. Elided fallback — always its own ID, never aliased to an instance nameID.
@@ -1086,5 +1172,6 @@ __all__ = [
     "derive_family_ps_prefix",
     "enumerate_instance_names",
     "preserved_design_axis_name_ids",
+    "resolve_axis_value_for_coord",
     "sanitize_instance_code",
 ]

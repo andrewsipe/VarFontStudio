@@ -31,6 +31,7 @@ public enum SaveReviewPresentationBuilder {
       font: font,
       report: report,
       diff: diff,
+      namingOrder: namingOrder,
       conflictHintByStopKey: conflictHintByStopKey
     )
     let fvarTab = buildFvarTab(
@@ -48,6 +49,7 @@ public enum SaveReviewPresentationBuilder {
       plan: plan,
       report: report,
       diff: diff,
+      namingOrder: namingOrder,
       duplicatedComposedNames: duplicatedComposedNames,
       conflictHintByStopKey: conflictHintByStopKey
     )
@@ -61,6 +63,7 @@ public enum SaveReviewPresentationBuilder {
     font: FontDocument,
     report: CommitDiffReport,
     diff: CommitDiff?,
+    namingOrder: [String],
     conflictHintByStopKey: [String: String]
   ) -> SaveReviewTabPresentation {
     let designTags = statDesignTags(font: font, analysis: analysis)
@@ -93,21 +96,34 @@ public enum SaveReviewPresentationBuilder {
     for tag in font.axes.map(\.tag) {
       let axis = font.axes.first(where: { $0.tag == tag })
       let isNamingAxis = axis?.isDesignRecordOnly == true
-      let axisStatRows = report.statRows
-        .filter { $0.tag == tag }
-        .sorted { $0.value < $1.value }
+      let axisStatRows = uniqueStatRows(
+        report.statRows.filter { $0.tag == tag }
+      )
       guard !axisStatRows.isEmpty else { continue }
       let rows = axisStatRows.map { row -> SaveReviewRowPresentation in
         let key = statValueKey(tag: row.tag, value: row.value)
         let beforeFormat = beforeFormatByKey[key]
+        let stop = axisStop(font: font, tag: row.tag, value: row.value)
+        let planned = plannedStatValue(diff: diff, tag: row.tag, value: row.value)
+        let beforeRecord = analysis.statValues.first {
+          $0.tag == row.tag && AxisCoordinate.valuesEqual($0.value ?? $0.nominal ?? 0, row.value)
+        }
+        let rangeMin = planned?.rangeMin ?? stop?.rangeMin ?? beforeRecord?.rangeMin
+        let rangeMax = planned?.rangeMax ?? stop?.rangeMax ?? beforeRecord?.rangeMax
+        let elidable = planned?.elidable ?? stop?.elidable ?? beforeRecord?.elidable ?? false
         let category = SaveReviewDisplayCategoryMapper.category(for: row)
-        let afterValue = SaveReviewRowFormatter.statAfterValue(row)
+        let afterValue = SaveReviewRowFormatter.statAfterValue(
+          row,
+          rangeMin: rangeMin,
+          rangeMax: rangeMax
+        )
         let wasLine = SaveReviewRowFormatter.statWasLine(row: row, beforeFormat: beforeFormat)
         let fieldTitle = SaveReviewRowFormatter.statFieldTitle(tag: row.tag, value: row.value)
         let fieldSubtitle = SaveReviewRowFormatter.statFieldSubtitle(
           row: row,
           beforeFormat: beforeFormat,
-          namingAxis: isNamingAxis
+          namingAxis: isNamingAxis,
+          elidable: elidable
         )
         let roleLabel = isNamingAxis
           ? "naming_axis"
@@ -139,6 +155,17 @@ public enum SaveReviewPresentationBuilder {
       sections.append(SaveReviewSectionPresentation(title: displayName, rows: rows))
     }
 
+    let combinationRows = buildCompoundStatRows(
+      analysis: analysis,
+      font: font,
+      report: report,
+      diff: diff,
+      namingOrder: namingOrder
+    )
+    if !combinationRows.isEmpty {
+      sections.append(SaveReviewSectionPresentation(title: "Combinations", rows: combinationRows))
+    }
+
     if let elidedRow = buildElidedFallbackStatRow(analysis: analysis, diff: diff) {
       sections.append(SaveReviewSectionPresentation(title: "Elidable fallback", rows: [elidedRow]))
     }
@@ -146,7 +173,7 @@ public enum SaveReviewPresentationBuilder {
     return tabPresentation(
       id: .stat,
       label: SaveReviewTableTab.stat.label,
-      headline: "STAT axis values and elidable fallback",
+      headline: "STAT axis values, combination styles, and elidable fallback",
       sections: sections
     )
   }
@@ -193,6 +220,119 @@ public enum SaveReviewPresentationBuilder {
     )
   }
 
+  private static func buildCompoundStatRows(
+    analysis: FontAnalysis,
+    font: FontDocument,
+    report: CommitDiffReport,
+    diff: CommitDiff?,
+    namingOrder: [String]
+  ) -> [SaveReviewRowPresentation] {
+    var leftoverFormat4 = (diff?.nameRecordsSequenced ?? []).filter { $0.role == "stat_format4" }
+    let nameByID = Dictionary(uniqueKeysWithValues: report.nameIDRows.map { ($0.id, $0) })
+    var rows: [SaveReviewRowPresentation] = []
+    var matchedBeforeIDs = Set<String>()
+
+    for compound in font.compoundStatValues {
+      let before = analysis.compoundStatValues.first { compoundsMatch($0.coords, compound.coords) }
+      if let before { matchedBeforeIDs.insert(before.id) }
+      let nameID: Int? = {
+        if let idx = leftoverFormat4.firstIndex(where: { $0.string == compound.name }) {
+          return leftoverFormat4.remove(at: idx).id
+        }
+        if let nameID = before?.nameID { return nameID }
+        return leftoverFormat4.isEmpty ? nil : leftoverFormat4.removeFirst().id
+      }()
+      let nameRow = nameID.flatMap { nameByID[$0] }
+      let category: SaveReviewDisplayCategory = {
+        if let nameRow { return SaveReviewDisplayCategoryMapper.category(for: nameRow) }
+        if before == nil { return .added }
+        if before?.name != compound.name || before?.elidable != compound.elidable {
+          return .renamed
+        }
+        return .same
+      }()
+      let fieldTitle = compound.name.isEmpty ? "Combination style" : compound.name
+      let fieldSubtitle = SaveReviewRowFormatter.compoundFieldSubtitle(
+        coords: compound.coords,
+        namingOrder: namingOrder,
+        elidable: compound.elidable
+      )
+      let afterValue = SaveReviewRowFormatter.quoted(compound.name)
+      let wasLine: String? = {
+        if category == .renamed, let beforeName = before?.name, beforeName != compound.name {
+          return "was \(SaveReviewRowFormatter.quoted(beforeName))"
+        }
+        return nameRow.flatMap { SaveReviewRowFormatter.nameWasLine($0) }
+      }()
+      rows.append(
+        SaveReviewRowPresentation(
+          id: "stat:format4:\(compound.id)",
+          nameID: nameID,
+          fieldTitle: fieldTitle,
+          fieldSubtitle: fieldSubtitle,
+          afterValue: afterValue,
+          wasLine: wasLine,
+          noteLine: nil,
+          roleLabel: "stat_format4",
+          category: category,
+          searchText: SaveReviewRowFormatter.searchText(
+            nameID: nameID,
+            fieldTitle: fieldTitle,
+            fieldSubtitle: fieldSubtitle,
+            afterValue: afterValue,
+            wasLine: wasLine,
+            noteLine: nil,
+            roleLabel: "stat_format4"
+          )
+        )
+      )
+    }
+
+    for before in analysis.compoundStatValues where !matchedBeforeIDs.contains(before.id) {
+      let stillPresent = font.compoundStatValues.contains { compoundsMatch($0.coords, before.coords) }
+      guard !stillPresent else { continue }
+      let fieldTitle = before.name.isEmpty ? "Combination style" : before.name
+      let fieldSubtitle = SaveReviewRowFormatter.compoundFieldSubtitle(
+        coords: before.coords,
+        namingOrder: namingOrder,
+        elidable: before.elidable
+      )
+      let wasLine = "was \(SaveReviewRowFormatter.quoted(before.name))"
+      rows.append(
+        SaveReviewRowPresentation(
+          id: "stat:format4:removed:\(before.id)",
+          nameID: before.nameID,
+          fieldTitle: fieldTitle,
+          fieldSubtitle: fieldSubtitle,
+          afterValue: nil,
+          wasLine: wasLine,
+          noteLine: nil,
+          roleLabel: "stat_format4",
+          category: .removed,
+          searchText: SaveReviewRowFormatter.searchText(
+            nameID: before.nameID,
+            fieldTitle: fieldTitle,
+            fieldSubtitle: fieldSubtitle,
+            afterValue: nil,
+            wasLine: wasLine,
+            noteLine: nil,
+            roleLabel: "stat_format4"
+          )
+        )
+      )
+    }
+
+    return rows
+  }
+
+  private static func compoundsMatch(_ lhs: [String: Double], _ rhs: [String: Double]) -> Bool {
+    guard lhs.count == rhs.count else { return false }
+    for (tag, value) in lhs {
+      guard let other = rhs[tag], AxisCoordinate.valuesEqual(value, other) else { return false }
+    }
+    return true
+  }
+
   // MARK: - fvar
 
   private static func buildFvarTab(
@@ -205,6 +345,10 @@ public enum SaveReviewPresentationBuilder {
     duplicatedComposedNames: Set<String>
   ) -> SaveReviewTabPresentation {
     var sections: [SaveReviewSectionPresentation] = []
+
+    if !namingOrder.isEmpty {
+      sections.append(namingOrderSection(namingOrder))
+    }
 
     // fvar axis records are not rewritten on save — list them in the source font's
     // fvar order with matching Axis[n] indices, not project/STAT tree order.
@@ -275,6 +419,7 @@ public enum SaveReviewPresentationBuilder {
       makeFvarInstanceRows(
         index: index,
         row: row,
+        font: font,
         namingOrder: namingOrder,
         diff: diff,
         duplicatedComposedNames: duplicatedComposedNames
@@ -288,6 +433,32 @@ public enum SaveReviewPresentationBuilder {
       headline: "fvar instances (axis record order + scales are read-only)",
       sections: sections
     )
+  }
+
+  private static func namingOrderSection(_ namingOrder: [String]) -> SaveReviewSectionPresentation {
+    let fieldTitle = "Naming order"
+    let fieldSubtitle = SaveReviewRowFormatter.namingOrderFieldSubtitle(namingOrder)
+    let afterValue = SaveReviewRowFormatter.namingOrderAfterValue(namingOrder)
+    let row = SaveReviewRowPresentation(
+      id: "fvar:naming-order",
+      nameID: nil,
+      fieldTitle: fieldTitle,
+      fieldSubtitle: fieldSubtitle,
+      afterValue: afterValue,
+      wasLine: nil,
+      noteLine: nil,
+      roleLabel: "naming_order",
+      category: .same,
+      searchText: SaveReviewRowFormatter.searchText(
+        fieldTitle: fieldTitle,
+        fieldSubtitle: fieldSubtitle,
+        afterValue: afterValue,
+        wasLine: nil,
+        noteLine: nil,
+        roleLabel: "naming_order"
+      )
+    )
+    return SaveReviewSectionPresentation(title: "Naming order", rows: [row])
   }
 
   private static func fvarAxisNoteLines(
@@ -320,6 +491,7 @@ public enum SaveReviewPresentationBuilder {
     plan: InstancePlan,
     report: CommitDiffReport,
     diff: CommitDiff?,
+    namingOrder: [String],
     duplicatedComposedNames: Set<String>,
     conflictHintByStopKey: [String: String]
   ) -> SaveReviewTabPresentation {
@@ -411,6 +583,27 @@ public enum SaveReviewPresentationBuilder {
       )
     }
 
+    var combinationRows: [SaveReviewRowPresentation] = []
+    for record in sequenced where record.role == "stat_format4" {
+      guard let row = nameByID[record.id] else { continue }
+      let compound = font.compoundStatValues.first { $0.name == record.string }
+      combinationRows.append(
+        makeNameRow(
+          row,
+          font: font,
+          diff: diff,
+          tagValue: nil,
+          consumed: &consumedIDs,
+          elidable: compound?.elidable ?? false,
+          format4Coords: compound?.coords,
+          namingOrder: namingOrder
+        )
+      )
+    }
+    if !combinationRows.isEmpty {
+      sections.append(SaveReviewSectionPresentation(title: "Combinations", rows: combinationRows))
+    }
+
     var instanceRows: [SaveReviewRowPresentation] = []
     for instance in plan.instances where instance.included {
       let isDuplicate = duplicatedComposedNames.contains(instance.composedName)
@@ -465,13 +658,25 @@ public enum SaveReviewPresentationBuilder {
   private static func makeFvarInstanceRows(
     index: Int,
     row: CommitDiffInstanceRow,
+    font: FontDocument,
     namingOrder: [String],
     diff: CommitDiff?,
     duplicatedComposedNames: Set<String>
   ) -> [SaveReviewRowPresentation] {
+    let instanceCode: String? = {
+      guard namingOrder.contains(where: NamingToken.isCode) else { return nil }
+      return InstanceCodeBuilder.compose(
+        axes: font.axes,
+        coords: row.coords ?? [:],
+        fileStatRegistration: font.fileStatRegistration,
+        fileRole: font.fileRole,
+        namingOrder: namingOrder
+      )
+    }()
     let coordsSubtitle = SaveReviewRowFormatter.instanceSubtitle(
       coords: row.coords,
-      namingOrder: namingOrder
+      namingOrder: namingOrder,
+      instanceCode: instanceCode
     )
     let composedName = row.afterName ?? row.beforeName
     let planned = composedName.flatMap { name in
@@ -652,12 +857,16 @@ public enum SaveReviewPresentationBuilder {
     tagValue: (tag: String, value: Double)?,
     axisTag: String? = nil,
     otFeatureTag: String? = nil,
-    consumed: inout Set<Int>
+    consumed: inout Set<Int>,
+    elidable: Bool? = nil,
+    format4Coords: [String: Double]? = nil,
+    namingOrder: [String] = []
   ) -> SaveReviewRowPresentation {
     consumed.insert(row.id)
     let category = SaveReviewDisplayCategoryMapper.category(for: row)
     let resolvedTagValue = tagValue ?? statNameIDLookup(diff: diff)[row.id]
     let resolvedOTFeature = otFeatureTag ?? otFeatureTagLookup(diff: diff)[row.id]
+    let stop = resolvedTagValue.flatMap { axisStop(font: font, tag: $0.tag, value: $0.value) }
     let fieldTitle = SaveReviewRowFormatter.nameFieldTitle(
       row: row,
       font: font,
@@ -669,7 +878,10 @@ public enum SaveReviewPresentationBuilder {
     let fieldSubtitle = SaveReviewRowFormatter.nameFieldSubtitle(
       row: row,
       tagValue: resolvedTagValue,
-      statFormat: statFormat
+      statFormat: statFormat,
+      elidable: elidable ?? stop?.elidable ?? false,
+      format4Coords: format4Coords,
+      namingOrder: namingOrder
     )
     let string = row.afterString ?? row.beforeString
     let afterValue = SaveReviewRowFormatter.nameAfterValue(string: string)
@@ -758,9 +970,6 @@ public enum SaveReviewPresentationBuilder {
       return "Per-file naming axis — no registered stop on this file"
     }
     var parts = ["Registered stop: \(resolved.stop.name)"]
-    if let code = resolved.stop.code, !code.isEmpty {
-      parts.append("code \(code)")
-    }
     if resolved.elided {
       parts.append("elided in composed names")
     }
@@ -844,6 +1053,40 @@ public enum SaveReviewPresentationBuilder {
 
   private static func statValueKey(tag: String, value: Double) -> String {
     "\(tag):\(AxisCoordinateFormat.format(value))"
+  }
+
+  private static func axisStop(font: FontDocument, tag: String, value: Double) -> AxisValue? {
+    font.axes.first { $0.tag == tag }?.values.first { AxisCoordinate.valuesEqual($0.value, value) }
+  }
+
+  private static func plannedStatValue(
+    diff: CommitDiff?,
+    tag: String,
+    value: Double
+  ) -> CommitDiffStatValuePlanned? {
+    diff?.statValuesPlanned.first {
+      $0.tag == tag && AxisCoordinate.valuesEqual($0.value, value)
+    }
+  }
+
+  /// One Review row per canonical tag:value. Duplicate report rows share a
+  /// presentation `id` and SwiftUI ForEach will paint the same stop twice.
+  private static func uniqueStatRows(_ rows: [CommitDiffStatRow]) -> [CommitDiffStatRow] {
+    var byKey: [String: CommitDiffStatRow] = [:]
+    var order: [String] = []
+    for row in rows.sorted(by: { $0.value < $1.value }) {
+      let key = statValueKey(tag: row.tag, value: row.value)
+      if byKey[key] == nil {
+        order.append(key)
+        byKey[key] = row
+        continue
+      }
+      // Prefer the write-side row when a 16.16 ghost REMOVED collides with ADDED/SAME.
+      if byKey[key]?.afterName == nil, row.afterName != nil {
+        byKey[key] = row
+      }
+    }
+    return order.compactMap { byKey[$0] }
   }
 
   private static func statNameIDLookup(diff: CommitDiff?) -> [Int: (String, Double)] {

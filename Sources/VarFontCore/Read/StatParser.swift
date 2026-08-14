@@ -172,27 +172,29 @@ enum StatParser {
     }
 
     private static func parseCompoundAxisValue(data: Data, offset: Int) -> ParsedCompoundStatValue? {
+        // OpenType STAT Axis Value Array — Format 4:
+        //   uint16 format (=4)
+        //   uint16 axisCount
+        //   uint16 flags
+        //   uint16 valueNameID
+        //   AxisValueRecord[axisCount] { uint16 axisIndex; Fixed value }
         let format = Int(OpenTypeBinary.readUInt16(data, offset))
         guard format == 4 else { return nil }
 
         let axisCount = Int(OpenTypeBinary.readUInt16(data, offset + 2))
-        guard axisCount > 0 else { return nil }
+        guard axisCount >= 2 else { return nil }
 
-        let flagsOffset = offset + 4 + axisCount * 2
-        let valuesOffset = flagsOffset + 4
-        guard valuesOffset + axisCount * 4 <= data.count else { return nil }
+        let flags = OpenTypeBinary.readUInt16(data, offset + 4)
+        let nameID = Int(OpenTypeBinary.readUInt16(data, offset + 6))
+        let recordsOffset = offset + 8
+        guard recordsOffset + axisCount * 6 <= data.count else { return nil }
 
         var axisIndices: [Int] = []
-        for index in 0..<axisCount {
-            axisIndices.append(Int(OpenTypeBinary.readUInt16(data, offset + 4 + index * 2)))
-        }
-
-        let flags = OpenTypeBinary.readUInt16(data, flagsOffset)
-        let nameID = Int(OpenTypeBinary.readUInt16(data, flagsOffset + 2))
-
         var axisValues: [Double] = []
         for index in 0..<axisCount {
-            axisValues.append(OpenTypeBinary.readFixed(data, valuesOffset + index * 4))
+            let recordBase = recordsOffset + index * 6
+            axisIndices.append(Int(OpenTypeBinary.readUInt16(data, recordBase)))
+            axisValues.append(OpenTypeBinary.readFixed(data, recordBase + 2))
         }
 
         return ParsedCompoundStatValue(

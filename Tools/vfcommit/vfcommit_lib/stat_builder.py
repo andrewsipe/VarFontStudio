@@ -11,7 +11,7 @@ from typing import List, Set
 
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._f_v_a_r import NamedInstance
-from fontTools.ttLib.tables.otTables import AxisValue, AxisValueArray
+from fontTools.ttLib.tables.otTables import AxisValue, AxisValueArray, AxisValueRecord
 
 from vfcommit_lib.logging_config import get_logger
 from vfcommit_lib.nameid_allocator import (
@@ -309,6 +309,8 @@ def _write_fvar_instances(
     if included_instance_keys is not None:
         if not included_instance_keys:
             return
+        from vfcommit_lib.nameid_allocator import resolve_axis_value_for_coord
+
         for key in included_instance_keys:
             try:
                 coords = parse_instance_key(key)
@@ -322,11 +324,9 @@ def _write_fvar_instances(
                 if tag not in coords:
                     ok = False
                     break
-                av = values_by_tag.get(tag, {}).get(float(coords[tag]))
-                if av is None:
-                    ok = False
-                    break
-                combo.append(av)
+                combo.append(
+                    resolve_axis_value_for_coord(tag, float(coords[tag]), values_by_tag)
+                )
             if ok:
                 append_instance(combo)
         return
@@ -392,13 +392,18 @@ def _write_stat(
             axis_values.append(av)
 
     for compound in compound_defs or []:
+        records = _format4_axis_value_records(stat_table, compound)
+        if len(records) < 2:
+            raise ValueError(
+                f"Format 4 compound {compound.id!r} needs at least two axis locations; "
+                f"got {len(records)}"
+            )
         av = AxisValue()
         av.Format = 4
-        av.AxisCount = len(compound.axis_indices)
-        av.AxisIndex = list(compound.axis_indices)
         av.Flags = _stat_flags(compound.elidable, compound.older_sibling)
         av.ValueNameID = plan.compound_value_ids[compound.id]
-        av.AxisValue = [float(value) for value in compound.axis_values]
+        av.AxisCount = len(records)
+        av.AxisValueRecord = records
         axis_values.append(av)
 
     avarray = AxisValueArray()
@@ -410,6 +415,28 @@ def _write_stat(
     if not efb_nid:
         raise ValueError("No elided fallback nameID allocated in plan")
     stat_table.ElidedFallbackNameID = efb_nid
+
+
+def _format4_axis_value_records(
+    stat_table,
+    compound: CompoundStatValueDef,
+) -> list[AxisValueRecord]:
+    """Build fontTools Format 4 AxisValueRecord list from coords (preferred) or parallel arrays."""
+    records: list[AxisValueRecord] = []
+    if compound.coords:
+        for tag, value in compound.coords.items():
+            rec = AxisValueRecord()
+            rec.AxisIndex = _axis_index(stat_table, tag)
+            rec.Value = float(value)
+            records.append(rec)
+    else:
+        for index, value in zip(compound.axis_indices, compound.axis_values):
+            rec = AxisValueRecord()
+            rec.AxisIndex = int(index)
+            rec.Value = float(value)
+            records.append(rec)
+    records.sort(key=lambda rec: rec.AxisIndex)
+    return records
 
 
 def _axis_index(stat_table, axis_tag: str) -> int:

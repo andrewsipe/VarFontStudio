@@ -128,6 +128,62 @@ struct CombinationStylesSection: View {
         return plan.instances.filter { CompoundStatNaming.matches(probe, coords: $0.coords) }.count
     }
 
+    private var sortedCompounds: [CompoundStatValue] {
+        // Prefer the Instances panel walk order so Combinations cards read the same way
+        // as those styles do in the list (grouped or flat).
+        if let plan = editor.instancePlan, plan.fontID == editor.selectedFontID {
+            return compoundsOrderedLikeInstances(compounds, plan: plan)
+        }
+        let namingOrder = editor.project?.naming.order ?? []
+        return CompoundStatNaming.sortedByAxisOrder(
+            compounds,
+            axes: axes,
+            namingOrder: namingOrder
+        )
+    }
+
+    private var sortedSuggestions: [FvarStopSeeder.CompoundSuggestion] {
+        let namingOrder = editor.project?.naming.order ?? []
+        return CompoundStatNaming.sortedByAxisOrder(
+            suggestions,
+            coords: { $0.coords },
+            name: { $0.name },
+            axes: axes,
+            namingOrder: namingOrder
+        )
+    }
+
+    /// Emit each compound once, in the order its materialized instance appears in the plan
+    /// (same sequence the Instances panel walks, including when grouped by naming axis).
+    private func compoundsOrderedLikeInstances(
+        _ compounds: [CompoundStatValue],
+        plan: InstancePlan
+    ) -> [CompoundStatValue] {
+        var remainingIDs = Set(compounds.map(\.id))
+        var ordered: [CompoundStatValue] = []
+        ordered.reserveCapacity(compounds.count)
+        for instance in plan.instances {
+            guard let match = compounds.first(where: {
+                remainingIDs.contains($0.id) && CompoundStatNaming.matches($0, coords: instance.coords)
+            }) else { continue }
+            ordered.append(match)
+            remainingIDs.remove(match.id)
+            if remainingIDs.isEmpty { break }
+        }
+        if !remainingIDs.isEmpty {
+            let namingOrder = editor.project?.naming.order ?? []
+            let leftovers = compounds.filter { remainingIDs.contains($0.id) }
+            ordered.append(
+                contentsOf: CompoundStatNaming.sortedByAxisOrder(
+                    leftovers,
+                    axes: axes,
+                    namingOrder: namingOrder
+                )
+            )
+        }
+        return ordered
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
             if !suggestions.isEmpty {
@@ -161,7 +217,7 @@ struct CombinationStylesSection: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
-                    ForEach(compounds) { compound in
+                    ForEach(sortedCompounds) { compound in
                         compoundCard(compound)
                     }
                 }
@@ -199,7 +255,7 @@ struct CombinationStylesSection: View {
             }
 
             VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
-                ForEach(suggestions) { suggestion in
+                ForEach(sortedSuggestions) { suggestion in
                     suggestionCard(suggestion)
                 }
             }
@@ -653,9 +709,21 @@ struct CombinationStylesSection: View {
     }
 
     private func orderedTags(_ present: Set<String>) -> [String] {
-        let treeOrder = axes.map(\.tag).filter { present.contains($0) }
-        let leftovers = present.subtracting(treeOrder).sorted()
-        return treeOrder + leftovers
+        let namingOrder = editor.project?.naming.order ?? []
+        var ordered: [String] = []
+        var seen = Set<String>()
+        for tag in namingOrder where present.contains(tag) {
+            ordered.append(tag)
+            seen.insert(tag)
+        }
+        for tag in axes.map(\.tag) where present.contains(tag) && !seen.contains(tag) {
+            ordered.append(tag)
+            seen.insert(tag)
+        }
+        for tag in present.subtracting(seen).sorted() {
+            ordered.append(tag)
+        }
+        return ordered
     }
 
     private func axisLabel(for tag: String) -> String {

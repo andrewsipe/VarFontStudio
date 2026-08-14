@@ -73,6 +73,14 @@ public struct SaveReviewTabPresentation: Equatable, Sendable, Identifiable {
 
     public var tabID: String { id.rawValue }
 
+    public var addedRowCount: Int {
+        sections.flatMap(\.rows).filter { $0.category == .added }.count
+    }
+
+    public var removedRowCount: Int {
+        sections.flatMap(\.rows).filter { $0.category == .removed }.count
+    }
+
     public init(
         id: SaveReviewTableTab,
         label: String,

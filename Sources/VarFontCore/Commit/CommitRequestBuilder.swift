@@ -123,11 +123,23 @@ public enum CommitRequestBuilder {
     /// Always emit the live plan's included keys so vfcommit never treats an empty
     /// list as “entire axis cartesian product” (which can explode on multi-axis fonts
     /// even when the UI only shows a handful of instances).
+    ///
+    /// Key **order** follows `plan.instances` (Instances panel / fvar walk). A stored
+    /// whitelist is membership-only — its array order is not authoritative.
     public static func includedInstanceKeys(font: FontDocument, plan: InstancePlan) -> [String] {
-        if !font.includedInstanceKeys.isEmpty {
-            return font.includedInstanceKeys
+        let planned = plan.instances.filter(\.included).map(\.key)
+        if font.includedInstanceKeys.isEmpty {
+            return planned
         }
-        return plan.instances.filter(\.included).map(\.key)
+        let allow = Set(font.includedInstanceKeys)
+        var ordered = planned.filter { allow.contains($0) }
+        if ordered.count != allow.count {
+            let plannedSet = Set(ordered)
+            for key in font.includedInstanceKeys where !plannedSet.contains(key) {
+                ordered.append(key)
+            }
+        }
+        return ordered
     }
 
     private static func namingForCommit(_ naming: NamingPolicy, axisTags: [String], font: FontDocument) -> NamingPolicy {

@@ -286,6 +286,11 @@ struct SaveReviewWindow: View {
         .frame(minWidth: 920, minHeight: 680)
         .navigationTitle(editor.saveReviewWindowTitle(forProjectID: projectID))
         .background(SaveReviewWindowConfigurator())
+        .background(AuxiliaryWindowOpenBridge())
+        .focusedSceneValue(
+            \.studioFocus,
+            StudioFocus(surface: .review, reviewProjectID: projectID)
+        )
         .overlay {
             if editor.isBusy {
                 ZStack {

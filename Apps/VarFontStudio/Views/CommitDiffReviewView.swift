@@ -49,8 +49,10 @@ struct CommitDiffReviewView: View {
                         minHeight: SaveReviewLayout.toolRowMinHeight,
                         alignment: .leading
                     )
+                StudioSaveReviewColumnHeader()
                 rowScrollContent(for: activeTab)
                     .layoutPriority(1)
+                statusBar(for: activeTab)
             } else if session.preflight.ok {
                 ContentUnavailableView(
                     "No changes",
@@ -78,7 +80,7 @@ struct CommitDiffReviewView: View {
                     actionBar
                 }
                 if let summary = session.preflight.summary {
-                    summaryMetrics(summary, diffReport: session.diffReport)
+                    summaryMetrics(summary, tab: activeTab)
                 }
                 if !session.preflight.warnings.isEmpty {
                     warningsCard(session.preflight.warnings)
@@ -127,50 +129,72 @@ struct CommitDiffReviewView: View {
                     return (axis.tag, resolved.stop.name, resolved.stop.code)
                 }
         }()
-        if !psPrefix.isEmpty || !registrationStops.isEmpty || !clarifiers.isEmpty {
-            HStack(spacing: StudioSpacing.rowGap) {
-                if !psPrefix.isEmpty {
-                    Text("PostScript prefix")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                    Text(psPrefix)
-                        .font(StudioTypography.caption.monospaced())
-                }
-                if !registrationStops.isEmpty {
-                    Text("Naming")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                    ForEach(registrationStops, id: \.tag) { stop in
-                        HStack(spacing: StudioSpacing.tightGap) {
-                            Text(stop.tag)
-                                .font(StudioTypography.tag)
-                                .foregroundStyle(.primary)
-                            Text(stop.name)
+        let namingOrder: [String] = {
+            guard let project = editor.project, let font else { return [] }
+            return NamingPolicy.mergedOrder(
+                projectOrder: project.naming.order,
+                axisTags: font.axes.map(\.tag)
+            )
+        }()
+        if !psPrefix.isEmpty || !registrationStops.isEmpty || !clarifiers.isEmpty || !namingOrder.isEmpty {
+            VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                if !psPrefix.isEmpty || !registrationStops.isEmpty || !clarifiers.isEmpty {
+                    HStack(spacing: StudioSpacing.rowGap) {
+                        if !psPrefix.isEmpty {
+                            Text("PostScript prefix")
                                 .font(StudioTypography.caption)
-                                .foregroundStyle(.primary)
-                            if let code = stop.code, !code.isEmpty {
-                                Text(code)
-                                    .font(StudioTypography.monoMeta)
-                                    .foregroundStyle(.primary)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
+                                .foregroundStyle(.secondary)
+                            Text(psPrefix)
+                                .font(StudioTypography.caption.monospaced())
+                        }
+                        if !registrationStops.isEmpty {
+                            Text("Naming")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(registrationStops, id: \.tag) { stop in
+                                HStack(spacing: StudioSpacing.tightGap) {
+                                    Text(stop.tag)
+                                        .font(StudioTypography.tag)
+                                        .foregroundStyle(.primary)
+                                    Text(stop.name)
+                                        .font(StudioTypography.caption)
+                                        .foregroundStyle(.primary)
+                                    if let code = stop.code, !code.isEmpty {
+                                        Text(code)
+                                            .font(StudioTypography.monoMeta)
+                                            .foregroundStyle(.primary)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 1)
+                                            .background(StudioColors.codeBackground, in: RoundedRectangle.studio(StudioRadius.chip))
+                                    }
+                                }
+                                .padding(.horizontal, StudioSpacing.rowHorizontal)
+                                .padding(.vertical, StudioSpace.x0_5)
+                                .background(
+                                    StudioColors.registrationBackground,
+                                    in: RoundedRectangle.studio(StudioRadius.chip)
+                                )
                             }
                         }
-                        .padding(.horizontal, StudioSpacing.rowHorizontal)
-                        .padding(.vertical, StudioSpace.x0_5)
-                        .background(
-                            StudioColors.registrationBackground,
-                            in: RoundedRectangle.studio(StudioRadius.chip)
-                        )
+                        if !clarifiers.isEmpty {
+                            Text("Clarifiers")
+                                .font(StudioTypography.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(clarifiers) { clarifier in
+                                StudioClarifierPill(label: clarifier.label, compact: true)
+                            }
+                        }
                     }
                 }
-                if !clarifiers.isEmpty {
-                    Text("Clarifiers")
-                        .font(StudioTypography.caption)
-                        .foregroundStyle(.secondary)
-                    ForEach(clarifiers) { clarifier in
-                        StudioClarifierPill(label: clarifier.label, compact: true)
+                if !namingOrder.isEmpty {
+                    HStack(spacing: StudioSpacing.rowGap) {
+                        Text("Naming order")
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.secondary)
+                        Text(SaveReviewRowFormatter.namingOrderAfterValue(namingOrder))
+                            .font(StudioTypography.caption.monospaced())
+                            .foregroundStyle(.primary)
+                            .help("Same chain as the footer. [-] is the PostScript hyphen split.")
                     }
                 }
             }
@@ -178,16 +202,16 @@ struct CommitDiffReviewView: View {
     }
 
     @ViewBuilder
-    private func summaryMetrics(_ summary: CommitSummary, diffReport: CommitDiffReport) -> some View {
-        let nameRemoved = diffReport.nameIDRows.filter { $0.change == .removed && !$0.reflowSuppressed }.count
-        let nameAdded = diffReport.nameIDRows.filter { $0.change == .added && $0.reflowedFromNameID == nil }.count
+    private func summaryMetrics(_ summary: CommitSummary, tab: SaveReviewTabPresentation?) -> some View {
+        let removed = tab?.removedRowCount ?? 0
+        let added = tab?.addedRowCount ?? 0
 
         HStack(spacing: SaveReviewLayout.summaryCardGap) {
             StudioMetricCard(value: "\(summary.instancesWritten)", label: "Instances", minWidth: 0, accentValue: true, fillsWidth: true, prominent: true)
             StudioMetricCard(value: "\(summary.statValuesWritten)", label: "STAT values", minWidth: 0, accentValue: true, fillsWidth: true, prominent: true)
             StudioMetricCard(value: "\(summary.nameIDsAllocated.count)", label: "New name IDs", minWidth: 0, accentValue: true, fillsWidth: true, prominent: true)
-            StudioMetricCard(value: "\(nameRemoved)", label: "Removed", minWidth: 0, accentValue: true, fillsWidth: true, prominent: true)
-            StudioMetricCard(value: "\(nameAdded)", label: "Added", minWidth: 0, accentValue: true, fillsWidth: true, prominent: true)
+            StudioMetricCard(value: "\(removed)", label: "Removed", minWidth: 0, accentValue: true, fillsWidth: true, prominent: true)
+            StudioMetricCard(value: "\(added)", label: "Added", minWidth: 0, accentValue: true, fillsWidth: true, prominent: true)
         }
     }
 
@@ -367,14 +391,13 @@ struct CommitDiffReviewView: View {
             .frame(minHeight: fillsAvailableHeight ? 200 : 420, maxHeight: fillsAvailableHeight ? .infinity : 420)
         } else {
             ScrollView {
-                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                // Eager VStack: LazyVStack sometimes proposes flexible heights after
+                // export refreshes, stretching a subset of rows.
+                VStack(spacing: 0) {
                     ForEach(sections) { section in
-                        Section {
-                            ForEach(section.rows) { row in
-                                StudioStreamlinedDiffRow(row: row)
-                            }
-                        } header: {
-                            StudioSaveReviewPhaseHeader(title: section.title)
+                        StudioSaveReviewPhaseHeader(title: section.title)
+                        ForEach(section.rows) { row in
+                            StudioStreamlinedDiffRow(row: row)
                         }
                     }
                 }
@@ -383,6 +406,17 @@ struct CommitDiffReviewView: View {
             .scrollContentBackground(.hidden)
             .frame(minHeight: fillsAvailableHeight ? 200 : 420, maxHeight: fillsAvailableHeight ? .infinity : 420)
         }
+    }
+
+    private func statusBar(for tab: SaveReviewTabPresentation) -> some View {
+        Text(rowCountLabel(for: tab))
+            .font(StudioTypography.caption)
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, SaveReviewLayout.horizontalPadding)
+            .frame(height: SaveReviewLayout.statusBarHeight)
+            .background(StudioColors.surfaceSubtle)
+            .overlay(alignment: .top) { Divider() }
     }
 
     // MARK: - Filtering

@@ -69,6 +69,67 @@ public enum InstancePlanner {
             )
         }
 
+        // Format 4 compounds that sit off the Format 1 product (e.g. sheared light weights)
+        // are real named styles — add them as instances, not only STAT naming overlays.
+        var seenKeys = Set(instances.map(\.key))
+        let orderedCompounds = CompoundStatNaming.sortedByAxisOrder(
+            font.compoundStatValues,
+            axes: font.axes,
+            namingOrder: naming.order
+        )
+        for compound in orderedCompounds {
+            guard var coords = materializeCompoundInstanceCoords(
+                compound: compound,
+                gridAxes: gridAxes,
+                pinned: pinned
+            ) else { continue }
+            for (tag, value) in pinned where coords[tag] == nil {
+                coords[tag] = value
+            }
+            let key = InstanceKeyBuilder.makeKey(coords: coords)
+            guard seenKeys.insert(key).inserted else { continue }
+
+            let composed = NamingComposer.compose(
+                coords: coords,
+                axes: font.axes,
+                naming: naming,
+                fileRole: font.fileRole,
+                fileStatRegistration: font.fileStatRegistration,
+                compounds: font.compoundStatValues
+            )
+            let chain = composed.chain.map {
+                NamingChainLink(kind: $0.kind, tag: $0.tag, name: $0.name, elided: $0.elided)
+            }
+            let included: Bool
+            if !includedWhitelist.isEmpty {
+                included = includedWhitelist.contains(key)
+            } else {
+                included = !excluded.contains(key)
+            }
+            let duplicate = options.detectDuplicates && !seenComposedNames.insert(composed.name).inserted
+            instances.append(
+                PlannedInstance(
+                    key: key,
+                    composedName: composed.name,
+                    coords: coords,
+                    included: included,
+                    duplicate: duplicate,
+                    namingChain: chain
+                )
+            )
+        }
+
+        // Interleave Format 4 rows into the Format 1 product walk (opsz groups, then
+        // Format 1 stops before off-grid weights). Matches Instances panel grouping and
+        // the fvar order users expect after export.
+        instances = CompoundStatNaming.sortedByAxisOrder(
+            instances,
+            coords: { $0.coords },
+            name: { $0.composedName },
+            axes: font.axes,
+            namingOrder: naming.order
+        )
+
         markAllDuplicateComposedNames(in: &instances)
 
         if options.detectDuplicates {
@@ -137,6 +198,47 @@ public enum InstancePlanner {
             results = next
         }
         return results
+    }
+
+    /// Builds a complete instance coordinate set from a Format 4 compound when every
+    /// varying instance-role axis is either named by the compound or can be pinned/singleton-
+    /// filled. Compounds that omit a multi-stop axis (common for custom-axis overlays that
+    /// rename a whole weight slice) stay naming-only and are not materialized.
+    public static func materializeCompoundInstanceCoords(
+        compoundCoords: [String: Double],
+        gridAxes: [AxisDefinition],
+        pinned: [String: Double]
+    ) -> [String: Double]? {
+        guard compoundCoords.count >= 2 else { return nil }
+        var coords = compoundCoords
+        for axis in gridAxes {
+            if coords[axis.tag] != nil { continue }
+            if let pin = pinned[axis.tag] {
+                coords[axis.tag] = pin
+                continue
+            }
+            if axis.values.count == 1, let only = axis.values.first {
+                coords[axis.tag] = only.value
+                continue
+            }
+            if axis.values.count > 1 {
+                return nil
+            }
+            return nil
+        }
+        return coords
+    }
+
+    private static func materializeCompoundInstanceCoords(
+        compound: CompoundStatValue,
+        gridAxes: [AxisDefinition],
+        pinned: [String: Double]
+    ) -> [String: Double]? {
+        materializeCompoundInstanceCoords(
+            compoundCoords: compound.coords,
+            gridAxes: gridAxes,
+            pinned: pinned
+        )
     }
 
     private static func validateAxes(_ axes: [AxisDefinition]) -> [PlanWarning] {

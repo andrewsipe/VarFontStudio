@@ -178,74 +178,93 @@ struct StudioSaveReviewCategoryTag: View {
     }
 }
 
+struct StudioSaveReviewColumnHeader: View {
+    var body: some View {
+        HStack(alignment: .center, spacing: 0) {
+            Text("Field")
+                .frame(width: SaveReviewLayout.fieldColumnWidth, alignment: .leading)
+                .layoutPriority(1)
+
+            Text("Name ID")
+                .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
+                .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
+                .layoutPriority(2)
+                .help("OpenType name table ID (≥256 for STAT / fvar labels)")
+
+            Text("|")
+                .foregroundStyle(StudioColors.mutedForeground)
+                .frame(width: SaveReviewLayout.nameIDColumnTrailingGap, alignment: .center)
+
+            Text("Change")
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(StudioTypography.sectionLabel)
+        .tracking(0.4)
+        .foregroundStyle(StudioColors.sectionHeading)
+        .textCase(.uppercase)
+        .padding(.leading, SaveReviewLayout.gutterLeadingPadding + SaveReviewLayout.gutterWidth + SaveReviewLayout.gutterTrailingPadding)
+        .padding(.trailing, SaveReviewLayout.horizontalPadding)
+        .padding(.vertical, StudioSpace.x1_5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(SaveReviewLayout.toolRowBackground)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(StudioColors.surfaceStroke)
+                .frame(height: 0.5)
+        }
+    }
+}
+
 struct StudioStreamlinedDiffRow: View {
     let row: SaveReviewRowPresentation
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            RoundedRectangle.studio(StudioRadius.hairline)
-                .fill(gutterColor)
-                .frame(width: SaveReviewLayout.gutterWidth)
-                .padding(.leading, SaveReviewLayout.gutterLeadingPadding)
-                .padding(.trailing, SaveReviewLayout.gutterTrailingPadding)
-
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(row.fieldTitle)
-                        .font(Self.fieldTitleFont(row.fieldTitle))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.fieldTitle)
+                    .font(Self.fieldTitleFont(row.fieldTitle))
+                    .lineLimit(2)
+                if !row.fieldSubtitle.isEmpty {
+                    Text(row.fieldSubtitle)
+                        .font(Self.fieldDetailFont(row.fieldSubtitle))
+                        .foregroundStyle(StudioColors.mutedForeground)
                         .lineLimit(2)
-                    if !row.fieldSubtitle.isEmpty {
-                        Text(row.fieldSubtitle)
-                            .font(Self.fieldDetailFont(row.fieldSubtitle))
-                            .foregroundStyle(StudioColors.mutedForeground)
-                            .lineLimit(2)
-                    }
                 }
-                .frame(width: SaveReviewLayout.fieldColumnWidth, alignment: .leading)
-                .layoutPriority(1)
+            }
+            .frame(width: SaveReviewLayout.fieldColumnWidth, alignment: .topLeading)
+            .layoutPriority(1)
 
-                Group {
-                    if let nameID = row.nameID {
-                        Text("\(nameID)")
-                            .font(StudioTypography.rowNameMono.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                            .lineLimit(1)
-                    } else {
-                        Text("—")
-                            .font(StudioTypography.caption)
-                            .foregroundStyle(.quaternary)
-                    }
+            Group {
+                if let nameID = row.nameID {
+                    Text("\(nameID)")
+                        .font(StudioTypography.rowNameMono.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                } else {
+                    Text("—")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.quaternary)
                 }
-                .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .trailing)
-                .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
-                .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
-                .layoutPriority(2)
+            }
+            .frame(width: SaveReviewLayout.nameIDColumnWidth, alignment: .topTrailing)
+            .padding(.leading, SaveReviewLayout.nameIDColumnLeadingGap)
+            .padding(.trailing, SaveReviewLayout.nameIDColumnTrailingGap)
+            .layoutPriority(2)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    if let afterValue = row.afterValue, !afterValue.isEmpty {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            StudioSaveReviewCategoryTag(category: row.category)
-                            Text(afterValue)
-                                .font(StudioTypography.monoValue)
-                                .foregroundStyle(valueColor)
-                                .textSelection(.enabled)
-                                .fixedSize(horizontal: false, vertical: true)
-                            // Trailing the composed name — same spot the Instances list marks
-                            // an impacted row (statusAccessory follows the name).
-                            if let conflictHint = row.conflictHint {
-                                StudioWarningBadge(help: conflictHint)
-                            }
-                        }
-                    } else if row.category == .removed {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            StudioSaveReviewCategoryTag(category: row.category)
-                            Text("—")
-                                .font(StudioTypography.monoValue)
-                                .foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 3) {
+                if let afterValue = row.afterValue, !afterValue.isEmpty {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        StudioSaveReviewCategoryTag(category: row.category)
+                        Text(afterValue)
+                            .font(StudioTypography.monoValue)
+                            .foregroundStyle(valueColor)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let conflictHint = row.conflictHint {
+                            StudioWarningBadge(help: conflictHint)
                         }
                     }
-
                     if let secondaryLine {
                         Text(secondaryLine)
                             .font(row.noteLine != nil && row.wasLine == nil ? StudioTypography.caption : StudioTypography.monoValue)
@@ -253,20 +272,55 @@ struct StudioStreamlinedDiffRow: View {
                             .italic(row.noteLine != nil && row.wasLine == nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                } else if row.category == .removed {
+                    // Keep removed rows to one value line: badge + was-text (no orphan "—").
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        StudioSaveReviewCategoryTag(category: row.category)
+                        Text(row.wasLine ?? "—")
+                            .font(StudioTypography.monoValue)
+                            .foregroundStyle(StudioColors.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let note = row.noteLine, !note.isEmpty {
+                        Text(note)
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(StudioColors.mutedForeground)
+                            .italic()
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else if let secondaryLine {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        StudioSaveReviewCategoryTag(category: row.category)
+                        Text(secondaryLine)
+                            .font(StudioTypography.monoValue)
+                            .foregroundStyle(StudioColors.mutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    StudioSaveReviewCategoryTag(category: row.category)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .padding(.leading, SaveReviewLayout.gutterLeadingPadding + SaveReviewLayout.gutterWidth + SaveReviewLayout.gutterTrailingPadding)
         .padding(.vertical, SaveReviewLayout.rowVerticalPadding)
         .padding(.trailing, SaveReviewLayout.horizontalPadding)
+        // Gutter as overlay so it cannot expand row height (LazyVStack + maxHeight:.infinity did).
+        .overlay(alignment: .leading) {
+            RoundedRectangle.studio(StudioRadius.hairline)
+                .fill(gutterColor)
+                .frame(width: SaveReviewLayout.gutterWidth)
+                .padding(.leading, SaveReviewLayout.gutterLeadingPadding)
+                .padding(.vertical, SaveReviewLayout.rowVerticalPadding)
+        }
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(StudioColors.surfaceStroke)
                 .frame(height: 0.5)
                 .padding(.leading, SaveReviewLayout.horizontalPadding)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
-
 
     /// Row identifier when it is a file-native key (e.g. `wgth = 400`).
     private static func fieldTitleFont(_ title: String) -> Font {

@@ -474,12 +474,12 @@ private enum StudioIconForeground {
 //    panel chrome (`surface*`, field fills) stays translucent/adaptive.
 // 3. Links — `.accent` idle `.primary`, brand on hover/press.
 // 4. Instancer — `StudioSemanticLeadingStripe`, not gradient fade.
-// 5. Tokens — `diffProtected` slate; `diffRenamed` orange; STAT rose ramp.
+// 5. Tokens — `diffProtected` brand; `diffRenamed` orange; STAT rose ramp.
 //
 // ## Token audit rule
 // Same hue = same meaning everywhere, or split the token. Category labels must not
-// borrow status hues (success green, edited teal, brand, warning amber marks /
-// yellow containers).
+// borrow status hues (success green, edited teal, warning amber marks / yellow
+// containers). Protected IDs use brand — Studio-owned, not a write.
 //
 private enum StudioPrimaryWash {
     static func make(name: String, light: CGFloat, dark: CGFloat) -> Color {
@@ -725,8 +725,11 @@ enum StudioColors {
     static let collisionStroke = collisionForeground.opacity(0.45)
     /// Mark hue — user-added custom instance row stripe / flag symbol.
     /// Indigo family (kept far from teal `editedForeground` and brand blue).
-    static let customForeground = StudioPalette.color(.fuchsia, light: .s500, dark: .s700)
+    static let customForeground = StudioPalette.color(.teal, light: .s500, dark: .s500)
     static let customFill = StudioOpaqueFill.make(name: "customFill", hue: customForeground, light: 0.28, dark: 0.52)
+    /// Unselected / post-generate custom instance row — quieter than `customFill`
+    /// so include-checkbox state is visible. Baked opaque, not `customFill.opacity()`.
+    static let customFillSoft = StudioOpaqueFill.make(name: "customFillSoft", hue: customForeground, light: 0.10, dark: 0.18)
     /// Mark hue — edited-from-default name override (reserved; row stripe if needed).
     /// Teal family — do not reuse for pending export (see `pendingForeground`).
     static let editedForeground = StudioPalette.color(.teal, light: .s600, dark: .s300)
@@ -739,15 +742,16 @@ enum StudioColors {
 
     // MARK: Semantic marks — Save Review diff
     //
-    // Diff accents bind to Tailwind families. `diffProtected` stays system gray (neutral
-    // slate). Renamed uses orange (informational); yellow is reserved for warning containers.
+    // Diff accents bind to Tailwind families. Protected IDs use brand (Studio-owned,
+    // not a write). Renamed uses orange (informational); yellow is reserved for warning
+    // containers.
 
     static let diffRemoved = StudioPalette.color(.red, light: .s500, dark: .s300)
     /// Green family — distinct from `codeForeground` (teal) and `pendingForeground` (emerald).
     static let diffAdded = StudioPalette.color(.green, light: .s600, dark: .s300)
     static let diffReflowed = StudioPalette.color(.violet, light: .s500, dark: .s300)
-    /// Protected/locked — slate, not brand (brand = interaction/selection).
-    static let diffProtected = Color.gray
+    /// Protected / read-only name IDs — brand, not slate, so they don’t read as SAME.
+    static let diffProtected = brand
     /// Renamed/changed — informational orange (yellow is reserved for warning containers).
     static let diffRenamed = StudioPalette.color(.orange, light: .s600, dark: .s300)
 
@@ -1061,7 +1065,7 @@ enum StudioDiffPillStyle {
     private static let changedFill = StudioOpaqueFill.make(name: "diffPillChanged", hue: StudioColors.diffRenamed, light: 0.58, dark: 0.64)
     private static let reflowedFill = StudioOpaqueFill.make(name: "diffPillReflowed", hue: StudioColors.diffReflowed, light: 0.52, dark: 0.58)
     private static let unchangedFill = StudioOpaqueFill.make(name: "diffPillUnchanged", hue: .secondary, light: 0.42, dark: 0.46)
-    private static let protectedFill = StudioOpaqueFill.make(name: "diffPillProtected", hue: StudioColors.diffProtected, light: 0.42, dark: 0.46)
+    private static let protectedFill = StudioOpaqueFill.make(name: "diffPillProtected", hue: StudioColors.diffProtected, light: 0.52, dark: 0.58)
 }
 
 struct StudioSemanticPill: View {
@@ -1750,6 +1754,8 @@ struct StudioTextField: View {
     var onCancel: (() -> Void)? = nil
     var submitBehavior: StudioTextSubmitBehavior = .commit
     var focusBinding: FocusState<Bool>.Binding? = nil
+    /// Fired when this field becomes focused (e.g. scroll-to-focus parents).
+    var onFocused: (() -> Void)? = nil
 
     @FocusState private var internalFocus: Bool
     @Environment(\.isEnabled) private var isEnabled
@@ -1776,6 +1782,11 @@ struct StudioTextField: View {
             .studioInteractiveCursor()
             .onSubmit { handleSubmit() }
             .onExitCommand { handleCancel() }
+            .onChange(of: activeFocus.wrappedValue) { _, isFocused in
+                if isFocused {
+                    onFocused?()
+                }
+            }
 
             if showsClearButton, !text.isEmpty {
                 StudioDismissButton(scale: .chip, style: .fill, help: "Clear") {

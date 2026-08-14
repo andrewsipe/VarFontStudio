@@ -146,6 +146,14 @@ final class InstancerNamingTests: XCTestCase {
             InstancerNaming.outputFileName(psPrefix: "MullerNext", row: row),
             "MullerNext-SemiBold.ttf"
         )
+        XCTAssertEqual(
+            InstancerNaming.outputFileName(
+                psPrefix: "Interchange",
+                row: row,
+                composedPostscriptName: "InterchangeTitle-Thin"
+            ),
+            "InterchangeTitle-Thin.ttf"
+        )
     }
 
     func testSortInterleavesItalicUnderUpright() {

@@ -10,7 +10,8 @@ enum SaveReviewLayout {
     static let chromeSectionGap: CGFloat = StudioSpace.x3 // 12
     static let filterBadgeGap: CGFloat = StudioSpace.x1_5 // 6
     /// nameID slot column (right-aligned digits) — sits between field label and value.
-    static let nameIDColumnWidth: CGFloat = 36
+    /// Wide enough for the "Name ID" column header label.
+    static let nameIDColumnWidth: CGFloat = 52
     /// Gap between field-label column and nameID.
     static let nameIDColumnLeadingGap: CGFloat = StudioSpace.x2 // 8
     /// Gap between nameID and value column.
@@ -30,6 +31,8 @@ enum SaveReviewLayout {
     static let phaseHeaderBackground = StudioColors.stickyHeaderFill
     /// Search / filter tool row — same opaque bake as pinned phase headers.
     static let toolRowBackground = StudioColors.stickyHeaderFill
+    /// Pinned window footer — keeps the last scroll row clear of the window edge.
+    static let statusBarHeight: CGFloat = StudioSpace.x7 // 28
 }
 
 /// Spacing tokens for the Instancer window — shares Review density where chrome matches.
