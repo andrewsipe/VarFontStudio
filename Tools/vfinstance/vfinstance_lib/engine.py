@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -25,10 +27,34 @@ NAME_ID_VARIATIONS_PS_PREFIX = 25
 
 RIBBI_STYLES = frozenset({"Regular", "Italic", "Bold", "Bold Italic"})
 
+# Default parallel workers; capped by CPU and instance count at runtime.
+DEFAULT_MAX_WORKERS = 8
+
 # Mirrors PostScriptNaming.stripVariableTokens / vfcommit name_policies.
 _RE_VARIABLE_TOKENS = re.compile(r"\b(Variable|VF|GX|Flex)\b", re.I)
 _RE_VARIABLE_BOUNDARY = re.compile(r"(?i)(?:^|[-_\s])Variable(?:Italic)?(?=$|[-_\s])")
 _RE_VF_GX_FLEX_BOUNDARY = re.compile(r"(?i)(?:^|[-_\s])(VF|GX|Flex)(?=$|[-_\s])")
+
+# Process-pool worker locals (one TTFont load per worker process).
+_WORKER_BASE_FONT: TTFont | None = None
+_WORKER_CONTEXT: dict[str, Any] | None = None
+
+
+def resolve_worker_count(requested: Any, total: int) -> int:
+    """Always parallel-capable: min(requested|default, cpu, instance_count)."""
+    if total <= 0:
+        return 1
+    if requested is None:
+        requested_n = DEFAULT_MAX_WORKERS
+    else:
+        try:
+            requested_n = int(requested)
+        except (TypeError, ValueError):
+            requested_n = DEFAULT_MAX_WORKERS
+    if requested_n < 1:
+        requested_n = 1
+    cpu = os.cpu_count() or 1
+    return max(1, min(requested_n, cpu, total))
 
 
 def run_instance(request: dict[str, Any]) -> dict[str, Any]:
@@ -109,243 +135,71 @@ def run_instance(request: dict[str, Any]) -> dict[str, Any]:
     axis_tags = {a.axisTag for a in base_font["fvar"].axes}
     ext = ".otf" if ("CFF " in base_font or "CFF2" in base_font) else ".ttf"
     total = len(instances)
+    workers = 1 if dry_run else resolve_worker_count(request.get("workers"), total)
 
-    for index, item in enumerate(instances):
-        instance_id = str(item.get("id") or "") if isinstance(item, dict) else ""
-        if not isinstance(item, dict):
-            message = f"Instance {index} is not an object"
-            errors.append({"code": "bad_instance", "message": message, "id": instance_id or None})
-            _emit_progress(
-                {
-                    "event": "error",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "message": message,
-                }
-            )
-            continue
+    shared = {
+        "output_dir": str(output_dir),
+        "dry_run": dry_run,
+        "overwrite": overwrite,
+        "ps_prefix": ps_prefix,
+        "family_name": family_name,
+        "keep_stat": keep_stat,
+        "ext": ext,
+        "axis_tags": sorted(axis_tags),
+        "source_path": str(source_path),
+    }
 
-        coordinates = item.get("coordinates") or {}
-        display_name = (item.get("name") or "").strip() or None
-        _emit_progress(
-            {
-                "event": "start",
-                "id": instance_id or None,
-                "index": index,
-                "total": total,
-                "name": display_name,
-            }
-        )
-
-        if not isinstance(coordinates, dict) or not coordinates:
-            message = f"Instance {index} missing coordinates"
-            errors.append({"code": "bad_coordinates", "message": message, "id": instance_id or None})
-            _emit_progress(
-                {
-                    "event": "error",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "name": display_name,
-                    "message": message,
-                }
-            )
-            continue
-
+    if workers == 1:
         try:
-            coords = {str(k): float(v) for k, v in coordinates.items()}
-        except (TypeError, ValueError) as exc:
-            message = f"Instance {index} has non-numeric coordinates: {exc}"
-            errors.append({"code": "bad_coordinates", "message": message, "id": instance_id or None})
-            _emit_progress(
-                {
-                    "event": "error",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "name": display_name,
-                    "message": message,
-                }
-            )
-            continue
-
-        unknown = sorted(set(coords) - axis_tags)
-        if unknown:
-            message = f"Instance {index}: axis not in font: {', '.join(unknown)}"
-            errors.append({"code": "unknown_axis", "message": message, "id": instance_id or None})
-            _emit_progress(
-                {
-                    "event": "error",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "name": display_name,
-                    "message": message,
-                }
-            )
-            continue
-
-        # Pin every fvar axis (static=True path expects full location).
-        full_coords = {}
-        for axis in base_font["fvar"].axes:
-            tag = axis.axisTag
-            full_coords[tag] = coords[tag] if tag in coords else float(axis.defaultValue)
-
-        postscript_name = (item.get("postscript_name") or "").strip() or None
-
-        style_token = _style_token(display_name) if display_name else None
-        if postscript_name:
-            file_stem = _sanitize_ps(postscript_name)
-        elif ps_prefix and style_token:
-            file_stem = _sanitize_ps(f"{ps_prefix}-{style_token}")
-        elif style_token:
-            file_stem = _sanitize_ps(style_token)
-        else:
-            file_stem = "Instance-" + "-".join(
-                f"{tag}{full_coords[tag]:g}" for tag in sorted(full_coords)
-            )
-            file_stem = _sanitize_ps(file_stem)
-
-        out_path = output_dir / f"{file_stem}{ext}"
-        if out_path.exists() and not overwrite and not dry_run:
-            message = f"Refusing to overwrite existing file: {out_path.name}"
-            errors.append({"code": "exists", "message": message, "id": instance_id or None})
-            _emit_progress(
-                {
-                    "event": "error",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "name": display_name,
-                    "message": message,
-                }
-            )
-            continue
-
-        if dry_run:
-            written.append(
-                {
-                    "id": instance_id or None,
-                    "path": str(out_path),
-                    "postscript_name": postscript_name or file_stem,
-                    "coordinates": full_coords,
-                    "name": display_name,
-                }
-            )
-            _emit_progress(
-                {
-                    "event": "written",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "name": display_name,
-                    "path": str(out_path),
-                }
-            )
-            continue
-
-        try:
-            instance_font = deepcopy(base_font)
-            if ps_prefix:
-                _set_name_id(instance_font, NAME_ID_VARIATIONS_PS_PREFIX, ps_prefix)
-
-            try:
-                instancer.instantiateVariableFont(
-                    instance_font,
-                    full_coords,
-                    inplace=True,
-                    updateFontNames=True,
-                    static=True,
+            for index, item in enumerate(instances):
+                outcome = _process_instance(
+                    base_font=base_font,
+                    item=item,
+                    index=index,
+                    total=total,
+                    shared=shared,
                 )
-            except ValueError:
-                if not display_name:
-                    raise
-                instance_font = deepcopy(base_font)
-                if ps_prefix:
-                    _set_name_id(instance_font, NAME_ID_VARIATIONS_PS_PREFIX, ps_prefix)
-                instancer.instantiateVariableFont(
-                    instance_font,
-                    full_coords,
-                    inplace=True,
-                    updateFontNames=False,
-                    static=True,
-                )
+                _absorb_outcome(outcome, written, errors)
+        finally:
+            base_font.close()
+    else:
+        # Drop the parent copy before workers load their own — frees ~1× VF RSS.
+        base_font.close()
+        del base_font
 
-            _finalize_static_tables(instance_font, keep_stat=keep_stat)
+        jobs = [
+            {"item": item, "index": index, "total": total}
+            for index, item in enumerate(instances)
+        ]
+        ctx = {k: v for k, v in shared.items() if k != "axis_tags"}
+        ctx["axis_tags"] = list(axis_tags)
 
-            _apply_name_overrides(
-                instance_font,
-                display_name=display_name,
-                postscript_name=postscript_name,
-                ps_prefix=ps_prefix,
-                family_name=family_name,
-            )
+        with ProcessPoolExecutor(
+            max_workers=workers,
+            initializer=_pool_initializer,
+            initargs=(str(source_path), ctx),
+        ) as pool:
+            futures = [pool.submit(_pool_process_job, job) for job in jobs]
+            for future in as_completed(futures):
+                try:
+                    outcome = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    message = f"worker_crash: {type(exc).__name__}: {exc}"
+                    errors.append({"code": "instance_failed", "message": message})
+                    _emit_progress(
+                        {
+                            "event": "error",
+                            "id": None,
+                            "index": 0,
+                            "total": total,
+                            "message": message,
+                        }
+                    )
+                    continue
+                _absorb_outcome(outcome, written, errors)
 
-            if not postscript_name and not display_name:
-                final_ps = _get_name_id(instance_font, NAME_ID_POSTSCRIPT)
-                if final_ps:
-                    file_stem = _sanitize_ps(final_ps)
-                    out_path = output_dir / f"{file_stem}{ext}"
-                    if out_path.exists() and not overwrite:
-                        message = f"Refusing to overwrite existing file: {out_path.name}"
-                        errors.append({"code": "exists", "message": message, "id": instance_id or None})
-                        _emit_progress(
-                            {
-                                "event": "error",
-                                "id": instance_id or None,
-                                "index": index,
-                                "total": total,
-                                "name": display_name,
-                                "message": message,
-                            }
-                        )
-                        continue
-
-            instance_font.save(str(out_path))
-            written_name = (
-                display_name
-                or _get_name_id(instance_font, NAME_ID_TYPO_SUBFAMILY)
-                or _get_name_id(instance_font, NAME_ID_SUBFAMILY)
-            )
-            written.append(
-                {
-                    "id": instance_id or None,
-                    "path": str(out_path),
-                    "postscript_name": _get_name_id(instance_font, NAME_ID_POSTSCRIPT) or file_stem,
-                    "coordinates": full_coords,
-                    "name": written_name,
-                }
-            )
-            _emit_progress(
-                {
-                    "event": "written",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "name": written_name or display_name,
-                    "path": str(out_path),
-                }
-            )
-        except Exception as exc:  # noqa: BLE001 — continue batch; surface per-instance failure
-            message = f"{file_stem}: {type(exc).__name__}: {exc}"
-            errors.append(
-                {
-                    "code": "instance_failed",
-                    "message": message,
-                    "id": instance_id or None,
-                }
-            )
-            _emit_progress(
-                {
-                    "event": "error",
-                    "id": instance_id or None,
-                    "index": index,
-                    "total": total,
-                    "name": display_name,
-                    "message": message,
-                }
-            )
+    # Keep written list stable by original request order when possible.
+    written.sort(key=lambda row: _written_sort_key(row, instances))
 
     ok = len(errors) == 0 and (dry_run or len(written) > 0)
     if not dry_run and written and errors:
@@ -358,6 +212,317 @@ def run_instance(request: dict[str, Any]) -> dict[str, Any]:
         ok = len(written) > 0
 
     return _result(request_id, ok, dry_run, str(output_dir), written, warnings, errors)
+
+
+def _written_sort_key(row: dict[str, Any], instances: list[Any]) -> int:
+    row_id = row.get("id")
+    if row_id:
+        for index, item in enumerate(instances):
+            if isinstance(item, dict) and item.get("id") == row_id:
+                return index
+    return 10**9
+
+
+def _absorb_outcome(
+    outcome: dict[str, Any],
+    written: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> None:
+    for event in outcome.get("events") or []:
+        _emit_progress(event)
+    if outcome.get("written"):
+        written.append(outcome["written"])
+    if outcome.get("error"):
+        errors.append(outcome["error"])
+
+
+def _pool_initializer(source_path: str, context: dict[str, Any]) -> None:
+    global _WORKER_BASE_FONT, _WORKER_CONTEXT
+    _WORKER_CONTEXT = context
+    _WORKER_BASE_FONT = TTFont(source_path, recalcBBoxes=False, recalcTimestamp=False)
+
+
+def _pool_process_job(job: dict[str, Any]) -> dict[str, Any]:
+    assert _WORKER_BASE_FONT is not None
+    assert _WORKER_CONTEXT is not None
+    return _process_instance(
+        base_font=_WORKER_BASE_FONT,
+        item=job.get("item"),
+        index=int(job.get("index") or 0),
+        total=int(job.get("total") or 1),
+        shared=_WORKER_CONTEXT,
+    )
+
+
+def _process_instance(
+    *,
+    base_font: TTFont,
+    item: Any,
+    index: int,
+    total: int,
+    shared: dict[str, Any],
+) -> dict[str, Any]:
+    """Instantiate one row. Returns written/error plus progress events (not emitted)."""
+    output_dir = Path(str(shared["output_dir"]))
+    dry_run = bool(shared["dry_run"])
+    overwrite = bool(shared["overwrite"])
+    ps_prefix = shared.get("ps_prefix")
+    family_name = shared.get("family_name")
+    keep_stat = bool(shared["keep_stat"])
+    ext = str(shared["ext"])
+    axis_tags = set(shared["axis_tags"])
+
+    events: list[dict[str, Any]] = []
+    instance_id = str(item.get("id") or "") if isinstance(item, dict) else ""
+
+    if not isinstance(item, dict):
+        message = f"Instance {index} is not an object"
+        events.append(
+            {
+                "event": "error",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "message": message,
+            }
+        )
+        return {
+            "events": events,
+            "error": {"code": "bad_instance", "message": message, "id": instance_id or None},
+        }
+
+    coordinates = item.get("coordinates") or {}
+    display_name = (item.get("name") or "").strip() or None
+    events.append(
+        {
+            "event": "start",
+            "id": instance_id or None,
+            "index": index,
+            "total": total,
+            "name": display_name,
+        }
+    )
+
+    if not isinstance(coordinates, dict) or not coordinates:
+        message = f"Instance {index} missing coordinates"
+        events.append(
+            {
+                "event": "error",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "name": display_name,
+                "message": message,
+            }
+        )
+        return {
+            "events": events,
+            "error": {"code": "bad_coordinates", "message": message, "id": instance_id or None},
+        }
+
+    try:
+        coords = {str(k): float(v) for k, v in coordinates.items()}
+    except (TypeError, ValueError) as exc:
+        message = f"Instance {index} has non-numeric coordinates: {exc}"
+        events.append(
+            {
+                "event": "error",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "name": display_name,
+                "message": message,
+            }
+        )
+        return {
+            "events": events,
+            "error": {"code": "bad_coordinates", "message": message, "id": instance_id or None},
+        }
+
+    unknown = sorted(set(coords) - axis_tags)
+    if unknown:
+        message = f"Instance {index}: axis not in font: {', '.join(unknown)}"
+        events.append(
+            {
+                "event": "error",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "name": display_name,
+                "message": message,
+            }
+        )
+        return {
+            "events": events,
+            "error": {"code": "unknown_axis", "message": message, "id": instance_id or None},
+        }
+
+    # Pin every fvar axis (static=True path expects full location).
+    full_coords = {}
+    for axis in base_font["fvar"].axes:
+        tag = axis.axisTag
+        full_coords[tag] = coords[tag] if tag in coords else float(axis.defaultValue)
+
+    postscript_name = (item.get("postscript_name") or "").strip() or None
+
+    style_token = _style_token(display_name) if display_name else None
+    if postscript_name:
+        file_stem = _sanitize_ps(postscript_name)
+    elif ps_prefix and style_token:
+        file_stem = _sanitize_ps(f"{ps_prefix}-{style_token}")
+    elif style_token:
+        file_stem = _sanitize_ps(style_token)
+    else:
+        file_stem = "Instance-" + "-".join(
+            f"{tag}{full_coords[tag]:g}" for tag in sorted(full_coords)
+        )
+        file_stem = _sanitize_ps(file_stem)
+
+    out_path = output_dir / f"{file_stem}{ext}"
+    if out_path.exists() and not overwrite and not dry_run:
+        message = f"Refusing to overwrite existing file: {out_path.name}"
+        events.append(
+            {
+                "event": "error",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "name": display_name,
+                "message": message,
+            }
+        )
+        return {
+            "events": events,
+            "error": {"code": "exists", "message": message, "id": instance_id or None},
+        }
+
+    if dry_run:
+        written_row = {
+            "id": instance_id or None,
+            "path": str(out_path),
+            "postscript_name": postscript_name or file_stem,
+            "coordinates": full_coords,
+            "name": display_name,
+        }
+        events.append(
+            {
+                "event": "written",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "name": display_name,
+                "path": str(out_path),
+            }
+        )
+        return {"events": events, "written": written_row}
+
+    try:
+        instance_font = deepcopy(base_font)
+        if ps_prefix:
+            _set_name_id(instance_font, NAME_ID_VARIATIONS_PS_PREFIX, ps_prefix)
+
+        try:
+            instancer.instantiateVariableFont(
+                instance_font,
+                full_coords,
+                inplace=True,
+                updateFontNames=True,
+                static=True,
+            )
+        except ValueError:
+            if not display_name:
+                raise
+            instance_font = deepcopy(base_font)
+            if ps_prefix:
+                _set_name_id(instance_font, NAME_ID_VARIATIONS_PS_PREFIX, ps_prefix)
+            instancer.instantiateVariableFont(
+                instance_font,
+                full_coords,
+                inplace=True,
+                updateFontNames=False,
+                static=True,
+            )
+
+        _finalize_static_tables(instance_font, keep_stat=keep_stat)
+
+        _apply_name_overrides(
+            instance_font,
+            display_name=display_name,
+            postscript_name=postscript_name,
+            ps_prefix=ps_prefix,
+            family_name=family_name,
+        )
+
+        if not postscript_name and not display_name:
+            final_ps = _get_name_id(instance_font, NAME_ID_POSTSCRIPT)
+            if final_ps:
+                file_stem = _sanitize_ps(final_ps)
+                out_path = output_dir / f"{file_stem}{ext}"
+                if out_path.exists() and not overwrite:
+                    message = f"Refusing to overwrite existing file: {out_path.name}"
+                    events.append(
+                        {
+                            "event": "error",
+                            "id": instance_id or None,
+                            "index": index,
+                            "total": total,
+                            "name": display_name,
+                            "message": message,
+                        }
+                    )
+                    return {
+                        "events": events,
+                        "error": {
+                            "code": "exists",
+                            "message": message,
+                            "id": instance_id or None,
+                        },
+                    }
+
+        instance_font.save(str(out_path))
+        written_name = (
+            display_name
+            or _get_name_id(instance_font, NAME_ID_TYPO_SUBFAMILY)
+            or _get_name_id(instance_font, NAME_ID_SUBFAMILY)
+        )
+        written_row = {
+            "id": instance_id or None,
+            "path": str(out_path),
+            "postscript_name": _get_name_id(instance_font, NAME_ID_POSTSCRIPT) or file_stem,
+            "coordinates": full_coords,
+            "name": written_name,
+        }
+        events.append(
+            {
+                "event": "written",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "name": written_name or display_name,
+                "path": str(out_path),
+            }
+        )
+        return {"events": events, "written": written_row}
+    except Exception as exc:  # noqa: BLE001 — continue batch; surface per-instance failure
+        message = f"{file_stem}: {type(exc).__name__}: {exc}"
+        events.append(
+            {
+                "event": "error",
+                "id": instance_id or None,
+                "index": index,
+                "total": total,
+                "name": display_name,
+                "message": message,
+            }
+        )
+        return {
+            "events": events,
+            "error": {
+                "code": "instance_failed",
+                "message": message,
+                "id": instance_id or None,
+            },
+        }
 
 
 def _result(

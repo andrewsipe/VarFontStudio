@@ -92,26 +92,15 @@ final class PreviewGlyphBridge {
         guard let canvas else { return }
         let fromFont = makeFont?(fromCoords)
         let toFont = makeFont?(toCoords)
-        let fromWidth = fromFont.map { sampleSize(sample, font: $0).width } ?? 0
-        let toWidth = toFont.map { sampleSize(sample, font: $0).width } ?? 0
-        let height = max(
-            fromFont.map { sampleSize(sample, font: $0).height } ?? 0,
-            toFont.map { sampleSize(sample, font: $0).height } ?? 0
-        )
+        let from = fromFont.map { FontPreviewGlyphMeasurement.measure(text: sample, font: $0).contentSize }
+        let to = toFont.map { FontPreviewGlyphMeasurement.measure(text: sample, font: $0).contentSize }
         canvas.lockContentSize(
-            width: max(fromWidth, toWidth, 1),
-            height: max(height, 1)
+            width: max(from?.width ?? 0, to?.width ?? 0, 1),
+            height: max(from?.height ?? 0, to?.height ?? 0, 1)
         )
     }
 
     func unlockWidth() {
         canvas?.unlockContentSize()
-    }
-
-    private func sampleSize(_ text: String, font: NSFont) -> CGSize {
-        let attributes: [NSAttributedString.Key: Any] = [.font: font]
-        let size = (text as NSString).size(withAttributes: attributes)
-        let height = max(size.height, font.ascender - font.descender + font.leading)
-        return CGSize(width: max(size.width.rounded(.up), 1), height: height)
     }
 }

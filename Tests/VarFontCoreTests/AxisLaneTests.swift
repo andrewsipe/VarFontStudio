@@ -29,6 +29,29 @@ final class AxisLaneTests: XCTestCase {
         XCTAssertEqual(axis.lane, .registration)
         XCTAssertFalse(axis.hasFvarScale)
         XCTAssertNil(axis.pinCoordinate)
+        XCTAssertFalse(axis.showsPinToggle)
+        XCTAssertFalse(axis.canDemoteFromRegistration)
+    }
+
+    func testFvarBackedRegistrationKeepsPinToggle() {
+        let axis = AxisDefinition(
+            tag: "ital",
+            displayName: "Italic",
+            min: -12,
+            default: -12,
+            max: -12,
+            role: .designRecordOnly,
+            values: [AxisValue(id: "i", value: -12, name: "Italic", elidable: false, statFormat: 1)],
+            fvarHidden: true
+        )
+        XCTAssertEqual(axis.lane, .registration)
+        XCTAssertTrue(axis.hasFvarScale)
+        XCTAssertTrue(axis.showsPinToggle)
+        XCTAssertTrue(axis.canDemoteFromRegistration)
+        XCTAssertTrue(axis.canAcceptRoleAfterRegistrationDemote(.instance))
+        XCTAssertTrue(axis.canAcceptRoleAfterRegistrationDemote(.statOnly))
+        XCTAssertFalse(axis.canAcceptRoleAfterRegistrationDemote(.designRecordOnly))
+        XCTAssertFalse(axis.canAcceptRoleAfterRegistrationDemote(.parametric))
     }
 
     func testHasFvarScaleRequiresMin() {

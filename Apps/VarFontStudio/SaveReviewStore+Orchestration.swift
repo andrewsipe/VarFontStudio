@@ -426,11 +426,16 @@ extension SaveReviewStore {
             Self.mergeIncludedDuplicateWarning(into: &result, plan: plan)
             SourceFontFingerprint.mergeWarnings(into: &result, probe: driftProbe)
             if result.ok {
-                // Drop the result if the live plan moved while we were in the dry-run.
+                // Drop stale interactive Review results if the plan or project moved mid-flight.
+                // Export All / ensureSaveReviewSession pass an explicit fontID and must keep
+                // sessions for non-selected siblings — do not require selectedFontID match then.
                 guard requireHost.planRevision == revisionAtStart,
-                      requireHost.selectedFontID == font.id,
                       requireHost.activeProjectID == targetProjectID else {
                     return nil
+                }
+                let refreshingExplicitFont = fontID != nil
+                if !refreshingExplicitFont || presentSheet {
+                    guard requireHost.selectedFontID == font.id else { return nil }
                 }
                 let diffReport = CommitDiffBuilder.build(
                     analysis: analysis,
@@ -791,9 +796,11 @@ extension SaveReviewStore {
 
         let total = max(targets.count, 1)
         var exportedCount = 0
+        var failedNames: [String] = []
         for (index, font) in targets.enumerated() {
             guard let session = sessions[font.id], let url = outputURLs[font.id] else { continue }
             let name = requireHost.fontBasename(for: font)
+            requireHost.clearPersistentSaveError()
             requireHost.updateBusyWork(
                 status: "Exporting \(name) (\(index + 1) of \(total))…",
                 progress: Double(index) / Double(total)
@@ -807,6 +814,8 @@ extension SaveReviewStore {
             )
             if requireHost.font(forProjectID: projectID, fontID: font.id)?.dirty == false {
                 exportedCount += 1
+            } else {
+                failedNames.append(name)
             }
             requireHost.updateBusyWork(
                 status: "Finished \(name) (\(index + 1) of \(total))",
@@ -822,7 +831,12 @@ extension SaveReviewStore {
         let folderLabel = outputDirectory?.lastPathComponent
             ?? outputURLs.values.first?.deletingLastPathComponent().lastPathComponent
             ?? "output folder"
-        if nestedBecauseOfCollision {
+        if !failedNames.isEmpty {
+            let listed = failedNames.joined(separator: ", ")
+            requireHost.postSaveFailure(
+                "Export finished with issues for \(listed). \(exportedCount) of \(targets.count) fonts exported to \(folderLabel)."
+            )
+        } else if nestedBecauseOfCollision {
             requireHost.postStatusMessage(
                 "Exported \(exportedCount) fonts to \(folderLabel) (created to avoid overwriting originals)"
             )
@@ -926,7 +940,9 @@ extension SaveReviewStore {
             let result = try await requireHost.commitService.commit(request)
             guard result.ok else {
                 let raw = result.errors.first?.message ?? "Export failed."
-                requireHost.postSaveFailure(friendlyExportFailureMessage(raw))
+                requireHost.postSaveFailure(
+                    "\(fontName): \(friendlyExportFailureMessage(raw))"
+                )
                 return
             }
 

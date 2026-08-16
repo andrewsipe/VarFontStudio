@@ -143,6 +143,8 @@ final class EditorViewModel: ObservableObject {
     /// Workspace confirmations / missing-fonts / target picker (Track B4).
     let workspace = ProjectWorkspaceStore()
     let fontPreviewCache = SourceFontPreviewCache()
+    /// Last successful Names-panel OT inventory per font (survives font switches).
+    var otFeatureAnalysisCache: [String: OTFeatureAnalysisResult] = [:]
     @Published var showShortcutsHelp = false
     @Published var searchText = ""
     @Published var instanceSearchFocusToken: UUID?
@@ -377,6 +379,7 @@ final class EditorViewModel: ObservableObject {
     func removeSourceBookmark(fontID: String) {
         sourceBookmarks.removeValue(forKey: fontID)
         fontPreviewCache.invalidate(fontID: fontID)
+        invalidateOTFeatureAnalysis(fontID: fontID)
     }
 
     var project: ProjectDocument? {

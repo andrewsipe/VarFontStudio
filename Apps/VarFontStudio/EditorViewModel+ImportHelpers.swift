@@ -172,8 +172,10 @@ extension EditorViewModel {
     }
 
     func setAxisInstanceGridEnabled(tag: String, enabled: Bool) {
-        guard let axis = selectedFont?.axes.first(where: { $0.tag == tag }),
-              !axis.isDesignRecordOnly else { return }
+        guard let axis = selectedFont?.axes.first(where: { $0.tag == tag }) else { return }
+        if axis.isDesignRecordOnly {
+            guard axis.canDemoteFromRegistration else { return }
+        }
         updateAxisRole(tag: tag, role: enabled ? .instance : .statOnly)
     }
 

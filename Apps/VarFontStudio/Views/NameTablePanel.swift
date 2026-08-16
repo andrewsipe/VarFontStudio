@@ -13,9 +13,19 @@ struct NameTablePanel: View {
     @State private var hoveredValueFieldID: Int?
     @State private var hoveredOTSiteID: String?
     @State private var pendingRemovalNameID: Int?
+    /// Guards overlapping reloads from stomping each other.
+    @State private var analysisLoadGeneration = 0
+    @State private var otInventoryPending = false
+    @State private var otEnrichmentTask: Task<Void, Never>?
 
     /// When hosted under middle-column chrome, the column owns the title header.
     var showsPanelHeader: Bool = true
+
+    private var namesAnalysisTaskID: String {
+        let fontID = editor.selectedFontID ?? ""
+        let path = editor.selectedFont?.sourcePath ?? ""
+        return "\(fontID)|\(path)"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,11 +47,8 @@ struct NameTablePanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .preference(key: NameTableHeaderMetaKey.self, value: headerMetaPreference)
-        .task(id: editor.selectedFontID) {
+        .task(id: namesAnalysisTaskID) {
             await reloadAnalysis()
-        }
-        .onChange(of: editor.selectedFont?.sourcePath) { _, _ in
-            Task { await reloadAnalysis() }
         }
         .confirmationDialog(
             removalDialogTitle,
@@ -161,6 +168,16 @@ struct NameTablePanel: View {
 
         if analysis == nil {
             EmptyView()
+        } else if otInventoryPending && rows.isEmpty {
+            HStack(spacing: StudioSpacing.tightGap) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Loading OpenType names…")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, StudioSpace.x2)
         } else if rows.isEmpty {
             Text(otEmptyMessage)
                 .font(StudioTypography.caption)
@@ -934,18 +951,68 @@ struct NameTablePanel: View {
         guard let font = editor.selectedFont else {
             analysis = nil
             loadError = nil
+            otInventoryPending = false
+            otEnrichmentTask?.cancel()
+            otEnrichmentTask = nil
             return
         }
+        analysisLoadGeneration += 1
+        let loadID = analysisLoadGeneration
+        let fontID = font.id
+        let sourcePath = font.sourcePath
         loadError = nil
+        otEnrichmentTask?.cancel()
+        otEnrichmentTask = nil
+        otInventoryPending = true
         do {
-            var next = try editor.analyzeSourceFont(fontID: font.id, sourcePath: font.sourcePath)
-            if let ot = await editor.analyzeOTFeatures(sourcePath: font.sourcePath) {
-                next.mergingOTFeatures(ot)
+            // Windows names are local/Swift-fast; OT inventory needs vfcommit.
+            var next = try editor.analyzeSourceFont(fontID: fontID, sourcePath: sourcePath)
+            guard loadID == analysisLoadGeneration else { return }
+
+            // Show last-known OT immediately when revisiting a font, then refresh.
+            if let cached = editor.cachedOTFeatureAnalysis(fontID: fontID, sourcePath: sourcePath) {
+                next.mergingOTFeatures(cached)
             }
             analysis = next
+
+            try Task.checkCancellation()
+            let ot = try await editor.analyzeOTFeatures(
+                sourcePath: sourcePath,
+                includeSuggestions: false
+            )
+            guard loadID == analysisLoadGeneration else { return }
+            editor.storeOTFeatureAnalysis(fontID: fontID, sourcePath: sourcePath, result: ot)
+            next.mergingOTFeatures(ot)
+            analysis = next
+            otInventoryPending = false
+
+            otEnrichmentTask = Task { @MainActor in
+                do {
+                    try Task.checkCancellation()
+                    guard loadID == analysisLoadGeneration else { return }
+                    let enriched = try await editor.analyzeOTFeatures(
+                        sourcePath: sourcePath,
+                        includeSuggestions: true
+                    )
+                    guard loadID == analysisLoadGeneration else { return }
+                    editor.storeOTFeatureAnalysis(fontID: fontID, sourcePath: sourcePath, result: enriched)
+                    analysis?.mergingOTFeatures(enriched)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    // Inventory already shown; Fill suggestions are best-effort.
+                    return
+                }
+            }
+        } catch is CancellationError {
+            return
         } catch {
-            analysis = nil
-            loadError = error.localizedDescription
+            guard loadID == analysisLoadGeneration else { return }
+            // Keep whatever Swift (+ cached OT) we already published; only hard-fail if empty.
+            if analysis == nil {
+                loadError = error.localizedDescription
+            }
+            otInventoryPending = false
         }
     }
 }

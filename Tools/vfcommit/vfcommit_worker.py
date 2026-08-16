@@ -75,7 +75,11 @@ def main() -> int:
                 from vfcommit_lib.ot_label_scanner import analyze_ot_features_from_path
 
                 source_path = str(request.get("source_path") or "")
-                result = analyze_ot_features_from_path(source_path)
+                include_suggestions = bool(request.get("include_suggestions", True))
+                result = analyze_ot_features_from_path(
+                    source_path,
+                    include_suggestions=include_suggestions,
+                )
                 result["op"] = "analyze_ot_features"
                 result["request_id"] = str(request.get("request_id") or "")
             except Exception as exc:  # noqa: BLE001

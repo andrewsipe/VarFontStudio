@@ -8,6 +8,9 @@ public enum CommitWorkerError: Error, Equatable, Sendable {
 }
 
 /// Long-lived vfcommit NDJSON subprocess for interactive save previews.
+///
+/// Actors are reentrant across `await`, so overlapping `roundTrip` calls would
+/// interleave stdin/stdout. `ioGate` makes write→read exclusive.
 actor CommitWorker {
     private let helperURL: URL
     private let pythonExecutable: String
@@ -17,11 +20,32 @@ actor CommitWorker {
     private var stdoutHandle: FileHandle?
     private var stderrHandle: FileHandle?
     private let timeoutSeconds: TimeInterval = 60
+    private var ioBusy = false
+    private var ioWaiters: [CheckedContinuation<Void, Never>] = []
 
     init(helperURL: URL, pythonExecutable: String) {
         self.helperURL = helperURL
         self.pythonExecutable = pythonExecutable
         self.toolsDirectory = helperURL.deletingLastPathComponent()
+    }
+
+    private func acquireIO() async {
+        if !ioBusy {
+            ioBusy = true
+            return
+        }
+        await withCheckedContinuation { continuation in
+            ioWaiters.append(continuation)
+        }
+    }
+
+    private func releaseIO() {
+        if ioWaiters.isEmpty {
+            ioBusy = false
+            return
+        }
+        let next = ioWaiters.removeFirst()
+        next.resume()
     }
 
     func startIfNeeded() throws {
@@ -80,11 +104,15 @@ actor CommitWorker {
         return try VarFontJSON.decode(CommitResult.self, from: responseData)
     }
 
-    func analyzeOTFeatures(sourcePath: String) async throws -> OTFeatureAnalysisResult {
-        let payload: [String: String] = [
+    func analyzeOTFeatures(
+        sourcePath: String,
+        includeSuggestions: Bool = true
+    ) async throws -> OTFeatureAnalysisResult {
+        let payload: [String: Any] = [
             "op": "analyze_ot_features",
             "source_path": sourcePath,
             "request_id": UUID().uuidString.lowercased(),
+            "include_suggestions": includeSuggestions,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         var line = data
@@ -109,6 +137,9 @@ actor CommitWorker {
     }
 
     private func roundTrip(line: Data) async throws -> Data {
+        await acquireIO()
+        defer { releaseIO() }
+
         try startIfNeeded()
         guard let process, process.isRunning else {
             shutdown()
@@ -179,14 +210,38 @@ actor CommitWorker {
 actor CommitWorkerManager {
     private var worker: CommitWorker?
     private var configurationKey: String?
+    /// Prevents restart/shutdown from racing another in-flight worker op (actor reentrancy).
+    private var sessionBusy = false
+    private var sessionWaiters: [CheckedContinuation<Void, Never>] = []
 
     static let shared = CommitWorkerManager()
+
+    private func acquireSession() async {
+        if !sessionBusy {
+            sessionBusy = true
+            return
+        }
+        await withCheckedContinuation { continuation in
+            sessionWaiters.append(continuation)
+        }
+    }
+
+    private func releaseSession() {
+        if sessionWaiters.isEmpty {
+            sessionBusy = false
+            return
+        }
+        let next = sessionWaiters.removeFirst()
+        next.resume()
+    }
 
     func commit(
         _ request: CommitRequest,
         helperURL: URL,
         pythonExecutable: String
     ) async throws -> CommitResult {
+        await acquireSession()
+        defer { releaseSession() }
         let worker = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
         do {
             return try await worker.commit(request)
@@ -202,21 +257,32 @@ actor CommitWorkerManager {
     func analyzeOTFeatures(
         sourcePath: String,
         helperURL: URL,
-        pythonExecutable: String
+        pythonExecutable: String,
+        includeSuggestions: Bool = true
     ) async throws -> OTFeatureAnalysisResult {
+        await acquireSession()
+        defer { releaseSession() }
         let worker = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
         do {
-            return try await worker.analyzeOTFeatures(sourcePath: sourcePath)
+            return try await worker.analyzeOTFeatures(
+                sourcePath: sourcePath,
+                includeSuggestions: includeSuggestions
+            )
         } catch {
             await worker.shutdown()
             self.worker = nil
             self.configurationKey = nil
             let restarted = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
-            return try await restarted.analyzeOTFeatures(sourcePath: sourcePath)
+            return try await restarted.analyzeOTFeatures(
+                sourcePath: sourcePath,
+                includeSuggestions: includeSuggestions
+            )
         }
     }
 
     func ensureReady(helperURL: URL, pythonExecutable: String) async {
+        await acquireSession()
+        defer { releaseSession() }
         do {
             let worker = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
             try await worker.ping()
@@ -226,6 +292,8 @@ actor CommitWorkerManager {
     }
 
     func shutdown() async {
+        await acquireSession()
+        defer { releaseSession() }
         if let worker {
             await worker.shutdown()
         }

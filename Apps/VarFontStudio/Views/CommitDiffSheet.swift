@@ -254,8 +254,8 @@ struct SaveReviewWindow: View {
                                     if !session.preflight.errors.isEmpty {
                                         preflightErrorsCard(session.preflight.errors)
                                     }
-                                    if !session.preflight.warnings.isEmpty {
-                                        preflightWarningsCard(session.preflight.warnings)
+                                    if !visiblePreflightWarnings(session.preflight.warnings).isEmpty {
+                                        preflightWarningsCard(visiblePreflightWarnings(session.preflight.warnings))
                                     }
                                 }
                             }
@@ -371,6 +371,10 @@ struct SaveReviewWindow: View {
         }
     }
 
+    private func visiblePreflightWarnings(_ warnings: [PlanWarning]) -> [PlanWarning] {
+        warnings.filter { !$0.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
     private func preflightErrorsCard(_ errors: [CommitError]) -> some View {
         VStack(alignment: .leading, spacing: StudioSpacing.rowGap) {
             Text("Cannot export")
@@ -394,7 +398,14 @@ struct SaveReviewWindow: View {
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
             ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
-                StudioWarningMessage(message: warning.message)
+                HStack(alignment: .firstTextBaseline, spacing: StudioSpace.x1) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(StudioColors.warningForeground)
+                    Text(warning.message)
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.primary)
+                }
             }
         }
         .padding(StudioSpacing.contentInset)

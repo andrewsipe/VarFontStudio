@@ -193,6 +193,65 @@ class OTFeatureNamesTests(unittest.TestCase):
         patches = (result.get("diff") or {}).get("ot_label_patches") or []
         self.assertTrue(any(p.get("string") == "Patched Label" for p in patches))
 
+    def test_reflow_addition_does_not_collide_with_axis_allocation(self) -> None:
+        """ss## additions under reflow must not steal 256 from axis names."""
+        from vfcommit_lib.nameid_allocator import (
+            AxisDef,
+            AxisValueDef,
+            build_allocation_plan,
+            check_for_collisions,
+        )
+
+        font = _minimal_font_with_ss(labeled=False)
+        applied = apply_ot_label_additions(
+            font,
+            [{"table": "GSUB", "feature_tag": "ss01", "string": "Sharp Serifs"}],
+            free_start=256,
+        )
+        self.assertEqual(applied[0]["name_id"], 256)
+        ot_labels = scan_ot_label_nameids(font)
+        axis_defs = [
+            AxisDef(
+                tag="wght",
+                display_name="Weight",
+                min_value=100.0,
+                default_value=400.0,
+                max_value=900.0,
+                values=[AxisValueDef(value=400.0, name="Regular", elidable=True)],
+            )
+        ]
+        # Stale reflow end (pre-addition) used to allocate wght at 256 → collision.
+        plan = build_allocation_plan(
+            font,
+            ot_labels,
+            axis_defs,
+            allocate_postscript_names=False,
+            nameid_strategy="reflow",
+            ot_reflow_end=max(rec.name_id for rec in ot_labels),
+        )
+        self.assertEqual([], check_for_collisions(plan, font))
+        self.assertGreater(plan.axis_name_ids["wght"], 256)
+
+    def test_reflow_wipe_keeps_added_ot_label_string(self) -> None:
+        """Added ss## nameIDs must be in the wipe protect set (reflow write path)."""
+        from vfcommit_lib.stat_builder import _wipe_existing_table_data
+
+        font = _minimal_font_with_ss(labeled=False)
+        applied = apply_ot_label_additions(
+            font,
+            [{"table": "GSUB", "feature_tag": "ss01", "string": "Sharp Serifs"}],
+            free_start=256,
+        )
+        name_id = int(applied[0]["name_id"])
+        ot_label_ids = {rec.name_id for rec in scan_ot_label_nameids(font)}
+        # Engine reflow protect set: remapped IDs ∪ live OT label IDs (incl. additions).
+        protected_ids = set() | set(ot_label_ids)
+        _wipe_existing_table_data(font, protected_ids)
+        self.assertEqual(font["name"].getDebugName(name_id), "Sharp Serifs")
+        labels = scan_ot_label_nameids(font)
+        self.assertEqual(len(labels), 1)
+        self.assertEqual(labels[0].string, "Sharp Serifs")
+
 
 if __name__ == "__main__":
     unittest.main()

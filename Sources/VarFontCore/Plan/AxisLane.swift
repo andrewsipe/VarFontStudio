@@ -23,4 +23,21 @@ extension AxisDefinition {
     public var pinCoordinate: Double? {
         AxisPinPolicy.pinCoordinate(for: self)
     }
+
+    /// Axis Tree Pin control: hidden for pure STAT naming axes, kept for fvar-backed ones
+    /// (e.g. pinned `ital` at −12) so registration can be demoted back to instance/pinned.
+    public var showsPinToggle: Bool {
+        if isDesignRecordOnly { return hasFvarScale }
+        return true
+    }
+
+    /// Leave `design_record_only` via Pin / instance-grid controls when an fvar scale remains.
+    public var canDemoteFromRegistration: Bool {
+        isDesignRecordOnly && hasFvarScale
+    }
+
+    /// Roles Pin may move a demotable registration axis into.
+    public func canAcceptRoleAfterRegistrationDemote(_ role: AxisRole) -> Bool {
+        canDemoteFromRegistration && (role == .instance || role == .statOnly)
+    }
 }

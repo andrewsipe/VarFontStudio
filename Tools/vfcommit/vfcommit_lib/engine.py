@@ -169,6 +169,10 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         ot_labels = scan_ot_label_nameids(font)
         ot_label_ids = {rec.name_id for rec in ot_labels}
 
+    # New ss## labels extend the OT block; axis/instance allocation must start after them.
+    if strategy == "reflow" and ot_label_ids:
+        ot_reflow_end = max(int(ot_reflow_end), max(ot_label_ids))
+
     family_ps_prefix = options.get("family_ps_prefix")
     windows_name_patches = list(request.get("windows_name_patches") or [])
     plan = build_allocation_plan(
@@ -200,25 +204,21 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             "output_path": None,
             "dry_run": dry_run,
             "summary": None,
-            "warnings": [
+            "warnings": [],
+            "errors": [
                 {
                     "code": "nameid_collision",
                     "message": line,
                 }
                 for line in collisions
             ],
-            "errors": [
-                {
-                    "code": "nameid_collision",
-                    "message": collisions[0],
-                }
-            ],
         }
 
     if strategy == "reflow":
-        new_ot_ids = set(ot_reflow_mapping.values()) | {
-            nid for nid in ot_label_ids if nid < 256
-        }
+        # Protect remapped OT labels AND any new ss## additions (post-reflow nameIDs).
+        # Without additions here, wipe deletes their name strings and leaves dangling
+        # FeatureParams pointers (dangling_ot_label).
+        new_ot_ids = set(ot_reflow_mapping.values()) | set(ot_label_ids)
         preserved_axes = preserved_design_axis_name_ids(
             font, {axis_def.tag for axis_def in axis_defs}
         )

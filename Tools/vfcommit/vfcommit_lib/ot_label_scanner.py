@@ -132,9 +132,14 @@ def analyze_ot_features(font: TTFont, *, include_suggestions: bool = True) -> Di
     }
 
 
-def analyze_ot_features_from_path(source_path: str) -> Dict[str, Any]:
+def analyze_ot_features_from_path(
+    source_path: str,
+    *,
+    include_suggestions: bool = True,
+) -> Dict[str, Any]:
     try:
-        font = TTFont(source_path, lazy=True)
+        # Inventory needs GSUB/GPOS FeatureList; avoid lazy holes on some fonts.
+        font = TTFont(source_path, lazy=False)
     except Exception as exc:
         return {
             "ok": False,
@@ -143,7 +148,7 @@ def analyze_ot_features_from_path(source_path: str) -> Dict[str, Any]:
             "ot_features_unlabeled": [],
         }
     try:
-        return analyze_ot_features(font)
+        return analyze_ot_features(font, include_suggestions=include_suggestions)
     finally:
         try:
             font.close()

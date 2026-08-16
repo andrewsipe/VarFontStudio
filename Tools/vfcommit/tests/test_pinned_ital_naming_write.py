@@ -11,8 +11,7 @@ from fontTools.ttLib import TTFont
 from vfcommit_lib.engine import run_commit
 
 RESAN_ITALIC = Path(
-    "/Users/skymacbook/Downloads/_Fonts/WOFF/Thedesignersfoundry/converted/"
-    "ResanDisplay-VariableItalic.ttf"
+    "/Users/skymacbook/Downloads/_Fonts/OTF/Type/ResanDisplay-VariableItalic.ttf"
 )
 
 

@@ -755,4 +755,59 @@ final class PlanIssueResolverTests: XCTestCase {
         XCTAssertTrue(RegistrationAxisSupport.italConventionWarnings(font: font).isEmpty)
         XCTAssertTrue(RegistrationAxisSupport.italFormat1UpgradeWarnings(font: font).isEmpty)
     }
+
+    func testDemoteFvarBackedRegistrationItalViaSetAxisRole() throws {
+        var font = FontDocument(
+            id: "resan-italic",
+            sourcePath: "/tmp/ResanDisplay-VariableItalic.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "ital",
+                    displayName: "Italic",
+                    min: -12,
+                    default: -12,
+                    max: -12,
+                    role: .designRecordOnly,
+                    values: [
+                        AxisValue(id: "i", value: -12, name: "Italic", elidable: false, statFormat: 1),
+                    ],
+                    fvarHidden: true
+                ),
+            ],
+            fileStatRegistration: ["ital": -12],
+            inferredIsItalicFile: true
+        )
+
+        let demote = PlanIssueAction.setAxisRole(axisTag: "ital", role: .instance)
+        XCTAssertTrue(PlanIssueResolver.wouldApply(demote, to: font))
+        PlanIssueResolver.apply(demote, to: &font)
+
+        let ital = try XCTUnwrap(font.axes.first { $0.tag == "ital" })
+        XCTAssertEqual(ital.role, .instance)
+        XCTAssertEqual(ital.values.count, 1)
+        XCTAssertEqual(ital.values[0].value, -12)
+        XCTAssertNil(font.fileStatRegistration["ital"])
+        XCTAssertTrue(ital.showsPinToggle)
+
+        let pureNaming = FontDocument(
+            id: "roman",
+            sourcePath: "/tmp/ResanDisplay-Variable.ttf",
+            axes: [
+                AxisDefinition(
+                    tag: "ital",
+                    role: .designRecordOnly,
+                    values: [
+                        AxisValue(id: "r", value: 0, name: "Roman", elidable: true, statFormat: 3, linkedValue: 1),
+                    ]
+                ),
+            ],
+            fileStatRegistration: ["ital": 0]
+        )
+        XCTAssertFalse(
+            PlanIssueResolver.wouldApply(
+                .setAxisRole(axisTag: "ital", role: .instance),
+                to: pureNaming
+            )
+        )
+    }
 }

@@ -127,7 +127,9 @@ public enum PlanIssueResolver {
             return axis.values.contains(where: \.elidable)
         case .setAxisRole(let axisTag, let role):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
-            guard !axis.isDesignRecordOnly else { return false }
+            if axis.isDesignRecordOnly {
+                return axis.canAcceptRoleAfterRegistrationDemote(role) && axis.role != role
+            }
             return axis.role != role
         case .insertAxisStop(let axisTag, let value, _):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
@@ -230,7 +232,10 @@ public enum PlanIssueResolver {
             font.axes[axisIndex].values[stopIndex].name = newName
         case let .setAxisRole(axisTag, role):
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
-            guard !font.axes[axisIndex].isDesignRecordOnly else { return }
+            if font.axes[axisIndex].isDesignRecordOnly {
+                guard font.axes[axisIndex].canAcceptRoleAfterRegistrationDemote(role) else { return }
+                font.fileStatRegistration.removeValue(forKey: axisTag)
+            }
             font.axes[axisIndex].role = role
         case let .insertAxisStop(axisTag, value, name):
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }

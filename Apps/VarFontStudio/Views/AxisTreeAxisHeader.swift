@@ -194,17 +194,15 @@ struct AxisTreeAxisHeader: View {
                 stopCountBadge
                     .fixedSize(horizontal: true, vertical: false)
 
-                if lane != .registration {
+                if axis.showsPinToggle {
                     StudioCompactToggleButton(
                         title: "Pin",
                         isActive: !isInstanceAxis,
-                        help: isInstanceAxis
-                            ? "Pin this axis at its default for every instance. Stops leave the instance grid."
-                            : "Unpin so stops on this axis generate named instances again."
+                        help: pinToggleHelp
                     ) {
                         isInstanceAxis.toggle()
                     }
-                    .accessibilityLabel(isInstanceAxis ? "Pin axis" : "Unpin axis")
+                    .accessibilityLabel(pinToggleAccessibilityLabel)
                     .studioInteractiveCursor()
                 }
             }
@@ -277,6 +275,22 @@ struct AxisTreeAxisHeader: View {
 
     private var registrationStopHelp: String {
         "This file’s identity on this axis — used in every instance name, not the instance grid."
+    }
+
+    private var pinToggleHelp: String {
+        if axis.isDesignRecordOnly {
+            return "This naming axis still has an fvar entry. Unpin to return it to the instance grid; Pin keeps it off-grid as STAT-only."
+        }
+        return isInstanceAxis
+            ? "Pin this axis at its default for every instance. Stops leave the instance grid."
+            : "Unpin so stops on this axis generate named instances again."
+    }
+
+    private var pinToggleAccessibilityLabel: String {
+        if axis.isDesignRecordOnly {
+            return isInstanceAxis ? "Pin naming axis" : "Demote naming axis to instance grid"
+        }
+        return isInstanceAxis ? "Pin axis" : "Unpin axis"
     }
 
     private var stopCountBadge: some View {

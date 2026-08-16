@@ -210,7 +210,10 @@ public struct CommitService: Sendable {
         return try await commitOneShot(request, helperURL: helperURL)
     }
 
-    public func analyzeOTFeatures(sourcePath: String) async throws -> OTFeatureAnalysisResult {
+    public func analyzeOTFeatures(
+        sourcePath: String,
+        includeSuggestions: Bool = true
+    ) async throws -> OTFeatureAnalysisResult {
         guard let helperURL = helperURL ?? Self.defaultHelperURL() else {
             throw CommitServiceError.helperNotFound
         }
@@ -221,10 +224,15 @@ public struct CommitService: Sendable {
             return try await CommitWorkerManager.shared.analyzeOTFeatures(
                 sourcePath: sourcePath,
                 helperURL: helperURL,
-                pythonExecutable: pythonExecutable
+                pythonExecutable: pythonExecutable,
+                includeSuggestions: includeSuggestions
             )
         } catch {
-            return try await analyzeOTFeaturesOneShot(sourcePath: sourcePath, helperURL: helperURL)
+            return try await analyzeOTFeaturesOneShot(
+                sourcePath: sourcePath,
+                helperURL: helperURL,
+                includeSuggestions: includeSuggestions
+            )
         }
     }
 
@@ -237,7 +245,11 @@ public struct CommitService: Sendable {
         await CommitWorkerManager.shared.shutdown()
     }
 
-    private func analyzeOTFeaturesOneShot(sourcePath: String, helperURL: URL) async throws -> OTFeatureAnalysisResult {
+    private func analyzeOTFeaturesOneShot(
+        sourcePath: String,
+        helperURL: URL,
+        includeSuggestions: Bool
+    ) async throws -> OTFeatureAnalysisResult {
         let workerScript = helperURL.deletingLastPathComponent().appendingPathComponent("vfcommit_worker.py")
         let scriptURL = FileManager.default.fileExists(atPath: workerScript.path) ? workerScript : helperURL
 
@@ -266,10 +278,11 @@ public struct CommitService: Sendable {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        let payload: [String: String] = [
+        let payload: [String: Any] = [
             "op": "analyze_ot_features",
             "source_path": sourcePath,
             "request_id": UUID().uuidString.lowercased(),
+            "include_suggestions": includeSuggestions,
         ]
         let requestData = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         var line = requestData

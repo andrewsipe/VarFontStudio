@@ -929,7 +929,7 @@ def build_allocation_plan(
             return False
         if nid in claimed_ids:
             return False
-        if not reflow_mode and nid in ot_protected_ids:
+        if nid in ot_protected_ids:
             return False
         if nid in preserved_axis_name_ids:
             return False
@@ -937,15 +937,14 @@ def build_allocation_plan(
 
     def alloc_id() -> int:
         nonlocal cursor
-        while cursor in preserved_axis_name_ids or cursor in claimed_ids:
+        # Always skip protected OT label IDs (including ss## additions past a stale
+        # ot_reflow_end) and preserved design-axis nameIDs.
+        while (
+            cursor in ot_protected_ids
+            or cursor in preserved_axis_name_ids
+            or cursor in claimed_ids
+        ):
             cursor += 1
-        if not reflow_mode:
-            while (
-                cursor in ot_protected_ids
-                or cursor in preserved_axis_name_ids
-                or cursor in claimed_ids
-            ):
-                cursor += 1
         nid = cursor
         claimed_ids.add(nid)
         cursor += 1

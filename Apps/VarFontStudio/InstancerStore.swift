@@ -1051,6 +1051,7 @@ final class InstancerStore: ObservableObject {
                 familyName: familyName.isEmpty ? nil : familyName,
                 keepStat: false,
                 overwrite: overwrite,
+                workers: Self.preferredInstanceWorkers(for: specs.count),
                 instances: specs
             )
             let result = try await host.instanceService.instance(request) { [weak session] event in
@@ -1094,13 +1095,14 @@ final class InstancerStore: ObservableObject {
     private func applyGenerateProgress(_ event: InstanceProgressEvent, to session: InstancerSessionState) {
         let label = event.name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let name = (label?.isEmpty == false) ? label! : "instance"
-        let step = event.index + 1
         let total = max(event.total, 1)
 
         switch event.event {
         case "start":
             session.generatingRowID = event.id
-            session.generateStatus = "Instancing \(name) (\(step) of \(total))…"
+            // Parallel workers finish out of order — show name + completed count, not index.
+            let done = session.generateCompletedCount
+            session.generateStatus = "Instancing \(name) (\(done) of \(total) done)…"
             session.statusHint = session.generateStatus
         case "written":
             if let id = event.id {
@@ -1109,25 +1111,34 @@ final class InstancerStore: ObservableObject {
                     session.generatingRowID = nil
                 }
             }
-            session.generateCompletedCount = step
-            session.generateStatus = "Wrote \(name) (\(step) of \(total))"
+            session.generateCompletedCount += 1
+            let done = session.generateCompletedCount
+            session.generateStatus = "Wrote \(name) (\(done) of \(total))"
             session.statusHint = session.generateStatus
         case "error":
             // Leave failed rows selected so the user can retry.
             if let id = event.id, session.generatingRowID == id {
                 session.generatingRowID = nil
             }
+            session.generateCompletedCount += 1
+            let done = session.generateCompletedCount
             let detail = event.message?.trimmingCharacters(in: .whitespacesAndNewlines)
             if let detail, !detail.isEmpty {
-                session.generateStatus = "Failed \(name) (\(step) of \(total)): \(detail)"
+                session.generateStatus = "Failed \(name) (\(done) of \(total)): \(detail)"
             } else {
-                session.generateStatus = "Failed \(name) (\(step) of \(total))"
+                session.generateStatus = "Failed \(name) (\(done) of \(total))"
             }
             session.statusHint = session.generateStatus
         default:
             break
         }
         objectWillChange.send()
+    }
+
+    /// Cap parallel instantiate workers at 8, CPU count, and batch size.
+    static func preferredInstanceWorkers(for instanceCount: Int) -> Int {
+        let cpu = ProcessInfo.processInfo.activeProcessorCount
+        return max(1, min(8, cpu, max(instanceCount, 1)))
     }
 
     static func userFacingGenerateError(_ error: Error) -> String {

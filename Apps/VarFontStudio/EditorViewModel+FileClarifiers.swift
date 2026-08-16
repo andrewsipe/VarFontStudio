@@ -507,7 +507,11 @@ extension EditorViewModel {
     func updateAxisRole(tag: String, role: AxisRole) {
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == tag }) else { return }
-            if font.axes[axisIndex].isDesignRecordOnly { return }
+            let axis = font.axes[axisIndex]
+            if axis.isDesignRecordOnly {
+                guard axis.canAcceptRoleAfterRegistrationDemote(role) else { return }
+                font.fileStatRegistration.removeValue(forKey: tag)
+            }
             font.axes[axisIndex].role = role
         }
     }

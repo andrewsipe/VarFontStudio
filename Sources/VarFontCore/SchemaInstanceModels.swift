@@ -13,6 +13,8 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
     public var familyName: String?
     public var keepStat: Bool
     public var overwrite: Bool
+    /// Parallel instantiate workers. Nil → vfinstance default (min(8, CPU, count)).
+    public var workers: Int?
     public var instances: [InstanceSpec]
 
     enum CodingKeys: String, CodingKey {
@@ -25,6 +27,7 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
         case familyName = "family_name"
         case keepStat = "keep_stat"
         case overwrite
+        case workers
         case instances
     }
 
@@ -38,6 +41,7 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
         familyName: String? = nil,
         keepStat: Bool = false,
         overwrite: Bool = false,
+        workers: Int? = nil,
         instances: [InstanceSpec]
     ) {
         self.schemaVersion = schemaVersion
@@ -49,6 +53,7 @@ public struct InstanceRequest: Codable, Equatable, Sendable {
         self.familyName = familyName
         self.keepStat = keepStat
         self.overwrite = overwrite
+        self.workers = workers
         self.instances = instances
     }
 }

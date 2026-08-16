@@ -100,11 +100,54 @@ extension EditorViewModel {
         }
     }
 
-    func analyzeOTFeatures(sourcePath: String) async -> OTFeatureAnalysisResult? {
+    /// Inventory OpenType feature labels. Prefer `includeSuggestions: false` for a fast
+    /// complete feature list; suggestions can be loaded in a follow-up pass.
+    func analyzeOTFeatures(
+        sourcePath: String,
+        includeSuggestions: Bool = false
+    ) async throws -> OTFeatureAnalysisResult {
+        try Task.checkCancellation()
         do {
-            return try await commitService.analyzeOTFeatures(sourcePath: sourcePath)
+            await commitService.ensureWorkerReady()
+            try Task.checkCancellation()
+            let result = try await commitService.analyzeOTFeatures(
+                sourcePath: sourcePath,
+                includeSuggestions: includeSuggestions
+            )
+            if result.ok { return result }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
-            return nil
+            // Fall through to one retry after a fresh worker warm-up.
         }
+        try Task.checkCancellation()
+        await commitService.ensureWorkerReady()
+        try Task.checkCancellation()
+        let retry = try await commitService.analyzeOTFeatures(
+            sourcePath: sourcePath,
+            includeSuggestions: includeSuggestions
+        )
+        guard retry.ok else {
+            throw CommitServiceError.invalidHelperOutput(retry.error ?? "analyze_ot_features failed")
+        }
+        return retry
+    }
+
+    func cachedOTFeatureAnalysis(fontID: String, sourcePath: String) -> OTFeatureAnalysisResult? {
+        otFeatureAnalysisCache[Self.otFeatureCacheKey(fontID: fontID, sourcePath: sourcePath)]
+    }
+
+    func storeOTFeatureAnalysis(fontID: String, sourcePath: String, result: OTFeatureAnalysisResult) {
+        guard result.ok else { return }
+        otFeatureAnalysisCache[Self.otFeatureCacheKey(fontID: fontID, sourcePath: sourcePath)] = result
+    }
+
+    func invalidateOTFeatureAnalysis(fontID: String) {
+        let prefix = "\(fontID)|"
+        otFeatureAnalysisCache = otFeatureAnalysisCache.filter { !$0.key.hasPrefix(prefix) }
+    }
+
+    private static func otFeatureCacheKey(fontID: String, sourcePath: String) -> String {
+        "\(fontID)|\(sourcePath)"
     }
 }

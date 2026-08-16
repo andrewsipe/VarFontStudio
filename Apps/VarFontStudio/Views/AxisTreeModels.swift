@@ -36,15 +36,17 @@ struct StopFormatChangeRequest: Identifiable {
 //
 // Collapsed (expanded = N): header only — subtitle always visible; table / Add Stop hidden.
 //
-// | Lane        | DesignRec | Empty | Inst | Header subtitle (merged)              | Table | Add Stop |
-// |-------------|-----------|-------|------|---------------------------------------|-------|----------|
-// | variation   | N         | N     | Y    | min – def – max                       | YES   | YES      |
-// | variation   | N         | Y     | Y    | min – def – max                       | empty | YES      |
-// | pinned      | N         | N     | N    | min – def – max · Pinned at X         | YES   | NO       |
-// | pinned      | N         | Y     | N    | min – def – max · Pinned at X         | empty | NO       |
-// | registration| Y         | N     | —    | No fvar scale · {stop}▾              | YES   | YES      |
-// | registration| Y         | Y     | —    | No fvar scale · {stop?}▾             | empty | YES      |
-// | registration| N         | *     | —    | No fvar scale [· {stop?}▾]           | *     | YES*     |
+// | Lane        | DesignRec | Empty | Inst | Header subtitle (merged)              | Table | Add Stop | Pin |
+// |-------------|-----------|-------|------|---------------------------------------|-------|----------|-----|
+// | variation   | N         | N     | Y    | min – def – max                       | YES   | YES      | YES |
+// | variation   | N         | Y     | Y    | min – def – max                       | empty | YES      | YES |
+// | pinned      | N         | N     | N    | min – def – max · Pinned at X         | YES   | NO       | YES |
+// | pinned      | N         | Y     | N    | min – def – max · Pinned at X         | empty | NO       | YES |
+// | registration| Y         | N     | —    | No fvar scale · {stop}▾              | YES   | YES      | NO* |
+// | registration| Y         | Y     | —    | No fvar scale · {stop?}▾             | empty | YES      | NO* |
+// | registration| N         | *     | —    | No fvar scale [· {stop?}▾]           | *     | YES*     | NO* |
+//
+// * Pin stays for design_record_only when hasFvarScale (fvar-backed naming axis can demote).
 //
 // hasConflict → warning icon + Resolve in header (all lanes). hasAxisWarning → warning icon in header;
 // axis-scoped plan warnings do not repeat in the scroll banner (rollup only when 2+ axes need attention).
