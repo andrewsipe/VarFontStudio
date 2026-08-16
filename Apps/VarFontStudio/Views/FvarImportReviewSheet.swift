@@ -1,8 +1,9 @@
 import SwiftUI
 import VarFontCore
 
-struct FvarImportReviewSession: Identifiable {
-    let id = UUID()
+struct FvarImportReviewSession: Identifiable, Equatable {
+    /// Stable per font so the sheet can switch files without remount thrash.
+    var id: String { fontID }
     var report: FvarStopSeeder.Report
     var fontID: String
 }
@@ -14,9 +15,69 @@ struct FvarImportReviewSession: Identifiable {
 /// Stops (promote / combo-only / ignore, plus name conflicts) and Styles
 /// (Format 4 named combinations). Everything opens on its recommendation, so
 /// Apply without touching anything is the "accept recommendations" path.
+///
+/// When several files need review (multi-drop / add), a File row switches between
+/// pending sessions. Apply / Cancel finish the active file and advance.
 struct FvarImportReviewSheet: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(\.dismiss) private var dismiss
+
+    /// Draft decisions keyed by font so switching File chips keeps in-progress edits.
+    @State private var draftsByFontID: [String: FvarImportReviewDraft] = [:]
+
+    private var queue: [FvarImportReviewSession] {
+        editor.issueResolvers.fvarImportReviewQueue
+    }
+
+    private var session: FvarImportReviewSession? {
+        editor.issueResolvers.fvarImportReviewRequest
+    }
+
+    var body: some View {
+        Group {
+            if let session {
+                FvarImportReviewContent(
+                    session: session,
+                    pendingSessions: queue,
+                    draft: draftBinding(for: session.fontID),
+                    onSelectFont: { editor.issueResolvers.selectFvarImportReviewFont(fontID: $0) },
+                    onFinished: { hasMore in
+                        if !hasMore {
+                            draftsByFontID = [:]
+                            dismiss()
+                        } else {
+                            draftsByFontID.removeValue(forKey: session.fontID)
+                        }
+                    }
+                )
+            } else {
+                Color.clear
+                    .onAppear { dismiss() }
+            }
+        }
+    }
+
+    private func draftBinding(for fontID: String) -> Binding<FvarImportReviewDraft> {
+        Binding(
+            get: { draftsByFontID[fontID] ?? FvarImportReviewDraft() },
+            set: { draftsByFontID[fontID] = $0 }
+        )
+    }
+}
+
+private struct FvarImportReviewDraft {
+    var stopDispositions: [String: FvarStopSeeder.StopDisposition] = [:]
+    var conflictResolutions: [String: FvarStopSeeder.Resolution] = [:]
+    var dismissedCompoundIDs: Set<String> = []
+    var promotedStopNames: [String: String] = [:]
+    var compoundNames: [String: String] = [:]
+    var keepOriginalInstancesOnly = false
+    var selectedTabIsStops = true
+    var didSeed = false
+}
+
+private struct FvarImportReviewContent: View {
+    @EnvironmentObject private var editor: EditorViewModel
 
     private enum ReviewTab {
         case stops
@@ -24,25 +85,68 @@ struct FvarImportReviewSheet: View {
     }
 
     let session: FvarImportReviewSession
+    let pendingSessions: [FvarImportReviewSession]
+    @Binding var draft: FvarImportReviewDraft
+    let onSelectFont: (String) -> Void
+    let onFinished: (Bool) -> Void
 
-    @State private var stopDispositions: [String: FvarStopSeeder.StopDisposition] = [:]
-    @State private var conflictResolutions: [String: FvarStopSeeder.Resolution] = [:]
-    @State private var dismissedCompoundIDs: Set<String> = []
-    @State private var promotedStopNames: [String: String] = [:]
-    @State private var compoundNames: [String: String] = [:]
-    @State private var keepOriginalInstancesOnly = false
-    @State private var selectedTab: ReviewTab = .stops
     /// Scroll-to-focus target while tabbing Style name / Stop name fields.
     @State private var focusedScrollID: String? = nil
 
+    private var stopDispositions: [String: FvarStopSeeder.StopDisposition] {
+        get { draft.stopDispositions }
+        nonmutating set { draft.stopDispositions = newValue }
+    }
+
+    private var conflictResolutions: [String: FvarStopSeeder.Resolution] {
+        get { draft.conflictResolutions }
+        nonmutating set { draft.conflictResolutions = newValue }
+    }
+
+    private var dismissedCompoundIDs: Set<String> {
+        get { draft.dismissedCompoundIDs }
+        nonmutating set { draft.dismissedCompoundIDs = newValue }
+    }
+
+    private var promotedStopNames: [String: String] {
+        get { draft.promotedStopNames }
+        nonmutating set { draft.promotedStopNames = newValue }
+    }
+
+    private var compoundNames: [String: String] {
+        get { draft.compoundNames }
+        nonmutating set { draft.compoundNames = newValue }
+    }
+
+    private var keepOriginalInstancesOnly: Bool {
+        get { draft.keepOriginalInstancesOnly }
+        nonmutating set { draft.keepOriginalInstancesOnly = newValue }
+    }
+
+    private var selectedTab: ReviewTab {
+        get { draft.selectedTabIsStops ? .stops : .styles }
+        nonmutating set { draft.selectedTabIsStops = (newValue == .stops) }
+    }
+
     private var report: FvarStopSeeder.Report { session.report }
 
+    private var openProjectForFont: OpenProject? {
+        editor.openProjects.first { project in
+            project.document.fonts.contains { $0.id == session.fontID }
+        }
+    }
+
     private var font: FontDocument? {
-        editor.project?.fonts.first { $0.id == session.fontID }
+        openProjectForFont?.document.fonts.first { $0.id == session.fontID }
+    }
+
+    private var fileDisplayName: String {
+        guard let font else { return "Font" }
+        return editor.fontBasename(for: font)
     }
 
     private var namingOrder: [String] {
-        editor.project?.naming.order ?? font?.axes.map(\.tag) ?? []
+        openProjectForFont?.document.naming.order ?? font?.axes.map(\.tag) ?? []
     }
 
     private var reviewAxes: [AxisDefinition] {
@@ -190,12 +294,18 @@ struct FvarImportReviewSheet: View {
         }
         .padding(StudioSpace.x5)
         .frame(minWidth: 580, idealWidth: 620)
-        .onAppear { seedDefaults() }
+        .onAppear { seedDefaultsIfNeeded() }
+        .onChange(of: session.fontID) { _, _ in
+            focusedScrollID = nil
+            seedDefaultsIfNeeded()
+        }
     }
 
-    private func seedDefaults() {
+    private func seedDefaultsIfNeeded() {
+        guard !draft.didSeed else { return }
         resetToRecommendations()
         selectedTab = hasStopsTab ? .stops : .styles
+        draft.didSeed = true
     }
 
     private func resetToRecommendations() {
@@ -217,14 +327,37 @@ struct FvarImportReviewSheet: View {
     // MARK: - Header / outcome
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
-            Text("Import Review")
-                .font(StudioTypography.projectTitle)
-            Text(headerSubtitle)
-                .font(StudioTypography.body)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: StudioSpace.x4) {
+            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
+                    Text("Import Review")
+                        .font(StudioTypography.projectTitle)
+                    fileNamePill
+                }
+                Text(headerSubtitle)
+                    .font(StudioTypography.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if pendingSessions.count > 1 {
+                fileTabBar
+            }
         }
+    }
+
+    /// Mirrors File-chip chrome with secondary type so the name doesn’t compete with the title.
+    private var fileNamePill: some View {
+        Text(fileDisplayName)
+            .font(StudioTypography.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, StudioFieldMetrics.tabChipHorizontalPadding)
+            .padding(.vertical, StudioFieldMetrics.tabChipVerticalPadding)
+            .frame(minHeight: StudioFieldMetrics.tabChipRowHeight)
+            .background(Color.primary.opacity(0.04), in: Capsule())
+            .help(fileDisplayName)
+            .accessibilityLabel("File \(fileDisplayName)")
     }
 
     private var headerSubtitle: String {
@@ -232,6 +365,48 @@ struct FvarImportReviewSheet: View {
             return "Stops seeded normally — a few instance names are just thin or repeated."
         }
         return "Some of this font’s values don’t map cleanly to a style of their own."
+    }
+
+    private var fileTabBar: some View {
+        HStack(spacing: StudioSpacing.controlGap) {
+            StudioSectionLabel(title: "File")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: StudioSpacing.tightGap) {
+                    ForEach(pendingSessions) { pending in
+                        fileChip(pending)
+                    }
+                }
+            }
+        }
+    }
+
+    private func fileChip(_ pending: FvarImportReviewSession) -> some View {
+        let isSelected = pending.fontID == session.fontID
+        let title = displayName(for: pending.fontID)
+        return Button {
+            onSelectFont(pending.fontID)
+        } label: {
+            StudioTabChip(isSelected: isSelected) {
+                Text(title)
+                    .font(StudioTypography.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .lineLimit(1)
+            } trailing: {
+                EmptyView()
+            }
+        }
+        .buttonStyle(.plain)
+        .studioHoverFill(shape: .capsule)
+        .help(title)
+    }
+
+    private func displayName(for fontID: String) -> String {
+        for project in editor.openProjects {
+            if let font = project.document.fonts.first(where: { $0.id == fontID }) {
+                return editor.fontBasename(for: font)
+            }
+        }
+        return "Font"
     }
 
     /// The one number the whole sheet is about: how many styles the project will make.
@@ -937,9 +1112,8 @@ struct FvarImportReviewSheet: View {
 
     private var actionBar: some View {
         HStack(spacing: StudioSpacing.controlGap) {
-            StudioFlatButton(title: "Cancel import", role: .destructiveAction, size: .compact) {
-                editor.cancelFvarImportReview()
-                dismiss()
+            StudioFlatButton(title: cancelTitle, role: .destructiveAction, size: .compact) {
+                onFinished(editor.cancelFvarImportReview())
             }
             if isDeviatingFromRecommendations {
                 StudioFlatButton(title: "Reset to recommendations", size: .compact) {
@@ -947,15 +1121,23 @@ struct FvarImportReviewSheet: View {
                 }
             }
             Spacer()
-            StudioFlatButton(title: "Apply", role: .primary, size: .compact) {
+            StudioFlatButton(title: applyTitle, role: .primary, size: .compact) {
                 applyCurrentDecisions()
             }
         }
     }
 
+    private var cancelTitle: String {
+        pendingSessions.count > 1 ? "Cancel this file" : "Cancel import"
+    }
+
+    private var applyTitle: String {
+        pendingSessions.count > 1 ? "Apply & continue" : "Apply"
+    }
+
     private func applyCurrentDecisions() {
         let accepted = Set(report.compoundSuggestions.map(\.id)).subtracting(dismissedCompoundIDs)
-        editor.applyFvarImportReview(
+        let hasMore = editor.applyFvarImportReview(
             FvarStopSeeder.ReviewDecisions(
                 stopDispositions: stopDispositions,
                 conflictResolutions: conflictResolutions,
@@ -966,6 +1148,6 @@ struct FvarImportReviewSheet: View {
                 keepOriginalInstancesOnly: inventedCombinationCount > 0 && keepOriginalInstancesOnly
             )
         )
-        dismiss()
+        onFinished(hasMore)
     }
 }

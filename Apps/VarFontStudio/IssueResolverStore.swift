@@ -55,7 +55,19 @@ final class IssueResolverStore: ObservableObject {
     @Published var conflictResolverRequest: AxisConflictResolverSession?
     @Published var planIssueResolverRequest: PlanIssueResolverSession?
     @Published var fvarStatConflictRequest: FvarStatConflictSession?
-    @Published var fvarImportReviewRequest: FvarImportReviewSession?
+    /// Pending Import Review sessions (one per font that needs decisions).
+    @Published var fvarImportReviewQueue: [FvarImportReviewSession] = []
+    /// Active file in the Import Review sheet — nil when the queue is empty.
+    @Published var fvarImportReviewSelectedFontID: String?
+
+    /// Selected session, or the first pending one.
+    var fvarImportReviewRequest: FvarImportReviewSession? {
+        if let selected = fvarImportReviewSelectedFontID,
+           let match = fvarImportReviewQueue.first(where: { $0.fontID == selected }) {
+            return match
+        }
+        return fvarImportReviewQueue.first
+    }
 
     private(set) var reviewSession: AxisTreeReviewSession?
 
@@ -110,7 +122,21 @@ final class IssueResolverStore: ObservableObject {
 
     func presentFvarImportReview(report: FvarStopSeeder.Report, fontID: String) {
         guard report.needsReview else { return }
-        fvarImportReviewRequest = FvarImportReviewSession(report: report, fontID: fontID)
+        let session = FvarImportReviewSession(report: report, fontID: fontID)
+        if let index = fvarImportReviewQueue.firstIndex(where: { $0.fontID == fontID }) {
+            fvarImportReviewQueue[index] = session
+        } else {
+            fvarImportReviewQueue.append(session)
+        }
+        if fvarImportReviewSelectedFontID == nil
+            || !fvarImportReviewQueue.contains(where: { $0.fontID == fvarImportReviewSelectedFontID }) {
+            fvarImportReviewSelectedFontID = fontID
+        }
+    }
+
+    func selectFvarImportReviewFont(fontID: String) {
+        guard fvarImportReviewQueue.contains(where: { $0.fontID == fontID }) else { return }
+        fvarImportReviewSelectedFontID = fontID
     }
 
     func dismissConflictResolver(clearReviewSession: Bool) {
@@ -131,15 +157,27 @@ final class IssueResolverStore: ObservableObject {
         fvarStatConflictRequest = nil
     }
 
+    /// Remove one finished/cancelled Import Review and select the next pending file.
+    @discardableResult
+    func completeFvarImportReview(fontID: String) -> Bool {
+        fvarImportReviewQueue.removeAll { $0.fontID == fontID }
+        if fvarImportReviewSelectedFontID == fontID {
+            fvarImportReviewSelectedFontID = fvarImportReviewQueue.first?.fontID
+        }
+        return !fvarImportReviewQueue.isEmpty
+    }
+
+    /// Dismiss the whole Import Review queue (sheet closed without finishing remaining files).
     func dismissFvarImportReview() {
-        fvarImportReviewRequest = nil
+        fvarImportReviewQueue = []
+        fvarImportReviewSelectedFontID = nil
     }
 
     func clearBothResolvers() {
         planIssueResolverRequest = nil
         conflictResolverRequest = nil
         fvarStatConflictRequest = nil
-        fvarImportReviewRequest = nil
+        dismissFvarImportReview()
     }
 
     func clearBothResolversAndReviewSession() {

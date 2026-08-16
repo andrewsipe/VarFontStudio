@@ -199,47 +199,66 @@ struct InstanceListPanel: View {
     }
 
     private var instanceList: some View {
-        ScrollView {
-            LazyVStack(spacing: StudioSpacing.instanceRowGap, pinnedViews: [.sectionHeaders]) {
-                ForEach(Array(display.groups.enumerated()), id: \.element.id) { index, group in
-                    if group.label.isEmpty {
-                        VStack(spacing: StudioSpacing.instanceRowGap) {
-                            ForEach(group.instances) { instance in
-                                instanceRow(instance)
-                                    .id("\(instance.key)-\(instance.duplicate)-\(editor.planRevision)")
-                            }
-                        }
-                    } else {
-                        Section {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: StudioSpacing.instanceRowGap, pinnedViews: [.sectionHeaders]) {
+                    ForEach(Array(display.groups.enumerated()), id: \.element.id) { index, group in
+                        if group.label.isEmpty {
                             VStack(spacing: StudioSpacing.instanceRowGap) {
                                 ForEach(group.instances) { instance in
                                     instanceRow(instance)
-                                        .id("\(instance.key)-\(instance.duplicate)-\(editor.planRevision)")
-                                        .zIndex(0)
+                                        .id(instanceScrollID(instance.key))
                                 }
                             }
-                            .padding(.top, StudioSpacing.tightGap)
-                            .padding(.bottom, sectionTrailingGap(after: index))
-                            .zIndex(0)
-                        } header: {
-                            InstanceGroupHeaderBar(
-                                label: group.label,
-                                count: group.instances.count,
-                                sharedPills: effectiveShowCoords
-                                    ? (display.groupSharedPills[group.id] ?? [])
-                                    : [],
-                                valueMaxCharacters: display.coordValueMaxCharacters,
-                                onOverflowTap: { axisDrawerOpen = true }
-                            )
+                        } else {
+                            Section {
+                                VStack(spacing: StudioSpacing.instanceRowGap) {
+                                    ForEach(group.instances) { instance in
+                                        instanceRow(instance)
+                                            .id(instanceScrollID(instance.key))
+                                            .zIndex(0)
+                                    }
+                                }
+                                .padding(.top, StudioSpacing.tightGap)
+                                .padding(.bottom, sectionTrailingGap(after: index))
+                                .zIndex(0)
+                            } header: {
+                                InstanceGroupHeaderBar(
+                                    label: group.label,
+                                    count: group.instances.count,
+                                    sharedPills: effectiveShowCoords
+                                        ? (display.groupSharedPills[group.id] ?? [])
+                                        : [],
+                                    valueMaxCharacters: display.coordValueMaxCharacters,
+                                    onOverflowTap: { axisDrawerOpen = true }
+                                )
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, StudioSpacing.contentInset)
+                .padding(.bottom, StudioSpacing.panelVertical)
             }
-            .padding(.horizontal, StudioSpacing.contentInset)
-            .padding(.bottom, StudioSpacing.panelVertical)
+            .coordinateSpace(name: InstanceListLayout.scrollCoordinateSpace)
+            .transaction { $0.animation = nil }
+            .onChange(of: editor.selectedInstanceKey) { _, key in
+                guard let key else { return }
+                // Fast slideshow: selection highlight moves, but animated scrollTo
+                // stacks and stutters when advances are faster than the animation.
+                if editor.previewSlideshowSuppressListScroll { return }
+                if editor.isPreviewSlideshowPlaying {
+                    proxy.scrollTo(instanceScrollID(key), anchor: .center)
+                    return
+                }
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo(instanceScrollID(key), anchor: .center)
+                }
+            }
         }
-        .coordinateSpace(name: InstanceListLayout.scrollCoordinateSpace)
-        .transaction { $0.animation = nil }
+    }
+
+    private func instanceScrollID(_ key: String) -> String {
+        "instance-\(key)"
     }
 
     /// Space after the last row, before the next section header (lives in scroll content, not the pin target).

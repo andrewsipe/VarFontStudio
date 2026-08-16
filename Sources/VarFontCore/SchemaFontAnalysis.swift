@@ -14,6 +14,10 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
     public var nameAudit: NameAudit
     /// Windows English (3,1,0x0409) name IDs 0–25 present in the font.
     public var windowsNameTable: [WindowsNameRecord]
+    /// OpenType FeatureParams-linked labels (from vfcommit analyze_ot_features).
+    public var otFeatureLabels: [OTFeatureLabelRecord]
+    /// Unlabeled ss## features eligible for Add label.
+    public var otFeaturesUnlabeled: [OTFeatureUnlabeled]
     public var inferred: InferredAnalysis
     /// STAT DesignAxisRecord tags in table order (fvar parity checks).
     public var designAxisTags: [String]
@@ -27,6 +31,8 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         case instancesExistingMeta = "instances_existing_meta"
         case nameAudit = "name_audit"
         case windowsNameTable = "windows_name_table"
+        case otFeatureLabels = "ot_feature_labels"
+        case otFeaturesUnlabeled = "ot_features_unlabeled"
         case inferred
         case designAxisTags = "design_axis_tags"
     }
@@ -395,6 +401,8 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         instancesExistingMeta: InstancesMeta? = nil,
         nameAudit: NameAudit,
         windowsNameTable: [WindowsNameRecord] = [],
+        otFeatureLabels: [OTFeatureLabelRecord] = [],
+        otFeaturesUnlabeled: [OTFeatureUnlabeled] = [],
         inferred: InferredAnalysis,
         designAxisTags: [String] = []
     ) {
@@ -408,6 +416,8 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         self.instancesExistingMeta = instancesExistingMeta
         self.nameAudit = nameAudit
         self.windowsNameTable = windowsNameTable
+        self.otFeatureLabels = otFeatureLabels
+        self.otFeaturesUnlabeled = otFeaturesUnlabeled
         self.inferred = inferred
         self.designAxisTags = designAxisTags
     }
@@ -424,8 +434,17 @@ public struct FontAnalysis: Codable, Equatable, Sendable {
         instancesExistingMeta = try c.decodeIfPresent(InstancesMeta.self, forKey: .instancesExistingMeta)
         nameAudit = try c.decode(NameAudit.self, forKey: .nameAudit)
         windowsNameTable = try c.decodeIfPresent([WindowsNameRecord].self, forKey: .windowsNameTable) ?? []
+        otFeatureLabels = try c.decodeIfPresent([OTFeatureLabelRecord].self, forKey: .otFeatureLabels) ?? []
+        otFeaturesUnlabeled = try c.decodeIfPresent([OTFeatureUnlabeled].self, forKey: .otFeaturesUnlabeled) ?? []
         inferred = try c.decode(InferredAnalysis.self, forKey: .inferred)
         designAxisTags = try c.decodeIfPresent([String].self, forKey: .designAxisTags) ?? []
+    }
+
+    /// Merge vfcommit OT feature inventory into this analysis snapshot.
+    public mutating func mergingOTFeatures(_ result: OTFeatureAnalysisResult) {
+        guard result.ok else { return }
+        otFeatureLabels = result.otFeatureLabels
+        otFeaturesUnlabeled = result.otFeaturesUnlabeled
     }
 }
 

@@ -202,7 +202,7 @@ struct AxisTreePanel: View {
                     title: "Push Axis Tree",
                     role: .accent,
                     font: StudioTypography.caption,
-                    help: "Copy master axis stops to all other files in this project"
+                    help: "Copy matching axis stops from the master onto the other files. Axes the destination does not have are left off."
                 ) {
                     editor.requestPushMasterAxisTree()
                 }
@@ -865,10 +865,13 @@ struct AxisTreePanel: View {
                 let showFill = axis.role == .instance && AxisStopFillPlanner.supportsFill(axis)
                 HStack(spacing: StudioSpacing.controlGap) {
                     StudioFlatButton(
-                        title: "Add Stop",
+                        title: "Add Stop(s)",
                         systemImage: "plus",
                         size: .row,
-                        expands: showFill
+                        expands: showFill,
+                        help: AxisStopGapFill.proposal(for: axis) == nil
+                            ? "Add a stop without replacing the ladder. Use Several to place more than one."
+                            : "Add one or more stops without replacing the ladder. Missing grid values are suggested."
                     ) {
                         addStopRequest = AddAxisStopRequest(axisTag: axis.tag)
                     }

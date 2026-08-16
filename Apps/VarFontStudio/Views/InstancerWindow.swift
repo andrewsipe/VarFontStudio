@@ -5,16 +5,17 @@ import VarFontCore
 struct InstancerWindow: View {
     let windowKey: String
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var instancer: InstancerStore
 
     private var session: InstancerSessionState {
-        editor.instancer.displaySession(forWindowKey: windowKey)
+        instancer.displaySession(forWindowKey: windowKey)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             StudioPanelHeader(title: "Static Instancer")
 
-            if let workspace = editor.instancer.workspace(forKey: windowKey), workspace.hasTabs {
+            if let workspace = instancer.workspace(forKey: windowKey), workspace.hasTabs {
                 InstancerFileTabBar(windowKey: windowKey)
                 Divider()
             }
@@ -24,7 +25,7 @@ struct InstancerWindow: View {
                 .id(session.sessionKey)
         }
         .frame(minWidth: 880, minHeight: 560)
-        .navigationTitle(editor.instancer.windowTitle(forWindowKey: windowKey))
+        .navigationTitle(instancer.windowTitle(forWindowKey: windowKey))
         .background(InstancerWindowConfigurator())
         .background(AuxiliaryWindowOpenBridge())
         .focusedSceneValue(
@@ -37,9 +38,10 @@ struct InstancerWindow: View {
 private struct InstancerFileTabBar: View {
     let windowKey: String
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var instancer: InstancerStore
 
     var body: some View {
-        let workspace = editor.instancer.workspace(forKey: windowKey)
+        let workspace = instancer.workspace(forKey: windowKey)
         let tabKeys = workspace?.tabKeys ?? []
         if !tabKeys.isEmpty {
             HStack(spacing: StudioSpacing.controlGap) {
@@ -61,7 +63,7 @@ private struct InstancerFileTabBar: View {
 
     @ViewBuilder
     private func fileChip(sessionKey: String, workspace: InstancerWorkspace?) -> some View {
-        let session = editor.instancer.session(forKey: sessionKey)
+        let session = instancer.session(forKey: sessionKey)
         let isSelected = workspace?.selectedTabKey == sessionKey
         let title = session?.sourceDisplayName.isEmpty == false
             ? (session?.sourceDisplayName ?? "Font")
@@ -70,7 +72,7 @@ private struct InstancerFileTabBar: View {
         let isGenerating = session?.isGenerating == true
 
         Button {
-            editor.instancer.selectTab(sessionKey: sessionKey, windowKey: windowKey)
+            instancer.selectTab(sessionKey: sessionKey, windowKey: windowKey)
         } label: {
             StudioTabChip(isSelected: isSelected) {
                 Text(title)
@@ -94,6 +96,7 @@ private struct InstancerWindowContent: View {
     let windowKey: String
     @ObservedObject var session: InstancerSessionState
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var instancer: InstancerStore
 
     @State private var toastMessage: String?
     @State private var toastRevealPath: String?
@@ -101,14 +104,14 @@ private struct InstancerWindowContent: View {
     @State private var showSelectMenu = false
 
     private var tabCount: Int {
-        editor.instancer.workspace(forKey: windowKey)?.tabKeys.count ?? 0
+        instancer.workspace(forKey: windowKey)?.tabKeys.count ?? 0
     }
 
     private var canGenerateAll: Bool {
-        guard let workspace = editor.instancer.workspace(forKey: windowKey) else { return false }
+        guard let workspace = instancer.workspace(forKey: windowKey) else { return false }
         return workspace.tabKeys.contains { key in
-            editor.instancer.session(forKey: key)?.canGenerate == true
-        } && !editor.instancer.isGenerateBusy
+            instancer.session(forKey: key)?.canGenerate == true
+        } && !instancer.isGenerateBusy
     }
 
     /// Return should commit inline edits — not trigger Generate.
@@ -192,7 +195,7 @@ private struct InstancerWindowContent: View {
         StudioFlatButton(
             title: "Generate This File…",
             role: .primary,
-            isEnabled: session.canGenerate && !session.isGenerating && !editor.instancer.isGenerateBusy,
+            isEnabled: session.canGenerate && !session.isGenerating && !instancer.isGenerateBusy,
             isDefaultAction: !suppressGenerateShortcut,
             help: generateHelp
         ) {
@@ -234,7 +237,7 @@ private struct InstancerWindowContent: View {
                     title: fixStudioTitle,
                     help: fixStudioHelp
                 ) {
-                    editor.instancer.focusStudioForNaming(session: session)
+                    instancer.focusStudioForNaming(session: session)
                 }
             }
             Spacer(minLength: 0)
@@ -450,7 +453,7 @@ private struct InstancerWindowContent: View {
         if session.isGenerating {
             return session.generateStatus.isEmpty ? "Generating static fonts…" : session.generateStatus
         }
-        if editor.instancer.isGenerateBusy {
+        if instancer.isGenerateBusy {
             return "Another font is still generating statics"
         }
         return session.generateBlockedReason
@@ -458,7 +461,7 @@ private struct InstancerWindowContent: View {
     }
 
     private var generateAllHelp: String {
-        if editor.instancer.isGenerateBusy {
+        if instancer.isGenerateBusy {
             return "Another font is still generating statics"
         }
         if !canGenerateAll {
@@ -663,7 +666,7 @@ private struct InstancerWindowContent: View {
                 } actions: {
                     if let projectID = session.projectID, let fontID = session.fontID {
                         StudioFlatButton(title: "Reload from Project") {
-                            editor.instancer.reloadSessionAfterExport(projectID: projectID, fontID: fontID)
+                            instancer.reloadSessionAfterExport(projectID: projectID, fontID: fontID)
                         }
                     }
                 }
@@ -712,7 +715,7 @@ private struct InstancerWindowContent: View {
                                         axisTags: session.axisTags,
                                         columns: columns,
                                         psPrefix: session.psPrefix,
-                                        composedPostscriptName: editor.instancer.composedPostscriptName(
+                                        composedPostscriptName: instancer.composedPostscriptName(
                                             for: row,
                                             session: session
                                         ),
@@ -741,7 +744,7 @@ private struct InstancerWindowContent: View {
                                             session.updateRow(row.id) { $0.nameOverride = nil }
                                         },
                                         onFixInStudio: {
-                                            editor.instancer.focusStudioForNaming(session: session)
+                                            instancer.focusStudioForNaming(session: session)
                                         }
                                     )
                                     .equatable()
@@ -814,25 +817,19 @@ private struct InstancerWindowContent: View {
     // MARK: - Generate (Review-style folder panel)
 
     private func presentGenerate() async {
-        guard let outcome = await editor.instancer.presentGenerate(session: session) else { return }
-        switch outcome {
-        case let .success(message, revealPath):
-            showToast(message, revealPath: revealPath)
-            NSWorkspace.shared.selectFile(revealPath, inFileViewerRootedAtPath: "")
-        case let .failure(userMessage):
+        guard let outcome = await instancer.presentGenerate(session: session) else { return }
+        if case let .failure(userMessage) = outcome {
             showToast(userMessage, revealPath: nil)
         }
+        // Success: store reveals in Finder, posts status, and closes this window.
     }
 
     private func presentGenerateAll() async {
-        guard let outcome = await editor.instancer.presentGenerateAll(windowKey: windowKey) else { return }
-        switch outcome {
-        case let .success(message, revealPath):
-            showToast(message, revealPath: revealPath)
-            NSWorkspace.shared.selectFile(revealPath, inFileViewerRootedAtPath: "")
-        case let .failure(userMessage):
+        guard let outcome = await instancer.presentGenerateAll(windowKey: windowKey) else { return }
+        if case let .failure(userMessage) = outcome {
             showToast(userMessage, revealPath: nil)
         }
+        // Success: store reveals in Finder, posts status, and closes this window.
     }
 
     private func showToast(_ message: String, revealPath: String? = nil) {

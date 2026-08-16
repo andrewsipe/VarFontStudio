@@ -133,6 +133,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     /// Original import path preserved after sidecar promote; nil until first patched export.
     public var importPath: String?
     public var outputPath: String?
+    /// Source fingerprint (`SourceFontFingerprint`) captured at import / last export refresh.
+    /// Used to warn at Review when the on-disk font changed under the plan.
     public var analysisSnapshotID: String?
     public var dirty: Bool
     public var fileRole: FileRole?
@@ -158,6 +160,10 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
     /// clearing a field to retype it does not make the row disappear.
     /// ID 25 here omits the Variations PS Prefix from export without clearing `options.familyPSPrefix`.
     public var windowsNameRemovals: [Int]
+    /// Site-keyed (`table|tag|field`) OpenType feature label string overrides.
+    public var otFeatureLabelOverrides: [String: String]
+    /// Pending ss## FeatureParams creations (string applied on save).
+    public var otFeatureLabelAdditions: [OTFeatureLabelAddition]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -178,6 +184,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         case statDesignAxisTags = "stat_design_axis_tags"
         case windowsNameOverrides = "windows_name_overrides"
         case windowsNameRemovals = "windows_name_removals"
+        case otFeatureLabelOverrides = "ot_feature_label_overrides"
+        case otFeatureLabelAdditions = "ot_feature_label_additions"
     }
 
     public init(
@@ -199,7 +207,9 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         compoundStatValues: [CompoundStatValue] = [],
         statDesignAxisTags: [String] = [],
         windowsNameOverrides: [String: String] = [:],
-        windowsNameRemovals: [Int] = []
+        windowsNameRemovals: [Int] = [],
+        otFeatureLabelOverrides: [String: String] = [:],
+        otFeatureLabelAdditions: [OTFeatureLabelAddition] = []
     ) {
         self.id = id
         self.sourcePath = sourcePath
@@ -220,6 +230,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
         self.statDesignAxisTags = statDesignAxisTags
         self.windowsNameOverrides = windowsNameOverrides
         self.windowsNameRemovals = windowsNameRemovals
+        self.otFeatureLabelOverrides = otFeatureLabelOverrides
+        self.otFeatureLabelAdditions = otFeatureLabelAdditions
     }
 
     public init(from decoder: Decoder) throws {
@@ -251,6 +263,8 @@ public struct FontDocument: Codable, Equatable, Sendable, Identifiable {
                 .compactMap { $1.isEmpty ? Int($0) : nil }
                 .sorted()
         }
+        otFeatureLabelOverrides = try c.decodeIfPresent([String: String].self, forKey: .otFeatureLabelOverrides) ?? [:]
+        otFeatureLabelAdditions = try c.decodeIfPresent([OTFeatureLabelAddition].self, forKey: .otFeatureLabelAdditions) ?? []
     }
 }
 

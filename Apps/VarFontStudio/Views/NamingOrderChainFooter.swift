@@ -3,6 +3,7 @@ import VarFontCore
 
 struct NamingOrderChainFooter: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var previewInteraction: PreviewInteractionStore
     @AppStorage("namingChainHideStatOnly") private var hideStatOnly = true
     @State private var isExpanded = true
     @State private var session = NamingChainDragSession()
@@ -14,6 +15,27 @@ struct NamingOrderChainFooter: View {
     @State private var footerBodyHeight: CGFloat = 0
 
     private let coordinateSpace = "namingChain"
+
+    private var previewActiveInstance: PlannedInstance? {
+        if isPreviewMode,
+           let key = previewInteraction.morphTargetKey
+            ?? previewInteraction.hoverInstanceKey,
+           let plan = editor.instancePlan,
+           let matched = plan.instances.first(where: { $0.key == key }) {
+            return matched
+        }
+        if let selected = editor.selectedInstance {
+            return selected
+        }
+        return editor.instancePlan?.instances.first
+    }
+
+    private var isHoverPeeking: Bool {
+        guard isPreviewMode,
+              previewInteraction.isHoverActive,
+              let hover = previewInteraction.hoverInstanceKey else { return false }
+        return hover != editor.selectedInstanceKey
+    }
 
     private var visibleTags: [String] {
         editor.visibleNamingChainTags(hideStatOnly: hideStatOnly)
@@ -94,8 +116,11 @@ struct NamingOrderChainFooter: View {
                 }
                 .onPreferenceChange(FooterBodyHeightKey.self) { height in
                     guard height > 1 else { return }
+                    // While Preview is showing, ignore probe changes (e.g. “from selection”
+                    // appearing when slideshow selects an instance) so the shared slot
+                    // — and thus the canvas — stays locked to Naming Order’s height.
+                    guard !isPreviewMode else { return }
                     if abs(footerBodyHeight - height) > 0.5 {
-                        // Don't interpolate measured footer height — reads as a choppy resize.
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
                         withTransaction(transaction) {
@@ -111,30 +136,23 @@ struct NamingOrderChainFooter: View {
         .padding(.bottom, isPreviewMode ? 0 : StudioSpacing.toolbarVertical)
     }
 
-    /// Shared footer height — the taller of the naming-order body's natural height
-    /// and the Preview panel's own comfortable height, so neither mode ever gets
-    /// squeezed shorter than it needs, and switching tabs never changes the
-    /// panel's height. Falls back to Preview's preferred height before the
-    /// naming-order body has reported its measured height at least once.
+    /// Shared body height for Naming Order and Preview — measured Naming Order
+    /// content, floored at Preview’s minimum so both tabs stay the same size.
     private var resolvedFooterBodyHeight: CGFloat {
         max(footerBodyHeight, FontPreviewPanel.preferredHeight)
     }
 
-    /// Breathing room below the whole footer (shared by both modes so switching
-    /// tabs never changes the overall footer height).
+    /// Breathing room below the footer when not in Preview (Preview folds this
+    /// into the canvas instead of leaving a gap).
     private static let footerBottomGap: CGFloat = StudioSpacing.sectionGap - 2
 
-    /// Height actually given to the mode's content `Group`. Naming order gets
-    /// `resolvedFooterBodyHeight` plus its usual trailing padding. Preview mode
-    /// has a solid, visibly-colored canvas, so instead of leaving that same
-    /// padding as dead air below it, it's folded straight into the canvas —
-    /// same total footprint, but it now reads as more canvas rather than a gap
-    /// before the app-wide status bar.
+    /// Height given to the mode content group. Same base for both modes; Preview
+    /// adds folded padding so the canvas absorbs space Naming Order uses as margin.
     private var resolvedGroupHeight: CGFloat {
         guard isPreviewMode else { return resolvedFooterBodyHeight }
-        let reclaimed = (StudioSpacing.toolbarVertical + 2)   // Group's own bottom padding
-            + StudioSpacing.toolbarVertical                    // disclosureContent's outer bottom padding
-            + Self.footerBottomGap                             // footer's own trailing padding
+        let reclaimed = (StudioSpacing.toolbarVertical + 2)
+            + StudioSpacing.toolbarVertical
+            + Self.footerBottomGap
         return resolvedFooterBodyHeight + reclaimed
     }
 
@@ -238,14 +256,14 @@ struct NamingOrderChainFooter: View {
 
     private var collapsedSummary: String {
         if isPreviewMode {
-            return editor.previewActiveInstance?.composedName
+            return previewActiveInstance?.composedName
                 ?? "Select an instance"
         }
         return editor.namingChainSummary(hideStatOnly: hideStatOnly)
     }
 
     private var collapsedSummaryForeground: some ShapeStyle {
-        if isPreviewMode && editor.isPreviewHoverPeeking {
+        if isPreviewMode && isHoverPeeking {
             return AnyShapeStyle(.secondary)
         }
         return AnyShapeStyle(.tertiary)
@@ -253,7 +271,7 @@ struct NamingOrderChainFooter: View {
 
     private var collapsedTrailingLabel: String {
         if isPreviewMode {
-            return editor.previewActiveInstance.map { coordsCaption(for: $0) } ?? ""
+            return previewActiveInstance.map { coordsCaption(for: $0) } ?? ""
         }
         return editor.namingChainPreviewName
     }

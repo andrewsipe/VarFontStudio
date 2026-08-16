@@ -8,6 +8,32 @@ struct PostExportInstancerRecommendation: Equatable {
 }
 
 extension EditorViewModel {
+    /// Persist a source fingerprint after export or silent legacy migrate.
+    @MainActor
+    func updateAnalysisSnapshotID(
+        projectID: String,
+        fontID: String,
+        snapshotID: String,
+        markProjectDirty: Bool
+    ) {
+        guard let projectIndex = openProjects.firstIndex(where: { $0.id == projectID }),
+              let fontIndex = openProjects[projectIndex].document.fonts.firstIndex(where: { $0.id == fontID }) else {
+            return
+        }
+        guard openProjects[projectIndex].document.fonts[fontIndex].analysisSnapshotID != snapshotID else {
+            return
+        }
+        openProjects[projectIndex].document.fonts[fontIndex].analysisSnapshotID = snapshotID
+        openProjects[projectIndex].document.modified = Date()
+        publishOpenProjects()
+        if activeProjectID == projectID {
+            project = openProjects[projectIndex].document
+        }
+        if markProjectDirty {
+            markProjectFileDirty(projectID: projectID)
+        }
+    }
+
     /// Reconcile project paths and UI after a successful Review export.
     @MainActor
     func refreshProjectAfterExport(
@@ -41,6 +67,10 @@ extension EditorViewModel {
         }
 
         project.fonts[fontIndex].dirty = false
+        let snapshotURL = URL(fileURLWithPath: project.fonts[fontIndex].sourcePath)
+        if let snapshot = SourceFontFingerprint.capture(url: snapshotURL) {
+            project.fonts[fontIndex].analysisSnapshotID = snapshot.serialized
+        }
         project.modified = Date()
         openProjects[projectIndex].document = project
         publishOpenProjects()

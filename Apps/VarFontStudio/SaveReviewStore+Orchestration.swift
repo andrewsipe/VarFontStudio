@@ -84,8 +84,12 @@ extension SaveReviewStore {
                   let font = requireHost.font(forProjectID: targetID, fontID: fontID) else {
                 return false
             }
-            // Rebuild when the project still has unsaved font edits.
-            return !font.dirty
+            // Clean fonts keep the last successful session.
+            if !font.dirty { return true }
+            // Dirty fonts reuse a prefetched session only when the plan has not changed since.
+            return session.planRevision == requireHost.planRevision
+                && fontID == requireHost.selectedFontID
+                && targetID == requireHost.activeProjectID
         }()
         if !hasFreshSession {
             refreshCommitDiffPreview(forProjectID: targetID, fontID: fontID, presentSheet: false)
@@ -187,6 +191,40 @@ extension SaveReviewStore {
             return "Overwrite the original font file? This cannot be undone."
         }
         return "Overwrite \(URL(fileURLWithPath: font.sourcePath).lastPathComponent)? A .vfstudio-backup copy is written beside the original first."
+    }
+
+    /// Confirm overwrite of every source font in the active (or given) project.
+    func requestSaveAllToOriginal(inProjectID projectID: String? = nil) {
+        guard requireHost.canSave else {
+            requireHost.postStatusMessage("Nothing to export — make an edit first.")
+            return
+        }
+        Task {
+            guard let prepared = await prepareExportAllTargets(inProjectID: projectID) else { return }
+            guard prepared.fonts.count > 1 else {
+                // Single-file projects use Export to Original… instead.
+                if let font = prepared.fonts.first,
+                   let session = prepared.sessions[font.id] {
+                    confirmSaveToOriginal = session
+                }
+                return
+            }
+            confirmSaveAllToOriginalProjectID = prepared.projectID
+        }
+    }
+
+    func confirmSaveAllToOriginalAction() {
+        guard let projectID = confirmSaveAllToOriginalProjectID else { return }
+        confirmSaveAllToOriginalProjectID = nil
+        Task {
+            await saveAllFilesToOriginalAsync(projectID: projectID)
+        }
+    }
+
+    func saveAllToOriginalConfirmationMessage(forProjectID projectID: String) -> String {
+        let count = requireHost.openProject(for: projectID)?.document.fonts.count ?? 0
+        let noun = count == 1 ? "font file" : "font files"
+        return "Overwrite \(count) original \(noun)? A .vfstudio-backup copy is written beside each file first."
     }
 
     /// User-facing: Export — write to `font.outputPath` when set; otherwise open Review (same as Export…).
@@ -320,6 +358,8 @@ extension SaveReviewStore {
         beginLoading(projectID: targetProjectID, fontID: targetFontID)
         defer { endLoading(projectID: targetProjectID, fontID: targetFontID) }
 
+        let revisionAtStart = requireHost.planRevision
+
         do {
             if preferWorker {
                 await requireHost.commitService.ensureWorkerReady()
@@ -328,21 +368,49 @@ extension SaveReviewStore {
             let sourcePath = font.sourcePath
             let cacheFontID = font.id
             let analysisAndHelper = try await Task.detached(priority: .userInitiated) {
-                let analysis = try SourceFontAccess.withReadableSourceURL(
+                let captured = try SourceFontAccess.withReadableSourceURL(
                     bookmark: bookmarkData,
                     fallbackPath: sourcePath
-                ) { sourceURL in
-                    try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+                ) { sourceURL -> (FontAnalysis, SourceFontFingerprint?) in
+                    let analysis = try FontAnalysisReader.analyzeForCommitDiff(url: sourceURL)
+                    let fingerprint = SourceFontFingerprint.capture(url: sourceURL, analysis: analysis)
+                    return (analysis, fingerprint)
                 }
                 let helperSourcePath = try SourceFontAccess.helperSourcePath(
                     bookmark: bookmarkData,
                     fallbackPath: sourcePath,
                     fontID: cacheFontID
                 )
-                return (analysis, helperSourcePath)
+                return (captured.0, helperSourcePath, captured.1)
             }.value
-            let analysis = analysisAndHelper.0
+            var analysis = analysisAndHelper.0
             let helperSourcePath = analysisAndHelper.1
+            let liveFingerprint = analysisAndHelper.2
+            if let otResult = try? await requireHost.commitService.analyzeOTFeatures(sourcePath: helperSourcePath) {
+                analysis.mergingOTFeatures(otResult)
+            }
+            let driftProbe: SourceFontFingerprint.ProbeResult
+            if let liveFingerprint {
+                driftProbe = SourceFontFingerprint.compare(
+                    stored: font.analysisSnapshotID,
+                    current: liveFingerprint
+                )
+            } else {
+                driftProbe = SourceFontFingerprint.probe(
+                    stored: font.analysisSnapshotID,
+                    url: URL(fileURLWithPath: sourcePath),
+                    analysis: analysis
+                )
+            }
+            if driftProbe.missingBaseline, let snapshot = driftProbe.current?.serialized {
+                // Legacy projects: capture quietly so future Reviews can detect drift.
+                requireHost.updateAnalysisSnapshotID(
+                    projectID: targetProjectID,
+                    fontID: font.id,
+                    snapshotID: snapshot,
+                    markProjectDirty: true
+                )
+            }
             var dryRunRequest = CommitRequestBuilder.make(
                 font: font,
                 naming: projectDoc.naming,
@@ -350,12 +418,20 @@ extension SaveReviewStore {
                 outputPath: outputPath,
                 dryRun: true,
                 nameidStrategy: font.options.nameidStrategy,
-                windowsNameTable: analysis.windowsNameTable
+                windowsNameTable: analysis.windowsNameTable,
+                otFeatureLabels: analysis.otFeatureLabels
             )
             dryRunRequest.sourcePath = helperSourcePath
             var result = try await requireHost.commitService.commit(dryRunRequest, preferWorker: preferWorker)
             Self.mergeIncludedDuplicateWarning(into: &result, plan: plan)
+            SourceFontFingerprint.mergeWarnings(into: &result, probe: driftProbe)
             if result.ok {
+                // Drop the result if the live plan moved while we were in the dry-run.
+                guard requireHost.planRevision == revisionAtStart,
+                      requireHost.selectedFontID == font.id,
+                      requireHost.activeProjectID == targetProjectID else {
+                    return nil
+                }
                 let diffReport = CommitDiffBuilder.build(
                     analysis: analysis,
                     font: font,
@@ -377,21 +453,25 @@ extension SaveReviewStore {
                     outputPath: outputPath,
                     dryRun: false,
                     nameidStrategy: font.options.nameidStrategy,
-                    windowsNameTable: analysis.windowsNameTable
+                    windowsNameTable: analysis.windowsNameTable,
+                    otFeatureLabels: analysis.otFeatureLabels
                 )
                 writeRequest.sourcePath = helperSourcePath
+                let informationalNotes = driftProbe.notes
+                    + OpenTypeAxisAudit.allInformationalMessages(
+                        analysis: analysis,
+                        font: font
+                    )
                 let session = CommitPreflightSession(
                     projectID: targetProjectID,
                     fontID: font.id,
+                    planRevision: revisionAtStart,
                     dryRunRequest: dryRunRequest,
                     baseRequest: writeRequest,
                     preflight: result,
                     diffReport: diffReport,
                     presentation: presentation,
-                    informationalNotes: OpenTypeAxisAudit.allInformationalMessages(
-                        analysis: analysis,
-                        font: font
-                    )
+                    informationalNotes: informationalNotes
                 )
                 storeSession(session, projectID: targetProjectID, fontID: font.id)
                 if presentSheet {
@@ -407,12 +487,14 @@ extension SaveReviewStore {
                 outputPath: outputPath,
                 dryRun: false,
                 nameidStrategy: font.options.nameidStrategy,
-                windowsNameTable: analysis.windowsNameTable
+                windowsNameTable: analysis.windowsNameTable,
+                otFeatureLabels: analysis.otFeatureLabels
             )
             writeRequest.sourcePath = dryRunRequest.sourcePath
             let failedSession = CommitPreflightSession(
                 projectID: targetProjectID,
                 fontID: font.id,
+                planRevision: revisionAtStart,
                 dryRunRequest: dryRunRequest,
                 baseRequest: writeRequest,
                 preflight: result,
@@ -447,6 +529,28 @@ extension SaveReviewStore {
                 forProjectID: projectID,
                 fontID: fontID,
                 presentSheet: presentSheet
+            )
+        }
+    }
+
+    /// Debounced background dry-run so opening Review after edits is often a cache hit.
+    func scheduleCommitDiffPrefetch(forProjectID projectID: String, fontID: String) {
+        commitDiffPrefetchTask?.cancel()
+        commitDiffPrefetchTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+            // Skip if a fresh session for this plan revision already exists.
+            if let existing = session(projectID: projectID, fontID: fontID),
+               existing.preflight.ok,
+               existing.planRevision == requireHost.planRevision {
+                return
+            }
+            // Avoid stacking on an in-flight load for the same key.
+            guard !isLoading(projectID: projectID, fontID: fontID) else { return }
+            await refreshCommitDiffPreviewAsync(
+                forProjectID: projectID,
+                fontID: fontID,
+                presentSheet: false
             )
         }
     }
@@ -560,22 +664,28 @@ extension SaveReviewStore {
         }
     }
 
-    @MainActor
-    private func saveAllFilesAsync(inProjectID projectID: String? = nil) async {
-        guard let projectID = projectID ?? requireHost.activeProjectID,
-              let open = requireHost.openProject(for: projectID) else { return }
+    private struct ExportAllPrepared {
+        var projectID: String
+        var fonts: [FontDocument]
+        var sessions: [String: CommitPreflightSession]
+    }
 
-        // Always export every font — "dirty only" silently skipped clean siblings.
+    /// Shared preflight for Export All / Export All to Original.
+    @MainActor
+    private func prepareExportAllTargets(inProjectID projectID: String?) async -> ExportAllPrepared? {
+        guard let projectID = projectID ?? requireHost.activeProjectID,
+              let open = requireHost.openProject(for: projectID) else { return nil }
+
         let targets = open.document.fonts
         guard !targets.isEmpty else {
             requireHost.postStatusMessage("Nothing to export.")
-            return
+            return nil
         }
 
         for font in targets {
             guard requireHost.instancePlan(forProjectID: projectID, fontID: font.id) != nil else {
                 requireHost.postStatusMessage("Couldn't prepare the export preview. Try again, or check that the font file hasn't moved or changed.")
-                return
+                return nil
             }
         }
 
@@ -600,19 +710,29 @@ extension SaveReviewStore {
         for font in targets {
             guard let session = sessions[font.id] else {
                 requireHost.postStatusMessage("Export preview failed for \(requireHost.fontBasename(for: font)). Check the Review window for details.")
-                return
+                return nil
             }
             guard session.preflight.ok else {
                 requireHost.postStatusMessage(session.preflight.errors.first?.message ?? "Export preview failed. Check the Review window for details.")
-                return
+                return nil
             }
         }
+
+        return ExportAllPrepared(projectID: projectID, fonts: targets, sessions: sessions)
+    }
+
+    @MainActor
+    private func saveAllFilesAsync(inProjectID projectID: String? = nil) async {
+        guard let prepared = await prepareExportAllTargets(inProjectID: projectID) else { return }
+        let projectID = prepared.projectID
+        let targets = prepared.fonts
+        let sessions = prepared.sessions
 
         var outputURLs: [String: URL] = [:]
         for font in targets {
             if let url = rememberedOutputURL(forProjectID: projectID, fontID: font.id) {
                 if EditorViewModel.normalizedPath(url) == EditorViewModel.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
-                    requireHost.postStatusMessage("Export All cannot overwrite originals — choose a folder or use Export to Original… per file.")
+                    requireHost.postStatusMessage("Export All cannot overwrite originals — choose a folder or use Export All to Original….")
                     return
                 }
                 outputURLs[font.id] = url
@@ -661,7 +781,7 @@ extension SaveReviewStore {
         for font in targets {
             guard let url = outputURLs[font.id] else { continue }
             if EditorViewModel.normalizedPath(url) == EditorViewModel.normalizedPath(URL(fileURLWithPath: font.sourcePath)) {
-                requireHost.postStatusMessage("Export All cannot overwrite originals — choose a different folder or use Export to Original… per file.")
+                requireHost.postStatusMessage("Export All cannot overwrite originals — choose a different folder or use Export All to Original….")
                 return
             }
         }
@@ -709,6 +829,50 @@ extension SaveReviewStore {
         } else {
             requireHost.postStatusMessage("Exported \(exportedCount) fonts to \(folderLabel)")
         }
+    }
+
+    @MainActor
+    private func saveAllFilesToOriginalAsync(projectID: String) async {
+        guard let prepared = await prepareExportAllTargets(inProjectID: projectID) else { return }
+        let targets = prepared.fonts
+        let sessions = prepared.sessions
+
+        requireHost.beginBusyWork(status: "Writing fonts to originals…", progress: 0)
+        defer { requireHost.endBusyWork() }
+
+        let total = max(targets.count, 1)
+        var exportedCount = 0
+        for (index, font) in targets.enumerated() {
+            guard let session = sessions[font.id] else { continue }
+            let name = requireHost.fontBasename(for: font)
+            requireHost.updateBusyWork(
+                status: "Writing \(name) to original (\(index + 1) of \(total))…",
+                progress: Double(index) / Double(total)
+            )
+            await Task.yield()
+            await performSave(
+                session: session,
+                to: URL(fileURLWithPath: font.sourcePath),
+                inPlace: true,
+                manageBusyState: false,
+                closeReviewOnSuccess: false
+            )
+            if requireHost.font(forProjectID: projectID, fontID: font.id)?.dirty == false {
+                exportedCount += 1
+            }
+            requireHost.updateBusyWork(
+                status: "Finished \(name) (\(index + 1) of \(total))",
+                progress: Double(index + 1) / Double(total)
+            )
+            await Task.yield()
+        }
+
+        clearSaveReviewState(forProjectID: projectID)
+        dismissSheet()
+        closeSaveReviewWindow(forProjectID: projectID)
+
+        let noun = exportedCount == 1 ? "font" : "fonts"
+        requireHost.postStatusMessage("Overwrote \(exportedCount) original \(noun)")
     }
 
     var isSaveActionBlocked: Bool {

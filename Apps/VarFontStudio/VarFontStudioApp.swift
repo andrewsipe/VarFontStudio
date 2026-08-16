@@ -15,9 +15,7 @@ struct VarFontStudioApp: App {
     var body: some Scene {
         WindowGroup(id: "main") {
             MainEditorView()
-                .environmentObject(editor)
-                .environmentObject(layout)
-                .environment(editor.workspaceDrag)
+                .studioEnvironment(editor: editor, layout: layout)
                 .frame(minWidth: 960, minHeight: 620)
                 .studioBrandTint()
                 .onAppear {
@@ -45,16 +43,14 @@ struct VarFontStudioApp: App {
 
         Settings {
             StudioSettingsView()
-                .environmentObject(layout)
-                .environmentObject(editor)
+                .studioEnvironment(editor: editor, layout: layout)
                 .studioBrandTint()
         }
 
         WindowGroup(id: "save-review", for: String.self) { $projectID in
             if let projectID {
                 SaveReviewWindow(projectID: projectID)
-                    .environmentObject(editor)
-                    .environmentObject(layout)
+                    .studioEnvironment(editor: editor, layout: layout)
                     .studioBrandTint()
             }
         }
@@ -63,8 +59,7 @@ struct VarFontStudioApp: App {
         WindowGroup(id: "instancer", for: String.self) { $windowKey in
             if let windowKey {
                 InstancerWindow(windowKey: windowKey)
-                    .environmentObject(editor)
-                    .environmentObject(layout)
+                    .studioEnvironment(editor: editor, layout: layout)
                     .studioBrandTint()
             }
         }
@@ -140,6 +135,12 @@ struct VarFontStudioApp: App {
                     }
                     .disabled(!editor.canSave || editor.isSaveActionBlocked)
                     .help("Export every file in this project to a folder. Picking the source folder creates a Patched subfolder.")
+
+                    Button("Export All to Original…") {
+                        editor.requestSaveAllToOriginal(inProjectID: projectID)
+                    }
+                    .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                    .help("Overwrite every source font file in this project after confirmation")
                 }
 
                 Button("Export to Original…") {

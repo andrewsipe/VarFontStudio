@@ -5,6 +5,7 @@ import VarFontCore
 struct MainEditorView: View {
     @EnvironmentObject private var editor: EditorViewModel
     @EnvironmentObject private var layout: EditorLayoutPreferences
+    @EnvironmentObject private var saveReview: SaveReviewStore
     @Environment(WorkspaceDragCoordinator.self) private var workspaceDrag
     @State private var isDropTargeted = false
     @State private var workspaceOrigin: CGPoint = .zero
@@ -102,10 +103,9 @@ struct MainEditorView: View {
                 .id("\(session.id)-\(conflict.id)")
             }
         }
-        .sheet(item: fvarImportReviewBinding) { session in
-            FvarImportReviewSheet(session: session)
+        .sheet(isPresented: fvarImportReviewPresentedBinding) {
+            FvarImportReviewSheet()
                 .environmentObject(editor)
-                .id(session.id)
         }
         .background(AuxiliaryWindowOpenBridge())
         .sheet(isPresented: commitDiffSheetBinding) {
@@ -139,11 +139,27 @@ struct MainEditorView: View {
                 editor.confirmSaveToOriginalAction()
             }
             Button("Cancel", role: .cancel) {
-                editor.saveReview.confirmSaveToOriginal = nil
+                saveReview.confirmSaveToOriginal = nil
             }
         } message: {
-            if let session = editor.saveReview.confirmSaveToOriginal {
+            if let session = saveReview.confirmSaveToOriginal {
                 Text(editor.saveToOriginalConfirmationMessage(for: session))
+            }
+        }
+        .confirmationDialog(
+            "Overwrite all original fonts?",
+            isPresented: saveAllToOriginalConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Overwrite All", role: .destructive) {
+                editor.confirmSaveAllToOriginalAction()
+            }
+            Button("Cancel", role: .cancel) {
+                saveReview.confirmSaveAllToOriginalProjectID = nil
+            }
+        } message: {
+            if let projectID = saveReview.confirmSaveAllToOriginalProjectID {
+                Text(editor.saveAllToOriginalConfirmationMessage(forProjectID: projectID))
             }
         }
         .confirmationDialog(
@@ -309,24 +325,35 @@ struct MainEditorView: View {
         )
     }
 
-    private var fvarImportReviewBinding: Binding<FvarImportReviewSession?> {
+    private var fvarImportReviewPresentedBinding: Binding<Bool> {
         Binding(
-            get: { editor.issueResolvers.fvarImportReviewRequest },
-            set: { editor.issueResolvers.fvarImportReviewRequest = $0 }
+            get: { !editor.issueResolvers.fvarImportReviewQueue.isEmpty },
+            set: { presented in
+                if !presented {
+                    editor.issueResolvers.dismissFvarImportReview()
+                }
+            }
         )
     }
 
     private var commitDiffSheetBinding: Binding<Bool> {
         Binding(
-            get: { editor.saveReview.presentCommitDiffSheet },
-            set: { editor.saveReview.presentCommitDiffSheet = $0 }
+            get: { saveReview.presentCommitDiffSheet },
+            set: { saveReview.presentCommitDiffSheet = $0 }
         )
     }
 
     private var saveToOriginalConfirmBinding: Binding<Bool> {
         Binding(
-            get: { editor.saveReview.confirmSaveToOriginal != nil },
-            set: { if !$0 { editor.saveReview.confirmSaveToOriginal = nil } }
+            get: { saveReview.confirmSaveToOriginal != nil },
+            set: { if !$0 { saveReview.confirmSaveToOriginal = nil } }
+        )
+    }
+
+    private var saveAllToOriginalConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { saveReview.confirmSaveAllToOriginalProjectID != nil },
+            set: { if !$0 { saveReview.confirmSaveAllToOriginalProjectID = nil } }
         )
     }
 

@@ -124,7 +124,7 @@ public enum ProjectImporter {
       id: placeholder.id,
       sourcePath: sourceURL.path,
       outputPath: nil,
-      analysisSnapshotID: nil,
+      analysisSnapshotID: SourceFontFingerprint.capture(url: sourceURL, analysis: analysis)?.serialized,
       dirty: false,
       fileRole: fileRole,
       axes: axes,

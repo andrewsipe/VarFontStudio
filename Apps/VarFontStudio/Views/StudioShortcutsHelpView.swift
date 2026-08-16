@@ -37,6 +37,7 @@ struct StudioShortcutsHelpView: View {
             ShortcutRow(action: "Exclude all shown", keys: "⌥⌘E"),
             ShortcutRow(action: "Include selection", keys: "⌘⇧I"),
             ShortcutRow(action: "Exclude selection", keys: "⌘⇧E"),
+            ShortcutRow(action: "Preview: step / set cycle direction", keys: "↑ ↓"),
         ]),
         ("Preferences", [
             ShortcutRow(action: "OpenType feature name IDs (app default)", keys: "Preferences menu"),
@@ -49,7 +50,7 @@ struct StudioShortcutsHelpView: View {
             Text("WORKFLOW")
                 .font(StudioTypography.sectionLabel)
                 .foregroundStyle(.secondary)
-            Text("Save writes the .varf project file (legacy .varfont still opens). Export writes patched font binaries — use Export All… to keep original filenames in a folder. Review (⌘⇧R) shows STAT, fvar, and name slots with a nameID column; OpenType label reflow is optional under Preferences, or override per project in Review.")
+            Text("Save writes the .varf project file (legacy .varfont still opens). Export writes patched font binaries — use Export All… for a folder (Patched subfolder if needed), or Export All to Original… to overwrite each source file. Review (⌘⇧R) shows STAT, fvar, and name slots with a nameID column; OpenType label reflow is optional under Preferences, or override per project in Review.")
                 .font(StudioTypography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

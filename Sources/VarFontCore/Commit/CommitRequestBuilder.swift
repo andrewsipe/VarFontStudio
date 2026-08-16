@@ -9,7 +9,8 @@ public enum CommitRequestBuilder {
         outputPath: String,
         dryRun: Bool,
         nameidStrategy: NameIDStrategy? = nil,
-        windowsNameTable: [WindowsNameRecord] = []
+        windowsNameTable: [WindowsNameRecord] = [],
+        otFeatureLabels: [OTFeatureLabelRecord] = []
     ) -> CommitRequest {
         CommitRequest(
             schemaVersion: 1,
@@ -29,6 +30,14 @@ public enum CommitRequestBuilder {
                 windowsNameTable: windowsNameTable,
                 overrides: font.windowsNameOverrides,
                 removals: font.windowsNameRemovals
+            ),
+            otLabelPatches: OTFeatureLabelEditing.commitPatches(
+                labels: otFeatureLabels,
+                overrides: font.otFeatureLabelOverrides
+            ),
+            otLabelAdditions: OTFeatureLabelEditing.commitAdditions(
+                additions: font.otFeatureLabelAdditions,
+                overrides: font.otFeatureLabelOverrides
             )
         )
     }

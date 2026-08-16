@@ -113,13 +113,13 @@ extension EditorViewModel {
         issueResolvers.applyFvarStatConflictResolution(resolution, andContinue: andContinue)
     }
 
-    func applyFvarImportReview(_ decisions: FvarStopSeeder.ReviewDecisions) {
+    func applyFvarImportReview(_ decisions: FvarStopSeeder.ReviewDecisions) -> Bool {
         guard let session = issueResolvers.fvarImportReviewRequest,
               var project,
               let fontIndex = project.fonts.firstIndex(where: { $0.id == session.fontID })
         else {
             issueResolvers.dismissFvarImportReview()
-            return
+            return false
         }
 
         pushUndoSnapshot()
@@ -143,7 +143,7 @@ extension EditorViewModel {
             seedOriginalInstancesWhitelist(fontID: session.fontID)
         }
 
-        issueResolvers.dismissFvarImportReview()
+        return issueResolvers.completeFvarImportReview(fontID: session.fontID)
     }
 
     /// After Import Review, whitelist plan keys that match the working font's fvar.
@@ -174,25 +174,26 @@ extension EditorViewModel {
         regeneratePlan()
     }
 
-    func deferFvarImportReview() {
+    func deferFvarImportReview() -> Bool {
         guard let session = issueResolvers.fvarImportReviewRequest else {
             issueResolvers.dismissFvarImportReview()
-            return
+            return false
         }
         // Park Format 4 suggestions; leave held stops unapplied for later Axis Tree / Combinations work.
         compoundSuggestions.removeAll { $0.fontID == session.fontID }
         compoundSuggestions.append(contentsOf: session.report.compoundSuggestions)
-        issueResolvers.dismissFvarImportReview()
+        return issueResolvers.completeFvarImportReview(fontID: session.fontID)
     }
 
     /// Abandon this import — remove the font from the project (closes the project if it was the only file).
-    func cancelFvarImportReview() {
+    /// Returns `true` when another Import Review is still waiting.
+    func cancelFvarImportReview() -> Bool {
         guard let session = issueResolvers.fvarImportReviewRequest else {
             issueResolvers.dismissFvarImportReview()
-            return
+            return false
         }
         let fontID = session.fontID
-        issueResolvers.dismissFvarImportReview()
+        let hasMore = issueResolvers.completeFvarImportReview(fontID: fontID)
         compoundSuggestions.removeAll { $0.fontID == fontID }
 
         guard let project = openProjects.first(where: {
@@ -201,7 +202,7 @@ extension EditorViewModel {
               let font = project.document.fonts.first(where: { $0.id == fontID })
         else {
             postStatusMessage("Import cancelled")
-            return
+            return hasMore
         }
 
         let name = fontBasename(for: font)
@@ -210,6 +211,7 @@ extension EditorViewModel {
             ? "Import cancelled"
             : "Import cancelled — \(name) not added"
         removeFont(id: fontID, fromProjectID: project.id, statusMessage: message)
+        return hasMore
     }
 
     // MARK: - Naming / compound helpers (remain on editor)

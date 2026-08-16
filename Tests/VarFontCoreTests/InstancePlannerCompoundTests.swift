@@ -167,6 +167,86 @@ final class InstancePlannerCompoundTests: XCTestCase {
         XCTAssertTrue(plan.instances.contains { $0.composedName == "DoubleRounded" })
     }
 
+    /// Ease-style: Format 4 names an off-grid custom-axis point and leaves weight free.
+    /// Those rows must expand across every weight stop — not vanish because wght was omitted.
+    func testOffGridPartialCompoundExpandsAcrossUnspecifiedAxes() {
+        var font = FontDocument(
+            id: "font-1",
+            sourcePath: "/tmp/Ease.ttf",
+            dirty: false,
+            axes: [
+                AxisDefinition(
+                    tag: "insd",
+                    displayName: "Inside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "i0", value: 0, name: "Default", elidable: true),
+                        AxisValue(id: "i50", value: 50, name: "SemiDisplay", elidable: false),
+                        AxisValue(id: "i100", value: 100, name: "Display", elidable: false),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "ousd",
+                    displayName: "Outside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "o0", value: 0, name: "Default", elidable: true),
+                        AxisValue(id: "o20", value: 20, name: "SemiRounded", elidable: false),
+                        AxisValue(id: "o100", value: 100, name: "Rounded", elidable: false),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "wght",
+                    displayName: "Weight",
+                    min: 100,
+                    default: 100,
+                    max: 900,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "w100", value: 100, name: "Regular", elidable: true),
+                        AxisValue(id: "w300", value: 300, name: "Medium", elidable: false),
+                        AxisValue(id: "w500", value: 500, name: "Semibold", elidable: false),
+                        AxisValue(id: "w700", value: 700, name: "Bold", elidable: false),
+                        AxisValue(id: "w900", value: 900, name: "Black", elidable: false),
+                    ]
+                ),
+            ]
+        )
+        font.compoundStatValues = [
+            CompoundStatValue(
+                id: "c1",
+                coords: ["insd": 70, "ousd": 100],
+                axisIndices: [],
+                axisValues: [],
+                name: "DoubleRounded",
+                elidable: false
+            ),
+        ]
+
+        let plan = InstancePlanner.plan(
+            font: font,
+            naming: NamingPolicy(order: ["insd", "ousd", "wght"], elidedFallback: "Regular")
+        )
+
+        // 3×3×5 orthogonal + 5 off-grid DoubleRounded × weight.
+        XCTAssertEqual(plan.formula.parts, [3, 3, 5])
+        XCTAssertEqual(plan.formula.totalGenerated, 50)
+
+        let doubleRounded = plan.instances.filter {
+            $0.coords["insd"].map { AxisCoordinate.valuesEqual($0, 70) } == true
+                && $0.coords["ousd"].map { AxisCoordinate.valuesEqual($0, 100) } == true
+        }
+        XCTAssertEqual(doubleRounded.count, 5)
+        XCTAssertEqual(Set(doubleRounded.compactMap { $0.coords["wght"] }).count, 5)
+        XCTAssertTrue(doubleRounded.allSatisfy { $0.composedName.contains("DoubleRounded") })
+    }
+
     func testCompoundsSortByAxisOrderNotAlphabetically() {
         let axes = [
             AxisDefinition(
@@ -205,5 +285,11 @@ final class InstancePlannerCompoundTests: XCTestCase {
             "Poster Extra Thin",
             "Poster Thin",
         ])
+    }
+
+    func testChainTagCoversCompoundLegs() {
+        XCTAssertTrue(CompoundStatNaming.chainTagCovers("insd+ousd", axisTag: "insd"))
+        XCTAssertTrue(CompoundStatNaming.chainTagCovers("insd+ousd", axisTag: "ousd"))
+        XCTAssertFalse(CompoundStatNaming.chainTagCovers("insd+ousd", axisTag: "wght"))
     }
 }

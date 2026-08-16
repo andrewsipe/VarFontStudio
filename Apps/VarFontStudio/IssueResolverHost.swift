@@ -13,5 +13,11 @@ protocol IssueResolverHost: AnyObject {
     var inspectorFocus: InspectorFocusStore { get }
 
     func pushUndoSnapshot()
-    func regeneratePlan()
+    func regeneratePlan(refreshPendingExport: Bool)
+}
+
+extension IssueResolverHost {
+    func regeneratePlan() {
+        regeneratePlan(refreshPendingExport: true)
+    }
 }

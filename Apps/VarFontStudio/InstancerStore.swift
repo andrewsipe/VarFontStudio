@@ -81,6 +81,8 @@ final class InstancerSessionState: ObservableObject {
     @Published var axisTags: [String] = [] {
         didSet { rebuildDerivedStateIfNeeded() }
     }
+    /// Subset of `axisTags` present in fvar — only these are passed to vfinstance.
+    @Published var fvarAxisTags: [String] = []
     @Published var rows: [InstancerRow] = [] {
         didSet { rebuildDerivedStateIfNeeded() }
     }
@@ -171,6 +173,7 @@ final class InstancerSessionState: ObservableObject {
         self.sourcePath = sourcePath
         self.isStudioExport = isStudioExport
         self.axisTags = built.axisTags
+        self.fvarAxisTags = built.fvarAxisTags
         self.rows = built.rows
         self.boldLinkedWght = built.boldLinkedWght
         self.psInferred = built.inferredPSPrefix
@@ -193,8 +196,13 @@ final class InstancerSessionState: ObservableObject {
         composerWarning = nil
         composerForcePending = false
         var coords: [String: Double] = [:]
+        let sample = rows.first(where: { $0.origin == .source })?.coords
         for tag in axisTags {
-            coords[tag] = InstancerAxisDefaults.value(for: tag)
+            if let value = sample?[tag] {
+                coords[tag] = value
+            } else {
+                coords[tag] = InstancerAxisDefaults.value(for: tag)
+            }
         }
         if axisTags.contains("wght") {
             coords.removeValue(forKey: "wght")
@@ -748,11 +756,13 @@ final class InstancerStore: ObservableObject {
             return nil
         }
 
-        return await runGenerate(
+        let outcome = await runGenerate(
             session: session,
             chosenDirectory: chosen,
             folderLabel: folderLabel
         )
+        finishGenerateIfSuccessful(outcome, windowKey: windowKey(containingSessionKey: session.sessionKey))
+        return outcome
     }
 
     /// Generate every ready font tab in a workspace (Review “Export All” counterpart).
@@ -852,7 +862,19 @@ final class InstancerStore: ObservableObject {
         } else {
             message = "Wrote \(totalWritten) static font\(totalWritten == 1 ? "" : "s") from \(filesSucceeded) file\(filesSucceeded == 1 ? "" : "s")"
         }
-        return .success(message: message, revealPath: reveal)
+        let outcome = GenerateOutcome.success(message: message, revealPath: reveal)
+        finishGenerateIfSuccessful(outcome, windowKey: windowKey)
+        return outcome
+    }
+
+    /// Reveal output, post status, and close Instancer after a successful generate run.
+    private func finishGenerateIfSuccessful(_ outcome: GenerateOutcome?, windowKey: String?) {
+        guard case let .success(message, revealPath) = outcome else { return }
+        host?.postStatusMessage(message)
+        NSWorkspace.shared.selectFile(revealPath, inFileViewerRootedAtPath: "")
+        if let windowKey {
+            closeInstancerWindow(windowKey: windowKey)
+        }
     }
 
     private func runGenerate(
@@ -988,7 +1010,7 @@ final class InstancerStore: ObservableObject {
             }
         }
 
-        // Match the table order (opsz → wdth → wght → …), not raw fvar order.
+        // Match the table order (file STAT DesignAxisRecord), not raw fvar order.
         let selected = session.rows
             .filter { session.selectedIDs.contains($0.id) }
             .sorted { InstancerNaming.compareRows($0, $1, axisTags: session.axisTags) }
@@ -996,13 +1018,14 @@ final class InstancerStore: ObservableObject {
         session.generateStatus = "Preparing \(selected.count) instance\(selected.count == 1 ? "" : "s")…"
         session.statusHint = session.generateStatus
 
-        let axisTags = session.axisTags
+        let fvarAxisTags = session.fvarAxisTags.isEmpty ? session.axisTags : session.fvarAxisTags
         let psPrefix = session.psPrefix.trimmingCharacters(in: .whitespacesAndNewlines)
         let familyName = session.familyName.trimmingCharacters(in: .whitespacesAndNewlines)
         let specs: [InstanceSpec] = selected.compactMap { row in
             guard let name = InstancerNaming.resolvedName(for: row) else { return nil }
             var coords: [String: Double] = [:]
-            for tag in axisTags {
+            // DesignAxisRecord-only axes aren't in fvar — vfinstance rejects unknown tags.
+            for tag in fvarAxisTags {
                 coords[tag] = row.coords[tag] ?? InstancerAxisDefaults.value(for: tag)
             }
             let style = InstancerNaming.outputStyleToken(for: row) ?? name.replacingOccurrences(

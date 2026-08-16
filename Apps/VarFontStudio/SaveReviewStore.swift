@@ -23,7 +23,11 @@ final class SaveReviewStore: ObservableObject {
     @Published private(set) var explicitlyOpenedProjectIDs: Set<String> = []
     @Published var uiStateByProjectID: [String: SaveReviewUIState] = [:]
     @Published var confirmSaveToOriginal: CommitPreflightSession?
+    /// Project awaiting confirmation for Export All → overwrite each source file in place.
+    @Published var confirmSaveAllToOriginalProjectID: String?
     @Published var persistentSaveError: String?
+
+    var commitDiffPrefetchTask: Task<Void, Never>?
 
     func sessionKey(projectID: String, fontID: String) -> String {
         "\(projectID)|\(fontID)"

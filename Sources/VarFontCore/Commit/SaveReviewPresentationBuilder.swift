@@ -508,6 +508,13 @@ public enum SaveReviewPresentationBuilder {
       )
     }
 
+    let otEditRows = otLabelEditRows(analysis: analysis, font: font, diff: diff)
+    if !otEditRows.isEmpty {
+      sections.append(
+        SaveReviewSectionPresentation(title: "OpenType feature label edits", rows: otEditRows)
+      )
+    }
+
     var reflowedOTRows: [SaveReviewRowPresentation] = []
     let sequenced = diff?.nameRecordsSequenced ?? []
     for record in sequenced where record.role == "ot_feature_label" {
@@ -848,6 +855,96 @@ public enum SaveReviewPresentationBuilder {
         roleLabel: "windows_name"
       )
     )
+  }
+
+  private static func otLabelEditRows(
+    analysis: FontAnalysis,
+    font: FontDocument,
+    diff: CommitDiff?
+  ) -> [SaveReviewRowPresentation] {
+    let patches = diff?.otLabelPatches
+      ?? OTFeatureLabelEditing.commitPatches(
+        labels: analysis.otFeatureLabels,
+        overrides: font.otFeatureLabelOverrides
+      )
+    let additions = diff?.otLabelAdditions
+      ?? OTFeatureLabelEditing.commitAdditions(
+        additions: font.otFeatureLabelAdditions,
+        overrides: font.otFeatureLabelOverrides
+      )
+    let baselineByKey = Dictionary(
+      analysis.otFeatureLabels.map { ($0.siteKey, $0.string) },
+      uniquingKeysWith: { first, _ in first }
+    )
+    var rows: [SaveReviewRowPresentation] = []
+
+    for patch in patches {
+      let key = OTFeatureLabelSite.key(table: patch.table, featureTag: patch.featureTag, field: patch.field)
+      let before = baselineByKey[key]
+      let category: SaveReviewDisplayCategory
+      if before == nil {
+        category = .renamed
+      } else if before != patch.string {
+        category = .renamed
+      } else {
+        category = .same
+      }
+      let title = OTFeatureLabelEditing.Row.displayLabel(for: patch.featureTag)
+      let afterValue = patch.string.isEmpty ? nil : SaveReviewRowFormatter.quoted(patch.string)
+      let wasLine = before.map { "was \(SaveReviewRowFormatter.quoted($0))" }
+      rows.append(
+        SaveReviewRowPresentation(
+          id: "name:ot:\(key)",
+          nameID: patch.nameID,
+          fieldTitle: title,
+          fieldSubtitle: patch.featureTag,
+          afterValue: afterValue,
+          wasLine: wasLine,
+          noteLine: nil,
+          roleLabel: "ot_feature_label",
+          category: category,
+          searchText: SaveReviewRowFormatter.searchText(
+            nameID: patch.nameID,
+            fieldTitle: title,
+            fieldSubtitle: patch.featureTag,
+            afterValue: afterValue,
+            wasLine: wasLine,
+            noteLine: nil,
+            roleLabel: "ot_feature_label"
+          )
+        )
+      )
+    }
+
+    for addition in additions {
+      let key = "\(addition.table)|\(addition.featureTag)|UINameID"
+      let title = OTFeatureLabelEditing.Row.displayLabel(for: addition.featureTag)
+      let afterValue = SaveReviewRowFormatter.quoted(addition.string)
+      rows.append(
+        SaveReviewRowPresentation(
+          id: "name:ot-add:\(key)",
+          nameID: nil,
+          fieldTitle: title,
+          fieldSubtitle: addition.featureTag,
+          afterValue: afterValue,
+          wasLine: nil,
+          noteLine: "New FeatureParams label",
+          roleLabel: "ot_feature_label",
+          category: .added,
+          searchText: SaveReviewRowFormatter.searchText(
+            nameID: nil,
+            fieldTitle: title,
+            fieldSubtitle: addition.featureTag,
+            afterValue: afterValue,
+            wasLine: nil,
+            noteLine: "New FeatureParams label",
+            roleLabel: "ot_feature_label"
+          )
+        )
+      )
+    }
+
+    return rows
   }
 
   private static func makeNameRow(

@@ -4,6 +4,8 @@ import SwiftUI
 /// Mounted on the main editor and Instancer so either window can reopen the other.
 struct AuxiliaryWindowOpenBridge: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var saveReview: SaveReviewStore
+    @EnvironmentObject private var instancer: InstancerStore
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -15,11 +17,11 @@ struct AuxiliaryWindowOpenBridge: View {
                 if MainWindowLifecycle.focusExistingMainWindow() { return }
                 openWindow(id: "main")
             }
-            .onChange(of: editor.saveReview.openRequest) { _, request in
+            .onChange(of: saveReview.openRequest) { _, request in
                 guard let request else { return }
                 openWindow(id: "save-review", value: request.projectID)
             }
-            .onChange(of: editor.instancer.openRequest) { _, request in
+            .onChange(of: instancer.openRequest) { _, request in
                 guard let request else { return }
                 openWindow(id: "instancer", value: request.windowKey)
             }

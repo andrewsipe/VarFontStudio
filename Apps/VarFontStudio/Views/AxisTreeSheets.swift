@@ -10,6 +10,37 @@ struct AddAxisStopSheet: View {
     let axis: AxisDefinition
     let onComplete: () -> Void
 
+    private enum Placement: Equatable {
+        case one
+        case several
+    }
+
+    private struct DraftStop: Identifiable, Equatable {
+        let id: UUID
+        var valueText: String
+        var nameText: String
+        var codeText: String
+
+        init(
+            id: UUID = UUID(),
+            valueText: String,
+            nameText: String,
+            codeText: String = ""
+        ) {
+            self.id = id
+            self.valueText = valueText
+            self.nameText = nameText
+            self.codeText = codeText
+        }
+
+        static func from(value: Double, name: String? = nil, code: String = "") -> DraftStop {
+            let formatted = AxisStopSuggestions.formatValue(value)
+            return DraftStop(valueText: formatted, nameText: name ?? formatted, codeText: code)
+        }
+    }
+
+    @State private var placement: Placement = .one
+    @State private var drafts: [DraftStop] = []
     @State private var statFormat = 1
     @State private var pinText = ""
     @State private var minText = ""
@@ -24,6 +55,10 @@ struct AddAxisStopSheet: View {
         case pin, min, max, name, code
     }
 
+    private var gapProposal: AxisStopGapFill.Proposal? {
+        AxisStopGapFill.proposal(for: axis)
+    }
+
     private var trimmedCode: String? {
         guard editor.isCodeNamingEnabled else { return nil }
         let t = codeText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -32,48 +67,20 @@ struct AddAxisStopSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
-            Text("Add Stop")
-                .font(StudioTypography.emphasis)
+            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                Text("Add Stop(s)")
+                    .font(StudioTypography.emphasis)
+                Text(axisSubtitle)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+            }
 
-            Text(axisSubtitle)
-                .font(StudioTypography.caption)
-                .foregroundStyle(.secondary)
+            placementPicker
 
-            StudioMenuPicker(
-                title: "STAT format",
-                selection: $statFormat,
-                options: [
-                    (1, "Format 1 — static"),
-                    (2, "Format 2 — range"),
-                    (3, "Format 3 — linked"),
-                ]
-            )
-            .onChange(of: statFormat) { _, _ in seedDefaults() }
-
-            VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
-                formatFields
-                StudioTextField(
-                    placeholder: "Name",
-                    text: $nameText,
-                    rowHeight: StudioFieldMetrics.bodyRowHeight,
-                    onSubmit: editor.isCodeNamingEnabled
-                        ? { advanceFocusedField(from: .name) }
-                        : addStopIfValid,
-                    submitBehavior: editor.isCodeNamingEnabled ? .advance : .commit
-                )
-                .focused($focusedField, equals: .name)
-                if editor.isCodeNamingEnabled {
-                    StudioTextField(
-                        placeholder: "Code",
-                        text: $codeText,
-                        font: StudioTypography.monoMeta,
-                        rowHeight: StudioFieldMetrics.bodyRowHeight,
-                        filledForeground: .primary,
-                        onSubmit: addStopIfValid
-                    )
-                    .focused($focusedField, equals: .code)
-                    .help("Optional 1–2 character classification code (letters or digits)")
-                }
+            if placement == .one {
+                singleStopFields
+            } else {
+                severalStopFields
             }
 
             if let validationMessage {
@@ -88,33 +95,187 @@ struct AddAxisStopSheet: View {
                     onComplete()
                     dismiss()
                 }
-                StudioFlatButton(title: "Add Stop", role: .primary, isEnabled: canAdd, isDefaultAction: true) {
-                    addStopIfValid()
+                StudioFlatButton(
+                    title: primaryActionTitle,
+                    role: .primary,
+                    isEnabled: canAdd,
+                    isDefaultAction: true
+                ) {
+                    addStopsIfValid()
                 }
             }
         }
         .padding(StudioSpacing.contentInset)
-        .frame(width: 360)
-        .onAppear {
-            seedDefaults()
-            nameText = "Name"
-            focusedField = .pin
-            let monitor = TabKeyMonitor { shift in
-                guard let focusedField else { return }
-                let order = fieldOrder
-                guard let index = order.firstIndex(of: focusedField) else { return }
-                if shift {
-                    if index > 0 { self.focusedField = order[index - 1] }
-                } else if index + 1 < order.count {
-                    self.focusedField = order[index + 1]
-                }
+        .frame(minWidth: placement == .several ? 460 : 360)
+        .onAppear(perform: configureInitialPlacement)
+        .onChange(of: placement) { _, newPlacement in
+            if newPlacement == .several {
+                seedSeveralIfNeeded()
+            } else {
+                applyFirstDraftToSingleFields()
             }
-            monitor.start()
-            tabKeyMonitor = monitor
         }
         .onDisappear {
             tabKeyMonitor?.stop()
             tabKeyMonitor = nil
+        }
+    }
+
+    private var placementPicker: some View {
+        HStack(spacing: StudioSpacing.instanceRowGap) {
+            StudioSegmentButton(
+                title: "One stop",
+                isSelected: placement == .one,
+                expands: true
+            ) {
+                placement = .one
+            }
+            StudioSegmentButton(
+                title: "Several",
+                isSelected: placement == .several,
+                expands: true,
+                badge: gapProposal.map { "\($0.values.count)" }
+            ) {
+                placement = .several
+            }
+        }
+        .padding(StudioSpace.x0_5)
+        .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
+        .help("One stop can set STAT format 2 or 3. Several always inserts Format 1 stops and leaves the current ladder in place.")
+    }
+
+    @ViewBuilder
+    private var singleStopFields: some View {
+        StudioMenuPicker(
+            title: "STAT format",
+            selection: $statFormat,
+            options: [
+                (1, "Format 1 — static"),
+                (2, "Format 2 — range"),
+                (3, "Format 3 — linked"),
+            ]
+        )
+        .onChange(of: statFormat) { _, _ in seedDefaults() }
+
+        VStack(alignment: .leading, spacing: StudioSpacing.sectionGap) {
+            formatFields
+            StudioTextField(
+                placeholder: "Name",
+                text: $nameText,
+                rowHeight: StudioFieldMetrics.bodyRowHeight,
+                onSubmit: editor.isCodeNamingEnabled
+                    ? { advanceFocusedField(from: .name) }
+                    : addStopsIfValid,
+                submitBehavior: editor.isCodeNamingEnabled ? .advance : .commit
+            )
+            .focused($focusedField, equals: .name)
+            if editor.isCodeNamingEnabled {
+                StudioTextField(
+                    placeholder: "Code",
+                    text: $codeText,
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: .primary,
+                    onSubmit: addStopsIfValid
+                )
+                .focused($focusedField, equals: .code)
+                .help("Optional 1–2 character classification code (letters or digits)")
+            }
+        }
+    }
+
+    private var severalStopFields: some View {
+        VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+            if let gapProposal {
+                HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.rowGap) {
+                    Text(gapProposal.source + ": " + gapProposal.previewLabel)
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    if !draftsMatchProposal {
+                        StudioPlainLinkButton(title: "Use suggested gaps") {
+                            drafts = drafts(from: gapProposal)
+                        }
+                    }
+                }
+            } else {
+                Text("Existing stops stay. Edit values and names before adding.")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                HStack(spacing: StudioSpace.x2) {
+                    Text("Value")
+                        .frame(width: 72, alignment: .leading)
+                    Text("Name")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if editor.isCodeNamingEnabled {
+                        Text("Code")
+                            .frame(width: 52, alignment: .leading)
+                    }
+                    Color.clear.frame(width: StudioChromeScale.chip.hitSize)
+                }
+                .font(StudioTypography.columnLabel)
+                .foregroundStyle(StudioColors.sectionHeading)
+
+                ForEach($drafts) { $draft in
+                    severalRow($draft)
+                }
+            }
+
+            StudioPlainLinkButton(title: "Add another", systemImage: "plus") {
+                appendDraft()
+            }
+        }
+    }
+
+    private func severalRow(_ draft: Binding<DraftStop>) -> some View {
+        let draftID = draft.wrappedValue.id
+        return HStack(spacing: StudioSpace.x2) {
+            StudioTextField(
+                placeholder: "Value",
+                text: Binding(
+                    get: { draft.wrappedValue.valueText },
+                    set: { newValue in
+                        let previous = draft.wrappedValue.valueText
+                        draft.wrappedValue.valueText = newValue
+                        syncNameIfNumeric(draftID: draftID, previousValueText: previous)
+                    }
+                ),
+                font: StudioTypography.monoValue,
+                rowHeight: StudioFieldMetrics.bodyRowHeight
+            )
+            .frame(width: 72)
+
+            StudioTextField(
+                placeholder: "Name",
+                text: draft.nameText,
+                rowHeight: StudioFieldMetrics.bodyRowHeight
+            )
+            .frame(maxWidth: .infinity)
+
+            if editor.isCodeNamingEnabled {
+                StudioTextField(
+                    placeholder: "Code",
+                    text: draft.codeText,
+                    font: StudioTypography.monoMeta,
+                    rowHeight: StudioFieldMetrics.bodyRowHeight,
+                    filledForeground: .primary
+                )
+                .frame(width: 52)
+            }
+
+            StudioDismissButton(
+                scale: .chip,
+                style: .fill,
+                help: drafts.count == 1 ? "Keep at least one stop" : "Remove this stop"
+            ) {
+                drafts.removeAll { $0.id == draftID }
+            }
+            .disabled(drafts.count == 1)
+            .opacity(drafts.count == 1 ? 0.35 : 1)
         }
     }
 
@@ -181,6 +342,85 @@ struct AddAxisStopSheet: View {
         }
     }
 
+    private func configureInitialPlacement() {
+        seedDefaults()
+        placement = .one
+        nameText = ""
+        focusedField = .pin
+        startTabMonitor()
+    }
+
+    private func startTabMonitor() {
+        tabKeyMonitor?.stop()
+        let monitor = TabKeyMonitor { shift in
+            guard let focusedField else { return }
+            let order = fieldOrder
+            guard let index = order.firstIndex(of: focusedField) else { return }
+            if shift {
+                if index > 0 { self.focusedField = order[index - 1] }
+            } else if index + 1 < order.count {
+                self.focusedField = order[index + 1]
+            }
+        }
+        monitor.start()
+        tabKeyMonitor = monitor
+    }
+
+    private func seedSeveralIfNeeded() {
+        tabKeyMonitor?.stop()
+        tabKeyMonitor = nil
+        if drafts.isEmpty {
+            if let gapProposal {
+                drafts = drafts(from: gapProposal)
+            } else if let pin = parsedPin {
+                drafts = [DraftStop.from(value: pin, name: trimmedName.isEmpty ? nil : trimmedName)]
+            } else {
+                drafts = [DraftStop.from(value: editor.suggestedNewStopValue(for: axis))]
+            }
+        }
+    }
+
+    private func applyFirstDraftToSingleFields() {
+        if let first = drafts.first, let value = parsedValue(first.valueText) {
+            pinText = AxisStopSuggestions.formatValue(value)
+            nameText = first.nameText
+            codeText = first.codeText
+        }
+        startTabMonitor()
+        focusedField = .pin
+    }
+
+    private func drafts(from proposal: AxisStopGapFill.Proposal) -> [DraftStop] {
+        proposal.values.map { DraftStop.from(value: $0) }
+    }
+
+    private var draftsMatchProposal: Bool {
+        guard let gapProposal else { return false }
+        let draftValues = drafts.compactMap { parsedValue($0.valueText) }
+        guard draftValues.count == gapProposal.values.count else { return false }
+        return zip(draftValues, gapProposal.values).allSatisfy { AxisCoordinate.valuesEqual($0, $1) }
+    }
+
+    private func appendDraft() {
+        let excluding = drafts.compactMap { parsedValue($0.valueText) }
+        let value = AxisStopSuggestions.suggestedValue(for: axis, excludingValues: excluding)
+        drafts.append(.from(value: value))
+    }
+
+    private func syncNameIfNumeric(draftID: UUID, previousValueText: String) {
+        guard let index = drafts.firstIndex(where: { $0.id == draftID }) else { return }
+        let currentName = drafts[index].nameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let previousWasNumericName = parsedValue(previousValueText)
+            .map { currentName == AxisStopSuggestions.formatValue($0) || currentName.isEmpty }
+            ?? currentName.isEmpty
+        guard previousWasNumericName, let value = parsedValue(drafts[index].valueText) else { return }
+        drafts[index].nameText = AxisStopSuggestions.formatValue(value)
+    }
+
+    private func parsedValue(_ text: String) -> Double? {
+        Double(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     private func advanceFocusedField(from field: Field) {
         let order = fieldOrder
         guard let index = order.firstIndex(of: field) else { return }
@@ -213,7 +453,7 @@ struct AddAxisStopSheet: View {
     private func seedDefaults() {
         let suggested = editor.suggestedNewStopValue(for: axis)
         pinText = StudioFormatting.axisValue(suggested)
-        minText = StudioFormatting.axisValue(max((axis.min ?? suggested) , suggested - 20))
+        minText = StudioFormatting.axisValue(max((axis.min ?? suggested), suggested - 20))
         maxText = StudioFormatting.axisValue(min((axis.max ?? suggested + 20), suggested + 20))
         seedLinkTargetIfNeeded(force: true)
     }
@@ -227,21 +467,37 @@ struct AddAxisStopSheet: View {
 
     private var axisSubtitle: String {
         let title = axis.displayName ?? axis.tag
-        if let min = axis.min, let max = axis.max {
-            return "\(title) · allowed \(StudioFormatting.axisValue(min)) – \(StudioFormatting.axisValue(max))"
+        let range: String = {
+            if let min = axis.min, let max = axis.max {
+                return "\(title) · allowed \(StudioFormatting.axisValue(min)) – \(StudioFormatting.axisValue(max))"
+            }
+            return title
+        }()
+        if placement == .several {
+            return range + " · existing stops stay"
         }
-        return title
+        return range
     }
 
-    private var parsedPin: Double? { Double(pinText.trimmingCharacters(in: .whitespacesAndNewlines)) }
-    private var parsedMin: Double? { Double(minText.trimmingCharacters(in: .whitespacesAndNewlines)) }
-    private var parsedMax: Double? { Double(maxText.trimmingCharacters(in: .whitespacesAndNewlines)) }
+    private var parsedPin: Double? { parsedValue(pinText) }
+    private var parsedMin: Double? { parsedValue(minText) }
+    private var parsedMax: Double? { parsedValue(maxText) }
 
     private var trimmedName: String {
         nameText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var primaryActionTitle: String {
+        if placement == .several, drafts.count != 1 {
+            return "Add \(drafts.count) Stops"
+        }
+        return "Add Stop"
+    }
+
     private var validationMessage: String? {
+        if placement == .several {
+            return severalValidationMessage
+        }
         if trimmedName.isEmpty { return "Name is required." }
         switch statFormat {
         case 2:
@@ -260,6 +516,26 @@ struct AddAxisStopSheet: View {
         }
     }
 
+    private var severalValidationMessage: String? {
+        guard !drafts.isEmpty else { return "Add at least one stop." }
+        var seen: [Double] = []
+        for draft in drafts {
+            let name = draft.nameText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if name.isEmpty { return "Every stop needs a name." }
+            guard let value = parsedValue(draft.valueText) else {
+                return "Every stop needs a valid value."
+            }
+            if let message = editor.validateAxisStopValue(value, for: axis) {
+                return message
+            }
+            if seen.contains(where: { AxisCoordinate.valuesEqual($0, value) }) {
+                return "Two new stops share the same value."
+            }
+            seen.append(value)
+        }
+        return nil
+    }
+
     private var selectedLinkTarget: StatFormat3Pairing.LinkTarget? {
         let id = linkTargetID ?? linkCandidates.first?.id
         return linkCandidates.first { $0.id == id }
@@ -267,8 +543,30 @@ struct AddAxisStopSheet: View {
 
     private var canAdd: Bool { validationMessage == nil }
 
-    private func addStopIfValid() {
+    private func addStopsIfValid() {
         guard canAdd else { return }
+        if placement == .several {
+            let stops: [(value: Double, name: String, code: String?)] = drafts.compactMap { draft in
+                guard let value = parsedValue(draft.valueText) else { return nil }
+                let name = draft.nameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let code = editor.isCodeNamingEnabled
+                    ? draft.codeText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    : ""
+                return (
+                    value,
+                    name,
+                    code.isEmpty ? nil : code
+                )
+            }
+            let tag = axis.tag
+            onComplete()
+            dismiss()
+            Task { @MainActor in
+                editor.insertMissingAxisStops(axisTag: tag, stops: stops)
+            }
+            return
+        }
+
         let name = trimmedName
         let tag = axis.tag
         let code = trimmedCode
@@ -309,9 +607,8 @@ struct AddAxisStopSheet: View {
 // MARK: - Fill stops sheet
 
 /// Standalone quick-fill tool, reachable anytime from the axis tree (not gated behind a plan
-/// warning). Unlike the resolver's empty-axis fix, this replaces whatever stops already exist,
-/// so it doubles as a way to re-fill gaps or redo a fill with a different count/interval —
-/// just reopen the sheet and apply again, no undo required.
+/// warning). Unlike Add Stop(s), this replaces whatever stops already exist — reopen anytime
+/// to tweak a fill with a different count or interval, no undo required.
 struct FillAxisStopsSheet: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(\.dismiss) private var dismiss

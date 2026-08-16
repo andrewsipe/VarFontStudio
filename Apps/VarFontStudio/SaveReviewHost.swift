@@ -15,6 +15,8 @@ protocol SaveReviewHost: AnyObject {
     var project: ProjectDocument? { get set }
     var commitService: CommitService { get }
     var sourceBookmarks: [String: Data] { get set }
+    /// Bumped whenever the active font's instance plan is applied — used for Review prefetch freshness.
+    var planRevision: Int { get }
 
     func postStatusMessage(_ message: String, dismissAfter seconds: TimeInterval?)
     func openProject(for id: String) -> OpenProject?
@@ -28,6 +30,13 @@ protocol SaveReviewHost: AnyObject {
     func refreshCanSave()
     func postSaveFailure(_ message: String)
     func clearPersistentSaveError()
+    /// Persist a source fingerprint after export or silent legacy migrate.
+    func updateAnalysisSnapshotID(
+        projectID: String,
+        fontID: String,
+        snapshotID: String,
+        markProjectDirty: Bool
+    )
     func refreshProjectAfterExport(
         projectID: String,
         fontID: String,

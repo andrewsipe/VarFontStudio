@@ -250,11 +250,16 @@ public enum FontAnalysisReader {
             )
         }
 
-        // Design-record-only axes are unused by InstancerSessionBuilder (filtered out).
-        if !lightweight {
-            let fvarTags = Set(fvar.axes.map(\.tag))
-            for designAxis in stat?.designAxes ?? [] where !fvarTags.contains(designAxis.tag) {
-                let valuesExisting = (statByTag[designAxis.tag] ?? []).map { statValue in
+        // Include STAT DesignAxisRecord axes that aren't in fvar (fixed registration axes like ital).
+        // Instancer shows these as columns; generate still pins only fvar axes.
+        let fvarTags = Set(fvar.axes.map(\.tag))
+        for designAxis in stat?.designAxes ?? [] where !fvarTags.contains(designAxis.tag) {
+            let axisStatValues = statByTag[designAxis.tag] ?? []
+            let valuesExisting: [FontAnalysis.StatValueSnapshot]
+            if lightweight {
+                valuesExisting = []
+            } else {
+                valuesExisting = axisStatValues.map { statValue in
                     FontAnalysis.StatValueSnapshot(
                         format: statValue.format,
                         value: statValue.value,
@@ -266,21 +271,27 @@ public enum FontAnalysisReader {
                         nominal: statValue.nominal
                     )
                 }
-
-                axes.append(
-                    FontAnalysis.AnalyzedAxis(
-                        tag: designAxis.tag,
-                        displayName: OpenTypeNameTable.name(id: designAxis.nameID, from: font) ?? designAxis.tag,
-                        min: 0,
-                        default: 0,
-                        max: 0,
-                        ordering: orderMap[designAxis.tag],
-                        roleInferred: .designRecordOnly,
-                        variesInExistingInstances: false,
-                        valuesExisting: valuesExisting
-                    )
-                )
             }
+
+            let registrationDefault = designRecordRegistrationDefault(
+                tag: designAxis.tag,
+                statValues: axisStatValues,
+                isItalicFont: isItalicFont
+            )
+
+            axes.append(
+                FontAnalysis.AnalyzedAxis(
+                    tag: designAxis.tag,
+                    displayName: OpenTypeNameTable.name(id: designAxis.nameID, from: font) ?? designAxis.tag,
+                    min: registrationDefault,
+                    default: registrationDefault,
+                    max: registrationDefault,
+                    ordering: orderMap[designAxis.tag],
+                    roleInferred: .designRecordOnly,
+                    variesInExistingInstances: false,
+                    valuesExisting: valuesExisting
+                )
+            )
         }
 
         axes.sort { lhs, rhs in
@@ -498,5 +509,25 @@ public enum FontAnalysisReader {
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
         let year = calendar.component(.year, from: date)
         return year >= 1904 ? year : nil
+    }
+
+    /// Fixed registration value for a DesignAxisRecord-only axis (not in fvar).
+    private static func designRecordRegistrationDefault(
+        tag: String,
+        statValues: [FontAnalysis.StatValueRecord],
+        isItalicFont: Bool
+    ) -> Double {
+        if let elidable = statValues.first(where: \.elidable),
+           let value = elidable.value ?? elidable.nominal {
+            return value
+        }
+        if let first = statValues.first,
+           let value = first.value ?? first.nominal {
+            return value
+        }
+        if tag == "ital" {
+            return isItalicFont ? 1 : 0
+        }
+        return 0
     }
 }

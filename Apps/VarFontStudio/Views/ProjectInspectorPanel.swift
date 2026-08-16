@@ -151,6 +151,17 @@ struct ProjectInspectorPanel: View {
                     editor.saveAllFiles(inProjectID: openProject.id)
                 }
                 .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                .help("Export every file to a folder (Patched subfolder if you pick a source folder)")
+
+                StudioPlainLinkButton(
+                    title: "To Original…",
+                    role: .accent,
+                    font: StudioTypography.caption
+                ) {
+                    editor.requestSaveAllToOriginal(inProjectID: openProject.id)
+                }
+                .disabled(!editor.canSave || editor.isSaveActionBlocked)
+                .help("Overwrite every source font file after confirmation")
             }
 
             StudioPlainLinkButton(

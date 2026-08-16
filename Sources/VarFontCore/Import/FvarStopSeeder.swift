@@ -1225,19 +1225,21 @@ public enum FvarStopSeeder {
         var extras = 0
         var seenExtraKeys = Set<String>()
         for coords in acceptedCompoundCoords {
-            guard let materialized = InstancePlanner.materializeCompoundInstanceCoords(
+            let materializations = InstancePlanner.materializeCompoundInstanceCoords(
                 compoundCoords: coords,
                 gridAxes: gridAxes,
                 pinned: pinned
-            ) else { continue }
-            let onGrid = gridAxes.allSatisfy { axis in
-                guard let value = materialized[axis.tag] else { return false }
-                return (valuesByTag[axis.tag] ?? []).contains { AxisCoordinate.valuesEqual($0, value) }
-            }
-            guard !onGrid else { continue }
-            let key = InstanceKeyBuilder.makeKey(coords: materialized)
-            if seenExtraKeys.insert(key).inserted {
-                extras += 1
+            )
+            for materialized in materializations {
+                let onGrid = gridAxes.allSatisfy { axis in
+                    guard let value = materialized[axis.tag] else { return false }
+                    return (valuesByTag[axis.tag] ?? []).contains { AxisCoordinate.valuesEqual($0, value) }
+                }
+                guard !onGrid else { continue }
+                let key = InstanceKeyBuilder.makeKey(coords: materialized)
+                if seenExtraKeys.insert(key).inserted {
+                    extras += 1
+                }
             }
         }
 

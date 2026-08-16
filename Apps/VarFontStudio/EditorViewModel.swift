@@ -123,10 +123,15 @@ final class EditorViewModel: ObservableObject {
     @Published var selectedAxisStopID: String?
     /// Footer chrome: Naming order (default) or live glyph Preview.
     @Published var footerPanelMode: StudioFooterPanelMode = .namingOrder
-    /// Last instance hovered in Preview (sticky across row gaps).
-    @Published var previewHoverInstanceKey: String?
-    /// True while the pointer is over an instance row in Preview mode.
-    @Published var isPreviewHoverActive = false
+    /// Preview hover / peek — separate ObservableObject so hover does not refresh the whole editor.
+    let previewInteraction = PreviewInteractionStore()
+    /// Preview status-bar instance slideshow (Play / Stop / up-down).
+    @Published var isPreviewSlideshowPlaying = false
+    @Published var previewSlideshowDirection: PreviewSlideshowDirection = .down
+    /// True while slideshow advances so `selectInstance` does not treat it as user navigation.
+    var previewSlideshowIsAdvancing = false
+    var previewSlideshowTask: Task<Void, Never>?
+    var previewSlideshowKnownKeys: [String] = []
     /// Review / export chrome and preflight sessions (Track B1 carve-out).
     let saveReview = SaveReviewStore()
     /// Static instancer window sessions (project fonts only).
@@ -170,6 +175,11 @@ final class EditorViewModel: ObservableObject {
     var pendingExportRefreshTask: Task<Void, Never>?
 
     var debouncedPlanTask: Task<Void, Never>?
+    var planRegenTask: Task<Void, Never>?
+    /// Invalidates in-flight async plan builds when a newer regen starts.
+    var planGenerationToken = 0
+    /// When set, further `pushUndoSnapshot(coalesceKey:)` calls with the same key skip copying.
+    var undoCoalesceKey: String?
     private var statusMessageDismissTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     /// When true, a successful Save All chain finishes by closing every project tab.
@@ -519,17 +529,8 @@ final class EditorViewModel: ObservableObject {
     init() {
         saveReview.host = self
         instancer.host = self
-        saveReview.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
-
-        instancer.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
+        // Review / Instancer publish independently via their own EnvironmentObject —
+        // do not fan their objectWillChange into the main editor tree.
 
         issueResolvers.host = self
         issueResolvers.objectWillChange
@@ -566,8 +567,21 @@ final class EditorViewModel: ObservableObject {
         Task { await commitService.ensureWorkerReady() }
     }
 
-    var canUndo: Bool { !undoStack.isEmpty }
-    var canRedo: Bool { !redoStack.isEmpty }
+    var canUndo: Bool {
+        if StudioTextEditingFocus.isActive {
+            // Keep the menu item live while typing; `undo()` no-ops if the field
+            // has nothing to undo (never falls through to document history).
+            return true
+        }
+        return !undoStack.isEmpty
+    }
+
+    var canRedo: Bool {
+        if StudioTextEditingFocus.isActive {
+            return true
+        }
+        return !redoStack.isEmpty
+    }
 
     var selectedFont: FontDocument? {
         guard let project, let selectedFontID else { return nil }
@@ -577,7 +591,7 @@ final class EditorViewModel: ObservableObject {
     /// Instance driving the footer Preview (sticky last hover wins over selection).
     var previewActiveInstance: PlannedInstance? {
         if footerPanelMode == .preview,
-           let key = previewHoverInstanceKey,
+           let key = previewInteraction.hoverInstanceKey,
            let plan = instancePlan,
            let hovered = plan.instances.first(where: { $0.key == key }) {
             return hovered
@@ -590,24 +604,23 @@ final class EditorViewModel: ObservableObject {
 
     var isPreviewHoverPeeking: Bool {
         guard footerPanelMode == .preview,
-              isPreviewHoverActive,
-              let hover = previewHoverInstanceKey else { return false }
+              previewInteraction.isHoverActive,
+              let hover = previewInteraction.hoverInstanceKey else { return false }
         return hover != selectedInstanceKey
     }
 
     /// - Parameter key: Pass a key on enter; leave `nil` on exit so the last hover stays sticky.
     func setPreviewHoverInstanceKey(_ key: String?, active: Bool) {
-        if let key, previewHoverInstanceKey != key {
-            previewHoverInstanceKey = key
-        }
-        if isPreviewHoverActive != active {
-            isPreviewHoverActive = active
+        previewInteraction.setHoverInstanceKey(key, active: active) { [weak self] activatedKey in
+            guard let self,
+                  self.isPreviewSlideshowPlaying,
+                  activatedKey != self.selectedInstanceKey else { return }
+            self.notifyPreviewSlideshowUserHover()
         }
     }
 
     func clearPreviewHover() {
-        previewHoverInstanceKey = nil
-        isPreviewHoverActive = false
+        previewInteraction.clear()
     }
 
     func setFooterPanelMode(_ mode: StudioFooterPanelMode) {
@@ -615,6 +628,7 @@ final class EditorViewModel: ObservableObject {
         footerPanelMode = mode
         if mode != .preview {
             clearPreviewHover()
+            notifyPreviewSlideshowLeftPreviewMode()
         }
     }
 
@@ -649,6 +663,7 @@ final class EditorViewModel: ObservableObject {
     }
 
     func selectInstance(key: String, extend: Bool) {
+        notifyPreviewSlideshowUserSelect()
         if extend {
             if selectedInstanceKeys.isEmpty, let selectedInstanceKey {
                 selectedInstanceKeys = [selectedInstanceKey]
@@ -673,8 +688,7 @@ final class EditorViewModel: ObservableObject {
 
         // Keep Preview pinned to the click target (don’t leave a stale sticky hover).
         if footerPanelMode == .preview, let selectedInstanceKey {
-            previewHoverInstanceKey = selectedInstanceKey
-            isPreviewHoverActive = false
+            previewInteraction.pinToSelection(selectedInstanceKey)
         }
     }
 

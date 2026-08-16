@@ -99,6 +99,7 @@ final class SaveReviewStoreTests: XCTestCase {
         return CommitPreflightSession(
             projectID: projectID,
             fontID: fontID,
+            planRevision: 0,
             dryRunRequest: request,
             baseRequest: request,
             preflight: result,

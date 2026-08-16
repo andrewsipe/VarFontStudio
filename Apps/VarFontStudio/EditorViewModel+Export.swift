@@ -11,6 +11,13 @@ extension EditorViewModel {
     func saveToOriginalConfirmationMessage(for session: CommitPreflightSession) -> String {
         saveReview.saveToOriginalConfirmationMessage(for: session)
     }
+    func requestSaveAllToOriginal(inProjectID projectID: String? = nil) {
+        saveReview.requestSaveAllToOriginal(inProjectID: projectID)
+    }
+    func confirmSaveAllToOriginalAction() { saveReview.confirmSaveAllToOriginalAction() }
+    func saveAllToOriginalConfirmationMessage(forProjectID projectID: String) -> String {
+        saveReview.saveAllToOriginalConfirmationMessage(forProjectID: projectID)
+    }
     func save() { saveReview.save() }
     func canSaveToRememberedPath(forProjectID projectID: String, fontID: String) -> Bool {
         saveReview.canSaveToRememberedPath(forProjectID: projectID, fontID: fontID)

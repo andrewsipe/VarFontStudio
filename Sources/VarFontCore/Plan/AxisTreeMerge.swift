@@ -33,12 +33,13 @@ public enum AxisTreeMerge {
                 masterAxis: masterAxis,
                 targetIsItalicFile: targetIsItalicFile
             ) {
+                // Italic files may receive a registration-only `ital` even when they
+                // have no fvar ital — that's naming, not a new variation axis.
                 merged.append(italImport)
-            } else {
-                var imported = masterAxis
-                imported.values = copyStops(from: masterAxis)
-                merged.append(imported)
             }
+            // Master-only variation axes stay on the master. A sub-variable's fvar
+            // set is smaller on purpose; pushing must not invent axes the file
+            // does not have.
         }
         for axis in target where !master.contains(where: { $0.tag == axis.tag }) {
             merged.append(axis)

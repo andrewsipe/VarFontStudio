@@ -166,6 +166,110 @@ final class InstancerNamingTests: XCTestCase {
         XCTAssertEqual(sorted.map(\.id), ["a", "ai", "b"])
     }
 
+    func testAxisOrderPrefersSTATOverHardcodedKnownPriority() {
+        // Regression: custom axes with low STAT AxisOrdering must precede wght in headers.
+        let candidates: Set = ["wght", "insd", "ousd", "ital"]
+        let statOrder = ["insd", "ousd", "wght", "ital"]
+        XCTAssertEqual(
+            InstancerAxisOrder.orderedTags(
+                candidates: candidates,
+                analysisAxesOrder: statOrder
+            ),
+            ["insd", "ousd", "wght", "ital"]
+        )
+        // Hardcoded fallback alone would put wght first — that must not win when STAT order exists.
+        XCTAssertEqual(
+            InstancerAxisOrder.sortedTags(candidates),
+            ["wght", "ital", "insd", "ousd"]
+        )
+    }
+
+    func testSessionBuilderUsesAnalysisAxesOrderForHeaders() {
+        let analysis = FontAnalysis(
+            schemaVersion: 1,
+            source: .init(
+                path: "/Fase.ttf",
+                format: "ttf",
+                familyName: "Fase",
+                fullName: "Fase",
+                isVariable: true
+            ),
+            readiness: .init(
+                hasFvar: true,
+                hasStat: true,
+                hasDesignAxisRecord: true,
+                writable: true,
+                blockers: []
+            ),
+            axes: [
+                .init(
+                    tag: "insd",
+                    displayName: "Inside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    ordering: 0,
+                    roleInferred: .instance,
+                    variesInExistingInstances: true,
+                    valuesExisting: []
+                ),
+                .init(
+                    tag: "ousd",
+                    displayName: "Outside Corners",
+                    min: 0,
+                    default: 0,
+                    max: 100,
+                    ordering: 1,
+                    roleInferred: .instance,
+                    variesInExistingInstances: true,
+                    valuesExisting: []
+                ),
+                .init(
+                    tag: "wght",
+                    displayName: "Weight",
+                    min: 100,
+                    default: 400,
+                    max: 900,
+                    ordering: 2,
+                    roleInferred: .instance,
+                    variesInExistingInstances: true,
+                    valuesExisting: []
+                ),
+                .init(
+                    tag: "ital",
+                    displayName: "Italic",
+                    min: 0,
+                    default: 0,
+                    max: 0,
+                    ordering: 3,
+                    roleInferred: .designRecordOnly,
+                    variesInExistingInstances: false,
+                    valuesExisting: []
+                ),
+            ],
+            statValues: [
+                .init(format: 1, tag: "ital", name: "Roman", elidable: true, value: 0),
+            ],
+            instancesExisting: [
+                .init(
+                    key: "regular",
+                    composedName: "Regular",
+                    coords: ["insd": 0, "ousd": 0, "wght": 100],
+                    subfamilyNameID: 2,
+                    postscriptNameID: 0
+                ),
+            ],
+            nameAudit: .init(freeStart: 256, used: [], elidedFallbackID: nil, elidedFallbackName: nil),
+            windowsNameTable: [],
+            inferred: .init(isItalicFont: false, gridAxisTags: [], namingOrderSuggested: []),
+            designAxisTags: ["insd", "ousd", "wght", "ital"]
+        )
+        let built = InstancerSessionBuilder.build(from: analysis)
+        XCTAssertEqual(built.axisTags, ["insd", "ousd", "wght", "ital"])
+        XCTAssertEqual(built.fvarAxisTags, ["insd", "ousd", "wght"])
+        XCTAssertEqual(built.rows.first?.coords["ital"], 0)
+    }
+
     func testInferredFamilyNameStripsVariablePreferringNameID16() {
         let analysis = FontAnalysis(
             schemaVersion: 1,

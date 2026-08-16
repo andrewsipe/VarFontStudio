@@ -70,6 +70,27 @@ def main() -> int:
             sys.stdout.flush()
             continue
 
+        if request.get("op") == "analyze_ot_features":
+            try:
+                from vfcommit_lib.ot_label_scanner import analyze_ot_features_from_path
+
+                source_path = str(request.get("source_path") or "")
+                result = analyze_ot_features_from_path(source_path)
+                result["op"] = "analyze_ot_features"
+                result["request_id"] = str(request.get("request_id") or "")
+            except Exception as exc:  # noqa: BLE001
+                result = {
+                    "ok": False,
+                    "op": "analyze_ot_features",
+                    "request_id": str(request.get("request_id") or ""),
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "ot_feature_labels": [],
+                    "ot_features_unlabeled": [],
+                }
+            sys.stdout.write(json.dumps(result) + "\n")
+            sys.stdout.flush()
+            continue
+
         try:
             result = run_commit(request)
         except Exception as exc:  # noqa: BLE001

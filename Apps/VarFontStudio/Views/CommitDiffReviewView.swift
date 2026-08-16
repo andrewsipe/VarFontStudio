@@ -391,13 +391,14 @@ struct CommitDiffReviewView: View {
             .frame(minHeight: fillsAvailableHeight ? 200 : 420, maxHeight: fillsAvailableHeight ? .infinity : 420)
         } else {
             ScrollView {
-                // Eager VStack: LazyVStack sometimes proposes flexible heights after
-                // export refreshes, stretching a subset of rows.
-                VStack(spacing: 0) {
+                // LazyVStack: rows size intrinsically (fixedSize). Avoid maxHeight:.infinity on
+                // row content — that previously stretched a subset of rows after export refresh.
+                LazyVStack(spacing: 0) {
                     ForEach(sections) { section in
                         StudioSaveReviewPhaseHeader(title: section.title)
                         ForEach(section.rows) { row in
                             StudioStreamlinedDiffRow(row: row)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }

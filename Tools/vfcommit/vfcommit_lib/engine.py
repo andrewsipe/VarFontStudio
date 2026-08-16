@@ -29,6 +29,7 @@ from vfcommit_lib.ot_label_reflow import (
     pre_wipe_for_reflow,
     scan_ot_label_sites,
 )
+from vfcommit_lib.ot_label_writer import apply_ot_label_additions, apply_ot_label_patches
 from vfcommit_lib.request_bridge import (
     axis_defs_from_request,
     compound_stat_values_from_request,
@@ -98,7 +99,9 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         # Dry-run only needs name/fvar/STAT/GSUB/GPOS — avoid pulling glyf/gvar/CFF2.
-        font = TTFont(source_path, lazy=bool(dry_run))
+        # OT label additions/patches mutate GSUB FeatureParams; load those tables fully.
+        needs_ot_write = bool(request.get("ot_label_additions") or request.get("ot_label_patches"))
+        font = TTFont(source_path, lazy=bool(dry_run) and not needs_ot_write)
     except Exception as exc:
         return _error_result(request_id, dry_run, "unreadable_font", str(exc))
 
@@ -112,6 +115,10 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     ot_groups: Dict[int, list] = {}
     orphan_ids_dropped: List[int] = []
     classification = None
+    ot_label_additions = list(request.get("ot_label_additions") or [])
+    ot_label_patches = list(request.get("ot_label_patches") or [])
+    ot_additions_applied: List[Dict[str, Any]] = []
+    ot_patches_applied: List[Dict[str, Any]] = []
 
     if strategy == "reflow":
         ot_groups = scan_ot_label_sites(font)
@@ -134,6 +141,31 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         ot_labels = scan_ot_label_nameids(font)
         ot_label_ids = {rec.name_id for rec in ot_labels}
     else:
+        ot_labels = scan_ot_label_nameids(font)
+        ot_label_ids = {rec.name_id for rec in ot_labels}
+
+    # Create ss## FeatureParams after reflow so new IDs land past the reflow block.
+    # Under preserve, continue the existing OT label sequence (max nameID + 1) instead
+    # of dropping back to 256 when high IDs are already in use.
+    if strategy == "reflow":
+        addition_free_start = ot_reflow_end + 1
+    elif ot_label_ids:
+        addition_free_start = max(ot_label_ids) + 1
+    else:
+        addition_free_start = 256
+    if ot_label_additions:
+        ot_additions_applied = apply_ot_label_additions(
+            font,
+            ot_label_additions,
+            free_start=addition_free_start,
+        )
+        ot_labels = scan_ot_label_nameids(font)
+        ot_label_ids = {rec.name_id for rec in ot_labels}
+
+    # Rewrite OT label strings by FeatureParams site (post-reflow nameIDs).
+    if ot_label_patches:
+        ot_patches_applied = apply_ot_label_patches(font, ot_label_patches)
+        # Refresh label strings after patch for diff/audit accuracy.
         ot_labels = scan_ot_label_nameids(font)
         ot_label_ids = {rec.name_id for rec in ot_labels}
 
@@ -347,6 +379,8 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
             plan,
             axis_defs,
             ot_reflow_mapping=ot_reflow_diff,
+            ot_label_patches=ot_patches_applied,
+            ot_label_additions=ot_additions_applied,
         )
     return result
 

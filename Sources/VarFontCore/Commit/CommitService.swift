@@ -210,6 +210,24 @@ public struct CommitService: Sendable {
         return try await commitOneShot(request, helperURL: helperURL)
     }
 
+    public func analyzeOTFeatures(sourcePath: String) async throws -> OTFeatureAnalysisResult {
+        guard let helperURL = helperURL ?? Self.defaultHelperURL() else {
+            throw CommitServiceError.helperNotFound
+        }
+        guard FileManager.default.fileExists(atPath: helperURL.path) else {
+            throw CommitServiceError.helperUnavailable(helperURL.path)
+        }
+        do {
+            return try await CommitWorkerManager.shared.analyzeOTFeatures(
+                sourcePath: sourcePath,
+                helperURL: helperURL,
+                pythonExecutable: pythonExecutable
+            )
+        } catch {
+            return try await analyzeOTFeaturesOneShot(sourcePath: sourcePath, helperURL: helperURL)
+        }
+    }
+
     public func ensureWorkerReady() async {
         guard let helperURL = helperURL ?? Self.defaultHelperURL() else { return }
         await CommitWorkerManager.shared.ensureReady(helperURL: helperURL, pythonExecutable: pythonExecutable)
@@ -217,6 +235,72 @@ public struct CommitService: Sendable {
 
     public static func shutdownWorker() async {
         await CommitWorkerManager.shared.shutdown()
+    }
+
+    private func analyzeOTFeaturesOneShot(sourcePath: String, helperURL: URL) async throws -> OTFeatureAnalysisResult {
+        let workerScript = helperURL.deletingLastPathComponent().appendingPathComponent("vfcommit_worker.py")
+        let scriptURL = FileManager.default.fileExists(atPath: workerScript.path) ? workerScript : helperURL
+
+        let process = Process()
+        if pythonExecutable.hasSuffix("env") {
+            process.executableURL = URL(fileURLWithPath: pythonExecutable)
+            process.arguments = ["python3", scriptURL.path]
+        } else {
+            process.executableURL = URL(fileURLWithPath: pythonExecutable)
+            process.arguments = [scriptURL.path]
+        }
+
+        let toolsDir = helperURL.deletingLastPathComponent()
+        process.currentDirectoryURL = toolsDir
+
+        var environment = ProcessInfo.processInfo.environment
+        let existingPath = environment["PYTHONPATH"] ?? ""
+        let pythonPath = toolsDir.path
+        environment["PYTHONPATH"] = existingPath.isEmpty ? pythonPath : "\(pythonPath):\(existingPath)"
+        process.environment = environment
+
+        let stdinPipe = Pipe()
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardInput = stdinPipe
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+
+        let payload: [String: String] = [
+            "op": "analyze_ot_features",
+            "source_path": sourcePath,
+            "request_id": UUID().uuidString.lowercased(),
+        ]
+        let requestData = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        var line = requestData
+        line.append(0x0A)
+
+        try process.run()
+        stdinPipe.fileHandleForWriting.write(line)
+        try stdinPipe.fileHandleForWriting.close()
+
+        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        // Worker is line-oriented; take the first JSON line.
+        let firstLine: Data
+        if let newline = stdoutData.firstIndex(of: 0x0A) {
+            firstLine = stdoutData[..<newline]
+        } else {
+            firstLine = stdoutData
+        }
+
+        do {
+            return try VarFontJSON.decode(OTFeatureAnalysisResult.self, from: firstLine)
+        } catch {
+            let stderrText = String(data: stderrData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let stdoutText = String(data: firstLine.prefix(400), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let detail = !stdoutText.isEmpty ? stdoutText : (!stderrText.isEmpty ? stderrText : error.localizedDescription)
+            throw CommitServiceError.invalidHelperOutput(detail)
+        }
     }
 
     private func commitOneShot(_ request: CommitRequest, helperURL: URL) async throws -> CommitResult {

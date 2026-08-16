@@ -44,27 +44,85 @@ extension EditorViewModel {
         canSave = project?.fonts.contains(where: \.dirty) ?? false
     }
 
-    func regeneratePlan() {
+    /// Rebuilds the instance plan for the selected font.
+    /// - Parameter refreshPendingExport: When false, skips source-font re-analysis (cosmetic renames).
+    func regeneratePlan(refreshPendingExport: Bool = true) {
         guard project != nil, selectedFontID != nil else {
+            planRegenTask?.cancel()
+            planGenerationToken += 1
             instancePlan = nil
             pendingExportInstanceKeys = []
             instanceListDisplay = .empty
             return
         }
         backfillMissingInferredAxisRoles()
-        guard let project else {
+        guard let project, let fontID = selectedFontID else {
             instancePlan = nil
             pendingExportInstanceKeys = []
             return
         }
-        instancePlan = InstancePlanner.plan(project: project, fontID: selectedFontID!)
+
+        let estimatedProduct = Self.estimatedInstanceProduct(project: project, fontID: fontID)
+        // Small grids stay synchronous to avoid stale-plan races in follow-up work.
+        // Larger products move off the main actor so axis-tree commits stay responsive.
+        if estimatedProduct <= Self.syncPlanProductThreshold {
+            applyInstancePlan(
+                InstancePlanner.plan(project: project, fontID: fontID),
+                refreshPendingExport: refreshPendingExport
+            )
+            return
+        }
+
+        planGenerationToken += 1
+        let token = planGenerationToken
+        let projectSnapshot = project
+        let shouldRefreshPendingExport = refreshPendingExport
+        planRegenTask?.cancel()
+        planRegenTask = Task { @MainActor in
+            let planned = await Task.detached(priority: .userInitiated) {
+                InstancePlanner.plan(project: projectSnapshot, fontID: fontID)
+            }.value
+            guard !Task.isCancelled,
+                  token == self.planGenerationToken,
+                  self.selectedFontID == fontID else { return }
+            self.applyInstancePlan(planned, refreshPendingExport: shouldRefreshPendingExport)
+        }
+    }
+
+    private func applyInstancePlan(_ plan: InstancePlan?, refreshPendingExport: Bool) {
+        instancePlan = plan
         planRevision += 1
         if let key = selectedInstanceKey,
            instancePlan?.instances.contains(where: { $0.key == key }) != true {
             selectedInstanceKey = instancePlan?.instances.first?.key
         }
-        refreshInstanceListDisplay()
-        refreshPendingExportKeys()
+        // Instance list rebuilds via `$instancePlan` CombineLatest (and again after pending-export).
+        if refreshPendingExport {
+            refreshPendingExportKeys()
+        }
+        scheduleSaveReviewPrefetchIfNeeded()
+    }
+
+    private static let syncPlanProductThreshold = 48
+
+    private static func estimatedInstanceProduct(project: ProjectDocument, fontID: String) -> Int {
+        guard let font = project.fonts.first(where: { $0.id == fontID }) else { return 0 }
+        let counts = font.axes.filter { $0.role == .instance }.map(\.values.count)
+        guard !counts.isEmpty else { return 0 }
+        return counts.reduce(1) { partial, count in
+            let n = max(count, 1)
+            let next = partial.multipliedReportingOverflow(by: n)
+            return next.overflow ? Int.max : next.partialValue
+        }
+    }
+
+    /// Warm Review dry-run in the background while the font is dirty so open is often a cache hit.
+    private func scheduleSaveReviewPrefetchIfNeeded() {
+        guard let projectID = activeProjectID,
+              let fontID = selectedFontID,
+              let font = selectedFont,
+              font.dirty else { return }
+        saveReview.scheduleCommitDiffPrefetch(forProjectID: projectID, fontID: fontID)
     }
 
     func setInstanceIncluded(_ key: String, included: Bool) {

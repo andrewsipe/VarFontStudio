@@ -89,6 +89,14 @@ private struct SaveReviewActionBar: View {
                     }
 
                     StudioFlatButton(
+                        title: "All to Original…",
+                        isEnabled: session.preflight.ok && !editor.isSaveActionBlocked,
+                        help: "Overwrite every source font file in this project after confirmation"
+                    ) {
+                        editor.requestSaveAllToOriginal(inProjectID: projectID)
+                    }
+
+                    StudioFlatButton(
                         title: "Export This File…",
                         isEnabled: session.preflight.ok && !editor.isSaveActionBlocked,
                         help: "Choose a path for the selected file only"
@@ -183,6 +191,7 @@ private struct SaveReviewFileTabBar: View {
 struct SaveReviewWindow: View {
     let projectID: String
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var saveReview: SaveReviewStore
     @Environment(\.dismissWindow) private var dismissWindow
 
     private var selectedFontID: String? {
@@ -206,7 +215,7 @@ struct SaveReviewWindow: View {
                 Divider()
             }
 
-            if let error = editor.saveReview.persistentSaveError {
+            if let error = saveReview.persistentSaveError {
                 HStack(alignment: .top, spacing: StudioSpacing.controlGap) {
                     VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                         Text("Cannot export")

@@ -21,6 +21,10 @@ public struct CommitRequest: Codable, Equatable, Sendable {
     /// Windows English name patches (IDs 0–24, plus ID 25 omit). Empty `string` deletes/omits that record.
     /// Non-empty ID 25 values are still written via `options.familyPSPrefix`.
     public var windowsNamePatches: [WindowsNameRecord]
+    /// Existing FeatureParams site string rewrites (resolved by table/tag/field at write time).
+    public var otLabelPatches: [OTFeatureLabelPatch]
+    /// Create FeatureParamsStylisticSet + name for unlabeled ss## features.
+    public var otLabelAdditions: [OTFeatureLabelAddition]
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -38,6 +42,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         case originalSourcePath = "original_source_path"
         case allowInPlace = "allow_in_place"
         case windowsNamePatches = "windows_name_patches"
+        case otLabelPatches = "ot_label_patches"
+        case otLabelAdditions = "ot_label_additions"
     }
 
     public init(
@@ -56,7 +62,9 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         statDesignAxisTags: [String] = [],
         originalSourcePath: String? = nil,
         allowInPlace: Bool = false,
-        windowsNamePatches: [WindowsNameRecord] = []
+        windowsNamePatches: [WindowsNameRecord] = [],
+        otLabelPatches: [OTFeatureLabelPatch] = [],
+        otLabelAdditions: [OTFeatureLabelAddition] = []
     ) {
         self.schemaVersion = schemaVersion
         self.requestID = requestID
@@ -74,6 +82,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         self.originalSourcePath = originalSourcePath
         self.allowInPlace = allowInPlace
         self.windowsNamePatches = windowsNamePatches
+        self.otLabelPatches = otLabelPatches
+        self.otLabelAdditions = otLabelAdditions
     }
 
     public init(from decoder: Decoder) throws {
@@ -94,6 +104,8 @@ public struct CommitRequest: Codable, Equatable, Sendable {
         originalSourcePath = try c.decodeIfPresent(String.self, forKey: .originalSourcePath)
         allowInPlace = try c.decodeIfPresent(Bool.self, forKey: .allowInPlace) ?? false
         windowsNamePatches = try c.decodeIfPresent([WindowsNameRecord].self, forKey: .windowsNamePatches) ?? []
+        otLabelPatches = try c.decodeIfPresent([OTFeatureLabelPatch].self, forKey: .otLabelPatches) ?? []
+        otLabelAdditions = try c.decodeIfPresent([OTFeatureLabelAddition].self, forKey: .otLabelAdditions) ?? []
     }
 }
 
@@ -164,6 +176,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
     public var otReflowMapping: [CommitDiffOTReflowEntry]?
     /// Planned Windows English low-ID writes (0–25). Empty `string` means delete.
     public var windowsNamePatches: [WindowsNameRecord]
+    public var otLabelPatches: [OTFeatureLabelPatch]
+    public var otLabelAdditions: [OTFeatureLabelAddition]
 
     enum CodingKeys: String, CodingKey {
         case familyPSPrefix = "family_ps_prefix"
@@ -176,6 +190,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         case instancesPlanned = "instances_planned"
         case otReflowMapping = "ot_reflow_mapping"
         case windowsNamePatches = "windows_name_patches"
+        case otLabelPatches = "ot_label_patches"
+        case otLabelAdditions = "ot_label_additions"
     }
 
     public init(
@@ -188,7 +204,9 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         statValuesPlanned: [CommitDiffStatValuePlanned] = [],
         instancesPlanned: [CommitDiffInstancePlanned] = [],
         otReflowMapping: [CommitDiffOTReflowEntry]? = nil,
-        windowsNamePatches: [WindowsNameRecord] = []
+        windowsNamePatches: [WindowsNameRecord] = [],
+        otLabelPatches: [OTFeatureLabelPatch] = [],
+        otLabelAdditions: [OTFeatureLabelAddition] = []
     ) {
         self.familyPSPrefix = familyPSPrefix
         self.elidedFallbackName = elidedFallbackName
@@ -200,6 +218,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         self.instancesPlanned = instancesPlanned
         self.otReflowMapping = otReflowMapping
         self.windowsNamePatches = windowsNamePatches
+        self.otLabelPatches = otLabelPatches
+        self.otLabelAdditions = otLabelAdditions
     }
 
     public init(from decoder: Decoder) throws {
@@ -215,6 +235,8 @@ public struct CommitDiff: Codable, Equatable, Sendable {
         instancesPlanned = try c.decodeIfPresent([CommitDiffInstancePlanned].self, forKey: .instancesPlanned) ?? []
         otReflowMapping = try c.decodeIfPresent([CommitDiffOTReflowEntry].self, forKey: .otReflowMapping)
         windowsNamePatches = try c.decodeIfPresent([WindowsNameRecord].self, forKey: .windowsNamePatches) ?? []
+        otLabelPatches = try c.decodeIfPresent([OTFeatureLabelPatch].self, forKey: .otLabelPatches) ?? []
+        otLabelAdditions = try c.decodeIfPresent([OTFeatureLabelAddition].self, forKey: .otLabelAdditions) ?? []
     }
 }
 

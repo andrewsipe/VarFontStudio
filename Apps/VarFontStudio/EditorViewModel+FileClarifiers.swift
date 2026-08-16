@@ -435,9 +435,9 @@ extension EditorViewModel {
     func pushAxisTreeConfirmationMessage() -> String {
         let count = max((project?.fonts.count ?? 1) - 1, 0)
         if count == 1 {
-            return "This will overwrite the axis-tree layout on 1 file with the master's layout."
+            return "This will copy matching axis stops from the master onto 1 file. Axes that only exist on the master are left off."
         }
-        return "This will overwrite the axis-tree layout on \(count) files with the master's layout."
+        return "This will copy matching axis stops from the master onto \(count) files. Axes that only exist on the master are left off."
     }
 
     func pushMasterAxisTreeToAllFonts() {
@@ -521,7 +521,12 @@ extension EditorViewModel {
     }
 
     func updateAxisStopName(axisTag: String, stopID: String, name: String) {
-        mutateSelectedFont { font in
+        // Cosmetic rename: coalesce plan work; pending-export analysis does not depend on names.
+        mutateSelectedFont(
+            debouncePlan: true,
+            refreshPendingExport: false,
+            undoCoalesceKey: Self.axisStopUndoKey(stopID)
+        ) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             font.axes[axisIndex].values[stopIndex].name = name
@@ -529,7 +534,11 @@ extension EditorViewModel {
     }
 
     func updateAxisStopCode(axisTag: String, stopID: String, code: String) {
-        mutateSelectedFont { font in
+        mutateSelectedFont(
+            debouncePlan: true,
+            refreshPendingExport: false,
+            undoCoalesceKey: Self.axisStopUndoKey(stopID)
+        ) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             font.axes[axisIndex].values[stopIndex].code = InstanceCodeBuilder.sanitize(code)
@@ -537,7 +546,7 @@ extension EditorViewModel {
     }
 
     func updateAxisStopElidable(axisTag: String, stopID: String, elidable: Bool) {
-        mutateSelectedFont { font in
+        mutateSelectedFont(undoCoalesceKey: Self.axisStopUndoKey(stopID)) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             if elidable {
@@ -551,7 +560,8 @@ extension EditorViewModel {
     }
 
     func updateAxisStopValue(axisTag: String, stopID: String, value: Double) {
-        mutateSelectedFont { font in
+        // Coalesce rapid pin edits; still refresh pending-export (coords/keys can change).
+        mutateSelectedFont(debouncePlan: true, undoCoalesceKey: Self.axisStopUndoKey(stopID)) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             let axis = font.axes[axisIndex]
@@ -618,7 +628,7 @@ extension EditorViewModel {
     }
 
     func updateAxisStopRangeMin(axisTag: String, stopID: String, rangeMin: Double) {
-        mutateSelectedFont { font in
+        mutateSelectedFont(undoCoalesceKey: Self.axisStopUndoKey(stopID)) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             let axis = font.axes[axisIndex]
@@ -630,7 +640,7 @@ extension EditorViewModel {
     }
 
     func updateAxisStopRangeMax(axisTag: String, stopID: String, rangeMax: Double) {
-        mutateSelectedFont { font in
+        mutateSelectedFont(undoCoalesceKey: Self.axisStopUndoKey(stopID)) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             let axis = font.axes[axisIndex]
@@ -687,7 +697,7 @@ extension EditorViewModel {
     }
 
     func updateAxisStopLinkedTarget(axisTag: String, stopID: String, linkTargetStopID: String) {
-        mutateSelectedFont { font in
+        mutateSelectedFont(undoCoalesceKey: Self.axisStopUndoKey(stopID)) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }),
                   let target = font.axes[axisIndex].values.first(where: { $0.id == linkTargetStopID }) else { return }
@@ -697,7 +707,7 @@ extension EditorViewModel {
     }
 
     func updateAxisStopLinkedValue(axisTag: String, stopID: String, linkedValue: Double) {
-        mutateSelectedFont { font in
+        mutateSelectedFont(undoCoalesceKey: Self.axisStopUndoKey(stopID)) { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   let stopIndex = font.axes[axisIndex].values.firstIndex(where: { $0.id == stopID }) else { return }
             font.axes[axisIndex].values[stopIndex].statFormat = 3
@@ -831,6 +841,10 @@ extension EditorViewModel {
     }
 
     func undo() {
+        if StudioTextEditingFocus.isActive {
+            StudioTextEditingFocus.undoManager?.undo()
+            return
+        }
         guard let current = project, let previous = undoStack.popLast() else { return }
         redoStack.append(current)
         project = previous
@@ -841,30 +855,49 @@ extension EditorViewModel {
         canSave = project?.fonts.contains(where: \.dirty) ?? false
         markProjectFileDirty()
         refreshCanSave()
+        undoCoalesceKey = nil
         regeneratePlan()
     }
 
     func redo() {
+        if StudioTextEditingFocus.isActive {
+            StudioTextEditingFocus.undoManager?.redo()
+            return
+        }
         guard let current = project, let next = redoStack.popLast() else { return }
         undoStack.append(current)
         project = next
         canSave = next.fonts.contains(where: \.dirty)
         markProjectFileDirty()
+        undoCoalesceKey = nil
         regeneratePlan()
     }
 
     func clearUndoHistory() {
         undoStack.removeAll()
         redoStack.removeAll()
+        undoCoalesceKey = nil
     }
 
     func pushUndoSnapshot() {
+        pushUndoSnapshot(coalesceKey: nil)
+    }
+
+    /// - Parameter coalesceKey: When non-nil and equal to the last coalesce key, skips copying
+    ///   another full `ProjectDocument` (one undo step per axis-stop edit session).
+    func pushUndoSnapshot(coalesceKey: String?) {
         guard let project else { return }
+        if let coalesceKey, coalesceKey == undoCoalesceKey {
+            redoStack.removeAll()
+            markProjectFileDirty()
+            return
+        }
         undoStack.append(project)
         if undoStack.count > 100 {
             undoStack = Array(undoStack.suffix(100))
         }
         redoStack.removeAll()
+        undoCoalesceKey = coalesceKey
         markProjectFileDirty()
     }
 
@@ -950,6 +983,40 @@ extension EditorViewModel {
         }
     }
 
+    /// Inserts stops without removing existing ones. Skips duplicates and
+    /// out-of-range coordinates. One undo step for the whole batch.
+    func insertMissingAxisStops(
+        axisTag: String,
+        stops: [(value: Double, name: String, code: String?)]
+    ) {
+        mutateSelectedFont { font in
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
+                  font.axes[axisIndex].role == .instance,
+                  !font.axes[axisIndex].isDesignRecordOnly else { return }
+            for stop in stops {
+                let value = AxisCoordinateFormat.canonical(stop.value)
+                if validateAxisStopValue(value, for: font.axes[axisIndex]) != nil {
+                    continue
+                }
+                let name = stop.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                font.axes[axisIndex].values.append(
+                    AxisValue(
+                        id: "\(axisTag)-\(UUID().uuidString.prefix(8))",
+                        value: value,
+                        name: name.isEmpty ? AxisStopSuggestions.formatValue(value) : name,
+                        elidable: false,
+                        statFormat: 1,
+                        rangeMin: nil,
+                        rangeMax: nil,
+                        linkedValue: nil,
+                        code: InstanceCodeBuilder.sanitize(stop.code)
+                    )
+                )
+            }
+            font.axes[axisIndex].values.sort { $0.value < $1.value }
+        }
+    }
+
     func validateAxisStopValue(_ value: Double, for axis: AxisDefinition, excludingStopID: String? = nil) -> String? {
         if axis.hasFvarScale {
             if let min = axis.min, value < min {
@@ -971,28 +1038,35 @@ extension EditorViewModel {
     func mutateSelectedFont(
         recordUndo: Bool = true,
         debouncePlan: Bool = false,
+        refreshPendingExport: Bool = true,
+        undoCoalesceKey: String? = nil,
         _ mutate: (inout FontDocument) -> Void
     ) {
         guard var project, let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }) else {
             return
         }
         if recordUndo {
-            pushUndoSnapshot()
+            pushUndoSnapshot(coalesceKey: undoCoalesceKey)
         }
         mutate(&project.fonts[fontIndex])
         project.fonts[fontIndex].dirty = true
         project.modified = Date()
         let shouldDebouncePlan = debouncePlan
+        let shouldRefreshPendingExport = refreshPendingExport
         Task { @MainActor in
             self.project = project
             self.canSave = true
             if shouldDebouncePlan {
-                self.scheduleDebouncedPlanRegeneration()
+                self.scheduleDebouncedPlanRegeneration(refreshPendingExport: shouldRefreshPendingExport)
             } else {
                 self.debouncedPlanTask?.cancel()
-                self.regeneratePlan()
+                self.regeneratePlan(refreshPendingExport: shouldRefreshPendingExport)
             }
         }
+    }
+
+    static func axisStopUndoKey(_ stopID: String) -> String {
+        "axisStop:\(stopID)"
     }
 
     func backfillMissingInferredAxisRoles() {
@@ -1046,12 +1120,12 @@ extension EditorViewModel {
         }
     }
 
-    private func scheduleDebouncedPlanRegeneration() {
+    private func scheduleDebouncedPlanRegeneration(refreshPendingExport: Bool) {
         debouncedPlanTask?.cancel()
         debouncedPlanTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
-            regeneratePlan()
+            regeneratePlan(refreshPendingExport: refreshPendingExport)
         }
     }
 

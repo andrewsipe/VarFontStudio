@@ -38,6 +38,7 @@
 		B2000006 /* InstanceListPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* InstanceListPanel.swift */; };
 		B2000071 /* NameTablePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000071 /* NameTablePanel.swift */; };
 		B2000072 /* EditorViewModel+WindowsNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000072 /* EditorViewModel+WindowsNames.swift */; };
+		B2000104 /* EditorViewModel+OTFeatureLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000104 /* EditorViewModel+OTFeatureLabels.swift */; };
 		B2000007 /* InspectorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* InspectorPanel.swift */; };
 		B2000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
 		B2000096 /* waterfall-default.txt in Resources */ = {isa = PBXBuildFile; fileRef = F2000096 /* waterfall-default.txt */; };
@@ -49,6 +50,11 @@
 		B2000092 /* StudioSharedLayouts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000092 /* StudioSharedLayouts.swift */; };
 		B2000100 /* FvarImportReviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000100 /* FvarImportReviewSheet.swift */; };
 		B2000101 /* StudioCommandFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000101 /* StudioCommandFocus.swift */; };
+		B2000102 /* EditorViewModel+PreviewSlideshow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000102 /* EditorViewModel+PreviewSlideshow.swift */; };
+		B2000103 /* StudioTextEditingFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000103 /* StudioTextEditingFocus.swift */; };
+		B2000110 /* PreviewInteractionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000110 /* PreviewInteractionStore.swift */; };
+		B2000111 /* FontPreviewGlyphCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000111 /* FontPreviewGlyphCanvas.swift */; };
+		B2000112 /* StudioEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000112 /* StudioEnvironment.swift */; };
 		B2000011 /* InstanceInclusionCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000010 /* InstanceInclusionCommands.swift */; };
 		B2000012 /* NamingOrderChainFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000011 /* NamingOrderChainFooter.swift */; };
 		B2000013 /* OpenProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* OpenProject.swift */; };
@@ -101,6 +107,11 @@
 		E2000001 /* VarFontStudio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VarFontStudio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2000001 /* VarFontStudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarFontStudioApp.swift; sourceTree = "<group>"; };
 		F2000101 /* StudioCommandFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioCommandFocus.swift; sourceTree = "<group>"; };
+		F2000102 /* EditorViewModel+PreviewSlideshow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+PreviewSlideshow.swift"; sourceTree = "<group>"; };
+		F2000103 /* StudioTextEditingFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioTextEditingFocus.swift; sourceTree = "<group>"; };
+		F2000110 /* PreviewInteractionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewInteractionStore.swift; sourceTree = "<group>"; };
+		F2000111 /* FontPreviewGlyphCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontPreviewGlyphCanvas.swift; sourceTree = "<group>"; };
+		F2000112 /* StudioEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioEnvironment.swift; sourceTree = "<group>"; };
 		F2000002 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
 		F2000043 /* SaveReviewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewStore.swift; sourceTree = "<group>"; };
 		F2000051 /* SaveReviewStore+Orchestration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SaveReviewStore+Orchestration.swift"; sourceTree = "<group>"; };
@@ -131,6 +142,7 @@
 		F2000006 /* InstanceListPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstanceListPanel.swift; sourceTree = "<group>"; };
 		F2000071 /* NameTablePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameTablePanel.swift; sourceTree = "<group>"; };
 		F2000072 /* EditorViewModel+WindowsNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+WindowsNames.swift"; sourceTree = "<group>"; };
+		F2000104 /* EditorViewModel+OTFeatureLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EditorViewModel+OTFeatureLabels.swift"; sourceTree = "<group>"; };
 		F2000007 /* InspectorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorPanel.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2000009 /* StudioDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioDesign.swift; sourceTree = "<group>"; };
@@ -224,6 +236,8 @@
 			children = (
 				F2000001 /* VarFontStudioApp.swift */,
 				F2000101 /* StudioCommandFocus.swift */,
+				F2000102 /* EditorViewModel+PreviewSlideshow.swift */,
+				F2000103 /* StudioTextEditingFocus.swift */,
 				F2000002 /* EditorViewModel.swift */,
 				F2000043 /* SaveReviewStore.swift */,
 				F2000051 /* SaveReviewStore+Orchestration.swift */,
@@ -244,6 +258,7 @@
 				F2000054 /* EditorViewModel+NamingOrder.swift */,
 				F2000055 /* EditorViewModel+FileClarifiers.swift */,
 				F2000072 /* EditorViewModel+WindowsNames.swift */,
+				F2000104 /* EditorViewModel+OTFeatureLabels.swift */,
 				F2000056 /* EditorViewModel+Inspector.swift */,
 				F2000057 /* EditorViewModel+ProjectIO.swift */,
 				F2000089 /* EditorViewModel+ExportRefresh.swift */,
@@ -254,6 +269,7 @@
 				F2000025 /* CommitPreflightSession.swift */,
 				F2000026 /* SourceFontAccess.swift */,
 				F2000080 /* SourceFontPreviewCache.swift */,
+				F2000110 /* PreviewInteractionStore.swift */,
 				F2000027 /* SaveReviewWindowLifecycle.swift */,
 				F2000022 /* InspectorSupport.swift */,
 				F2000018 /* EditorLayoutPreferences.swift */,
@@ -330,6 +346,8 @@
 				F2000010 /* InstanceInclusionCommands.swift */,
 				F2000011 /* NamingOrderChainFooter.swift */,
 				F2000081 /* FontPreviewPanel.swift */,
+				F2000111 /* FontPreviewGlyphCanvas.swift */,
+				F2000112 /* StudioEnvironment.swift */,
 				F2000085 /* InstancerWindow.swift */,
 				F2000086 /* AuxiliaryWindowOpenBridge.swift */,
 			);
@@ -489,6 +507,8 @@
 			files = (
 				B2000001 /* VarFontStudioApp.swift in Sources */,
 				B2000101 /* StudioCommandFocus.swift in Sources */,
+				B2000102 /* EditorViewModel+PreviewSlideshow.swift in Sources */,
+				B2000103 /* StudioTextEditingFocus.swift in Sources */,
 				B2000002 /* EditorViewModel.swift in Sources */,
 				B2000043 /* SaveReviewStore.swift in Sources */,
 				B2000051 /* SaveReviewStore+Orchestration.swift in Sources */,
@@ -548,6 +568,7 @@
 				B2000006 /* InstanceListPanel.swift in Sources */,
 				B2000071 /* NameTablePanel.swift in Sources */,
 				B2000072 /* EditorViewModel+WindowsNames.swift in Sources */,
+				B2000104 /* EditorViewModel+OTFeatureLabels.swift in Sources */,
 				B2000007 /* InspectorPanel.swift in Sources */,
 				B2000010 /* StudioDesign.swift in Sources */,
 				B2000095 /* StudioPalette.swift in Sources */,
@@ -557,6 +578,9 @@
 				B2000011 /* InstanceInclusionCommands.swift in Sources */,
 				B2000012 /* NamingOrderChainFooter.swift in Sources */,
 				B2000081 /* FontPreviewPanel.swift in Sources */,
+				B2000110 /* PreviewInteractionStore.swift in Sources */,
+				B2000111 /* FontPreviewGlyphCanvas.swift in Sources */,
+				B2000112 /* StudioEnvironment.swift in Sources */,
 				B2000082 /* InstancerStore.swift in Sources */,
 				B2000083 /* InstancerWindowLifecycle.swift in Sources */,
 				B2000084 /* EditorViewModel+Instancer.swift in Sources */,

@@ -78,6 +78,11 @@ public enum CompoundStatNaming {
         compound.coords.keys.sorted().joined(separator: "+")
     }
 
+    /// Whether a naming-chain compound tag (`insd+ousd`) includes `axisTag` as a leg.
+    public static func chainTagCovers(_ chainTag: String, axisTag: String) -> Bool {
+        chainTag.split(separator: "+").contains { String($0) == axisTag }
+    }
+
     /// Sort key order: naming order (instance axes), then Axis Tree order, then leftovers.
     /// Matches how Instances groups/walks coordinates so Combinations aren't alphabetical islands.
     public static func sortedByAxisOrder<T>(

@@ -292,6 +292,7 @@ extension EditorViewModel {
     func refreshInstanceListDisplay() {
         guard let instancePlan else {
             instanceListDisplay = .empty
+            previewSlideshowFilteredListDidChange()
             return
         }
 
@@ -400,6 +401,7 @@ extension EditorViewModel {
             coordValueMaxCharacters: maxValueChars,
             conflictedInstanceKeys: computeConflictedInstanceKeys(instances: instancePlan.instances)
         )
+        previewSlideshowFilteredListDidChange()
     }
 
     /// One O(instances × bundles) pass instead of letting each row's `hasConflict`
@@ -582,18 +584,32 @@ extension EditorViewModel {
     }
 
     private func instanceGroupLabel(for instance: PlannedInstance, axisTag: String) -> String {
-        if let link = instance.namingChain.first(where: { $0.tag == axisTag }) {
-            return link.name
+        if let link = instance.namingChain.first(where: { $0.tag == axisTag }),
+           let name = Self.nonEmptyName(link.name) {
+            return name
+        }
+        // Format 4 chain tags are "insd+ousd"; prefer the combination name when this
+        // group axis is one of the legs (otherwise off-grid coords fall back to "70").
+        if let compound = instance.namingChain.first(where: {
+            $0.kind == .compound && CompoundStatNaming.chainTagCovers($0.tag, axisTag: axisTag)
+        }), let name = Self.nonEmptyName(compound.name) {
+            return name
         }
         if let value = instance.coords[axisTag],
            let axis = selectedFont?.axes.first(where: { $0.tag == axisTag }),
-           let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: value) {
-            return stop.name
+           let stop = AxisCoordinate.matchingStop(in: axis.values, coordinate: value),
+           let name = Self.nonEmptyName(stop.name) {
+            return name
         }
         if let value = instance.coords[axisTag] {
             return Self.formatCoordValue(value)
         }
         return "Other"
+    }
+
+    private static func nonEmptyName(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     func instanceCoordsCaption(_ instance: PlannedInstance) -> String {

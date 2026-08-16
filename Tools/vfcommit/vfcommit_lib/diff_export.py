@@ -12,6 +12,8 @@ def build_commit_diff(
     axis_defs: List[AxisDef],
     *,
     ot_reflow_mapping: Optional[List[Dict[str, object]]] = None,
+    ot_label_patches: Optional[List[Dict[str, Any]]] = None,
+    ot_label_additions: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Build structured diff payload for Swift CommitDiffBuilder."""
     name_records: List[Dict[str, Any]] = []
@@ -26,6 +28,20 @@ def build_commit_diff(
     for entry in ot_reflow_mapping or []:
         add_record(
             int(entry["to"]),
+            str(entry.get("string") or ""),
+            "ot_feature_label",
+        )
+
+    for entry in ot_label_additions or []:
+        add_record(
+            int(entry.get("name_id") or 0),
+            str(entry.get("string") or ""),
+            "ot_feature_label",
+        )
+
+    for entry in ot_label_patches or []:
+        add_record(
+            int(entry.get("name_id") or 0),
             str(entry.get("string") or ""),
             "ot_feature_label",
         )
@@ -108,6 +124,8 @@ def build_commit_diff(
         "stat_values_planned": stat_values_planned,
         "instances_planned": instances_planned,
         "windows_name_patches": list(plan.windows_name_patches or []),
+        "ot_label_patches": list(ot_label_patches or []),
+        "ot_label_additions": list(ot_label_additions or []),
     }
     if ot_reflow_mapping:
         result["ot_reflow_mapping"] = ot_reflow_mapping

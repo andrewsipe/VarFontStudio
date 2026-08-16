@@ -9,7 +9,9 @@ struct NameTablePanel: View {
     @State private var filterText = ""
     @State private var showAddPopover = false
     @State private var expandedNameID: Int?
+    @State private var expandedOTSiteID: String?
     @State private var hoveredValueFieldID: Int?
+    @State private var hoveredOTSiteID: String?
     @State private var pendingRemovalNameID: Int?
 
     /// When hosted under middle-column chrome, the column owns the title header.
@@ -103,7 +105,7 @@ struct NameTablePanel: View {
             ContentUnavailableView(
                 "No Font Open",
                 systemImage: "textformat",
-                description: Text("Select a font file to edit Windows name IDs 0–25.")
+                description: Text("Select a font file to edit Windows name IDs and OpenType feature labels.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let loadError {
@@ -130,10 +132,253 @@ struct NameTablePanel: View {
                 ForEach(filteredRows) { row in
                     nameRow(row)
                 }
+
+                otFeatureSection
             }
             .padding(.horizontal, StudioSpacing.contentInset)
             .padding(.vertical, StudioSpacing.tightGap)
 
+        }
+    }
+
+    @ViewBuilder
+    private var otFeatureSection: some View {
+        let rows = filteredOTRows
+        Divider()
+            .padding(.vertical, StudioSpacing.panelVertical)
+        HStack {
+            Text("OpenType Names")
+                .font(StudioTypography.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            if analysis != nil {
+                Text("\(rows.count)")
+                    .font(StudioTypography.monoMeta)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.bottom, StudioSpacing.tightGap)
+
+        if analysis == nil {
+            EmptyView()
+        } else if rows.isEmpty {
+            Text(otEmptyMessage)
+                .font(StudioTypography.caption)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, StudioSpace.x2)
+        } else {
+            ForEach(rows) { row in
+                otFeatureRow(row)
+            }
+        }
+    }
+
+    private var otEmptyMessage: String {
+        let query = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            return "No OpenType names match the filter."
+        }
+        return "No OpenType feature labels in this font."
+    }
+
+    private var otFeatureRows: [OTFeatureLabelEditing.Row] {
+        guard let analysis, let font = editor.selectedFont else { return [] }
+        return OTFeatureLabelEditing.populatedRows(
+            labels: analysis.otFeatureLabels,
+            unlabeled: analysis.otFeaturesUnlabeled,
+            overrides: font.otFeatureLabelOverrides,
+            additions: font.otFeatureLabelAdditions,
+            nameidStrategy: editor.project?.nameidStrategy ?? font.options.nameidStrategy
+        )
+    }
+
+    private var filteredOTRows: [OTFeatureLabelEditing.Row] {
+        let rows = otFeatureRows
+        let query = filterText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return rows }
+        return rows.filter {
+            $0.featureTag.lowercased().contains(query)
+                || $0.label.lowercased().contains(query)
+                || $0.value.lowercased().contains(query)
+                || ($0.nameID.map { "\($0)" }?.contains(query) ?? false)
+                || ($0.suggestedString?.lowercased().contains(query) ?? false)
+        }
+    }
+
+    private func otFeatureRow(_ row: OTFeatureLabelEditing.Row) -> some View {
+        let needsLabel = row.value.isEmpty && !row.isAddition
+        let showFill = needsLabel && !(row.suggestedString ?? "").isEmpty
+        return VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+            HStack(spacing: StudioSpacing.rowGap) {
+                // Match Windows name rows: tertiary nameID, then a human label.
+                Text(row.nameID.map(String.init) ?? "—")
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                    .help(row.isProvisionalNameID ? "Provisional nameID for export (256+)" : "nameID")
+                Text(row.label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if needsLabel {
+                    Text("Unlabeled")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, StudioSpacing.tightGap)
+                        .padding(.vertical, StudioSpacing.instanceRowGap)
+                        .background(StudioColors.registrationBackground, in: Capsule())
+                }
+                Spacer(minLength: 0)
+                if editor.canRevertOTFeatureLabel(
+                    table: row.table,
+                    featureTag: row.featureTag,
+                    field: row.field,
+                    analysis: analysis
+                ) {
+                    Button {
+                        if expandedOTSiteID == row.id { expandedOTSiteID = nil }
+                        editor.revertOTFeatureLabel(
+                            table: row.table,
+                            featureTag: row.featureTag,
+                            field: row.field
+                        )
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(StudioTypography.columnLabel)
+                            .frame(width: Self.nameLabelRowHeight, height: Self.nameLabelRowHeight)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .studioHoverIcon(tint: StudioColors.brand)
+                    .help("Revert OpenType label edit")
+                }
+                if showFill, let suggestion = row.suggestedString {
+                    Button {
+                        editor.addOTFeatureLabel(
+                            table: row.table,
+                            featureTag: row.featureTag,
+                            string: suggestion
+                        )
+                        expandedOTSiteID = row.id
+                    } label: {
+                        Image(systemName: "wand.and.sparkles.inverse")
+                            .font(StudioTypography.columnLabel)
+                            .frame(width: Self.nameLabelRowHeight, height: Self.nameLabelRowHeight)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .studioHoverIcon(tint: StudioColors.brand)
+                    .help("Fill clear suggestion\n→ \(suggestion)")
+                }
+            }
+            .frame(minHeight: Self.nameLabelRowHeight, alignment: .center)
+
+            otValueEditor(for: row)
+        }
+        .padding(.vertical, StudioSpace.x2_5)
+    }
+
+    @ViewBuilder
+    private func otValueEditor(for row: OTFeatureLabelEditing.Row) -> some View {
+        let binding = Binding(
+            get: {
+                editor.otFeatureLabelValue(
+                    table: row.table,
+                    featureTag: row.featureTag,
+                    field: row.field,
+                    analysis: analysis
+                )
+            },
+            set: { newValue in
+                if row.value.isEmpty && !row.isAddition && !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    editor.addOTFeatureLabel(
+                        table: row.table,
+                        featureTag: row.featureTag,
+                        string: newValue
+                    )
+                } else {
+                    editor.setOTFeatureLabelValue(
+                        table: row.table,
+                        featureTag: row.featureTag,
+                        field: row.field,
+                        value: newValue
+                    )
+                }
+            }
+        )
+        let isExpanded = expandedOTSiteID == row.id
+
+        if isExpanded {
+            ScrollView {
+                wrappingValueEditor(
+                    binding: binding,
+                    placeholder: "Feature label"
+                )
+            }
+            .frame(maxHeight: NameTableLayout.expandedFieldMaxHeight)
+        } else {
+            ZStack(alignment: .trailing) {
+                Button {
+                    expandedNameID = nil
+                    expandedOTSiteID = row.id
+                } label: {
+                    Text(binding.wrappedValue.isEmpty ? " " : binding.wrappedValue)
+                        .font(.system(size: 13, weight: .regular, design: .monospaced))
+                        .foregroundStyle(binding.wrappedValue.isEmpty ? .tertiary : .primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, NameTableLayout.editorHorizontalPadding)
+                        .padding(.trailing, binding.wrappedValue.isEmpty ? 0 : NameTableLayout.clearButtonReservedWidth)
+                        .frame(height: NameTableLayout.valueRowHeight, alignment: .center)
+                        .background {
+                            RoundedRectangle.studio(StudioRadius.control)
+                                .fill(StudioColors.fieldFill)
+                        }
+                        .overlay {
+                            RoundedRectangle.studio(StudioRadius.control)
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .studioHoverFill(shape: .roundedRect(cornerRadius: StudioRadius.control))
+                .overlay(alignment: .leading) {
+                    if binding.wrappedValue.isEmpty {
+                        Text(row.suggestedString.map { "Suggested: \($0)" } ?? "Feature label")
+                            .font(.system(size: 13, weight: .regular, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, NameTableLayout.editorHorizontalPadding)
+                            .allowsHitTesting(false)
+                    }
+                }
+
+                // Clear label only — does not remove the OpenType feature/lookups.
+                if hoveredOTSiteID == row.id, !binding.wrappedValue.isEmpty {
+                    Button {
+                        editor.clearOTFeatureLabel(
+                            table: row.table,
+                            featureTag: row.featureTag,
+                            field: row.field
+                        )
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22, height: 22)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .studioHoverIcon(tint: .primary)
+                    .padding(.trailing, StudioSpacing.tightGap)
+                    .help("Remove name-table label · feature stays")
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.1), value: hoveredOTSiteID)
+            .onHover { hovering in
+                hoveredOTSiteID = hovering ? row.id : (hoveredOTSiteID == row.id ? nil : hoveredOTSiteID)
+            }
         }
     }
 
@@ -530,6 +775,7 @@ struct NameTablePanel: View {
         } else {
             ZStack(alignment: .trailing) {
                 Button {
+                    expandedOTSiteID = nil
                     expandedNameID = row.nameID
                 } label: {
                     Text(binding.wrappedValue.isEmpty ? " " : binding.wrappedValue)
@@ -630,6 +876,7 @@ struct NameTablePanel: View {
 
     private func collapseEditor() {
         expandedNameID = nil
+        expandedOTSiteID = nil
         StudioFieldFocus.resignIfEditing()
     }
 
@@ -691,7 +938,11 @@ struct NameTablePanel: View {
         }
         loadError = nil
         do {
-            analysis = try editor.analyzeSourceFont(fontID: font.id, sourcePath: font.sourcePath)
+            var next = try editor.analyzeSourceFont(fontID: font.id, sourcePath: font.sourcePath)
+            if let ot = await editor.analyzeOTFeatures(sourcePath: font.sourcePath) {
+                next.mergingOTFeatures(ot)
+            }
+            analysis = next
         } catch {
             analysis = nil
             loadError = error.localizedDescription

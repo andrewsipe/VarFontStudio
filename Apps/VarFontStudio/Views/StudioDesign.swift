@@ -1051,7 +1051,15 @@ enum StudioDiffPillStyle {
         }
     }
     /// Punch-out text — panel background, not `.primary`.
-    var label: Color { StudioColors.chipLabel }
+    /// Protected uses light ink: brand mid-fill is too close to `windowBackground` in dark mode.
+    var label: Color {
+        switch self {
+        case .protected:
+            return StudioPalette.color(.paper, light: .s50, dark: .s100)
+        default:
+            return StudioColors.chipLabel
+        }
+    }
 
     /// Light hue edge on a darker fill — Review chips in both appearances.
     var stroke: Color {

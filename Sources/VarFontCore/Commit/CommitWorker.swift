@@ -80,6 +80,19 @@ actor CommitWorker {
         return try VarFontJSON.decode(CommitResult.self, from: responseData)
     }
 
+    func analyzeOTFeatures(sourcePath: String) async throws -> OTFeatureAnalysisResult {
+        let payload: [String: String] = [
+            "op": "analyze_ot_features",
+            "source_path": sourcePath,
+            "request_id": UUID().uuidString.lowercased(),
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        var line = data
+        line.append(0x0A)
+        let responseData = try await roundTrip(line: line)
+        return try VarFontJSON.decode(OTFeatureAnalysisResult.self, from: responseData)
+    }
+
     func shutdown() {
         stdinHandle?.closeFile()
         stdoutHandle?.readabilityHandler = nil
@@ -183,6 +196,23 @@ actor CommitWorkerManager {
             self.configurationKey = nil
             let restarted = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
             return try await restarted.commit(request)
+        }
+    }
+
+    func analyzeOTFeatures(
+        sourcePath: String,
+        helperURL: URL,
+        pythonExecutable: String
+    ) async throws -> OTFeatureAnalysisResult {
+        let worker = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
+        do {
+            return try await worker.analyzeOTFeatures(sourcePath: sourcePath)
+        } catch {
+            await worker.shutdown()
+            self.worker = nil
+            self.configurationKey = nil
+            let restarted = try await readyWorker(helperURL: helperURL, pythonExecutable: pythonExecutable)
+            return try await restarted.analyzeOTFeatures(sourcePath: sourcePath)
         }
     }
 

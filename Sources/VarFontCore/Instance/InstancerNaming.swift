@@ -17,7 +17,8 @@ public enum InstancerAxisDefaults {
     }
 }
 
-/// Sort priority matching DesignAxisRecord convention: opsz → wdth → wght → slope/ital.
+/// Fallback sort when STAT AxisOrdering is unavailable:
+/// opsz → wdth → wght → slope/ital, then alphabetical.
 public enum InstancerAxisOrder {
     private static let known = ["opsz", "wdth", "wght", "slnt", "ital"]
 
@@ -31,6 +32,20 @@ public enum InstancerAxisOrder {
             if pa != pb { return pa < pb }
             return a < b
         }
+    }
+
+    /// Column / row sort order for Instancer: file STAT DesignAxisRecord order, then known fallback.
+    public static func orderedTags(
+        candidates: Set<String>,
+        analysisAxesOrder: [String] = []
+    ) -> [String] {
+        var ordered: [String] = []
+        var seen = Set<String>()
+        for tag in analysisAxesOrder where candidates.contains(tag) && seen.insert(tag).inserted {
+            ordered.append(tag)
+        }
+        ordered.append(contentsOf: sortedTags(candidates.subtracting(seen)))
+        return ordered
     }
 }
 
@@ -282,6 +297,8 @@ public enum InstancerNaming {
 public enum InstancerSessionBuilder {
     public struct BuiltSession: Equatable, Sendable {
         public var axisTags: [String]
+        /// fvar axes only — safe to pass to vfinstance (DesignAxisRecord-only tags are display/naming).
+        public var fvarAxisTags: [String]
         public var rows: [InstancerRow]
         public var inferredPSPrefix: String
         /// Typographic family for static name IDs 1/16/4 (Variable/VF tokens stripped).
@@ -292,10 +309,17 @@ public enum InstancerSessionBuilder {
     }
 
     public static func build(from analysis: FontAnalysis) -> BuiltSession {
-        let axisTags = InstancerAxisOrder.sortedTags(
-            Set(analysis.axes.filter { $0.roleInferred != .designRecordOnly }.map(\.tag))
-                .union(analysis.instancesExisting.flatMap(\.coords.keys))
+        // All DesignAxisRecord + fvar axes — fixed registration axes (e.g. ital) still contribute.
+        let candidates = Set(analysis.axes.map(\.tag))
+            .union(analysis.instancesExisting.flatMap(\.coords.keys))
+        // Instancer reads the font file — honor that file's STAT DesignAxisRecord order.
+        let axisTags = InstancerAxisOrder.orderedTags(
+            candidates: candidates,
+            analysisAxesOrder: analysis.axes.map(\.tag)
         )
+        let fvarAxisTags = axisTags.filter { tag in
+            analysis.axes.first(where: { $0.tag == tag })?.roleInferred != .designRecordOnly
+        }
         let boldLinkedWght = boldLinkedWeight(from: analysis.statValues)
 
         let rows: [InstancerRow] = analysis.instancesExisting.enumerated().map { index, instance in
@@ -334,6 +358,7 @@ public enum InstancerSessionBuilder {
         let displayName = URL(fileURLWithPath: analysis.source.path).lastPathComponent
         return BuiltSession(
             axisTags: axisTags,
+            fvarAxisTags: fvarAxisTags,
             rows: rows,
             inferredPSPrefix: inferredPS,
             inferredFamilyName: inferredFamilyName(from: analysis),
