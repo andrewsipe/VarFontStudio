@@ -208,8 +208,18 @@ extension EditorViewModel {
 
     func setNamingOrder(_ tags: [String]) {
         guard var project, let font = selectedFont else { return }
-        let normalized = SlopeAxisPolicy.namingOrder(
+        // `tags` is the selected font's chain only — splice it into the shared project
+        // order so sibling-font axes are not wiped on every drag.
+        let visible = SlopeAxisPolicy.namingOrder(
             projectOrder: tags,
+            axes: font.axes,
+            forceInclude: Set(project.naming.slopeNamingIncludeTags)
+        )
+        let normalized = SlopeAxisPolicy.effectiveNamingOrder(
+            NamingPolicy.integratingVisibleOrder(
+                projectOrder: project.naming.order,
+                visibleOrder: visible
+            ),
             axes: font.axes,
             forceInclude: Set(project.naming.slopeNamingIncludeTags)
         )
@@ -233,12 +243,17 @@ extension EditorViewModel {
         pushUndoSnapshot()
 
         let font = project.fonts[fontIndex]
-        project.naming.order = SlopeAxisPolicy.namingOrder(
+        let restoredVisible = SlopeAxisPolicy.namingOrder(
             projectOrder: project.naming.inferredOrder ?? project.naming.order,
             axes: font.axes,
             forceInclude: Set(project.naming.slopeNamingIncludeTags)
         )
-        project.naming.order = NamingPolicy.resetPostscriptHyphenToDefault(in: project.naming.order)
+        project.naming.order = NamingPolicy.resetPostscriptHyphenToDefault(
+            in: NamingPolicy.integratingVisibleOrder(
+                projectOrder: project.naming.order,
+                visibleOrder: restoredVisible
+            )
+        )
 
         for index in project.fonts[fontIndex].axes.indices {
             if let inferred = project.fonts[fontIndex].axes[index].roleInferred {

@@ -276,6 +276,34 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         ensurePostscriptHyphen(in: order.filter { $0 != postscriptHyphenToken })
     }
 
+    /// Splices a font-local chain into the shared project order without dropping sibling axes.
+    ///
+    /// Naming order is project-wide, but the chain footer only shows axes on the selected font.
+    /// Reorders must update that visible subset in place and leave tags that belong only to
+    /// other fonts (or are otherwise outside the visible set) where they are.
+    public static func integratingVisibleOrder(
+        projectOrder: [String],
+        visibleOrder: [String]
+    ) -> [String] {
+        let visibleSet = Set(visibleOrder)
+        var result: [String] = []
+        var inserted = false
+        for token in projectOrder {
+            if visibleSet.contains(token) {
+                if !inserted {
+                    result.append(contentsOf: visibleOrder)
+                    inserted = true
+                }
+            } else {
+                result.append(token)
+            }
+        }
+        if !inserted {
+            result.append(contentsOf: visibleOrder)
+        }
+        return result
+    }
+
     /// Project naming order filtered to axes present in this file.
     /// Preserves `@code` when present; does not auto-append it. Clarifier tokens are dropped.
     public static func mergedOrder(projectOrder: [String], axisTags: [String]) -> [String] {

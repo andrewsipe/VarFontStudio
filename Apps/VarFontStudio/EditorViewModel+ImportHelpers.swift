@@ -92,12 +92,16 @@ extension EditorViewModel {
 
     /// Drops passive slope siblings (`ital` when `slnt` owns) from the stored naming chain
     /// and elides registration ital stops so Axis Tree matches composed names.
+    ///
+    /// Must not re-merge against the selected font's axes: that would rewrite the shared
+    /// project order on every font switch and discard sibling-only tags (and the user's
+    /// relative order for axes that come back when switching back).
     private func syncSlopeOwnedNamingOrderIfNeeded() {
         guard var project, let fontID = selectedFontID,
               let fontIndex = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
         var font = project.fonts[fontIndex]
-        let cleaned = SlopeAxisPolicy.namingOrder(
-            projectOrder: project.naming.order,
+        let cleaned = SlopeAxisPolicy.effectiveNamingOrder(
+            project.naming.order,
             axes: font.axes,
             forceInclude: Set(project.naming.slopeNamingIncludeTags)
         )

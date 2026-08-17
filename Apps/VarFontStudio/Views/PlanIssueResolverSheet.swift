@@ -15,9 +15,9 @@ struct PlanIssueResolverSheet: View {
     let reviewTotal: Int?
 
     @State private var fixSelection: ResolverFixSelection = .interactiveFill
-    @State private var fillMode: AxisStopFillMode = .evenCount
     @State private var stopCount: Double = 6
-    @State private var intervalStep: Double = 1
+    @State private var snapOn = false
+    @State private var statFormat = 1
     @State private var hoveredHeaderTitle: String?
     @State private var hoveredProposalID: String?
 
@@ -40,19 +40,19 @@ struct PlanIssueResolverSheet: View {
         return proposals.first { $0.id == id }
     }
 
-    private var interactiveValues: [Double]? {
-        guard let axis, fillOptions != nil else { return nil }
-        switch fillMode {
-        case .evenCount:
-            return AxisStopFillPlanner.values(for: axis, count: Int(stopCount.rounded()))
-        case .fixedInterval:
-            return AxisStopFillPlanner.values(for: axis, interval: intervalStep)
-        }
+    private var fillPlan: AxisStopFillPlan? {
+        guard let fillOptions else { return nil }
+        return AxisStopFillPlanner.plan(
+            options: fillOptions,
+            count: Int(stopCount.rounded()),
+            snap: snapOn,
+            statFormat: statFormat
+        )
     }
 
     private var canApplyInteractiveFill: Bool {
         guard fillOptions != nil, case .interactiveFill = fixSelection else { return false }
-        return (interactiveValues?.count ?? 0) >= AxisStopFillPlanner.minStopCount
+        return (fillPlan?.stops.count ?? 0) >= AxisStopFillPlanner.minStopCount
     }
 
     private var canApply: Bool {
@@ -123,13 +123,12 @@ struct PlanIssueResolverSheet: View {
                 fixSelection = .interactiveFill
             }
 
-            if fixSelection == .interactiveFill, let axis {
+            if fixSelection == .interactiveFill {
                 AxisStopFillControls(
-                    axis: axis,
                     options: options,
-                    fillMode: $fillMode,
                     stopCount: $stopCount,
-                    intervalStep: $intervalStep
+                    snapOn: $snapOn,
+                    statFormat: $statFormat
                 )
             }
         }
@@ -271,16 +270,18 @@ struct PlanIssueResolverSheet: View {
         }
 
         fixSelection = .interactiveFill
-        fillMode = .evenCount
         stopCount = Double(options.defaultCount)
-        intervalStep = options.defaultInterval
+        snapOn = false
+        if let axis {
+            statFormat = AxisStopFillPlanner.defaultFormat(for: axis)
+        }
     }
 
     private func applySelected(andContinue: Bool) {
         if canApplyInteractiveFill,
-           let values = interactiveValues,
+           let plan = fillPlan,
            let tag = warning.axis {
-            editor.applyPlanIssueFix(.insertAxisStops(axisTag: tag, values: values), andContinue: andContinue)
+            editor.applyPlanIssueFix(.insertFilledStops(axisTag: tag, plan: plan), andContinue: andContinue)
             if !andContinue { dismiss() }
             return
         }

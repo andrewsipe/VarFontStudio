@@ -42,9 +42,8 @@ struct AddAxisStopSheet: View {
     @State private var placement: Placement = .one
     @State private var drafts: [DraftStop] = []
     @State private var statFormat = 1
+    @State private var severalFormat = 1
     @State private var pinText = ""
-    @State private var minText = ""
-    @State private var maxText = ""
     @State private var nameText = ""
     @State private var codeText = ""
     @State private var linkTargetID: String?
@@ -52,7 +51,7 @@ struct AddAxisStopSheet: View {
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
-        case pin, min, max, name, code
+        case pin, name, code
     }
 
     private var gapProposal: AxisStopGapFill.Proposal? {
@@ -141,7 +140,7 @@ struct AddAxisStopSheet: View {
         }
         .padding(StudioSpace.x0_5)
         .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
-        .help("One stop can set STAT format 2 or 3. Several always inserts Format 1 stops and leaves the current ladder in place.")
+        .help("One stop can set STAT format 1, 2, or 3. Format 2 inserts by nom and nips neighboring edges. Several can insert Format 1 pins or Format 2 ranges.")
     }
 
     @ViewBuilder
@@ -186,6 +185,32 @@ struct AddAxisStopSheet: View {
 
     private var severalStopFields: some View {
         VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+            HStack(spacing: StudioSpacing.instanceRowGap) {
+                StudioSegmentButton(
+                    title: "Format 1",
+                    isSelected: severalFormat != 2,
+                    expands: true
+                ) {
+                    severalFormat = 1
+                }
+                StudioSegmentButton(
+                    title: "Format 2",
+                    isSelected: severalFormat == 2,
+                    expands: true
+                ) {
+                    severalFormat = 2
+                }
+            }
+            .padding(StudioSpace.x0_5)
+            .background(StudioColors.surfaceInset, in: RoundedRectangle.studio(StudioRadius.control))
+
+            if severalFormat == 2 {
+                Text("Insert by nom. Before and after stops give up the shared edge so the new range fits — no overlap, rest of the ladder untouched.")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let gapProposal {
                 HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.rowGap) {
                     Text(gapProposal.source + ": " + gapProposal.previewLabel)
@@ -227,6 +252,13 @@ struct AddAxisStopSheet: View {
 
             StudioPlainLinkButton(title: "Add another", systemImage: "plus") {
                 appendDraft()
+            }
+
+            if severalFormat == 2, let summary = format2RewriteSummary {
+                Text(summary)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -284,15 +316,6 @@ struct AddAxisStopSheet: View {
         switch statFormat {
         case 2:
             StudioTextField(
-                placeholder: "Min",
-                text: $minText,
-                font: StudioTypography.monoValue,
-                rowHeight: StudioFieldMetrics.monoValueRowHeight,
-                onSubmit: { advanceFocusedField(from: .min) },
-                submitBehavior: .advance
-            )
-            .focused($focusedField, equals: .min)
-            StudioTextField(
                 placeholder: "Nominal (Pin)",
                 text: $pinText,
                 font: StudioTypography.monoValue,
@@ -301,15 +324,10 @@ struct AddAxisStopSheet: View {
                 submitBehavior: .advance
             )
             .focused($focusedField, equals: .pin)
-            StudioTextField(
-                placeholder: "Max",
-                text: $maxText,
-                font: StudioTypography.monoValue,
-                rowHeight: StudioFieldMetrics.monoValueRowHeight,
-                onSubmit: { advanceFocusedField(from: .max) },
-                submitBehavior: .advance
-            )
-            .focused($focusedField, equals: .max)
+            Text(format2RewriteSummary ?? "Insert by nom. Neighboring Format 2 edges shrink to meet the new range.")
+                .font(StudioTypography.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         case 3:
             StudioTextField(
                 placeholder: "Static (Pin)",
@@ -346,6 +364,10 @@ struct AddAxisStopSheet: View {
         seedDefaults()
         placement = .one
         nameText = ""
+        severalFormat = AxisStopFillPlanner.defaultFormat(for: axis)
+        if AxisStopFillPlanner.defaultFormat(for: axis) == 2 {
+            statFormat = 2
+        }
         focusedField = .pin
         startTabMonitor()
     }
@@ -432,11 +454,7 @@ struct AddAxisStopSheet: View {
     }
 
     private var fieldOrder: [Field] {
-        var order: [Field]
-        switch statFormat {
-        case 2: order = [.min, .pin, .max, .name]
-        default: order = [.pin, .name]
-        }
+        var order: [Field] = [.pin, .name]
         if editor.isCodeNamingEnabled {
             order.append(.code)
         }
@@ -453,8 +471,6 @@ struct AddAxisStopSheet: View {
     private func seedDefaults() {
         let suggested = editor.suggestedNewStopValue(for: axis)
         pinText = StudioFormatting.axisValue(suggested)
-        minText = StudioFormatting.axisValue(max((axis.min ?? suggested), suggested - 20))
-        maxText = StudioFormatting.axisValue(min((axis.max ?? suggested + 20), suggested + 20))
         seedLinkTargetIfNeeded(force: true)
     }
 
@@ -474,14 +490,15 @@ struct AddAxisStopSheet: View {
             return title
         }()
         if placement == .several {
-            return range + " · existing stops stay"
+            return range + " · existing stops stay, neighbors may shrink"
+        }
+        if statFormat == 2 {
+            return range + " · existing stops stay, neighbors may shrink"
         }
         return range
     }
 
     private var parsedPin: Double? { parsedValue(pinText) }
-    private var parsedMin: Double? { parsedValue(minText) }
-    private var parsedMax: Double? { parsedValue(maxText) }
 
     private var trimmedName: String {
         nameText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -501,11 +518,9 @@ struct AddAxisStopSheet: View {
         if trimmedName.isEmpty { return "Name is required." }
         switch statFormat {
         case 2:
-            guard let pin = parsedPin, let min = parsedMin, let max = parsedMax else {
-                return "Enter valid min, nominal, and max values."
-            }
+            guard let pin = parsedPin else { return "Enter a valid nominal." }
             return editor.validateAxisStopValue(pin, for: axis)
-                ?? (min <= pin && pin <= max ? nil : "Min ≤ Pin ≤ Max required.")
+                ?? format2InsertError
         case 3:
             guard parsedPin != nil else { return "Enter a valid static value." }
             guard selectedLinkTarget != nil else { return "Choose a link target." }
@@ -533,7 +548,58 @@ struct AddAxisStopSheet: View {
             }
             seen.append(value)
         }
+        if severalFormat == 2 {
+            return format2InsertError
+        }
         return nil
+    }
+
+    private var format2InsertRequests: [AxisStopRangeGeometry.InsertRequest]? {
+        if placement == .several {
+            let requests: [AxisStopRangeGeometry.InsertRequest] = drafts.compactMap { draft in
+                guard let value = parsedValue(draft.valueText) else { return nil }
+                return AxisStopRangeGeometry.InsertRequest(
+                    value: value,
+                    name: draft.nameText,
+                    code: editor.isCodeNamingEnabled ? draft.codeText : nil
+                )
+            }
+            return requests.count == drafts.count ? requests : nil
+        }
+        guard let pin = parsedPin else { return nil }
+        return [
+            AxisStopRangeGeometry.InsertRequest(value: pin, name: trimmedName, code: trimmedCode),
+        ]
+    }
+
+    private var format2InsertPlan: Result<AxisStopRangeGeometry.InsertPlan, AxisStopRangeGeometry.InsertError>? {
+        guard let min = axis.min, let max = axis.max, let requests = format2InsertRequests else {
+            return nil
+        }
+        return AxisStopRangeGeometry.insert(
+            requests,
+            into: axis.values,
+            axisMin: min,
+            axisMax: max,
+            makeID: { "preview-\(AxisStopSuggestions.formatValue($0))" }
+        )
+    }
+
+    private var format2InsertError: String? {
+        guard let format2InsertPlan else { return nil }
+        switch format2InsertPlan {
+        case .failure(.duplicate(let value)):
+            return "A stop already uses \(AxisStopSuggestions.formatValue(value))."
+        case .failure(.empty):
+            return "Add at least one stop."
+        case .success:
+            return nil
+        }
+    }
+
+    private var format2RewriteSummary: String? {
+        guard case .success(let plan) = format2InsertPlan else { return nil }
+        return AxisStopRangeGeometry.rewriteSummary(plan.rewrites)
     }
 
     private var selectedLinkTarget: StatFormat3Pairing.LinkTarget? {
@@ -559,10 +625,11 @@ struct AddAxisStopSheet: View {
                 )
             }
             let tag = axis.tag
+            let format = severalFormat
             onComplete()
             dismiss()
             Task { @MainActor in
-                editor.insertMissingAxisStops(axisTag: tag, stops: stops)
+                editor.insertMissingAxisStops(axisTag: tag, stops: stops, statFormat: format)
             }
             return
         }
@@ -576,14 +643,12 @@ struct AddAxisStopSheet: View {
         Task { @MainActor in
             switch statFormat {
             case 2:
-                guard let pin = parsedPin, let min = parsedMin, let max = parsedMax else { return }
+                guard let pin = parsedPin else { return }
                 editor.insertAxisStop(
                     axisTag: tag,
                     value: pin,
                     name: name,
                     statFormat: 2,
-                    rangeMin: min,
-                    rangeMax: max,
                     code: code
                 )
             case 3:
@@ -608,7 +673,7 @@ struct AddAxisStopSheet: View {
 
 /// Standalone quick-fill tool, reachable anytime from the axis tree (not gated behind a plan
 /// warning). Unlike Add Stop(s), this replaces whatever stops already exist — reopen anytime
-/// to tweak a fill with a different count or interval, no undo required.
+/// to tweak count, snap, or format, no undo required.
 struct FillAxisStopsSheet: View {
     @EnvironmentObject private var editor: EditorViewModel
     @Environment(\.dismiss) private var dismiss
@@ -616,22 +681,23 @@ struct FillAxisStopsSheet: View {
     let axis: AxisDefinition
     let onComplete: () -> Void
 
-    @State private var fillMode: AxisStopFillMode = .evenCount
     @State private var stopCount: Double = 6
-    @State private var intervalStep: Double = 1
+    @State private var snapOn = false
+    @State private var statFormat = 1
     @State private var confirmingReplace = false
 
     private var options: AxisStopFillOptions? {
         AxisStopFillPlanner.options(for: axis)
     }
 
-    private var values: [Double]? {
-        switch fillMode {
-        case .evenCount:
-            return AxisStopFillPlanner.values(for: axis, count: Int(stopCount.rounded()))
-        case .fixedInterval:
-            return AxisStopFillPlanner.values(for: axis, interval: intervalStep)
-        }
+    private var plan: AxisStopFillPlan? {
+        guard let options else { return nil }
+        return AxisStopFillPlanner.plan(
+            options: options,
+            count: Int(stopCount.rounded()),
+            snap: snapOn,
+            statFormat: statFormat
+        )
     }
 
     /// Stops whose name doesn't match their bare numeric value have been customized —
@@ -641,7 +707,7 @@ struct FillAxisStopsSheet: View {
     }
 
     private var canApply: Bool {
-        (values?.count ?? 0) >= AxisStopFillPlanner.minStopCount
+        (plan?.stops.count ?? 0) >= AxisStopFillPlanner.minStopCount
     }
 
     var body: some View {
@@ -656,11 +722,10 @@ struct FillAxisStopsSheet: View {
 
             if let options {
                 AxisStopFillControls(
-                    axis: axis,
                     options: options,
-                    fillMode: $fillMode,
                     stopCount: $stopCount,
-                    intervalStep: $intervalStep
+                    snapOn: $snapOn,
+                    statFormat: $statFormat
                 )
             }
 
@@ -684,7 +749,7 @@ struct FillAxisStopsSheet: View {
         .onAppear {
             guard let options else { return }
             stopCount = Double(options.defaultCount)
-            intervalStep = options.defaultInterval
+            statFormat = AxisStopFillPlanner.defaultFormat(for: axis)
         }
         .alert("Replace Named Stops?", isPresented: $confirmingReplace) {
             Button("Replace", role: .destructive, action: apply)
@@ -695,8 +760,8 @@ struct FillAxisStopsSheet: View {
     }
 
     private func apply() {
-        guard let values else { return }
-        editor.replaceAxisStops(axisTag: axis.tag, values: values)
+        guard let plan else { return }
+        editor.replaceAxisStops(axisTag: axis.tag, plan: plan)
         onComplete()
         dismiss()
     }

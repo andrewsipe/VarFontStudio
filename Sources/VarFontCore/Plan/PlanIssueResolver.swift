@@ -40,6 +40,7 @@ public enum PlanIssueAction: Equatable, Sendable {
     case setAxisRole(axisTag: String, role: AxisRole)
     case insertAxisStop(axisTag: String, value: Double, name: String)
     case insertAxisStops(axisTag: String, values: [Double])
+    case insertFilledStops(axisTag: String, plan: AxisStopFillPlan)
     case openAxisConflicts(axisTag: String?)
     case includeInstanceKey(String)
     case acknowledgeIssue(issueKey: String)
@@ -138,6 +139,11 @@ public enum PlanIssueResolver {
         case .insertAxisStops(let axisTag, _):
             guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
             return axis.role == .instance && axis.values.isEmpty && !axis.isDesignRecordOnly
+        case .insertFilledStops(let axisTag, let plan):
+            guard let axis = font.axes.first(where: { $0.tag == axisTag }) else { return false }
+            return axis.role == .instance
+                && !axis.isDesignRecordOnly
+                && plan.stops.count >= AxisStopFillPlanner.minStopCount
         case .openAxisConflicts:
             return AxisStopNamingDefaults.hasInstanceAxisValueConflicts(font)
         case .setFileRegistration, .convertStopToFormat1, .renameStop:
@@ -275,6 +281,23 @@ public enum PlanIssueResolver {
                 font.axes[axisIndex].values.append(stop)
             }
             font.axes[axisIndex].values.sort { $0.value < $1.value }
+        case let .insertFilledStops(axisTag, plan):
+            guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
+            guard font.axes[axisIndex].role == .instance,
+                  !font.axes[axisIndex].isDesignRecordOnly,
+                  plan.stops.count >= AxisStopFillPlanner.minStopCount else { return }
+            font.axes[axisIndex].values = plan.stops.map { stop in
+                AxisValue(
+                    id: "\(axisTag)-\(UUID().uuidString.prefix(8))",
+                    value: stop.value,
+                    name: stop.name,
+                    elidable: stop.elidable,
+                    statFormat: stop.statFormat,
+                    rangeMin: stop.statFormat == 2 ? stop.rangeMin : nil,
+                    rangeMax: stop.statFormat == 2 ? stop.rangeMax : nil,
+                    linkedValue: nil
+                )
+            }
         case .openAxisConflicts:
             break
         case let .includeInstanceKey(key):
@@ -352,7 +375,7 @@ public enum PlanIssueResolver {
             return true
         case .convertStopToFormat1, .renameStop, .acknowledgeIssue, .applyAxisDefaults, .applyAxisNeutrals,
              .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops,
-             .updateStopFormat3Link, .includeInstanceKey, .openAxisConflicts:
+             .insertFilledStops, .updateStopFormat3Link, .includeInstanceKey, .openAxisConflicts:
             return false
         case .compound(let actions):
             return actions.allSatisfy(isSafeAutoFixAction)
@@ -362,7 +385,7 @@ public enum PlanIssueResolver {
     private static func isChainableAction(_ action: PlanIssueAction) -> Bool {
         switch action {
         case .setFileRegistration, .revalueStop, .convertStopToFormat1, .updateStopFormat3Link, .applyAxisDefaults, .applyAxisNeutrals,
-             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops, .includeInstanceKey:
+             .normalizeElidable, .clearAllElidable, .setAxisRole, .insertAxisStop, .insertAxisStops, .insertFilledStops, .includeInstanceKey:
             return true
         case .renameStop, .acknowledgeIssue, .openAxisConflicts:
             return false

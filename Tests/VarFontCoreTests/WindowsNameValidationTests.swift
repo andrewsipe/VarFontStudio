@@ -38,6 +38,21 @@ final class WindowsNameValidationTests: XCTestCase {
         XCTAssertTrue(WindowsNameValidation.isUsable("Playfair\u{7F}"))
     }
 
+    /// Sample Text (nameID 19) is often multi-line; newlines must not read as control junk.
+    func testNewlinesInSampleTextAreNotControlCharacterIssues() {
+        let sample = "Redward VF\nby Marc Rouault\nSharp Type, 2026"
+        XCTAssertNil(WindowsNameValidation.classify(sample))
+        XCTAssertTrue(WindowsNameValidation.isUsable(sample))
+
+        let issues = WindowsNameValidation.issues(
+            windowsNameTable: fullTable + [WindowsNameRecord(nameID: 19, string: sample)],
+            overrides: [:],
+            removals: [],
+            familyPSPrefix: nil
+        )
+        XCTAssertNil(issues.first(where: { $0.nameID == 19 }))
+    }
+
     func testHealthyTableHasNoIssues() {
         let issues = WindowsNameValidation.issues(
             windowsNameTable: fullTable,

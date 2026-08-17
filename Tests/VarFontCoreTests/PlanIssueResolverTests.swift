@@ -428,8 +428,8 @@ final class PlanIssueResolverTests: XCTestCase {
     func testEmptyInstanceAxisOffersFillPlannerOptions() throws {
         let axis = AxisDefinition(tag: "wght", min: 0, default: 0, max: 200, role: .instance, values: [])
         let options = try XCTUnwrap(AxisStopFillPlanner.options(for: axis))
-        XCTAssertEqual(options.recommendedCounts, [3, 6, 9, 12])
-        XCTAssertEqual(options.defaultCount, 6)
+        XCTAssertEqual(options.defaultCount, 3)
+        XCTAssertEqual(options.typicalStep, 100)
     }
 
     func testEmptyInstanceAxisApplyInteractiveFillValues() {
@@ -440,13 +440,13 @@ final class PlanIssueResolverTests: XCTestCase {
                 AxisDefinition(tag: "wght", min: 0, default: 0, max: 200, role: .instance, values: []),
             ]
         )
-        let values = AxisStopFillPlanner.values(for: font.axes[0], count: 5) ?? []
-        PlanIssueResolver.apply(.insertAxisStops(axisTag: "wght", values: values), to: &font)
+        let plan = AxisStopFillPlanner.plan(for: font.axes[0], count: 5, snap: false, statFormat: 1)!
+        PlanIssueResolver.apply(.insertFilledStops(axisTag: "wght", plan: plan), to: &font)
         XCTAssertEqual(font.axes[0].values.map(\.value), [0, 50, 100, 150, 200])
-        XCTAssertEqual(font.axes[0].values.map(\.name), ["0", "50", "100", "150", "200"])
+        XCTAssertEqual(font.axes[0].values.map(\.name), ["Regular", "50", "Extrathin", "150", "Thin"])
     }
 
-    func testEmptyInstanceAxisApplyIntervalFillValues() {
+    func testEmptyInstanceAxisApplySnappedFormat2Fill() {
         var font = FontDocument(
             id: "empty",
             sourcePath: "/tmp/Flux.ttf",
@@ -454,9 +454,12 @@ final class PlanIssueResolverTests: XCTestCase {
                 AxisDefinition(tag: "wght", min: 0, default: 0, max: 200, role: .instance, values: []),
             ]
         )
-        let values = AxisStopFillPlanner.values(for: font.axes[0], interval: 100) ?? []
-        PlanIssueResolver.apply(.insertAxisStops(axisTag: "wght", values: values), to: &font)
+        let plan = AxisStopFillPlanner.plan(for: font.axes[0], count: 3, snap: true, statFormat: 2)!
+        PlanIssueResolver.apply(.insertFilledStops(axisTag: "wght", plan: plan), to: &font)
         XCTAssertEqual(font.axes[0].values.map(\.value), [0, 100, 200])
+        XCTAssertEqual(font.axes[0].values.map(\.statFormat), [2, 2, 2])
+        XCTAssertEqual(font.axes[0].values.map(\.rangeMin), [0, 50, 150])
+        XCTAssertEqual(font.axes[0].values.map(\.rangeMax), [50, 150, 200])
     }
 
     func testEmptyInstanceAxisApplyAddsStop() {

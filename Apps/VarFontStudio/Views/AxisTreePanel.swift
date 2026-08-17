@@ -899,8 +899,8 @@ struct AxisTreePanel: View {
                             size: .row,
                             expands: true,
                             help: axis.values.isEmpty
-                                ? "Evenly space or interval-fill stops across this axis's range."
-                                : "Replace this axis's stops with an evenly spaced or interval fill. Reopen anytime to tweak."
+                                ? "Fill evenly spaced noms across this axis’s range. Snap onto the usual step if you want."
+                                : "Replace this axis’s stops with a new fill. Reopen anytime to tweak count, snap, or format."
                         ) {
                             fillStopsRequest = FillStopsRequest(axisTag: axis.tag)
                         }

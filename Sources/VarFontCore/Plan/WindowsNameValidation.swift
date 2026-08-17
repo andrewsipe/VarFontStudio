@@ -49,8 +49,13 @@ public enum WindowsNameValidation {
     }
 
     /// Control, DEL, and zero-width marks that read as blank but survive round-trips.
+    ///
+    /// CR/LF are excluded: Name ID 19 (Sample Text) is routinely multi-line, and a few
+    /// other records (copyright, license) occasionally wrap. Flagging `\n` made healthy
+    /// sample text look broken.
     private static let invisibles: CharacterSet = {
         var set = CharacterSet.controlCharacters
+        set.remove(charactersIn: "\n\r")
         set.insert(charactersIn: "\u{200B}\u{200C}\u{200D}\u{2060}\u{FEFF}")
         return set
     }()

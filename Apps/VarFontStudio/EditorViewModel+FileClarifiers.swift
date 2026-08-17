@@ -671,8 +671,17 @@ extension EditorViewModel {
             switch format {
             case 2:
                 stop.linkedValue = nil
+                if let minV = font.axes[axisIndex].min,
+                   let maxV = font.axes[axisIndex].max {
+                    let noms = font.axes[axisIndex].values.map(\.value)
+                    if let tiled = AxisStopRangeGeometry.tile(noms: noms, axisMin: minV, axisMax: maxV)
+                        .first(where: { AxisCoordinate.valuesEqual($0.nom, stop.value) }) {
+                        stop.rangeMin = tiled.min
+                        stop.rangeMax = tiled.max
+                    }
+                }
                 if stop.rangeMin == nil {
-                    stop.rangeMin = max((font.axes[axisIndex].min ?? stop.value) , stop.value - 20)
+                    stop.rangeMin = max((font.axes[axisIndex].min ?? stop.value), stop.value - 20)
                 }
                 if stop.rangeMax == nil {
                     stop.rangeMax = min((font.axes[axisIndex].max ?? stop.value + 20), stop.value + 20)
@@ -934,6 +943,24 @@ extension EditorViewModel {
         var addedStopID: String?
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }) else { return }
+            if statFormat == 2,
+               let axisMin = font.axes[axisIndex].min,
+               let axisMax = font.axes[axisIndex].max {
+                switch AxisStopRangeGeometry.insert(
+                    [AxisStopRangeGeometry.InsertRequest(value: value, name: name, code: code)],
+                    into: font.axes[axisIndex].values,
+                    axisMin: axisMin,
+                    axisMax: axisMax,
+                    makeID: { _ in "\(axisTag)-\(UUID().uuidString.prefix(8))" }
+                ) {
+                case .success(let plan):
+                    font.axes[axisIndex].values = plan.values
+                    addedStopID = plan.insertedIDs.last
+                case .failure:
+                    return
+                }
+                return
+            }
             let stopID = "\(axisTag)-\(UUID().uuidString.prefix(8))"
             var resolvedLink: Double?
             if statFormat == 3 {
@@ -964,40 +991,57 @@ extension EditorViewModel {
         selectedAxisStopID = addedStopID
     }
 
-    /// Replaces every stop on `axisTag` with the given values (name = numeric value), sorted
-    /// ascending. Used by the quick-fill tool, which — unlike `insertAxisStop` — is meant to be
-    /// re-run freely to tweak a fill without requiring an undo first.
-    func replaceAxisStops(axisTag: String, values: [Double]) {
+    /// Replaces every stop on `axisTag` from a fill plan. Reopen Fill anytime to tweak
+    /// count, snap, or format without requiring an undo first.
+    func replaceAxisStops(axisTag: String, plan: AxisStopFillPlan) {
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   font.axes[axisIndex].role == .instance,
                   !font.axes[axisIndex].isDesignRecordOnly else { return }
-            font.axes[axisIndex].values = values.map { rawValue in
-                let value = AxisCoordinateFormat.canonical(rawValue)
-                return AxisValue(
+            font.axes[axisIndex].values = plan.stops.map { stop in
+                AxisValue(
                     id: "\(axisTag)-\(UUID().uuidString.prefix(8))",
-                    value: value,
-                    name: AxisStopSuggestions.formatValue(value),
-                    elidable: false,
-                    statFormat: 1,
-                    rangeMin: nil,
-                    rangeMax: nil,
+                    value: stop.value,
+                    name: stop.name,
+                    elidable: stop.elidable,
+                    statFormat: stop.statFormat,
+                    rangeMin: stop.statFormat == 2 ? stop.rangeMin : nil,
+                    rangeMax: stop.statFormat == 2 ? stop.rangeMax : nil,
                     linkedValue: nil
                 )
-            }.sorted { $0.value < $1.value }
+            }
         }
     }
 
     /// Inserts stops without removing existing ones. Skips duplicates and
-    /// out-of-range coordinates. One undo step for the whole batch.
+    /// out-of-range coordinates. Format 2 nips neighboring shared edges.
+    /// One undo step for the whole batch.
     func insertMissingAxisStops(
         axisTag: String,
-        stops: [(value: Double, name: String, code: String?)]
+        stops: [(value: Double, name: String, code: String?)],
+        statFormat: Int = 1
     ) {
         mutateSelectedFont { font in
             guard let axisIndex = font.axes.firstIndex(where: { $0.tag == axisTag }),
                   font.axes[axisIndex].role == .instance,
                   !font.axes[axisIndex].isDesignRecordOnly else { return }
+            if statFormat == 2,
+               let axisMin = font.axes[axisIndex].min,
+               let axisMax = font.axes[axisIndex].max {
+                let requests = stops.map {
+                    AxisStopRangeGeometry.InsertRequest(value: $0.value, name: $0.name, code: $0.code)
+                }
+                if case .success(let plan) = AxisStopRangeGeometry.insert(
+                    requests,
+                    into: font.axes[axisIndex].values,
+                    axisMin: axisMin,
+                    axisMax: axisMax,
+                    makeID: { _ in "\(axisTag)-\(UUID().uuidString.prefix(8))" }
+                ) {
+                    font.axes[axisIndex].values = plan.values
+                }
+                return
+            }
             for stop in stops {
                 let value = AxisCoordinateFormat.canonical(stop.value)
                 if validateAxisStopValue(value, for: font.axes[axisIndex]) != nil {

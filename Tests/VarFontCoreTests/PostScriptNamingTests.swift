@@ -163,4 +163,42 @@ final class PostScriptNamingTests: XCTestCase {
         XCTAssertEqual(order.first, NamingPolicy.postscriptHyphenToken)
         XCTAssertEqual(order.filter { $0 == NamingPolicy.postscriptHyphenToken }.count, 1)
     }
+
+    /// Font-local reorder must keep sibling-only axes so switching files does not reshuffle.
+    func testIntegratingVisibleOrderPreservesSiblingAxes() {
+        let projectOrder = [
+            NamingPolicy.postscriptHyphenToken,
+            "wght",
+            "opsz",
+            "CTRS",
+            "XHGT",
+        ]
+        let reorderedVisible = ["opsz", NamingPolicy.postscriptHyphenToken, "wght"]
+        let integrated = NamingPolicy.integratingVisibleOrder(
+            projectOrder: projectOrder,
+            visibleOrder: reorderedVisible
+        )
+        XCTAssertEqual(
+            integrated,
+            ["opsz", NamingPolicy.postscriptHyphenToken, "wght", "CTRS", "XHGT"]
+        )
+
+        // Viewing a sibling font filters display — must not be written back as project order.
+        let siblingVisible = NamingPolicy.mergedOrder(
+            projectOrder: integrated,
+            axisTags: ["wght", "CTRS", "XHGT"]
+        )
+        XCTAssertEqual(
+            siblingVisible,
+            [NamingPolicy.postscriptHyphenToken, "wght", "CTRS", "XHGT"]
+        )
+        let backOnFirst = NamingPolicy.mergedOrder(
+            projectOrder: integrated,
+            axisTags: ["opsz", "wght"]
+        )
+        XCTAssertEqual(
+            backOnFirst,
+            ["opsz", NamingPolicy.postscriptHyphenToken, "wght"]
+        )
+    }
 }
