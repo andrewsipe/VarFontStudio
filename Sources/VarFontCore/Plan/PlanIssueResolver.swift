@@ -591,6 +591,7 @@ public enum PlanIssueResolver {
         for warning: PlanWarning,
         font: FontDocument
     ) -> [PlanIssueProposal] {
+        // Dual-owner notice: keep both by default. Demote is an explicit simplify option.
         var proposals = dontChangeProposals(for: warning)
 
         if let ital = font.axes.first(where: { $0.tag == "ital" }),
@@ -600,8 +601,9 @@ public enum PlanIssueResolver {
                 PlanIssueProposal(
                     id: "ital-slnt-registration-only",
                     title: "Make ital registration-only",
-                    detail: "Take ital off the instance grid so slnt handles slope variation and naming.",
-                    action: .setAxisRole(axisTag: "ital", role: .designRecordOnly)
+                    detail: "Take ital off the instance grid so slnt alone handles slope variation and naming.",
+                    action: .setAxisRole(axisTag: "ital", role: .designRecordOnly),
+                    isRecommended: false
                 )
             )
         }
@@ -834,13 +836,17 @@ public enum PlanIssueResolver {
             proposals.append(promote)
         }
 
+        // Prefer STAT-only when the axis has no fillable fvar scale; otherwise seed a stop.
+        let recommendStatOnly =
+            proposals.isEmpty && AxisStopFillPlanner.options(for: axis) == nil
+
         proposals.append(
             PlanIssueProposal(
                 id: "empty-axis-add-stop-\(tag)",
                 title: "Add a default stop",
                 detail: "Adds a stop at \(valueText) named “\(name)” on \(label).",
                 action: .insertAxisStop(axisTag: tag, value: value, name: name),
-                isRecommended: proposals.isEmpty
+                isRecommended: proposals.isEmpty && !recommendStatOnly
             )
         )
 
@@ -852,7 +858,7 @@ public enum PlanIssueResolver {
                     ? "Takes \(label) off the instance grid and out of composed names. Prefer Convert to naming axis when this axis is file identity."
                     : "Takes \(label) off the instance grid so composed names no longer require stops on this axis.",
                 action: .setAxisRole(axisTag: tag, role: .statOnly),
-                isRecommended: proposals.isEmpty && AxisStopFillPlanner.options(for: axis) == nil
+                isRecommended: recommendStatOnly
             )
         )
 

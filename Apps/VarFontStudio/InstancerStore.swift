@@ -1098,6 +1098,12 @@ final class InstancerStore: ObservableObject {
         let total = max(event.total, 1)
 
         switch event.event {
+        case "status":
+            let detail = event.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let detail, !detail.isEmpty {
+                session.generateStatus = detail
+                session.statusHint = detail
+            }
         case "start":
             session.generatingRowID = event.id
             // Parallel workers finish out of order — show name + completed count, not index.

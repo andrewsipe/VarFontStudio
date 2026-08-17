@@ -45,9 +45,11 @@ struct StopFormatChangeRequest: Identifiable {
 // | registration| Y         | N     | —    | No fvar scale · {stop}▾              | YES   | YES      | NO* |
 // | registration| Y         | Y     | —    | No fvar scale · {stop?}▾             | empty | YES      | NO* |
 // | registration| N         | *     | —    | No fvar scale [· {stop?}▾]           | *     | YES*     | NO* |
+// | registration| passive†  | *     | —    | STAT kept · naming uses {owner} · {stop} | YES | YES | NO* |
 //
 // * Pin stays for design_record_only when hasFvarScale (fvar-backed naming axis can demote).
-//
+// † Passive slope sibling (e.g. ital when slnt owns): kept in STAT/export, excluded from naming order.
+//   Header shows “out of naming” chip + dimmed title; not deleted unless the user opts into omit-export.//
 // hasConflict → warning icon + Resolve in header (all lanes). hasAxisWarning → warning icon in header;
 // axis-scoped plan warnings do not repeat in the scroll banner (rollup only when 2+ axes need attention).
 // Badge: highlighted count = in-grid stops (variation) or STAT values (registration); muted 0 = toggled off (pinned).

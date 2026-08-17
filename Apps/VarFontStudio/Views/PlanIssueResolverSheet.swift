@@ -82,6 +82,9 @@ struct PlanIssueResolverSheet: View {
         .padding(StudioSpacing.contentInset)
         .frame(minWidth: 460)
         .onAppear(perform: configureDefaults)
+        .onChange(of: warning.code) { _, _ in configureDefaults() }
+        .onChange(of: warning.message) { _, _ in configureDefaults() }
+        .onChange(of: warning.axis) { _, _ in configureDefaults() }
     }
 
     // MARK: - Sections

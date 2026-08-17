@@ -304,10 +304,14 @@ struct AxisTreeStopRow: View {
     @ViewBuilder
     private var removeSlot: some View {
         ZStack {
-            if allowsRemove, isHovered {
+            if allowsRemove {
+                // Keep the control mounted; opacity-only reveal avoids creating/destroying
+                // a tooltip owner under the pointer (NSViewDynamicToolTipManager crash).
                 StudioDismissButton(scale: .chip, style: .fill, help: "Remove stop") {
                     confirmRemove = true
                 }
+                .opacity(isHovered ? 1 : 0)
+                .allowsHitTesting(isHovered)
             }
         }
         .frame(width: AxisBlockLayout.removeSlotWidth)

@@ -6,7 +6,9 @@ enum NamingOrderInference {
 
     static func suggest(
         designAxes: [StatDesignAxis],
-        fvarAxisTags: [String] = []
+        fvarAxisTags: [String] = [],
+        /// Tags that vary across fvar instances (instance-grid axes).
+        gridAxisTags: [String] = []
     ) -> [String] {
         let knownTags = Set(designAxes.map(\.tag)).union(fvarAxisTags)
         var order: [String] = []
@@ -25,7 +27,8 @@ enum NamingOrderInference {
             order.append(tag)
         }
 
-        return enforceSlntBeforeItal(order)
+        order = enforceSlntBeforeItal(order)
+        return omitPassiveSlopeSibling(order, gridAxisTags: gridAxisTags, designAxisTags: Set(designAxes.map(\.tag)))
     }
 
     /// When both slope axes are present, prefer `slnt` before `ital`.
@@ -37,5 +40,25 @@ enum NamingOrderInference {
         result.remove(at: slntIndex)
         result.insert("slnt", at: italIndex)
         return result
+    }
+
+    /// Drop STAT-only `ital` from naming when `slnt` is on the instance grid (slnt owns).
+    private static func omitPassiveSlopeSibling(
+        _ order: [String],
+        gridAxisTags: [String],
+        designAxisTags: Set<String>
+    ) -> [String] {
+        let grid = Set(gridAxisTags)
+        let slntOnGrid = grid.contains("slnt")
+        let italOnGrid = grid.contains("ital")
+        let italInDesign = designAxisTags.contains("ital") || order.contains("ital")
+
+        if slntOnGrid && italInDesign && !italOnGrid {
+            return order.filter { $0 != "ital" }
+        }
+        if italOnGrid && order.contains("slnt") && !slntOnGrid {
+            return order.filter { $0 != "slnt" }
+        }
+        return order
     }
 }

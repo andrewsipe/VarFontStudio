@@ -3590,7 +3590,22 @@ struct StudioFlatButton: View {
         .disabled(!isEnabled)
         .modifier(StudioDefaultActionModifier(isEnabled: isDefaultAction))
         .studioInteractiveCursor()
-        .help(help)
+        .modifier(StudioOptionalHelpModifier(help: help))
+    }
+}
+
+/// Avoid empty `.help("")` — AppKit still installs tooltip tracking areas, which can
+/// crash AttributeGraph when the owning view is torn down mid-click (sheet continue).
+struct StudioOptionalHelpModifier: ViewModifier {
+    var help: String
+
+    func body(content: Content) -> some View {
+        let trimmed = help.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            content
+        } else {
+            content.help(trimmed)
+        }
     }
 }
 

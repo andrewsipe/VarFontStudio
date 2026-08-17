@@ -592,6 +592,11 @@ struct AxisTreePanel: View {
         let isExpanded = expandedAxes.contains(axis.tag)
         let resolvableWarnings = axisPlanWarnings(for: axis.tag)
             .filter { PlanIssueCodes.resolvable.contains($0.code) }
+        let outOfNaming = SlopeAxisPolicy.outOfNamingCaption(
+            tag: axis.tag,
+            axes: editor.selectedFont?.axes ?? [],
+            forceInclude: Set(editor.project?.naming.slopeNamingIncludeTags ?? [])
+        )
 
         VStack(alignment: .leading, spacing: 0) {
             AxisTreeAxisHeader(
@@ -608,6 +613,7 @@ struct AxisTreePanel: View {
                           let stop = axis.values.first(where: { $0.id == stopID }) else { return }
                     editor.setFileStatRegistration(tag: axis.tag, value: stop.value, forFontID: font.id)
                 } : nil,
+                outOfNamingCaption: outOfNaming,
                 isInstanceAxis: instanceAxisBinding(for: axis.tag),
                 onToggleExpansion: { toggleAxisExpansion(for: axis.tag) },
                 onResolveConflict: {
@@ -640,7 +646,11 @@ struct AxisTreePanel: View {
                 !axisDragSession.isDragging || axisDragSession.draggingTag == axis.tag
             )
             .simultaneousGesture(axisReorderPressThenDragGesture(for: axis.tag))
-            .help("Click to expand · click and hold to reorder")
+            // Do not put `.help` on this container: it also hosts GeometryReader frame
+            // prefs + studioDragAffordances (NSTrackingArea). Tooltip restart during
+            // expand/collapse/reorder display cycles can crash AttributeGraph
+            // (NSViewDynamicToolTipManager → AGGraphGetValue).
+            .accessibilityHint("Click to expand. Click and hold to reorder.")
             .background {
                 GeometryReader { proxy in
                     Color.clear.preference(
@@ -654,6 +664,7 @@ struct AxisTreePanel: View {
                 axisDetail(axis)
                     .padding(.top, StudioSpacing.tightGap)
                     .padding(.leading, AxisBlockLayout.stopIndentWidth)
+                    .opacity(outOfNaming == nil ? 1 : 0.72)
             }
         }
     }
@@ -674,6 +685,11 @@ struct AxisTreePanel: View {
                 fileRegistrationLabel: axis.lane == .registration ? registrationLabel(for: axis) : nil,
                 registrationStops: axis.lane == .registration ? axis.values : [],
                 selectedRegistrationStopID: registrationStopID(for: axis),
+                outOfNamingCaption: SlopeAxisPolicy.outOfNamingCaption(
+                    tag: axis.tag,
+                    axes: editor.selectedFont?.axes ?? [],
+                    forceInclude: Set(editor.project?.naming.slopeNamingIncludeTags ?? [])
+                ),
                 isInstanceAxis: .constant(axis.role == .instance),
                 onToggleExpansion: {}
             )

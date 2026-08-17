@@ -6,7 +6,8 @@ import json
 import os
 import re
 import sys
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import time
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -29,14 +30,17 @@ RIBBI_STYLES = frozenset({"Regular", "Italic", "Bold", "Bold Italic"})
 
 # Default parallel workers; capped by CPU and instance count at runtime.
 DEFAULT_MAX_WORKERS = 8
+# Delay between launching each in-flight slot so completions don't clump.
+DEFAULT_STAGGER_SECONDS = 1.0
 
 # Mirrors PostScriptNaming.stripVariableTokens / vfcommit name_policies.
 _RE_VARIABLE_TOKENS = re.compile(r"\b(Variable|VF|GX|Flex)\b", re.I)
 _RE_VARIABLE_BOUNDARY = re.compile(r"(?i)(?:^|[-_\s])Variable(?:Italic)?(?=$|[-_\s])")
 _RE_VF_GX_FLEX_BOUNDARY = re.compile(r"(?i)(?:^|[-_\s])(VF|GX|Flex)(?=$|[-_\s])")
 
-# Process-pool worker locals (one TTFont load per worker process).
+# Process-pool worker locals (lazy TTFont load per worker process).
 _WORKER_BASE_FONT: TTFont | None = None
+_WORKER_SOURCE_PATH: str | None = None
 _WORKER_CONTEXT: dict[str, Any] | None = None
 
 
@@ -55,6 +59,16 @@ def resolve_worker_count(requested: Any, total: int) -> int:
         requested_n = 1
     cpu = os.cpu_count() or 1
     return max(1, min(requested_n, cpu, total))
+
+
+def resolve_stagger_seconds(requested: Any) -> float:
+    if requested is None:
+        return DEFAULT_STAGGER_SECONDS
+    try:
+        value = float(requested)
+    except (TypeError, ValueError):
+        return DEFAULT_STAGGER_SECONDS
+    return max(0.0, min(value, 10.0))
 
 
 def run_instance(request: dict[str, Any]) -> dict[str, Any]:
@@ -173,30 +187,17 @@ def run_instance(request: dict[str, Any]) -> dict[str, Any]:
         ]
         ctx = {k: v for k, v in shared.items() if k != "axis_tags"}
         ctx["axis_tags"] = list(axis_tags)
-
-        with ProcessPoolExecutor(
-            max_workers=workers,
-            initializer=_pool_initializer,
-            initargs=(str(source_path), ctx),
-        ) as pool:
-            futures = [pool.submit(_pool_process_job, job) for job in jobs]
-            for future in as_completed(futures):
-                try:
-                    outcome = future.result()
-                except Exception as exc:  # noqa: BLE001
-                    message = f"worker_crash: {type(exc).__name__}: {exc}"
-                    errors.append({"code": "instance_failed", "message": message})
-                    _emit_progress(
-                        {
-                            "event": "error",
-                            "id": None,
-                            "index": 0,
-                            "total": total,
-                            "message": message,
-                        }
-                    )
-                    continue
-                _absorb_outcome(outcome, written, errors)
+        stagger = resolve_stagger_seconds(request.get("stagger_seconds"))
+        _run_parallel_pipeline(
+            source_path=str(source_path),
+            context=ctx,
+            jobs=jobs,
+            workers=workers,
+            stagger_seconds=stagger,
+            total=total,
+            written=written,
+            errors=errors,
+        )
 
     # Keep written list stable by original request order when possible.
     written.sort(key=lambda row: _written_sort_key(row, instances))
@@ -223,12 +224,106 @@ def _written_sort_key(row: dict[str, Any], instances: list[Any]) -> int:
     return 10**9
 
 
+def _run_parallel_pipeline(
+    *,
+    source_path: str,
+    context: dict[str, Any],
+    jobs: list[dict[str, Any]],
+    workers: int,
+    stagger_seconds: float,
+    total: int,
+    written: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> None:
+    """Keep up to `workers` in flight, but ramp starts so completions stay sequential-feeling.
+
+    Submits job 1, waits `stagger_seconds`, submits job 2, … until the window is full.
+    When any job finishes, immediately starts the next — a sliding pipeline, not 8-at-a-time waves.
+    """
+    _emit_progress(
+        {
+            "event": "status",
+            "index": 0,
+            "total": total,
+            "message": f"Starting {workers} workers (staggered)…",
+        }
+    )
+
+    job_iter = iter(jobs)
+    in_flight: dict[Any, dict[str, Any]] = {}
+
+    with ProcessPoolExecutor(
+        max_workers=workers,
+        initializer=_pool_initializer,
+        initargs=(source_path, context),
+    ) as pool:
+
+        def _submit_next() -> bool:
+            try:
+                job = next(job_iter)
+            except StopIteration:
+                return False
+            _emit_job_start(job, total)
+            future = pool.submit(_pool_process_job, job)
+            in_flight[future] = job
+            return True
+
+        # Ramp: open slots one-by-one so workers don't sync-lockstep.
+        for slot in range(workers):
+            if not _submit_next():
+                break
+            if slot + 1 < workers and stagger_seconds > 0:
+                time.sleep(stagger_seconds)
+
+        while in_flight:
+            done, _ = wait(in_flight.keys(), return_when=FIRST_COMPLETED)
+            for future in done:
+                in_flight.pop(future, None)
+                try:
+                    outcome = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    message = f"worker_crash: {type(exc).__name__}: {exc}"
+                    errors.append({"code": "instance_failed", "message": message})
+                    _emit_progress(
+                        {
+                            "event": "error",
+                            "id": None,
+                            "index": 0,
+                            "total": total,
+                            "message": message,
+                        }
+                    )
+                else:
+                    _absorb_outcome(outcome, written, errors)
+                # Refill immediately — keeps N busy without re-bunching the whole cohort.
+                _submit_next()
+
+
+def _emit_job_start(job: dict[str, Any], total: int) -> None:
+    """Parent-side start so the UI advances as jobs are queued, not only when a wave finishes."""
+    item = job.get("item") if isinstance(job.get("item"), dict) else {}
+    instance_id = str(item.get("id") or "") or None
+    display_name = (item.get("name") or "").strip() or None
+    _emit_progress(
+        {
+            "event": "start",
+            "id": instance_id,
+            "index": int(job.get("index") or 0),
+            "total": total,
+            "name": display_name,
+        }
+    )
+
+
 def _absorb_outcome(
     outcome: dict[str, Any],
     written: list[dict[str, Any]],
     errors: list[dict[str, Any]],
 ) -> None:
     for event in outcome.get("events") or []:
+        # Parent already emitted start when the job was queued.
+        if event.get("event") == "start":
+            continue
         _emit_progress(event)
     if outcome.get("written"):
         written.append(outcome["written"])
@@ -237,16 +332,29 @@ def _absorb_outcome(
 
 
 def _pool_initializer(source_path: str, context: dict[str, Any]) -> None:
-    global _WORKER_BASE_FONT, _WORKER_CONTEXT
+    """Light init — load the VF lazily on the first job so ramp-up isn't a silent hang."""
+    global _WORKER_BASE_FONT, _WORKER_SOURCE_PATH, _WORKER_CONTEXT
+    _WORKER_SOURCE_PATH = source_path
     _WORKER_CONTEXT = context
-    _WORKER_BASE_FONT = TTFont(source_path, recalcBBoxes=False, recalcTimestamp=False)
+    _WORKER_BASE_FONT = None
+
+
+def _ensure_worker_font() -> TTFont:
+    global _WORKER_BASE_FONT
+    if _WORKER_BASE_FONT is None:
+        assert _WORKER_SOURCE_PATH is not None
+        _WORKER_BASE_FONT = TTFont(
+            _WORKER_SOURCE_PATH,
+            recalcBBoxes=False,
+            recalcTimestamp=False,
+        )
+    return _WORKER_BASE_FONT
 
 
 def _pool_process_job(job: dict[str, Any]) -> dict[str, Any]:
-    assert _WORKER_BASE_FONT is not None
     assert _WORKER_CONTEXT is not None
     return _process_instance(
-        base_font=_WORKER_BASE_FONT,
+        base_font=_ensure_worker_font(),
         item=job.get("item"),
         index=int(job.get("index") or 0),
         total=int(job.get("total") or 1),

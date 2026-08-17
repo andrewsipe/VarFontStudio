@@ -189,7 +189,11 @@ extension IssueResolverStore {
         requireHost.canSave = true
         requireHost.regeneratePlan()
         if andContinue {
-            advanceReviewSession()
+            // Defer past the button's mouse-up / tooltip restart so swapping sheet content
+            // doesn't race NSViewDynamicToolTipManager → AGGraphGetValue.
+            DispatchQueue.main.async { [weak self] in
+                self?.advanceReviewSession()
+            }
         } else {
             dismissPlanIssueResolver(clearReviewSession: true)
         }
@@ -228,7 +232,9 @@ extension IssueResolverStore {
         requireHost.canSave = true
         requireHost.regeneratePlan()
         if andContinue {
-            advanceReviewSession()
+            DispatchQueue.main.async { [weak self] in
+                self?.advanceReviewSession()
+            }
         } else {
             conflictResolverRequest = nil
             if hasActiveReviewSession {

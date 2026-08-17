@@ -13,6 +13,8 @@ struct AxisTreeAxisHeader: View {
     var registrationStops: [AxisValue] = []
     var selectedRegistrationStopID: String?
     var onSelectRegistrationStop: ((String) -> Void)?
+    /// Passive slope sibling: kept in STAT / export, excluded from composed names.
+    var outOfNamingCaption: String? = nil
     @Binding var isInstanceAxis: Bool
     let onToggleExpansion: () -> Void
     var onResolveConflict: (() -> Void)?
@@ -25,6 +27,7 @@ struct AxisTreeAxisHeader: View {
     @FocusState private var displayNameFieldFocused: Bool
 
     private var lane: AxisLane { axis.lane }
+    private var isOutOfNaming: Bool { outOfNamingCaption != nil }
 
     private var currentDisplayName: String {
         axis.displayName ?? axis.tag
@@ -87,6 +90,7 @@ struct AxisTreeAxisHeader: View {
                 role: axis.isDesignRecordOnly ? .registration : .instance
             )
             .frame(width: AxisBlockLayout.tagColumnWidth, alignment: .leading)
+            .opacity(isOutOfNaming ? 0.55 : 1)
 
             if axis.fvarHidden {
                 Text("hidden")
@@ -97,6 +101,17 @@ struct AxisTreeAxisHeader: View {
                     .background(Color.secondary.opacity(0.12))
                     .clipShape(RoundedRectangle.studio(StudioRadius.chip))
                     .help("Hide this axis from user-facing controls (fvar HIDDEN_AXIS flag).")
+            }
+
+            if isOutOfNaming {
+                Text("out of naming")
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, StudioSpacing.tightGap)
+                    .padding(.vertical, StudioSpacing.instanceRowGap)
+                    .background(Color.secondary.opacity(0.12))
+                    .clipShape(RoundedRectangle.studio(StudioRadius.chip))
+                    .help(outOfNamingHelp)
             }
 
             VStack(alignment: .leading, spacing: StudioSpacing.instanceRowGap) {
@@ -116,13 +131,12 @@ struct AxisTreeAxisHeader: View {
                         Text(currentDisplayName)
                             .font(StudioTypography.body)
                             .lineLimit(1)
+                            .opacity(isOutOfNaming ? 0.72 : 1)
                             .contentShape(Rectangle())
                             .onTapGesture(perform: onToggleExpansion)
-                            .studioHoverLink(.primary)
+                            .studioHoverLink(isOutOfNaming ? .secondary : .primary)
                             .studioInteractiveCursor()
-                            .help(lane == .registration
-                                ? "Naming axis — no fvar scale; this file’s stop is shown beside the label"
-                                : "Expand axis stops")
+                            .help(displayNameHelp)
                     }
 
                     if onUpdateDisplayName != nil, !isEditingDisplayName {
@@ -140,7 +154,9 @@ struct AxisTreeAxisHeader: View {
                         .onTapGesture(perform: onToggleExpansion)
                         .studioHoverIcon()
                         .studioInteractiveCursor()
-                        .help(isExpanded ? "Collapse axis stops" : "Expand axis stops")
+                        // Static string: flipping help while hovered restarts AppKit
+                        // tooltip tracking and can crash AttributeGraph on expand/collapse.
+                        .help("Expand or collapse axis stops")
 
                     Spacer(minLength: 0)
                 }
@@ -168,6 +184,7 @@ struct AxisTreeAxisHeader: View {
                         .help("The lowest and highest values this axis supports, and its default (fvar min/default/max). D icon = default coordinate.")
                 }
             }
+            .opacity(isOutOfNaming ? 0.78 : 1)
 
             Spacer(minLength: 0)
 
@@ -213,7 +230,12 @@ struct AxisTreeAxisHeader: View {
     @ViewBuilder
     private var registrationSubtitle: some View {
         HStack(spacing: StudioSpacing.tightGap) {
-            if let axisRangeText {
+            if let outOfNamingCaption {
+                Text(outOfNamingCaption)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .help(outOfNamingHelp)
+            } else if let axisRangeText {
                 Text(axisRangeText)
                     .font(StudioTypography.caption)
                     .foregroundStyle(.secondary)
@@ -235,8 +257,7 @@ struct AxisTreeAxisHeader: View {
                     Text(selectedRegistrationName)
                         .font(StudioTypography.caption)
                         .fontWeight(.medium)
-                        .foregroundStyle(.primary)
-                        .fontWeight(.medium)
+                        .foregroundStyle(isOutOfNaming ? .secondary : .primary)
                         .help(registrationStopHelp)
                 } else if let onSelectRegistrationStop {
                     Menu {
@@ -256,8 +277,7 @@ struct AxisTreeAxisHeader: View {
                             Text(selectedRegistrationName)
                                 .font(StudioTypography.caption)
                                 .fontWeight(.medium)
-                                .foregroundStyle(.primary)
-                                .fontWeight(.medium)
+                                .foregroundStyle(isOutOfNaming ? .secondary : .primary)
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(StudioTypography.iconGlyph)
                                 .foregroundStyle(.tertiary)
@@ -273,8 +293,25 @@ struct AxisTreeAxisHeader: View {
         }
     }
 
+    private var displayNameHelp: String {
+        if isOutOfNaming {
+            return outOfNamingHelp
+        }
+        if lane == .registration {
+            return "Registration axis — no instance-grid scale; this file’s STAT stop is shown beside the label."
+        }
+        return "Expand or collapse axis stops"
+    }
+
+    private var outOfNamingHelp: String {
+        "This axis stays in the font on export. It doesn’t feed style names — for `ital`, that usually means a whole-file Roman/Italic label for apps, while `slnt` (or another slope axis) owns the words in names."
+    }
+
     private var registrationStopHelp: String {
-        "This file’s identity on this axis — used in every instance name, not the instance grid."
+        if isOutOfNaming {
+            return "Whole-file label on this axis (e.g. this file is Italic). Kept in the font for apps; not added into composed style names."
+        }
+        return "This file’s shared value on this axis — used in every instance name, not as a per-style slider on the instance grid."
     }
 
     private var pinToggleHelp: String {

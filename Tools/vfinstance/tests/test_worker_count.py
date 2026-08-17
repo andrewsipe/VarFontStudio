@@ -6,7 +6,12 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from vfinstance_lib.engine import DEFAULT_MAX_WORKERS, resolve_worker_count
+from vfinstance_lib.engine import (
+    DEFAULT_MAX_WORKERS,
+    DEFAULT_STAGGER_SECONDS,
+    resolve_stagger_seconds,
+    resolve_worker_count,
+)
 
 
 class ResolveWorkerCountTests(unittest.TestCase):
@@ -32,6 +37,17 @@ class ResolveWorkerCountTests(unittest.TestCase):
 
     def test_zero_total(self) -> None:
         self.assertEqual(resolve_worker_count(8, 0), 1)
+
+
+class ResolveStaggerSecondsTests(unittest.TestCase):
+    def test_default(self) -> None:
+        self.assertEqual(resolve_stagger_seconds(None), DEFAULT_STAGGER_SECONDS)
+
+    def test_explicit(self) -> None:
+        self.assertEqual(resolve_stagger_seconds(1.5), 1.5)
+
+    def test_clamps_negative(self) -> None:
+        self.assertEqual(resolve_stagger_seconds(-1), 0.0)
 
 
 if __name__ == "__main__":

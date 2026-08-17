@@ -117,10 +117,19 @@ public enum RegistrationAxisSupport {
         font: FontDocument,
         analysis: FontAnalysis? = nil
     ) -> [PlanWarning] {
-        registrationWarnings(font: font, analysis: analysis)
+        let decision = SlopeAxisPolicy.decide(font: font)
+        let warnings =
+            registrationWarnings(font: font, analysis: analysis)
             + italConventionWarnings(font: font)
             + italFormat1UpgradeWarnings(font: font)
             + wghtFormat1UpgradeWarnings(font: font)
+        return warnings.filter {
+            SlopeAxisPolicy.shouldEmitItalRegistrationWarning(
+                code: $0.code,
+                axis: $0.axis,
+                decision: decision
+            )
+        }
     }
 
     public static func wghtFormat1UpgradeWarnings(font: FontDocument) -> [PlanWarning] {

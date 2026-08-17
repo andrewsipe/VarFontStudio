@@ -49,9 +49,10 @@ public enum PostScriptNaming {
         elidedFallback: String = "Regular",
         compounds: [CompoundStatValue] = []
     ) -> String {
-        let order = NamingPolicy.mergedOrder(
+        let order = SlopeAxisPolicy.namingOrder(
             projectOrder: naming.order,
-            axisTags: axes.map(\.tag)
+            axes: axes,
+            forceInclude: Set(naming.slopeNamingIncludeTags)
         )
         var beforeHyphen: [String] = []
         var afterHyphen: [String] = []

@@ -56,6 +56,7 @@ extension EditorViewModel {
             return
         }
         backfillMissingInferredAxisRoles()
+        syncSlopeOwnedNamingOrderIfNeeded()
         guard let project, let fontID = selectedFontID else {
             instancePlan = nil
             pendingExportInstanceKeys = []
@@ -87,6 +88,26 @@ extension EditorViewModel {
                   self.selectedFontID == fontID else { return }
             self.applyInstancePlan(planned, refreshPendingExport: shouldRefreshPendingExport)
         }
+    }
+
+    /// Drops passive slope siblings (`ital` when `slnt` owns) from the stored naming chain
+    /// and elides registration ital stops so Axis Tree matches composed names.
+    private func syncSlopeOwnedNamingOrderIfNeeded() {
+        guard var project, let fontID = selectedFontID,
+              let fontIndex = project.fonts.firstIndex(where: { $0.id == fontID }) else { return }
+        var font = project.fonts[fontIndex]
+        let cleaned = SlopeAxisPolicy.namingOrder(
+            projectOrder: project.naming.order,
+            axes: font.axes,
+            forceInclude: Set(project.naming.slopeNamingIncludeTags)
+        )
+        let elidedItal = SlopeAxisPolicy.applyPassiveItalElision(to: &font)
+        guard cleaned != project.naming.order || elidedItal else { return }
+        project.naming.order = cleaned
+        if elidedItal {
+            project.fonts[fontIndex] = font
+        }
+        self.project = project
     }
 
     private func applyInstancePlan(_ plan: InstancePlan?, refreshPendingExport: Bool) {

@@ -12,7 +12,10 @@ public enum ProjectImporter {
       ? sourceURL.deletingPathExtension().lastPathComponent
       : analysis.source.familyName
 
-    let axisOrder = analysis.inferred.namingOrderSuggested
+    let axisOrder = SlopeAxisPolicy.effectiveNamingOrder(
+      analysis.inferred.namingOrderSuggested,
+      axes: font.axes
+    )
     let elided = ElidedFallbackResolver.resolve(
       axes: font.axes,
       namingOrder: axisOrder,
@@ -148,6 +151,7 @@ public enum ProjectImporter {
     // Import preserves STAT formats from source (including ital Format 3). Safe auto-fixes
     // never downgrade format; Format 1 → 3 upgrades surface as plan issues for user review.
     _ = PlanIssueResolver.applySafeAutoFixes(to: &font, analysis: analysis)
+    _ = SlopeAxisPolicy.applyPassiveItalElision(to: &font)
     return (font, seedReport)
   }
 

@@ -252,6 +252,8 @@ public enum FvarStopSeeder {
         /// Leading classification codes on fvar instance names (inform only — never writes stop.code).
         public var codedNaming: InstanceCodedNaming.Detection?
         public var orthogonality: OrthogonalityMetrics?
+        /// Passive slope sibling (`ital`/`slnt`) for Import Review.
+        public var slopeOwnership: SlopeAxisPolicy.ImportPrompt?
         public var needsReview: Bool
         public var reviewReason: String
 
@@ -265,6 +267,7 @@ public enum FvarStopSeeder {
             namingSparsity: NamingSparsityCallout? = nil,
             codedNaming: InstanceCodedNaming.Detection? = nil,
             orthogonality: OrthogonalityMetrics? = nil,
+            slopeOwnership: SlopeAxisPolicy.ImportPrompt? = nil,
             needsReview: Bool = false,
             reviewReason: String = ""
         ) {
@@ -277,6 +280,7 @@ public enum FvarStopSeeder {
             self.namingSparsity = namingSparsity
             self.codedNaming = codedNaming
             self.orthogonality = orthogonality
+            self.slopeOwnership = slopeOwnership
             self.needsReview = needsReview
             self.reviewReason = reviewReason
         }
@@ -289,6 +293,7 @@ public enum FvarStopSeeder {
                 && expansionCallouts.isEmpty
                 && (namingSparsity?.isEmpty ?? true)
                 && codedNaming == nil
+                && slopeOwnership == nil
                 && !needsReview
         }
     }
@@ -337,10 +342,51 @@ public enum FvarStopSeeder {
         public var fvarNameWasEmpty: Bool
         public var sampleInstanceNames: [String]
 
+        /// When true, another Format 1 stop on this axis already uses `existingName`.
+        public var existingNameDuplicatedOnAxis: Bool
+
         public var recommendedResolution: Resolution {
+            Self.recommendedResolution(
+                axisTag: axisTag,
+                existingName: existingName,
+                fvarName: fvarName,
+                existingNameWasEmpty: existingNameWasEmpty,
+                fvarNameWasEmpty: fvarNameWasEmpty,
+                existingNameDuplicatedOnAxis: existingNameDuplicatedOnAxis
+            )
+        }
+
+        public static func recommendedResolution(
+            axisTag: String,
+            existingName: String,
+            fvarName: String,
+            existingNameWasEmpty: Bool,
+            fvarNameWasEmpty: Bool,
+            existingNameDuplicatedOnAxis: Bool = false
+        ) -> Resolution {
             if existingNameWasEmpty && !fvarNameWasEmpty { return .takeFvar }
             if fvarNameWasEmpty && !existingNameWasEmpty { return .keepSTAT }
+
+            let statBad = AxisStyleVocabulary.mismatchesAxis(existingName, tag: axisTag)
+            let fvarOK = AxisStyleVocabulary.isCompatible(fvarName, withAxisTag: axisTag)
+                && !AxisStyleVocabulary.mismatchesAxis(fvarName, tag: axisTag)
+            if statBad && fvarOK { return .takeFvar }
+            if statBad && !fvarNameWasEmpty { return .takeFvar }
+
+            // Duplicate STAT labels (e.g. Condensed @ wdth 1 and 46) — prefer the fvar peel.
+            if existingNameDuplicatedOnAxis && !fvarNameWasEmpty
+                && !namesEqualStatic(existingName, fvarName) {
+                return .takeFvar
+            }
+
             return .keepSTAT
+        }
+
+        private static func namesEqualStatic(_ a: String, _ b: String) -> Bool {
+            a.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare(
+                    b.trimmingCharacters(in: .whitespacesAndNewlines)
+                ) == .orderedSame
         }
 
         public init(
@@ -354,6 +400,7 @@ public enum FvarStopSeeder {
             fvarName: String,
             existingNameWasEmpty: Bool = false,
             fvarNameWasEmpty: Bool = false,
+            existingNameDuplicatedOnAxis: Bool = false,
             sampleInstanceNames: [String] = []
         ) {
             self.id = id
@@ -366,6 +413,7 @@ public enum FvarStopSeeder {
             self.fvarName = fvarName
             self.existingNameWasEmpty = existingNameWasEmpty
             self.fvarNameWasEmpty = fvarNameWasEmpty
+            self.existingNameDuplicatedOnAxis = existingNameDuplicatedOnAxis
             self.sampleInstanceNames = sampleInstanceNames
         }
     }
@@ -387,6 +435,8 @@ public enum FvarStopSeeder {
         public var compoundNames: [String: String]
         /// When true, export whitelist is seeded to plan keys matching original fvar.
         public var keepOriginalInstancesOnly: Bool
+        /// Slope ownership choice when `report.slopeOwnership` is present.
+        public var slopeOwnershipChoice: SlopeAxisPolicy.ImportChoice?
 
         public init(
             stopDispositions: [String: StopDisposition] = [:],
@@ -395,7 +445,8 @@ public enum FvarStopSeeder {
             dismissedCompoundIDs: Set<String> = [],
             promotedStopNames: [String: String] = [:],
             compoundNames: [String: String] = [:],
-            keepOriginalInstancesOnly: Bool = false
+            keepOriginalInstancesOnly: Bool = false,
+            slopeOwnershipChoice: SlopeAxisPolicy.ImportChoice? = nil
         ) {
             self.stopDispositions = stopDispositions
             self.conflictResolutions = conflictResolutions
@@ -404,6 +455,7 @@ public enum FvarStopSeeder {
             self.promotedStopNames = promotedStopNames
             self.compoundNames = compoundNames
             self.keepOriginalInstancesOnly = keepOriginalInstancesOnly
+            self.slopeOwnershipChoice = slopeOwnershipChoice
         }
     }
 
@@ -427,6 +479,14 @@ public enum FvarStopSeeder {
         // (e.g. Interchange's 37 wght stops named Poster/Title at design coords) stays on
         // the axis and explodes the orthogonal product regardless of review choices.
         pruneUngroundedFormat1Stops(on: &font, analysis: analysis)
+        // Cross-axis vocabulary on a near-neighbor of a real stop (Wide@399 next to
+        // Regular@398) — remove so the coord can be held as Neither instead of expanding
+        // the orthogonal product.
+        pruneMisattributedNearNeighborStops(on: &font)
+        // Default-coordinate STAT labels that belong on another axis (slnt=0 "Condensed")
+        // — rename to the axis neutral. These often have no fvar peel conflict because
+        // upright instance names share no common residue.
+        repairVocabularyMismatchedDefaultStops(on: &font)
 
         let codedNaming = InstanceCodedNaming.detect(instances: analysis.instancesExisting)
         let peelAnalysis = InstanceCodedNaming.peelAnalysis(analysis, detection: codedNaming)
@@ -441,6 +501,8 @@ public enum FvarStopSeeder {
             let analyzed = analysisByTag[axis.tag]
             let observed = observedValues(for: axis.tag, analyzed: analyzed, analysis: analysis)
             guard !observed.isEmpty else { continue }
+
+            let duplicatedSTATNames = duplicatedStopNames(on: font.axes[axisIndex])
 
             for value in observed {
                 let attributed = attributedName(
@@ -469,6 +531,9 @@ public enum FvarStopSeeder {
                                     fvarName: fvarEffective,
                                     existingNameWasEmpty: existingTrimmed.isEmpty,
                                     fvarNameWasEmpty: fvarTrimmed.isEmpty,
+                                    existingNameDuplicatedOnAxis: duplicatedSTATNames.contains(
+                                        existingTrimmed.lowercased()
+                                    ),
                                     sampleInstanceNames: attributed?.samples ?? []
                                 )
                             )
@@ -478,7 +543,7 @@ public enum FvarStopSeeder {
                 }
 
                 let atDefault = axis.default.map { AxisCoordinate.valuesEqual(value, $0) } ?? false
-                let name: String
+                var name: String
                 if let attributedName = attributed?.name {
                     name = attributedName
                 } else if atDefault, let elidableName = AxisStopNamingDefaults.defaultElidableName(for: axis.tag) {
@@ -486,9 +551,15 @@ public enum FvarStopSeeder {
                 } else {
                     name = AxisCoordinateFormat.format(value)
                 }
+                // Never seed a stop whose peeled name belongs on another axis.
+                if AxisStyleVocabulary.mismatchesAxis(name, tag: axis.tag) {
+                    name = AxisCoordinateFormat.format(value)
+                }
 
+                let nameIsNumeric = isNumericOnly(name, value: value)
                 let preliminary: StopClassification
-                if atDefault || (attributed != nil && !isNumericOnly(name, value: value)) {
+                if atDefault || (attributed != nil && !nameIsNumeric
+                    && !AxisStyleVocabulary.mismatchesAxis(name, tag: axis.tag)) {
                     preliminary = .safeUnivariate
                 } else {
                     preliminary = .ambiguous
@@ -517,9 +588,16 @@ public enum FvarStopSeeder {
             instanceTags: instanceTags,
             analysis: peelAnalysis
         )
+        let axisRangeByTag = Dictionary(uniqueKeysWithValues: font.axes.compactMap { axis -> (String, Double)? in
+            guard let min = axis.min, let max = axis.max else { return nil }
+            return (axis.tag, max - min)
+        })
         if !clusterResults.isEmpty {
-            candidates = candidates.map { applyClusterClassification($0, clusterResults: clusterResults) }
+            candidates = candidates.map {
+                applyClusterClassification($0, clusterResults: clusterResults, axisRanges: axisRangeByTag)
+            }
         }
+        candidates = candidates.map { sanitizeCandidateVocabulary($0) }
 
         // Temp font with all candidates applied — enables residue peeling + compound suggestions.
         var probeFont = font
@@ -538,6 +616,7 @@ public enum FvarStopSeeder {
             fontID: font.id,
             candidates: candidates,
             clusterResults: clusterResults,
+            axisRanges: axisRangeByTag,
             instanceTags: instanceTags,
             axes: font.axes,
             analysis: peelAnalysis
@@ -547,6 +626,13 @@ public enum FvarStopSeeder {
         suggestions = suggestions.filter { suggestion in
             !font.compoundStatValues.contains(where: { coordsEqual($0.coords, suggestion.coords) })
         }
+        // Dense Format 4 sets that recreate an orthogonal product are not entanglement —
+        // drop them and demote related combo candidates to Neither (repair, don't expand).
+        suggestions = suppressOrthogonalProductCompounds(
+            suggestions: suggestions,
+            candidates: &candidates,
+            analysis: peelAnalysis
+        )
         candidates = dropComboCandidatesCoveredByExistingCompounds(
             candidates,
             compounds: font.compoundStatValues
@@ -589,6 +675,7 @@ public enum FvarStopSeeder {
             analysis: analysis,
             compoundCoords: suggestions.map(\.coords)
         )
+        let slopeOwnership = SlopeAxisPolicy.importPrompt(axes: font.axes)
 
         let reasons = reviewReasons(
             candidates: candidates,
@@ -597,7 +684,8 @@ public enum FvarStopSeeder {
             conflicts: conflicts,
             sparsity: sparsity,
             codedNaming: codedNaming,
-            orthogonality: orthogonality
+            orthogonality: orthogonality,
+            slopeOwnership: slopeOwnership
         )
         let needsReview = !reasons.isEmpty
 
@@ -605,7 +693,10 @@ public enum FvarStopSeeder {
         var held: [StopCandidate] = []
 
         if !needsReview {
-            seededStopCount = applyStopCandidates(candidates, to: &font)
+            seededStopCount = applyStopCandidates(
+                candidates.filter { $0.recommendedDisposition.asStop },
+                to: &font
+            )
             return Report(
                 seededStopCount: seededStopCount,
                 conflicts: conflicts,
@@ -616,6 +707,7 @@ public enum FvarStopSeeder {
                 namingSparsity: sparsity.isEmpty ? nil : sparsity,
                 codedNaming: codedNaming,
                 orthogonality: orthogonality,
+                slopeOwnership: nil,
                 needsReview: false,
                 reviewReason: ""
             )
@@ -632,13 +724,22 @@ public enum FvarStopSeeder {
         }
 
         if entanglement {
-            let toApply = candidates.filter { $0.classification == .safeUnivariate }
-            let toHold = candidates.filter { $0.classification != .safeUnivariate }
+            // Only auto-apply coordinates that were already safe before clustering picks;
+            // recommended stops that are still `.ambiguous` stay on the sheet.
+            let toApply = candidates.filter {
+                $0.classification == .safeUnivariate && $0.recommendedDisposition.asStop
+            }
+            let toHold = candidates.filter {
+                !($0.classification == .safeUnivariate && $0.recommendedDisposition.asStop)
+            }
             seededStopCount = applyStopCandidates(toApply, to: &font)
             held = toHold
         } else {
-            seededStopCount = applyStopCandidates(candidates, to: &font)
-            held = []
+            seededStopCount = applyStopCandidates(
+                candidates.filter { $0.recommendedDisposition.asStop },
+                to: &font
+            )
+            held = candidates.filter { !$0.recommendedDisposition.asStop }
         }
 
         // Preview context should only expose held values (safe already on font / in base).
@@ -659,6 +760,7 @@ public enum FvarStopSeeder {
             namingSparsity: sparsity.isEmpty ? nil : sparsity,
             codedNaming: codedNaming,
             orthogonality: orthogonality,
+            slopeOwnership: slopeOwnership,
             needsReview: true,
             reviewReason: reasons.joined(separator: " · ")
         )
@@ -672,9 +774,14 @@ public enum FvarStopSeeder {
     /// that becomes a Format 1 stop; other members of a promotable cluster are recommended
     /// Neither (same style, accepted positional fuzz); members of a combo-only cluster stay
     /// Combo for Format 4.
+    ///
+    /// Near-neighbor twins (Bold@783 & Bold@810 on a 1…1000 axis) are forced onto the
+    /// promote/Neither path even when the gap cut marked the cluster combo-only — that cut
+    /// is meant for opsz shear, not off-by-a-few Regular/Bold drift.
     private static func applyClusterClassification(
         _ candidate: StopCandidate,
-        clusterResults: [String: AxisStopClustering.AxisResult]
+        clusterResults: [String: AxisStopClustering.AxisResult],
+        axisRanges: [String: Double] = [:]
     ) -> StopCandidate {
         guard let axisResult = clusterResults[candidate.axisTag],
               let clusterName = axisResult.clusterName(for: candidate.value),
@@ -686,13 +793,32 @@ public enum FvarStopSeeder {
 
         var updated = candidate
         updated.clusterName = clusterName
-        updated.proposedName = clusterName
-
-        guard axisResult.hasEntanglement else { return updated }
+        if !AxisStyleVocabulary.mismatchesAxis(clusterName, tag: candidate.axisTag) {
+            updated.proposedName = clusterName
+        }
 
         let canonical = clusterCanonicalValue(cluster)
         let isCanonical = AxisCoordinate.valuesEqual(candidate.value, canonical)
-        if axisResult.promoteNames.contains(clusterName) {
+        let axisRange = axisRanges[candidate.axisTag] ?? 1000
+        let positionalFuzz = cluster.values.count > 1
+            && AxisStyleVocabulary.isPositionalFuzz(cluster, axisRange: axisRange)
+
+        // Off-by-a-few twins share a peeled name (Regular@398/399). Always hold the
+        // non-canonical coord as Neither — even when the axis has no opsz-style entanglement.
+        if positionalFuzz {
+            if isCanonical {
+                updated.recommendedDisposition = .stop
+            } else {
+                updated.recommendedDisposition = .neither
+                updated.classification = .ambiguous
+            }
+            return updated
+        }
+
+        guard axisResult.hasEntanglement else { return updated }
+
+        let promoteCluster = axisResult.promoteNames.contains(clusterName)
+        if promoteCluster {
             updated.recommendedDisposition = isCanonical ? .stop : .neither
         } else {
             updated.recommendedDisposition = .combo
@@ -745,15 +871,23 @@ public enum FvarStopSeeder {
         fontID: String,
         candidates: [StopCandidate],
         clusterResults: [String: AxisStopClustering.AxisResult],
+        axisRanges: [String: Double] = [:],
         instanceTags: [String],
         axes: [AxisDefinition],
         analysis: FontAnalysis
     ) -> [CompoundSuggestion] {
         let axisByTag = Dictionary(uniqueKeysWithValues: axes.map { ($0.tag, $0) })
         // Cluster names whose gap cut wants Format 4 (not a Format 1 stop).
+        // Positional-fuzz clusters are treated as promoted even when the gap cut held them —
+        // otherwise Bold@783/810 drift emits a full orthogonal Format 4 product.
         var comboClustersByTag: [String: Set<String>] = [:]
         for (tag, result) in clusterResults where result.hasEntanglement {
-            let comboNames = Set(result.clusters.map(\.name)).subtracting(result.promoteNames)
+            let range = axisRanges[tag] ?? 1000
+            var promote = result.promoteNames
+            for cluster in result.clusters where AxisStyleVocabulary.isPositionalFuzz(cluster, axisRange: range) {
+                promote.insert(cluster.name)
+            }
+            let comboNames = Set(result.clusters.map(\.name)).subtracting(promote)
             if !comboNames.isEmpty {
                 comboClustersByTag[tag] = comboNames
             }
@@ -761,6 +895,14 @@ public enum FvarStopSeeder {
         // Also honor candidates explicitly marked combo (covers custom-axis refine path).
         for candidate in candidates where candidate.recommendedDisposition.asCombo {
             guard let name = candidate.clusterName, !name.isEmpty else { continue }
+            if let result = clusterResults[candidate.axisTag],
+               let cluster = result.cluster(named: name),
+               AxisStyleVocabulary.isPositionalFuzz(
+                   cluster,
+                   axisRange: axisRanges[candidate.axisTag] ?? 1000
+               ) {
+                continue
+            }
             comboClustersByTag[candidate.axisTag, default: []].insert(name)
         }
 
@@ -861,12 +1003,14 @@ public enum FvarStopSeeder {
         }
     }
 
-    /// Applies Import Review decisions: held stops, conflicts, and accepted Format 4 compounds.
+    /// Applies Import Review decisions: held stops, conflicts, accepted Format 4 compounds,
+    /// and slope ownership.
     @discardableResult
     public static func apply(
         reviewDecisions decisions: ReviewDecisions,
         report: Report,
-        to font: inout FontDocument
+        to font: inout FontDocument,
+        naming: inout NamingPolicy
     ) -> [CompoundSuggestion] {
         for conflict in report.conflicts {
             guard let resolution = decisions.conflictResolutions[conflict.id] else { continue }
@@ -928,13 +1072,26 @@ public enum FvarStopSeeder {
         font.compoundStatValues = CompoundStatNaming.sortedByAxisOrder(
             font.compoundStatValues,
             axes: font.axes,
-            namingOrder: []
+            namingOrder: naming.order
         )
 
-        return report.compoundSuggestions.filter { suggestion in
-            !decisions.acceptedCompoundIDs.contains(suggestion.id)
-                && !decisions.dismissedCompoundIDs.contains(suggestion.id)
+        if let prompt = report.slopeOwnership {
+            let choice = decisions.slopeOwnershipChoice ?? prompt.recommended
+            SlopeAxisPolicy.applyImportChoice(choice, prompt: prompt, to: &font, naming: &naming)
         }
+
+        return report.compoundSuggestions.filter { !decisions.acceptedCompoundIDs.contains($0.id) }
+    }
+
+    /// Test / call-site convenience when naming policy is not available.
+    @discardableResult
+    public static func apply(
+        reviewDecisions decisions: ReviewDecisions,
+        report: Report,
+        to font: inout FontDocument
+    ) -> [CompoundSuggestion] {
+        var naming = NamingPolicy(order: font.axes.map(\.tag))
+        return apply(reviewDecisions: decisions, report: report, to: &font, naming: &naming)
     }
 
     // MARK: - Apply helpers
@@ -980,6 +1137,147 @@ public enum FvarStopSeeder {
                 return !anyGrounded
             }
         }
+    }
+
+    /// Drops Format 1 stops whose name belongs on another axis when a near-neighbor stop
+    /// already covers the same style (Rooftop `wght=399 "Wide"` next to Regular@398).
+    private static func pruneMisattributedNearNeighborStops(on font: inout FontDocument) {
+        for axisIndex in font.axes.indices {
+            let axis = font.axes[axisIndex]
+            guard axis.role == .instance, axis.hasFvarScale else { continue }
+            guard CompoundStatNaming.standaloneNamingTags.contains(axis.tag) else { continue }
+            let axisRange = (axis.max ?? 1000) - (axis.min ?? 0)
+
+            var removeIDs = Set<String>()
+            for stop in axis.values where stop.statFormat == 1 {
+                guard AxisStyleVocabulary.mismatchesAxis(stop.name, tag: axis.tag) else { continue }
+                let hasNeighbor = axis.values.contains { other in
+                    guard other.id != stop.id else { return false }
+                    guard !AxisStyleVocabulary.mismatchesAxis(other.name, tag: axis.tag) else {
+                        return false
+                    }
+                    let span = abs(other.value - stop.value)
+                    return AxisStyleVocabulary.isPositionalFuzz(
+                        span: span,
+                        nearestForeignDistance: nil,
+                        axisRange: axisRange
+                    )
+                }
+                if hasNeighbor {
+                    removeIDs.insert(stop.id)
+                }
+            }
+            if !removeIDs.isEmpty {
+                font.axes[axisIndex].values.removeAll { removeIDs.contains($0.id) }
+            }
+        }
+    }
+
+    /// Renames default/elidable stops whose STAT name belongs on another axis
+    /// (Rooftop `slnt=0 "Condensed"` → Upright).
+    private static func repairVocabularyMismatchedDefaultStops(on font: inout FontDocument) {
+        for axisIndex in font.axes.indices {
+            let axis = font.axes[axisIndex]
+            guard CompoundStatNaming.standaloneNamingTags.contains(axis.tag) else { continue }
+            guard let neutral = AxisStopNamingDefaults.defaultElidableName(for: axis.tag) else {
+                continue
+            }
+            var repairedDefaultIndex: Int?
+            for stopIndex in font.axes[axisIndex].values.indices {
+                let stop = font.axes[axisIndex].values[stopIndex]
+                guard AxisStyleVocabulary.mismatchesAxis(stop.name, tag: axis.tag) else { continue }
+                let atDefault = axis.default.map { AxisCoordinate.valuesEqual(stop.value, $0) } ?? false
+                guard atDefault || stop.elidable else { continue }
+                font.axes[axisIndex].values[stopIndex].name = neutral
+                if atDefault {
+                    font.axes[axisIndex].values[stopIndex].elidable = true
+                    repairedDefaultIndex = stopIndex
+                }
+            }
+            // Source often marks the non-default slope stop elidable (Rooftop Italic@10).
+            // After promoting the default to the sole elidable, clear the rest.
+            if let keep = repairedDefaultIndex {
+                for stopIndex in font.axes[axisIndex].values.indices where stopIndex != keep {
+                    font.axes[axisIndex].values[stopIndex].elidable = false
+                }
+            }
+        }
+    }
+
+    private static func duplicatedStopNames(on axis: AxisDefinition) -> Set<String> {
+        var counts: [String: Int] = [:]
+        for stop in axis.values {
+            let key = stop.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !key.isEmpty else { continue }
+            counts[key, default: 0] += 1
+        }
+        return Set(counts.compactMap { $0.value > 1 ? $0.key : nil })
+    }
+
+    private static func sanitizeCandidateVocabulary(_ candidate: StopCandidate) -> StopCandidate {
+        guard AxisStyleVocabulary.mismatchesAxis(candidate.proposedName, tag: candidate.axisTag) else {
+            return candidate
+        }
+        var updated = candidate
+        updated.proposedName = AxisCoordinateFormat.format(candidate.value)
+        if updated.recommendedDisposition.asStop {
+            updated.recommendedDisposition = .neither
+            updated.classification = .ambiguous
+        }
+        return updated
+    }
+
+    /// When Format 4 suggestions cover most of the cartesian product of their axes, they are
+    /// restating an orthogonal catalog — not opsz-style entanglement. Drop them and demote
+    /// matching combo candidates to Neither so Apply won't invent duplicate instance names.
+    private static func suppressOrthogonalProductCompounds(
+        suggestions: [CompoundSuggestion],
+        candidates: inout [StopCandidate],
+        analysis: FontAnalysis
+    ) -> [CompoundSuggestion] {
+        guard suggestions.count >= 6 else { return suggestions }
+
+        let tags = Array(Set(suggestions.flatMap(\.coords.keys))).sorted()
+        guard tags.count >= 2 else { return suggestions }
+
+        // Full source catalog on those axes — not just values already present in suggestions
+        // (a sparse 2-cell compound set would otherwise look 100% dense).
+        var distinctFromSource: [String: Set<Double>] = [:]
+        for instance in analysis.instancesExisting {
+            for tag in tags {
+                guard let value = instance.coords[tag] else { continue }
+                distinctFromSource[tag, default: []].insert(AxisCoordinateFormat.canonical(value))
+            }
+        }
+        let fullProduct = distinctFromSource.values.reduce(1) { $0 * max($1.count, 1) }
+        guard fullProduct >= 8 else { return suggestions }
+
+        let density = Double(suggestions.count) / Double(fullProduct)
+        guard density >= 0.5 else { return suggestions }
+
+        let comboValuesByTag: [String: Set<Double>] = {
+            var map: [String: Set<Double>] = [:]
+            for suggestion in suggestions {
+                for (tag, value) in suggestion.coords {
+                    map[tag, default: []].insert(AxisCoordinateFormat.canonical(value))
+                }
+            }
+            return map
+        }()
+
+        candidates = candidates.map { candidate in
+            guard candidate.recommendedDisposition.asCombo,
+                  let values = comboValuesByTag[candidate.axisTag],
+                  values.contains(where: { AxisCoordinate.valuesEqual($0, candidate.value) })
+            else {
+                return candidate
+            }
+            var updated = candidate
+            updated.recommendedDisposition = .neither
+            updated.classification = .ambiguous
+            return updated
+        }
+        return []
     }
 
     @discardableResult
@@ -1628,7 +1926,8 @@ public enum FvarStopSeeder {
         conflicts: [NameConflict],
         sparsity: NamingSparsityCallout,
         codedNaming: InstanceCodedNaming.Detection?,
-        orthogonality: OrthogonalityMetrics
+        orthogonality: OrthogonalityMetrics,
+        slopeOwnership: SlopeAxisPolicy.ImportPrompt?
     ) -> [String] {
         var reasons: [String] = []
         if candidates.contains(where: { $0.classification == .comboOnly }) {
@@ -1654,6 +1953,9 @@ public enum FvarStopSeeder {
         }
         if codedNaming != nil {
             reasons.append("coded instance names")
+        }
+        if let slopeOwnership {
+            reasons.append("slope ownership (\(slopeOwnership.passiveTag))")
         }
         return reasons
     }

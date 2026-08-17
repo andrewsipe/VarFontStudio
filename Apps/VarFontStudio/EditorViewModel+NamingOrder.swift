@@ -6,13 +6,21 @@ extension EditorViewModel {
 
     var namingChainTags: [String] {
         guard let project, let font = selectedFont else { return [] }
-        return Self.mergedNamingOrder(projectOrder: project.naming.order, axisTags: font.axes.map(\.tag))
+        return SlopeAxisPolicy.namingOrder(
+            projectOrder: project.naming.order,
+            axes: font.axes,
+            forceInclude: Set(project.naming.slopeNamingIncludeTags)
+        )
     }
 
     var inferredNamingChainOrder: [String] {
         guard let project, let font = selectedFont else { return [] }
         let baseline = project.naming.inferredOrder ?? project.naming.order
-        return Self.mergedNamingOrder(projectOrder: baseline, axisTags: font.axes.map(\.tag))
+        return SlopeAxisPolicy.namingOrder(
+            projectOrder: baseline,
+            axes: font.axes,
+            forceInclude: Set(project.naming.slopeNamingIncludeTags)
+        )
     }
 
     var namingChainIsReordered: Bool {
@@ -200,8 +208,11 @@ extension EditorViewModel {
 
     func setNamingOrder(_ tags: [String]) {
         guard var project, let font = selectedFont else { return }
-        let axisTags = font.axes.map(\.tag)
-        let normalized = Self.mergedNamingOrder(projectOrder: tags, axisTags: axisTags)
+        let normalized = SlopeAxisPolicy.namingOrder(
+            projectOrder: tags,
+            axes: font.axes,
+            forceInclude: Set(project.naming.slopeNamingIncludeTags)
+        )
         let previousOrder = project.naming.order
         guard normalized != previousOrder else { return }
 
@@ -222,9 +233,10 @@ extension EditorViewModel {
         pushUndoSnapshot()
 
         let font = project.fonts[fontIndex]
-        project.naming.order = Self.mergedNamingOrder(
+        project.naming.order = SlopeAxisPolicy.namingOrder(
             projectOrder: project.naming.inferredOrder ?? project.naming.order,
-            axisTags: font.axes.map(\.tag)
+            axes: font.axes,
+            forceInclude: Set(project.naming.slopeNamingIncludeTags)
         )
         project.naming.order = NamingPolicy.resetPostscriptHyphenToDefault(in: project.naming.order)
 

@@ -83,7 +83,10 @@ final class OpenTypeAxisAuditTests: XCTestCase {
                     default: 0,
                     max: 0,
                     role: .instance,
-                    values: [AxisValue(id: "s1", value: -12, name: "Oblique", elidable: false)]
+                    values: [
+                        AxisValue(id: "s0", value: 0, name: "Upright", elidable: true),
+                        AxisValue(id: "s1", value: -12, name: "Oblique", elidable: false),
+                    ]
                 ),
             ]
         )

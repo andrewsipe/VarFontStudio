@@ -1171,7 +1171,8 @@ private struct InstanceRowView: View {
                 isHovered = hovering
                 onHoverChange?(hovering)
             }
-            .help(coordsHelp.isEmpty ? "" : coordsHelp)
+            // GeometryReader must not share a view with `.help` — tooltip tracking
+            // restart during width updates can crash AttributeGraph.
             .background {
                 GeometryReader { geo in
                     Color.clear
@@ -1223,6 +1224,7 @@ private struct InstanceRowView: View {
                 Spacer(minLength: 0)
             }
         }
+        .help(coordsHelp.isEmpty ? "" : coordsHelp)
         .frame(maxWidth: .infinity, minHeight: StudioFieldMetrics.listRowMinHeight, alignment: .leading)
         // Same inset as `InstanceGroupHeaderBar` content — lines checkboxes up with
         // section titles and keeps the trailing pill from kissing the highlight edge.

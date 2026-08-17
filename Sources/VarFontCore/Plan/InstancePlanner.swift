@@ -14,6 +14,13 @@ public enum InstancePlanner {
         naming: NamingPolicy,
         options: Options = Options()
     ) -> InstancePlan {
+        var naming = naming
+        naming.order = SlopeAxisPolicy.effectiveNamingOrder(
+            naming.order,
+            axes: font.axes,
+            forceInclude: Set(naming.slopeNamingIncludeTags)
+        )
+
         let gridAxes = font.axes.filter { $0.role == .instance }
         let formulaParts = gridAxes.map(\.values.count)
         let generated = cartesianProduct(gridAxes: gridAxes)

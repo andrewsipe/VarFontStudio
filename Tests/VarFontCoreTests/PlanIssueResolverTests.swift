@@ -247,12 +247,12 @@ final class PlanIssueResolverTests: XCTestCase {
             sourcePath: "/tmp/font.ttf",
             axes: [
                 AxisDefinition(
-                    tag: "wght",
+                    tag: "wdth",
                     role: .instance,
                     values: [
                         AxisValue(
                             id: "n",
-                            value: 400,
+                            value: 100,
                             name: "Normal",
                             elidable: true,
                             statFormat: 3,

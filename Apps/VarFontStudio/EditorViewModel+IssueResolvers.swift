@@ -123,11 +123,14 @@ extension EditorViewModel {
         }
 
         pushUndoSnapshot()
+        var naming = project.naming
         let remaining = FvarStopSeeder.apply(
             reviewDecisions: decisions,
             report: session.report,
-            to: &project.fonts[fontIndex]
+            to: &project.fonts[fontIndex],
+            naming: &naming
         )
+        project.naming = naming
         project.fonts[fontIndex].dirty = true
         project.modified = Date()
         self.project = project

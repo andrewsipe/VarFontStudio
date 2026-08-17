@@ -182,7 +182,12 @@ public enum StatFormat3Pairing {
         if let regular = axis.values.first(where: { stop in
             stop.statFormat == 3 && stop.linkedValue != nil && AxisCoordinate.valuesEqual(stop.value, 400)
         }), let linked = regular.linkedValue {
-            return linked
+            // Only treat an existing F3 link as the bold target when it resolves (or is classic 700).
+            // Otherwise orphan Regular→999 links would silently count as "convention".
+            if resolveLinkedTarget(for: regular, in: axis.values) != nil
+                || AxisCoordinate.valuesEqual(linked, 700) {
+                return linked
+            }
         }
 
         if axis.values.contains(where: { AxisCoordinate.valuesEqual($0.value, 700) }) {

@@ -885,6 +885,261 @@ final class FvarStopSeederTests: XCTestCase {
         XCTAssertEqual(plan.formula.totalGenerated, 40)
     }
 
+    // MARK: - Repair-first gates (Rooftop-like vs real entanglement)
+
+    func testRooftopLikeMisattributedWeightStopsArePrunedAndNotExpandedAsCombos() {
+        // STAT parks width terms on wght next to real Regular/Bold; fvar only visits those
+        // drifted coords on one width. Seeder should prune the bad stops, hold the drift
+        // coords as Neither, and not emit a Bold×width×slant Format 4 product.
+        var font = makeFont(
+            axes: [
+                AxisDefinition(
+                    tag: "wght",
+                    displayName: "Weight",
+                    min: 1,
+                    default: 398,
+                    max: 1000,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "w398", value: 398, name: "Regular", elidable: true),
+                        AxisValue(id: "w399", value: 399, name: "Wide", elidable: false),
+                        AxisValue(id: "w783", value: 783, name: "Bold", elidable: false),
+                        AxisValue(id: "w810", value: 810, name: "Extended", elidable: false),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "wdth",
+                    displayName: "Width",
+                    min: 1,
+                    default: 100,
+                    max: 200,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "d100", value: 100, name: "Normal", elidable: true),
+                        AxisValue(id: "d150", value: 150, name: "Wide", elidable: false),
+                        AxisValue(id: "d200", value: 200, name: "Extended", elidable: false),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "slnt",
+                    displayName: "Slant",
+                    min: 0,
+                    default: 0,
+                    max: 10,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "s0", value: 0, name: "Condensed", elidable: false),
+                        AxisValue(id: "s10", value: 10, name: "Italic", elidable: false),
+                    ]
+                ),
+            ]
+        )
+
+        var instances: [FontAnalysis.ExistingInstance] = []
+        for (wdth, widthName) in [(100.0, ""), (150.0, "Wide "), (200.0, "Extended ")] {
+            for (wght, weightName) in [(398.0, "Regular"), (783.0, "Bold")] {
+                for (slnt, slope) in [(0.0, ""), (10.0, " Italic")] {
+                    let prefix = widthName
+                    let name = "\(prefix)\(weightName)\(slope)".trimmingCharacters(in: .whitespaces)
+                    instances.append(instance(name.isEmpty ? weightName : name, [
+                        "wght": wght, "wdth": wdth, "slnt": slnt,
+                    ]))
+                }
+            }
+        }
+        // Drifted coords only on the width that motivated the bad STAT labels.
+        instances.append(instance("Wide Regular", ["wght": 399, "wdth": 150, "slnt": 0]))
+        instances.append(instance("Wide Regular Italic", ["wght": 399, "wdth": 150, "slnt": 10]))
+        instances.append(instance("Extended Bold", ["wght": 810, "wdth": 200, "slnt": 0]))
+        instances.append(instance("Extended Bold Italic", ["wght": 810, "wdth": 200, "slnt": 10]))
+
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [398, 399, 783, 810], observed: [398, 399, 783, 810]),
+                analyzed(tag: "wdth", displayName: "Width", values: [100, 150, 200], observed: [100, 150, 200]),
+                analyzed(tag: "slnt", displayName: "Slant", values: [0, 10], observed: [0, 10]),
+            ],
+            instances: instances
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+
+        let wght = try! XCTUnwrap(font.axes.first { $0.tag == "wght" })
+        XCTAssertNil(wght.values.first { AxisCoordinate.valuesEqual($0.value, 399) })
+        XCTAssertNil(wght.values.first { AxisCoordinate.valuesEqual($0.value, 810) })
+        XCTAssertEqual(wght.values.first { AxisCoordinate.valuesEqual($0.value, 398) }?.name, "Regular")
+        XCTAssertEqual(wght.values.first { AxisCoordinate.valuesEqual($0.value, 783) }?.name, "Bold")
+
+        XCTAssertFalse(report.compoundSuggestions.contains { suggestion in
+            suggestion.coords.keys.count >= 3
+        }, "should not emit full Bold×width×slant Format 4 product")
+
+        let held399 = report.heldStopCandidates.first {
+            $0.axisTag == "wght" && AxisCoordinate.valuesEqual($0.value, 399)
+        }
+        let held810 = report.heldStopCandidates.first {
+            $0.axisTag == "wght" && AxisCoordinate.valuesEqual($0.value, 810)
+        }
+        if let held399 {
+            XCTAssertFalse(held399.recommendedDisposition.asStop)
+            XCTAssertFalse(held399.recommendedDisposition.asCombo)
+        }
+        if let held810 {
+            XCTAssertFalse(held810.recommendedDisposition.asStop)
+            XCTAssertFalse(held810.recommendedDisposition.asCombo)
+        }
+
+        let slntConflict = report.conflicts.first { $0.axisTag == "slnt" && AxisCoordinate.valuesEqual($0.value, 0) }
+        if let slntConflict {
+            XCTAssertEqual(slntConflict.recommendedResolution, .takeFvar)
+        }
+
+        let slnt = try! XCTUnwrap(font.axes.first { $0.tag == "slnt" })
+        XCTAssertEqual(
+            slnt.values.first { AxisCoordinate.valuesEqual($0.value, 0) }?.name,
+            "Upright",
+            "default slnt stop with width vocabulary should auto-repair to Upright"
+        )
+        XCTAssertEqual(
+            slnt.values.filter(\.elidable).count,
+            1,
+            "repair should leave exactly one elidable slope stop"
+        )
+        let wdth = try! XCTUnwrap(font.axes.first { $0.tag == "wdth" })
+        XCTAssertEqual(
+            Set(wdth.values.map(\.value)),
+            Set([100.0, 150.0, 200.0]),
+            "compatible width stops must not be pruned"
+        )
+    }
+
+    func testRooftopLikeSlntRepairClearsSourceElidableOnItalic() {
+        // Real Rooftop STAT: slnt=0 "Condensed" (not elided), slnt=10 "Italic" (elided).
+        var font = makeFont(
+            axes: [
+                AxisDefinition(
+                    tag: "slnt",
+                    displayName: "Slant",
+                    min: 0,
+                    default: 0,
+                    max: 10,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "s0", value: 0, name: "Condensed", elidable: false),
+                        AxisValue(id: "s10", value: 10, name: "Italic", elidable: true),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "wght",
+                    displayName: "Weight",
+                    min: 400,
+                    default: 400,
+                    max: 700,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "w400", value: 400, name: "Regular", elidable: true),
+                        AxisValue(id: "w700", value: 700, name: "Bold", elidable: false),
+                    ]
+                ),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "slnt", displayName: "Slant", values: [0, 10], observed: [0, 10]),
+                analyzed(tag: "wght", displayName: "Weight", values: [400, 700], observed: [400, 700]),
+            ],
+            instances: [
+                instance("Regular", ["wght": 400, "slnt": 0]),
+                instance("Regular Italic", ["wght": 400, "slnt": 10]),
+                instance("Bold", ["wght": 700, "slnt": 0]),
+                instance("Bold Italic", ["wght": 700, "slnt": 10]),
+            ]
+        )
+        _ = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        let slnt = try! XCTUnwrap(font.axes.first { $0.tag == "slnt" })
+        XCTAssertEqual(slnt.values.first { AxisCoordinate.valuesEqual($0.value, 0) }?.name, "Upright")
+        XCTAssertEqual(slnt.values.filter(\.elidable).map(\.value), [0])
+        XCTAssertEqual(slnt.values.first { AxisCoordinate.valuesEqual($0.value, 10) }?.elidable, false)
+    }
+
+    func testInterchangeStyleEntanglementStillEmitsFormat4ForLightWeights() {
+        // Mirrors AxisStopClusteringTests interchange ladder — assertive Format 4 path
+        // must survive the density / fuzz gates.
+        let roles = ["Micro", "", "Title", "Poster"]
+        let opszByRole = ["Micro": 1.0, "": 19.73, "Title": 54.51, "Poster": 100.0]
+        let weightLadder: [String: [Double]] = [
+            "Extra Thin": [15.01, 10.36, 5.66, 1.00],
+            "Thin": [20.26, 15.24, 10.18, 5.16],
+            "Bold": [69.95, 67.65, 65.38, 63.08],
+            "Black": [90.45, 89.94, 89.43, 88.92],
+        ]
+
+        var instances: [FontAnalysis.ExistingInstance] = []
+        var wghtObserved = Set<Double>()
+        for (weightName, values) in weightLadder {
+            for (index, role) in roles.enumerated() {
+                let wght = values[index]
+                wghtObserved.insert(wght)
+                let opsz = opszByRole[role]!
+                let name = role.isEmpty ? weightName : "\(role) \(weightName)"
+                instances.append(instance(name, ["wght": wght, "opsz": opsz]))
+            }
+        }
+
+        var font = makeFont(
+            axes: [
+                AxisDefinition(
+                    tag: "wght",
+                    displayName: "Weight",
+                    min: 1,
+                    default: 44,
+                    max: 100,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "w-bold", value: 67.65, name: "Bold", elidable: false),
+                        AxisValue(id: "w-black", value: 89.94, name: "Black", elidable: false),
+                    ]
+                ),
+                AxisDefinition(
+                    tag: "opsz",
+                    displayName: "Optical Size",
+                    min: 1,
+                    default: 19.73,
+                    max: 100,
+                    role: .instance,
+                    values: [
+                        AxisValue(id: "o-micro", value: 1, name: "Micro", elidable: false),
+                        AxisValue(id: "o-text", value: 19.73, name: "Text", elidable: true),
+                        AxisValue(id: "o-title", value: 54.51, name: "Title", elidable: false),
+                        AxisValue(id: "o-poster", value: 100, name: "Poster", elidable: false),
+                    ]
+                ),
+            ]
+        )
+
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(
+                    tag: "wght",
+                    displayName: "Weight",
+                    values: Array(wghtObserved).sorted(),
+                    observed: Array(wghtObserved).sorted()
+                ),
+                analyzed(
+                    tag: "opsz",
+                    displayName: "Optical Size",
+                    values: [1, 19.73, 54.51, 100],
+                    observed: [1, 19.73, 54.51, 100]
+                ),
+            ],
+            instances: instances
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertFalse(report.compoundSuggestions.isEmpty, "opsz-compensated lights should still get Format 4")
+        XCTAssertTrue(report.compoundSuggestions.contains { $0.name.localizedCaseInsensitiveContains("Thin") })
+    }
+
     // MARK: - Fixtures
 
     private func makeFont(axes: [AxisDefinition]) -> FontDocument {

@@ -324,7 +324,8 @@ public enum FontAnalysisReader {
         } else {
             namingOrderSuggested = NamingOrderInference.suggest(
                 designAxes: stat?.designAxes ?? [],
-                fvarAxisTags: fvar.axes.map(\.tag)
+                fvarAxisTags: fvar.axes.map(\.tag),
+                gridAxisTags: Array(gridAxisTags)
             )
         }
 

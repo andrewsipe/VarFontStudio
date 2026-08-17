@@ -72,6 +72,7 @@ private struct FvarImportReviewDraft {
     var promotedStopNames: [String: String] = [:]
     var compoundNames: [String: String] = [:]
     var keepOriginalInstancesOnly = false
+    var slopeOwnershipChoice: SlopeAxisPolicy.ImportChoice? = nil
     var selectedTabIsStops = true
     var didSeed = false
 }
@@ -121,6 +122,11 @@ private struct FvarImportReviewContent: View {
     private var keepOriginalInstancesOnly: Bool {
         get { draft.keepOriginalInstancesOnly }
         nonmutating set { draft.keepOriginalInstancesOnly = newValue }
+    }
+
+    private var slopeOwnershipChoice: SlopeAxisPolicy.ImportChoice? {
+        get { draft.slopeOwnershipChoice }
+        nonmutating set { draft.slopeOwnershipChoice = newValue }
     }
 
     private var selectedTab: ReviewTab {
@@ -206,7 +212,9 @@ private struct FvarImportReviewContent: View {
 
     private var hasStylesTab: Bool { !report.compoundSuggestions.isEmpty }
 
-    private var hasDecisionSections: Bool { hasStopsTab || hasStylesTab }
+    private var hasSlopeSection: Bool { report.slopeOwnership != nil }
+
+    private var hasDecisionSections: Bool { hasStopsTab || hasStylesTab || hasSlopeSection }
 
     private var recommendedStopDispositions: [String: FvarStopSeeder.StopDisposition] {
         Dictionary(uniqueKeysWithValues: report.heldStopCandidates.map {
@@ -257,6 +265,10 @@ private struct FvarImportReviewContent: View {
                 let override = compoundNames[$0.id] ?? $0.name
                 return override != $0.name
             }
+            || {
+                guard let prompt = report.slopeOwnership else { return false }
+                return (slopeOwnershipChoice ?? prompt.recommended) != prompt.recommended
+            }()
     }
 
     // MARK: - Body
@@ -268,14 +280,19 @@ private struct FvarImportReviewContent: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: StudioSpace.x5) {
                         outcomeSection
+                        if hasSlopeSection {
+                            slopeOwnershipSection
+                        }
                         if hasStopsTab, hasStylesTab {
                             tabBar
                         }
                         if hasDecisionSections {
-                            if selectedTab == .stops, hasStopsTab {
-                                stopsTabContent
-                            } else if hasStylesTab {
-                                stylesTabContent
+                            if hasStopsTab || hasStylesTab {
+                                if selectedTab == .stops, hasStopsTab {
+                                    stopsTabContent
+                                } else if hasStylesTab {
+                                    stylesTabContent
+                                }
                             }
                         }
                     }
@@ -322,6 +339,11 @@ private struct FvarImportReviewContent: View {
         dismissedCompoundIDs = []
         // Default: export all projected instances (checked). Uncheck to keep origin-only.
         keepOriginalInstancesOnly = false
+        if let prompt = report.slopeOwnership {
+            slopeOwnershipChoice = prompt.recommended
+        } else {
+            slopeOwnershipChoice = nil
+        }
     }
 
     // MARK: - Header / outcome
@@ -507,6 +529,138 @@ private struct FvarImportReviewContent: View {
                 ? "Exports every projected style, including combinations the font didn’t have."
                 : "New combinations stay in the plan so you can name them, but won’t export unless you include them later."
         )
+    }
+
+    // MARK: - Slope ownership
+
+    @ViewBuilder
+    private var slopeOwnershipSection: some View {
+        if let prompt = report.slopeOwnership {
+            let current = slopeOwnershipChoice ?? prompt.recommended
+            reviewSection(
+                title: prompt.title,
+                caption: prompt.detail
+            ) {
+                VStack(alignment: .leading, spacing: StudioSpacing.controlGap) {
+                    Text(slopeWhyCopy(prompt))
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(alignment: .firstTextBaseline, spacing: StudioSpacing.controlGap) {
+                        StudioTagPill(text: prompt.ownerTag, compact: true)
+                        Text(slopeOwnerPlainLabel(prompt.ownerTag))
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.secondary)
+                        Text("·")
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.tertiary)
+                        StudioTagPill(text: prompt.passiveTag, compact: true)
+                        Text(slopePassivePlainLabel(prompt.passiveTag))
+                            .font(StudioTypography.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+
+                    HStack(spacing: StudioSpacing.tightGap) {
+                        slopeChoiceChip(
+                            title: "Keep, not in names",
+                            selected: current == .keepSTATOutOfNaming,
+                            help: slopeChoiceHelp(.keepSTATOutOfNaming, prompt: prompt)
+                        ) {
+                            slopeOwnershipChoice = .keepSTATOutOfNaming
+                        }
+                        slopeChoiceChip(
+                            title: "Remove from project",
+                            selected: current == .omitFromExport,
+                            help: slopeChoiceHelp(.omitFromExport, prompt: prompt)
+                        ) {
+                            slopeOwnershipChoice = .omitFromExport
+                        }
+                        slopeChoiceChip(
+                            title: "Use in names too",
+                            selected: current == .includeInNaming,
+                            help: slopeChoiceHelp(.includeInNaming, prompt: prompt)
+                        ) {
+                            slopeOwnershipChoice = .includeInNaming
+                        }
+                    }
+
+                    Text(slopeChoiceStatus(current, prompt: prompt))
+                        .font(StudioTypography.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(StudioSpacing.contentInset)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(StudioColors.surfaceSubtle, in: RoundedRectangle.studio(StudioRadius.control))
+            }
+        }
+    }
+
+    private func slopeWhyCopy(_ prompt: SlopeAxisPolicy.ImportPrompt) -> String {
+        let owner = prompt.ownerTag
+        let passive = prompt.passiveTag
+        if owner == "slnt", passive == "ital" {
+            return "This file can slant along `slnt` (Upright ↔ Italic in the design space). It also has an `ital` axis that doesn’t move per style — it marks the whole file as Roman or Italic for apps and menus. Style names should usually follow `slnt` only. Keeping `ital` in the font preserves that file label; putting both into names often doubles words like “Italic”."
+        }
+        if owner == "ital", passive == "slnt" {
+            return "This file’s Italic/Roman identity comes from `ital`. It also has a `slnt` axis that isn’t driving the instance grid the same way. Style names should usually follow `ital` only, and keep `slnt` in the font tables unless you know you need it in names too."
+        }
+        return "Many fonts keep one slope axis for style names and another as a whole-file label for apps. Using both in names often doubles slope words."
+    }
+
+    private func slopeOwnerPlainLabel(_ tag: String) -> String {
+        switch tag {
+        case "slnt": return "drives Upright/Italic in style names"
+        case "ital": return "drives Roman/Italic in style names"
+        default: return "owns naming"
+        }
+    }
+
+    private func slopePassivePlainLabel(_ tag: String) -> String {
+        switch tag {
+        case "ital": return "whole-file Italic/Roman label"
+        case "slnt": return "extra slope axis (not naming yet)"
+        default: return "not in names yet"
+        }
+    }
+
+    private func slopeChoiceHelp(
+        _ choice: SlopeAxisPolicy.ImportChoice,
+        prompt: SlopeAxisPolicy.ImportPrompt
+    ) -> String {
+        switch choice {
+        case .keepSTATOutOfNaming:
+            return "Recommended. Style names use \(prompt.ownerTag) only. \(prompt.passiveTag) stays in the project so apps can still see the file’s Italic/Roman label, but it won’t appear in composed names."
+        case .omitFromExport:
+            return "Deletes \(prompt.passiveTag) from this project so save/export won’t write it back. Use when that axis is leftover or wrong."
+        case .includeInNaming:
+            return "Puts \(prompt.passiveTag) into the naming order with \(prompt.ownerTag). Rare — names can show two slope words (e.g. Italic Italic)."
+        }
+    }
+
+    private func slopeChoiceStatus(
+        _ choice: SlopeAxisPolicy.ImportChoice,
+        prompt: SlopeAxisPolicy.ImportPrompt
+    ) -> String {
+        switch choice {
+        case .keepSTATOutOfNaming:
+            return "Recommended — names use \(prompt.ownerTag) only; \(prompt.passiveTag) stays in the font as a whole-file Italic/Roman label, not as a second name piece. Why: clean style names, without throwing away the label apps may use."
+        case .omitFromExport:
+            return "\(prompt.passiveTag) will be removed from this project and won’t be written on export. Choose this only if you don’t need that file label."
+        case .includeInNaming:
+            return "Both \(prompt.ownerTag) and \(prompt.passiveTag) will feed style names. Expect possible double slope labels unless you elide one stop yourself."
+        }
+    }
+
+    private func slopeChoiceChip(
+        title: String,
+        selected: Bool,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        choiceChip(title: title, selected: selected, help: help, action: action)
     }
 
     // MARK: - Tabs
@@ -1145,7 +1299,8 @@ private struct FvarImportReviewContent: View {
                 dismissedCompoundIDs: dismissedCompoundIDs,
                 promotedStopNames: promotedStopNames,
                 compoundNames: compoundNames,
-                keepOriginalInstancesOnly: inventedCombinationCount > 0 && keepOriginalInstancesOnly
+                keepOriginalInstancesOnly: inventedCombinationCount > 0 && keepOriginalInstancesOnly,
+                slopeOwnershipChoice: slopeOwnershipChoice
             )
         )
         onFinished(hasMore)

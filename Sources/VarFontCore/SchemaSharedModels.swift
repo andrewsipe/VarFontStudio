@@ -205,11 +205,14 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
     /// STAT-inferred order captured at import; used by Restore in the naming chain footer.
     public var inferredOrder: [String]?
     public var elidedFallback: String
+    /// Tags forced into naming despite slope ownership (Import Review “include in naming”).
+    public var slopeNamingIncludeTags: [String]
 
     enum CodingKeys: String, CodingKey {
         case order
         case inferredOrder = "inferred_order"
         case elidedFallback = "elided_fallback"
+        case slopeNamingIncludeTags = "slope_naming_include_tags"
     }
 
     public static let clarifierTokenWidth = "@width"
@@ -227,10 +230,16 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         clarifierTokenCustom
     ]
 
-    public init(order: [String], inferredOrder: [String]? = nil, elidedFallback: String = "Regular") {
+    public init(
+        order: [String],
+        inferredOrder: [String]? = nil,
+        elidedFallback: String = "Regular",
+        slopeNamingIncludeTags: [String] = []
+    ) {
         self.order = order
         self.inferredOrder = inferredOrder
         self.elidedFallback = elidedFallback
+        self.slopeNamingIncludeTags = slopeNamingIncludeTags
     }
 
     public init(from decoder: Decoder) throws {
@@ -238,6 +247,7 @@ public struct NamingPolicy: Codable, Equatable, Sendable {
         order = try c.decode([String].self, forKey: .order)
         inferredOrder = try c.decodeIfPresent([String].self, forKey: .inferredOrder)
         elidedFallback = try c.decodeIfPresent(String.self, forKey: .elidedFallback) ?? "Regular"
+        slopeNamingIncludeTags = try c.decodeIfPresent([String].self, forKey: .slopeNamingIncludeTags) ?? []
     }
 
     /// Historical name: now only ensures `@pshyphen` — clarifier tokens are no longer auto-appended

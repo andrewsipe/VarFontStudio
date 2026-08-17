@@ -387,7 +387,8 @@ extension EditorViewModel {
                         )
                         project.fonts[index].dirty = true
                     }
-                    if !project.naming.order.contains("ital") {
+                    if !project.naming.order.contains("ital"),
+                       !SlopeAxisPolicy.decide(axes: project.fonts.first?.axes ?? []).namingTagsToExclude.contains("ital") {
                         project.naming.order.append("ital")
                     }
                     didChange = true

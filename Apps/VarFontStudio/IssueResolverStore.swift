@@ -3,17 +3,43 @@ import Foundation
 import VarFontCore
 
 struct AxisConflictResolverSession: Identifiable {
-    let id = UUID()
+    let id: UUID
     let bundle: AxisConflictBundle
     let reviewPosition: Int?
     let reviewTotal: Int?
+
+    init(
+        id: UUID = UUID(),
+        bundle: AxisConflictBundle,
+        reviewPosition: Int?,
+        reviewTotal: Int?
+    ) {
+        self.id = id
+        self.bundle = bundle
+        self.reviewPosition = reviewPosition
+        self.reviewTotal = reviewTotal
+    }
 }
 
 struct PlanIssueResolverSession: Identifiable {
-    let id = UUID()
+    /// Stable for the life of a review walk — reused on "Apply and continue" so the sheet
+    /// isn't torn down under the pointer (AttributeGraph / tooltip crash).
+    let id: UUID
     let warning: PlanWarning
     let reviewPosition: Int?
     let reviewTotal: Int?
+
+    init(
+        id: UUID = UUID(),
+        warning: PlanWarning,
+        reviewPosition: Int?,
+        reviewTotal: Int?
+    ) {
+        self.id = id
+        self.warning = warning
+        self.reviewPosition = reviewPosition
+        self.reviewTotal = reviewTotal
+    }
 }
 
 struct FvarStatConflictSession: Identifiable {
@@ -96,7 +122,9 @@ final class IssueResolverStore: ObservableObject {
         reviewPosition: Int?,
         reviewTotal: Int?
     ) {
+        let sessionID = conflictResolverRequest?.id ?? UUID()
         conflictResolverRequest = AxisConflictResolverSession(
+            id: sessionID,
             bundle: bundle,
             reviewPosition: reviewPosition,
             reviewTotal: reviewTotal
@@ -108,7 +136,9 @@ final class IssueResolverStore: ObservableObject {
         reviewPosition: Int?,
         reviewTotal: Int?
     ) {
+        let sessionID = planIssueResolverRequest?.id ?? UUID()
         planIssueResolverRequest = PlanIssueResolverSession(
+            id: sessionID,
             warning: warning,
             reviewPosition: reviewPosition,
             reviewTotal: reviewTotal

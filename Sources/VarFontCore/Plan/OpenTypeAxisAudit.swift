@@ -87,26 +87,26 @@ public enum OpenTypeAxisAudit {
         font: FontDocument,
         namingOrder: [String]
     ) -> [PlanWarning] {
-        guard let italAxis = font.axes.first(where: { $0.tag == "ital" }),
-              font.axes.contains(where: { $0.tag == "slnt" }) else { return [] }
+        let decision = SlopeAxisPolicy.decide(font: font)
 
-        // slnt for slope variation + ital as STAT registration-only (no fvar scale) is intentional.
-        if italAxis.isDesignRecordOnly && italAxis.role != .instance {
+        switch decision.ownership {
+        case .none, .slntOwns, .italOwns, .italAsSlope:
+            // Single-owner / passive sibling — not an error (matches OT “prefer one”).
             return []
+        case .dual:
+            break
         }
 
-        let slntInGrid = font.axes.contains { $0.tag == "slnt" && $0.role == .instance }
-        let italInGrid = italAxis.role == .instance
         let bothInNaming = namingOrder.contains("ital") && namingOrder.contains("slnt")
-        guard italInGrid || slntInGrid || bothInNaming else {
+        guard decision.slnt == .active, decision.ital == .active || bothInNaming else {
             return []
         }
 
         return [
             PlanWarning(
                 code: "ital_slnt_coexistence",
-                message: "Both 'ital' and 'slnt' appear in this font; registered axes should rarely use both.",
-                hint: "Prefer one slope model when both axes vary instances: ital for true italic, slnt for oblique. Choose Don't change if this family intentionally uses both."
+                message: "Both 'ital' and 'slnt' vary in this font — an uncommon but valid dual slope model.",
+                hint: "Use ital for structural italic and slnt for oblique angle when both are intentional. Prefer one axis when the second is only registration or redundant naming."
             ),
         ]
     }
