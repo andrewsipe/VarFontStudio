@@ -27,3 +27,5 @@ Release zips: `./scripts/build-release.sh`
 ## Where things stand
 
 Alpha **0.1.5**. Core workflow — instance grid, naming, Review, and STAT/fvar/name export — is in active use. Signed/notarized distribution is not set up yet.
+
+Declutter / product-pass notes: `PRODUCT_REFINEMENT_NOTES.md`. Design/handoff archive: `../_misc/_archive/VarFontStudio/`.

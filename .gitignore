@@ -9,11 +9,8 @@ xcuserdata/
 .build/
 .swiftpm/
 
-# Local-only — prototypes, handoff notes, schema scratch, fixtures.
-# Stay on disk for Studio work; PushCore / git push should only ship what
-# another machine needs to clone and build VarFont Studio.
-archive/
-fixtures/
+# Local-only — schema scratch (optional). Design/handoff archive moved to
+# ../_misc/_archive/VarFontStudio/ (2026-08 declutter).
 SCHEMA.md
 raw_github_urls.txt
 Apps/VarFontStudio/COLOR_OUTLINE.md
