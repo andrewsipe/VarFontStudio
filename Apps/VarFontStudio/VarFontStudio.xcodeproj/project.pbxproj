@@ -100,6 +100,7 @@
 		B2000066 /* ProjectWorkspaceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000066 /* ProjectWorkspaceStoreTests.swift */; };
 		B2000067 /* IssueResolverStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000067 /* IssueResolverStoreTests.swift */; };
 		B2000068 /* SaveReviewStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000068 /* SaveReviewStoreTests.swift */; };
+		B2000105 /* AuxiliaryWindowOpenGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000105 /* AuxiliaryWindowOpenGateTests.swift */; };
 		B2000091 /* FvarStatConflictResolverSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000091 /* FvarStatConflictResolverSheet.swift */; };
 /* End PBXBuildFile section */
 
@@ -200,6 +201,7 @@
 		F2000066 /* ProjectWorkspaceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectWorkspaceStoreTests.swift; sourceTree = "<group>"; };
 		F2000067 /* IssueResolverStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueResolverStoreTests.swift; sourceTree = "<group>"; };
 		F2000068 /* SaveReviewStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveReviewStoreTests.swift; sourceTree = "<group>"; };
+		F2000105 /* AuxiliaryWindowOpenGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuxiliaryWindowOpenGateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -361,6 +363,7 @@
 				F2000066 /* ProjectWorkspaceStoreTests.swift */,
 				F2000067 /* IssueResolverStoreTests.swift */,
 				F2000068 /* SaveReviewStoreTests.swift */,
+				F2000105 /* AuxiliaryWindowOpenGateTests.swift */,
 			);
 			name = VarFontStudioTests;
 			path = ../VarFontStudioTests;
@@ -603,6 +606,7 @@
 				B2000066 /* ProjectWorkspaceStoreTests.swift in Sources */,
 				B2000067 /* IssueResolverStoreTests.swift in Sources */,
 				B2000068 /* SaveReviewStoreTests.swift in Sources */,
+				B2000105 /* AuxiliaryWindowOpenGateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

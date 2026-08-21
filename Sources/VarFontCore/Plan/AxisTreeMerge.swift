@@ -58,6 +58,59 @@ public enum AxisTreeMerge {
         return merged
     }
 
+    /// Copies master Format 4 combinations onto a sibling after its axes were merged.
+    ///
+    /// Combinations that reference an axis the destination does not have are left off
+    /// (same rule as master-only fvar axes). Combinations that pin a registration axis
+    /// to a value other than the destination’s file registration are skipped. Target
+    /// combinations that use a target-only axis are kept.
+    public static func mergeCompoundsFromMaster(
+        master: [CompoundStatValue],
+        into target: [CompoundStatValue],
+        masterAxes: [AxisDefinition],
+        targetAxes: [AxisDefinition],
+        targetFileStatRegistration: [String: Double] = [:]
+    ) -> [CompoundStatValue] {
+        let targetTags = Set(targetAxes.map(\.tag))
+        let masterTags = Set(masterAxes.map(\.tag))
+        let targetOnlyTags = targetTags.subtracting(masterTags)
+
+        var pushed: [CompoundStatValue] = []
+        for compound in master {
+            let tags = Set(compound.coords.keys)
+            guard tags.count >= 2, tags.isSubset(of: targetTags) else { continue }
+            guard matchesRegistrationPins(compound, registration: targetFileStatRegistration) else {
+                continue
+            }
+            var copy = compound
+            copy.id = "compound-\(UUID().uuidString.prefix(8))"
+            CompoundStatCoordinateSync.syncIndicesAndValues(
+                compound: &copy,
+                designAxisOrder: targetAxes
+            )
+            pushed.append(copy)
+        }
+
+        let kept = target.filter { compound in
+            !Set(compound.coords.keys).isDisjoint(with: targetOnlyTags)
+        }
+
+        return CompoundStatNaming.sortedByAxisOrder(pushed + kept, axes: targetAxes)
+    }
+
+    private static func matchesRegistrationPins(
+        _ compound: CompoundStatValue,
+        registration: [String: Double]
+    ) -> Bool {
+        for (tag, value) in compound.coords {
+            guard let pinned = registration[tag] else { continue }
+            if !AxisCoordinate.valuesEqual(value, pinned) {
+                return false
+            }
+        }
+        return true
+    }
+
     /// When the master uses `ital` Format 3 style linking, mirror it onto the variant's
     /// registered stop (Roman 0→1 on master, Italic 1→0 on italic variants).
     private static func applyMirroredItalFormat3(

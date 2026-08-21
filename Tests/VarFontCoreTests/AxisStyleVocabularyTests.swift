@@ -4,9 +4,9 @@ import XCTest
 final class AxisStyleVocabularyTests: XCTestCase {
     func testFamilies() {
         XCTAssertEqual(AxisStyleVocabulary.family(for: "Wide"), .width)
-        XCTAssertEqual(AxisStyleVocabulary.family(for: "Ultra Condensed"), .width)
+        XCTAssertEqual(AxisStyleVocabulary.family(for: "UltraCondensed"), .width)
         XCTAssertEqual(AxisStyleVocabulary.family(for: "Bold"), .weight)
-        XCTAssertEqual(AxisStyleVocabulary.family(for: "ExtraBold"), .weight)
+        XCTAssertEqual(AxisStyleVocabulary.family(for: "Extrabold"), .weight)
         XCTAssertEqual(AxisStyleVocabulary.family(for: "Italic"), .slope)
         XCTAssertEqual(AxisStyleVocabulary.family(for: "Micro"), .optical)
         XCTAssertEqual(AxisStyleVocabulary.family(for: "Regular"), .unknown)
@@ -24,6 +24,14 @@ final class AxisStyleVocabularyTests: XCTestCase {
         XCTAssertFalse(AxisStyleVocabulary.mismatchesAxis("Display", tag: "insd"))
         XCTAssertFalse(AxisStyleVocabulary.mismatchesAxis("SemiDisplay", tag: "ousd"))
         XCTAssertTrue(AxisStyleVocabulary.mismatchesAxis("Display", tag: "wght"))
+    }
+
+    func testStrippingFileSlopeTokensLeavesSlopeAxesAlone() {
+        XCTAssertEqual(AxisStyleVocabulary.strippingFileSlopeTokens("Light Italic", forAxisTag: "wght"), "Light")
+        XCTAssertEqual(AxisStyleVocabulary.strippingFileSlopeTokens("Text Italic", forAxisTag: "opsz"), "Text")
+        XCTAssertEqual(AxisStyleVocabulary.strippingFileSlopeTokens("Italic", forAxisTag: "wght"), "")
+        XCTAssertEqual(AxisStyleVocabulary.strippingFileSlopeTokens("Italic", forAxisTag: "slnt"), "Italic")
+        XCTAssertEqual(AxisStyleVocabulary.strippingFileSlopeTokens("Light Italic", forAxisTag: "ital"), "Light Italic")
     }
 
     func testPositionalFuzzVsOpszShear() {

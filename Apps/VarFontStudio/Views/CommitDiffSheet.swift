@@ -294,7 +294,7 @@ struct SaveReviewWindow: View {
         }
         .frame(minWidth: 920, minHeight: 680)
         .navigationTitle(editor.saveReviewWindowTitle(forProjectID: projectID))
-        .background(SaveReviewWindowConfigurator())
+        .background(SaveReviewWindowConfigurator(projectID: projectID))
         .background(AuxiliaryWindowOpenBridge())
         .focusedSceneValue(
             \.studioFocus,
@@ -419,6 +419,8 @@ struct SaveReviewWindow: View {
 
 /// Opt out of macOS window restoration for the Review auxiliary window (macOS 14).
 private struct SaveReviewWindowConfigurator: NSViewRepresentable {
+    let projectID: String
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: .zero)
         configure(window: view.window)
@@ -432,6 +434,6 @@ private struct SaveReviewWindowConfigurator: NSViewRepresentable {
     private func configure(window: NSWindow?) {
         guard let window else { return }
         window.isRestorable = false
-        window.identifier = NSUserInterfaceItemIdentifier(SaveReviewWindowLifecycle.identifier)
+        window.identifier = SaveReviewWindowLifecycle.windowIdentifier(forProjectID: projectID)
     }
 }

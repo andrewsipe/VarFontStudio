@@ -68,6 +68,25 @@ class OTLabelReflowTests(unittest.TestCase):
         for site in refreshed[new_id]:
             self.assertEqual(site.name_id, new_id)
 
+    def test_identity_copy_does_not_duplicate_windows_names(self) -> None:
+        from fontTools.ttLib.tables._n_a_m_e import table__n_a_m_e
+        from vfcommit_lib.ot_label_reflow import copy_name_records_for_id, dedupe_name_table_records
+
+        font = TTFont()
+        name = table__n_a_m_e()
+        name.names = []
+        font["name"] = name
+        name.setName("High Bars", 256, 3, 1, 0x409)
+        copy_name_records_for_id(font, 256, 256)
+        self.assertEqual(len(font["name"].names), 1)
+        copy_name_records_for_id(font, 256, 257)
+        self.assertEqual(len([rec for rec in font["name"].names if rec.nameID == 257]), 1)
+        font["name"].names.extend(list(font["name"].names[:1]))
+        dropped = dedupe_name_table_records(font)
+        self.assertGreaterEqual(dropped, 1)
+        keys = [(rec.nameID, rec.platformID, rec.platEncID, rec.langID) for rec in font["name"].names]
+        self.assertEqual(len(keys), len(set(keys)))
+
     def test_pre_wipe_then_reflow_playfair(self) -> None:
         font = self._playfair()
         axes_json = [

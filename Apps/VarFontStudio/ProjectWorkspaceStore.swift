@@ -15,6 +15,7 @@ final class ProjectWorkspaceStore: ObservableObject {
     @Published var missingFontsRequest: MissingFontsRequest?
     @Published var confirmSetAsMasterFontID: String?
     @Published var confirmPushAxisTree = false
+    @Published var confirmPushNames = false
     @Published var pendingAddFontProjectID: String?
     @Published var projectTargetPickerMode: ProjectTargetPickerMode?
 
@@ -27,6 +28,7 @@ final class ProjectWorkspaceStore: ObservableObject {
     func clearQuit() { confirmQuitRequested = false }
     func clearSetAsMaster() { confirmSetAsMasterFontID = nil }
     func clearPushAxisTree() { confirmPushAxisTree = false }
+    func clearPushNames() { confirmPushNames = false }
     func clearTargetPicker() { projectTargetPickerMode = nil }
     func clearMissingFonts() { missingFontsRequest = nil }
 }

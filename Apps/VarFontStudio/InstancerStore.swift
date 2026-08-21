@@ -420,7 +420,12 @@ final class InstancerStore: ObservableObject {
         if let workspace = workspaces[windowKey] {
             workspace.selectedTabKey = sessionKey
         }
-        requestOpen(windowKey: windowKey)
+        if !InstancerWindowLifecycle.focusExisting(
+            windowKey: windowKey,
+            title: windowTitle(forWindowKey: windowKey)
+        ) {
+            requestOpen(windowKey: windowKey)
+        }
     }
 
     func requestOpen(windowKey: String) {
@@ -556,7 +561,14 @@ final class InstancerStore: ObservableObject {
             workspace.selectedTabKey = tabKeys.first
         }
 
-        requestOpen(windowKey: windowKey)
+        // Refresh session state even when the window is already open; only mint a new
+        // openRequest when AppKit does not already have this project window.
+        if !InstancerWindowLifecycle.focusExisting(
+            windowKey: windowKey,
+            title: windowTitle(forWindowKey: windowKey)
+        ) {
+            requestOpen(windowKey: windowKey)
+        }
 
         // Analyze the visible tab first; remaining tabs load on select / sequential prefetch.
         if let selectedKey = workspace.selectedTabKey {
@@ -598,19 +610,16 @@ final class InstancerStore: ObservableObject {
     }
 
     func isInstancerWindowOpen(windowKey: String) -> Bool {
-        let title = windowTitle(forWindowKey: windowKey)
-        return NSApplication.shared.windows.contains { window in
-            guard InstancerWindowLifecycle.isInstancerWindow(window) else { return false }
-            return window.title == title || window.title.hasPrefix(title)
-        }
+        !InstancerWindowLifecycle.existingWindows(
+            windowKey: windowKey,
+            title: windowTitle(forWindowKey: windowKey)
+        ).isEmpty
     }
 
     func closeInstancerWindow(windowKey: String) {
         let title = windowTitle(forWindowKey: windowKey)
-        for window in NSApplication.shared.windows where InstancerWindowLifecycle.isInstancerWindow(window) {
-            if window.title == title || window.title.hasPrefix(title) {
-                window.close()
-            }
+        for window in InstancerWindowLifecycle.existingWindows(windowKey: windowKey, title: title) {
+            window.close()
         }
     }
 

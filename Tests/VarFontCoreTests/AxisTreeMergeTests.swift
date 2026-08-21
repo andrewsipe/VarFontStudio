@@ -240,4 +240,233 @@ final class AxisTreeMergeTests: XCTestCase {
         XCTAssertEqual(Set(merged.map(\.tag)), ["wght", "opsz"])
         XCTAssertEqual(merged.first { $0.tag == "opsz" }?.values.map(\.name), ["Text"])
     }
+
+    func testPushCopiesCompatibleCombinationsFromMaster() {
+        let masterAxes = [
+            wghtAxis(values: [AxisValue(id: "m400", value: 400, name: "Regular", elidable: true)]),
+            AxisDefinition(
+                tag: "SOFT",
+                displayName: "Softness",
+                min: 0,
+                default: 0,
+                max: 100,
+                role: .instance,
+                values: [
+                    AxisValue(id: "hard", value: 0, name: "Hard", elidable: true),
+                    AxisValue(id: "soft", value: 100, name: "Soft", elidable: false),
+                ]
+            ),
+        ]
+        let targetAxes = masterAxes
+        let masterCompounds = [
+            CompoundStatValue(
+                id: "m-soft-reg",
+                coords: ["wght": 400, "SOFT": 100],
+                axisIndices: [0, 1],
+                axisValues: [400, 100],
+                name: "Soft Regular",
+                elidable: false
+            ),
+        ]
+        let targetCompounds = [
+            CompoundStatValue(
+                id: "t-old",
+                coords: ["wght": 700, "SOFT": 0],
+                axisIndices: [0, 1],
+                axisValues: [700, 0],
+                name: "Hard Bold",
+                elidable: false
+            ),
+        ]
+
+        let merged = AxisTreeMerge.mergeCompoundsFromMaster(
+            master: masterCompounds,
+            into: targetCompounds,
+            masterAxes: masterAxes,
+            targetAxes: targetAxes
+        )
+
+        XCTAssertEqual(merged.count, 1)
+        XCTAssertEqual(merged[0].name, "Soft Regular")
+        XCTAssertEqual(merged[0].coords, ["wght": 400, "SOFT": 100])
+        XCTAssertNotEqual(merged[0].id, "m-soft-reg")
+        XCTAssertEqual(merged[0].axisIndices, [0, 1])
+        XCTAssertEqual(merged[0].axisValues, [400, 100])
+    }
+
+    func testPushSkipsCombinationsThatNeedMasterOnlyAxes() {
+        let masterAxes = [
+            wghtAxis(values: [AxisValue(id: "m400", value: 400, name: "Regular", elidable: true)]),
+            AxisDefinition(
+                tag: "SOFT",
+                displayName: "Softness",
+                min: 0,
+                default: 0,
+                max: 100,
+                role: .instance,
+                values: [AxisValue(id: "soft", value: 100, name: "Soft", elidable: false)]
+            ),
+        ]
+        let targetAxes = [
+            wghtAxis(values: [AxisValue(id: "t400", value: 400, name: "Regular", elidable: true)]),
+        ]
+        let masterCompounds = [
+            CompoundStatValue(
+                id: "m-soft",
+                coords: ["wght": 400, "SOFT": 100],
+                axisIndices: [0, 1],
+                axisValues: [400, 100],
+                name: "Soft Regular",
+                elidable: false
+            ),
+        ]
+
+        let merged = AxisTreeMerge.mergeCompoundsFromMaster(
+            master: masterCompounds,
+            into: [],
+            masterAxes: masterAxes,
+            targetAxes: targetAxes
+        )
+
+        XCTAssertTrue(merged.isEmpty)
+    }
+
+    func testPushKeepsTargetOnlyAxisCombinations() {
+        let masterAxes = [
+            wghtAxis(values: [AxisValue(id: "m400", value: 400, name: "Regular", elidable: true)]),
+        ]
+        let targetAxes = [
+            wghtAxis(values: [AxisValue(id: "t400", value: 400, name: "Regular", elidable: true)]),
+            AxisDefinition(
+                tag: "opsz",
+                displayName: "Optical Size",
+                min: 8,
+                default: 12,
+                max: 144,
+                role: .instance,
+                values: [AxisValue(id: "t12", value: 12, name: "Text", elidable: true)]
+            ),
+        ]
+        let targetCompounds = [
+            CompoundStatValue(
+                id: "t-opsz",
+                coords: ["wght": 400, "opsz": 12],
+                axisIndices: [0, 1],
+                axisValues: [400, 12],
+                name: "Text Regular",
+                elidable: false
+            ),
+        ]
+
+        let merged = AxisTreeMerge.mergeCompoundsFromMaster(
+            master: [],
+            into: targetCompounds,
+            masterAxes: masterAxes,
+            targetAxes: targetAxes
+        )
+
+        XCTAssertEqual(merged.count, 1)
+        XCTAssertEqual(merged[0].id, "t-opsz")
+        XCTAssertEqual(merged[0].name, "Text Regular")
+    }
+
+    func testPushReplacesSharedAxisCombinationsAndKeepsTargetOnly() {
+        let soft = AxisDefinition(
+            tag: "SOFT",
+            displayName: "Softness",
+            min: 0,
+            default: 0,
+            max: 100,
+            role: .instance,
+            values: [AxisValue(id: "soft", value: 100, name: "Soft", elidable: false)]
+        )
+        let opsz = AxisDefinition(
+            tag: "opsz",
+            displayName: "Optical Size",
+            min: 8,
+            default: 12,
+            max: 144,
+            role: .instance,
+            values: [AxisValue(id: "t12", value: 12, name: "Text", elidable: true)]
+        )
+        let masterAxes = [
+            wghtAxis(values: [AxisValue(id: "m400", value: 400, name: "Regular", elidable: true)]),
+            soft,
+        ]
+        let targetAxes = [
+            wghtAxis(values: [AxisValue(id: "t400", value: 400, name: "Regular", elidable: true)]),
+            soft,
+            opsz,
+        ]
+        let masterCompounds = [
+            CompoundStatValue(
+                id: "m-soft",
+                coords: ["wght": 400, "SOFT": 100],
+                axisIndices: [0, 1],
+                axisValues: [400, 100],
+                name: "Soft Regular",
+                elidable: false
+            ),
+        ]
+        let targetCompounds = [
+            CompoundStatValue(
+                id: "t-old-shared",
+                coords: ["wght": 700, "SOFT": 0],
+                axisIndices: [0, 1],
+                axisValues: [700, 0],
+                name: "Hard Bold",
+                elidable: false
+            ),
+            CompoundStatValue(
+                id: "t-opsz",
+                coords: ["wght": 400, "opsz": 12],
+                axisIndices: [0, 2],
+                axisValues: [400, 12],
+                name: "Text Regular",
+                elidable: false
+            ),
+        ]
+
+        let merged = AxisTreeMerge.mergeCompoundsFromMaster(
+            master: masterCompounds,
+            into: targetCompounds,
+            masterAxes: masterAxes,
+            targetAxes: targetAxes
+        )
+
+        XCTAssertEqual(Set(merged.map(\.name)), ["Soft Regular", "Text Regular"])
+        XCTAssertEqual(merged.first { $0.name == "Text Regular" }?.id, "t-opsz")
+        XCTAssertNotEqual(merged.first { $0.name == "Soft Regular" }?.id, "m-soft")
+    }
+
+    func testPushSkipsCombinationsThatDisagreeWithRegistrationPins() {
+        let masterAxes = [
+            wghtAxis(values: [AxisValue(id: "m400", value: 400, name: "Regular", elidable: true)]),
+            italAxis(
+                role: .designRecordOnly,
+                values: [AxisValue(id: "roman", value: 0, name: "Roman", elidable: true)]
+            ),
+        ]
+        let targetAxes = masterAxes
+        let masterCompounds = [
+            CompoundStatValue(
+                id: "m-roman",
+                coords: ["wght": 400, "ital": 0],
+                axisIndices: [0, 1],
+                axisValues: [400, 0],
+                name: "Roman Regular",
+                elidable: false
+            ),
+        ]
+
+        let merged = AxisTreeMerge.mergeCompoundsFromMaster(
+            master: masterCompounds,
+            into: [],
+            masterAxes: masterAxes,
+            targetAxes: targetAxes,
+            targetFileStatRegistration: ["ital": 1]
+        )
+
+        XCTAssertTrue(merged.isEmpty)
+    }
 }

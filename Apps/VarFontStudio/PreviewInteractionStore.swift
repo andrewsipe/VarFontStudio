@@ -6,7 +6,7 @@ import Foundation
 /// so pointer and slideshow work do not republish the whole tree.
 ///
 /// Per-frame variation during a morph is pushed through `glyphBridge` directly onto
-/// the CATextLayer (no `@Published` coords), which avoids SwiftUI layout thrash /
+/// the glyph canvas (no `@Published` coords), which avoids SwiftUI layout thrash /
 /// “waviness” as glyph advances change.
 @MainActor
 final class PreviewInteractionStore: ObservableObject {
@@ -76,7 +76,7 @@ final class PreviewInteractionStore: ObservableObject {
     }
 }
 
-/// Direct pipe from slideshow → `CATextLayer`, bypassing SwiftUI invalidation.
+/// Direct pipe from slideshow → glyph canvas, bypassing SwiftUI invalidation.
 @MainActor
 final class PreviewGlyphBridge {
     weak var canvas: FontPreviewGlyphNSView?

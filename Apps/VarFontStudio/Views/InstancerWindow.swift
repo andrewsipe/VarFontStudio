@@ -26,7 +26,7 @@ struct InstancerWindow: View {
         }
         .frame(minWidth: 880, minHeight: 560)
         .navigationTitle(instancer.windowTitle(forWindowKey: windowKey))
-        .background(InstancerWindowConfigurator())
+        .background(InstancerWindowConfigurator(windowKey: windowKey))
         .background(AuxiliaryWindowOpenBridge())
         .focusedSceneValue(
             \.studioFocus,
@@ -1170,21 +1170,25 @@ private struct InstancerRowView: View, Equatable {
 }
 
 private struct InstancerWindowConfigurator: NSViewRepresentable {
+    let windowKey: String
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
-            if let window = view.window {
-                window.identifier = NSUserInterfaceItemIdentifier(InstancerWindowLifecycle.identifier)
-                window.isRestorable = false
-            }
+            configure(window: view.window)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
-            nsView.window?.identifier = NSUserInterfaceItemIdentifier(InstancerWindowLifecycle.identifier)
-            nsView.window?.isRestorable = false
+            configure(window: nsView.window)
         }
+    }
+
+    private func configure(window: NSWindow?) {
+        guard let window else { return }
+        window.identifier = InstancerWindowLifecycle.windowIdentifier(forWindowKey: windowKey)
+        window.isRestorable = false
     }
 }

@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._n_a_m_e import NameRecord
@@ -251,6 +251,8 @@ def ot_reflow_end_from_groups(ot_groups: Dict[int, List[OTLabelSite]]) -> int:
 
 def copy_name_records_for_id(font: TTFont, old_id: int, new_id: int) -> None:
     """Duplicate every platform/encoding/language record from old_id to new_id."""
+    if old_id == new_id:
+        return
     if "name" not in font:
         return
     name_table = font["name"]
@@ -268,6 +270,26 @@ def copy_name_records_for_id(font: TTFont, old_id: int, new_id: int) -> None:
     name_table.names.extend(copies)
 
 
+def dedupe_name_table_records(font: TTFont) -> int:
+    """Keep the first record per (nameID, platform, encoding, language)."""
+    if "name" not in font:
+        return 0
+    name_table = font["name"]
+    seen: Set[Tuple[int, int, int, int]] = set()
+    kept: List[NameRecord] = []
+    dropped = 0
+    for rec in name_table.names:
+        key = (int(rec.nameID), int(rec.platformID), int(rec.platEncID), int(rec.langID))
+        if key in seen:
+            dropped += 1
+            continue
+        seen.add(key)
+        kept.append(rec)
+    if dropped:
+        name_table.names = kept
+    return dropped
+
+
 def apply_ot_reflow(
     font: TTFont,
     mapping: Dict[int, int],
@@ -283,6 +305,7 @@ def apply_ot_reflow(
             copy_name_records_for_id(font, old_id, new_id)
         for old_id, new_id in mapping.items():
             patch_ot_label_sites(ot_groups.get(old_id, []), new_id)
+        dedupe_name_table_records(font)
         return max(mapping.values())
     return ot_reflow_end_from_groups(ot_groups)
 
@@ -317,6 +340,7 @@ __all__ = [
     "build_reflow_pre_wipe_protected",
     "classify_name_ids",
     "copy_name_records_for_id",
+    "dedupe_name_table_records",
     "detect_reflow_blockers",
     "ot_reflow_end_from_groups",
     "patch_ot_label_site",

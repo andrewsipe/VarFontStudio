@@ -177,4 +177,54 @@ final class AxisStopNamingDefaultsTests: XCTestCase {
         let details = AxisStopNamingDefaults.axisNeutralMismatchDescriptions(in: font)
         XCTAssertTrue(details.contains { $0.contains("wght") && $0.contains("Normal") && $0.contains("Regular") })
     }
+
+    func testWeightDoesNotInventElidableAtDefault() {
+        XCTAssertFalse(AxisStopNamingDefaults.inventsElidableAtDefault(for: "wght"))
+        XCTAssertFalse(AxisStopNamingDefaults.inventedElidable(for: "wght", atDefault: true))
+        XCTAssertTrue(AxisStopNamingDefaults.inventsElidableAtDefault(for: "wdth"))
+        XCTAssertTrue(AxisStopNamingDefaults.inventedElidable(for: "wdth", atDefault: true))
+        XCTAssertFalse(AxisStopNamingDefaults.inventedElidable(for: "wdth", atDefault: false))
+    }
+
+    func testBulkApplyDefaultsDoesNotInventWeightElision() throws {
+        let axis = AxisDefinition(
+            tag: "wght",
+            role: .instance,
+            values: [
+                AxisValue(id: "thin", value: 100, name: "100", elidable: false),
+                AxisValue(id: "reg", value: 400, name: "400", elidable: false),
+                AxisValue(id: "bold", value: 700, name: "700", elidable: false),
+            ]
+        )
+        let action = AxisStopNamingDefaults.bulkApplyDefaults(
+            axis: axis,
+            stopIDs: axis.values.map(\.id)
+        )
+        var font = FontDocument(id: "t", sourcePath: "/tmp/t.ttf", axes: [axis])
+        ConflictResolver.apply(action, axisTag: "wght", to: &font)
+        XCTAssertFalse(font.axes[0].values.contains(where: \.elidable))
+        XCTAssertEqual(font.axes[0].values.map(\.name), ["100", "400", "700"])
+    }
+
+    func testBulkApplyDefaultsPreservesImportedWeightElision() throws {
+        let axis = AxisDefinition(
+            tag: "wght",
+            role: .instance,
+            values: [
+                AxisValue(id: "thin", value: 100, name: "100", elidable: false),
+                AxisValue(id: "reg", value: 400, name: "400", elidable: true),
+                AxisValue(id: "bold", value: 700, name: "700", elidable: false),
+            ]
+        )
+        let action = AxisStopNamingDefaults.bulkApplyDefaults(
+            axis: axis,
+            stopIDs: axis.values.map(\.id)
+        )
+        var font = FontDocument(id: "t", sourcePath: "/tmp/t.ttf", axes: [axis])
+        ConflictResolver.apply(action, axisTag: "wght", to: &font)
+        let reg = try XCTUnwrap(font.axes[0].values.first { $0.id == "reg" })
+        XCTAssertTrue(reg.elidable)
+        XCTAssertEqual(reg.name, "Regular")
+        XCTAssertFalse(font.axes[0].values.contains { $0.id != "reg" && $0.elidable })
+    }
 }

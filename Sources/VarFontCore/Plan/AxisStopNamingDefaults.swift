@@ -16,6 +16,17 @@ public enum AxisStopNamingDefaults {
         }
     }
 
+    /// Weight elision is source-driven only (STAT / existing stops). Invented stops —
+    /// fvar seeding, Fill, Add — must not assume Regular is elidable just because it
+    /// sits at the fvar default. Other registered axes may still invent default elision.
+    public static func inventsElidableAtDefault(for tag: String) -> Bool {
+        tag != "wght"
+    }
+
+    public static func inventedElidable(for tag: String, atDefault: Bool) -> Bool {
+        atDefault && inventsElidableAtDefault(for: tag)
+    }
+
     public static func suggestedName(for stop: AxisValue, axisTag: String) -> String {
         if stop.elidable, let elidable = defaultElidableName(for: axisTag) {
             return elidable
@@ -42,15 +53,26 @@ public enum AxisStopNamingDefaults {
         guard !involved.isEmpty else { return .compound([]) }
 
         let elidableDefault = defaultElidableName(for: axis.tag)
-        let elidableStop = involved.first(where: \.elidable)
-            ?? involved.min(by: { $0.value < $1.value })
         var actions: [ConflictFixAction] = []
 
-        if let elidableStop {
-            for stop in involved where stop.id != elidableStop.id && stop.elidable {
-                actions.append(.setElidable(stopID: stop.id, elidable: false))
+        let elidableStop: AxisValue?
+        if inventsElidableAtDefault(for: axis.tag) {
+            elidableStop = involved.first(where: \.elidable)
+                ?? involved.min(by: { $0.value < $1.value })
+            if let elidableStop {
+                for stop in involved where stop.id != elidableStop.id && stop.elidable {
+                    actions.append(.setElidable(stopID: stop.id, elidable: false))
+                }
+                actions.append(.setElidable(stopID: elidableStop.id, elidable: true))
             }
-            actions.append(.setElidable(stopID: elidableStop.id, elidable: true))
+        } else {
+            // Weight: preserve imported elision; never invent a new elidable stop.
+            elidableStop = involved.first(where: \.elidable)
+            if let elidableStop {
+                for stop in involved where stop.id != elidableStop.id && stop.elidable {
+                    actions.append(.setElidable(stopID: stop.id, elidable: false))
+                }
+            }
         }
 
         for stop in involved {

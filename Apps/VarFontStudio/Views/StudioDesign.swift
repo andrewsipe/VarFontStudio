@@ -3447,6 +3447,8 @@ struct StudioCompactToggleButton: View {
     var isActive: Bool = false
     var isEnabled: Bool = true
     var help: String = ""
+    /// Leading SF Symbol (e.g. Names AutoMagic wand).
+    var systemImage: String? = nil
     /// When set, active state uses this semantic wash instead of the neutral active fill.
     var accent: StudioCompactToggleAccent? = nil
     /// Embeds an include-checkbox mark inside the button (Instances Include all).
@@ -3462,6 +3464,15 @@ struct StudioCompactToggleButton: View {
                    : StudioSpacing.tightGap) {
                 if showsCheckbox {
                     includeMark
+                }
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(StudioCompactControlChrome.symbolFont)
+                        .foregroundStyle(StudioCompactControlChrome.foreground(
+                            isActive: isActive,
+                            isEnabled: isEnabled,
+                            accentForeground: accent?.foreground
+                        ))
                 }
                 Text(title)
                     .font(StudioCompactControlChrome.labelFont)

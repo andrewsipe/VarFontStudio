@@ -184,7 +184,10 @@ public enum AxisStopFillPlanner {
                 name: fillName(for: row.nom, axisTag: options.axisTag, axisDefault: options.defaultValue),
                 rangeMin: row.min,
                 rangeMax: row.max,
-                elidable: options.defaultValue.map { AxisCoordinate.valuesEqual(row.nom, $0) } ?? false,
+                elidable: AxisStopNamingDefaults.inventedElidable(
+                    for: options.axisTag,
+                    atDefault: options.defaultValue.map { AxisCoordinate.valuesEqual(row.nom, $0) } ?? false
+                ),
                 statFormat: format
             )
         }
@@ -234,14 +237,14 @@ public enum AxisStopFillPlanner {
     // MARK: - Private
 
     private static let weightNames: [Int: String] = [
-        100: "Extrathin",
-        200: "Thin",
+        100: "Thin",
+        200: "Extralight",
         300: "Light",
         400: "Regular",
         500: "Medium",
         600: "Semibold",
         700: "Bold",
-        800: "ExtraBold",
+        800: "Extrabold",
         900: "Black",
     ]
 

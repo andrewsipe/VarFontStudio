@@ -83,19 +83,27 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         }
     }
 
-    /// First font is master; others are variants when `file_role` was absent (legacy projects).
+    /// First font is master; others are variants when `file_role` was absent (legacy projects)
+    /// or when no font has the master role (e.g. a project saved after the master was split out).
     private mutating func migrateFileRolesIfNeeded() {
         guard !fonts.isEmpty else { return }
-        let needsMigration = fonts.contains { $0.fileRole == nil }
-        guard needsMigration else { return }
+        let hasNilRole = fonts.contains { $0.fileRole == nil }
+        let hasMaster = fonts.contains { $0.fileRole?.kind == .master }
+
+        guard hasNilRole || !hasMaster else { return }
 
         let masterID = fonts[0].id
-        for index in fonts.indices {
-            if fonts[index].fileRole == nil {
-                fonts[index].fileRole = index == 0
-                    ? .master()
-                    : .variant(masterFontID: masterID)
+        if !hasMaster {
+            fonts[0].fileRole = .master()
+            for index in fonts.indices where index > 0 {
+                fonts[index].fileRole?.kind = .variant
+                fonts[index].fileRole?.masterFontID = masterID
             }
+        }
+        for index in fonts.indices where fonts[index].fileRole == nil {
+            fonts[index].fileRole = index == 0
+                ? .master()
+                : .variant(masterFontID: masterID)
         }
     }
 

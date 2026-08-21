@@ -84,10 +84,14 @@ def scan_unlabeled_stylesets(font: TTFont) -> List[OTUnlabeledFeature]:
     """
     Return ss## features that have no primary UI name (UINameID / FeatureNameID).
 
+    A tag is unlabeled only when *every* FeatureRecord for that tag lacks params.
+    OpenType often repeats ss## once per script/langsys; the first record being
+    unlabeled is not enough if a sibling already carries FeatureParams.
+
     Character variants (cv##) are intentionally omitted from add-label inventory.
     """
     results: List[OTUnlabeledFeature] = []
-    seen: set[tuple[str, str]] = set()
+    grouped: dict[tuple[str, str], list] = {}
     for table_tag in ("GSUB", "GPOS"):
         if table_tag not in font:
             continue
@@ -99,17 +103,15 @@ def scan_unlabeled_stylesets(font: TTFont) -> List[OTUnlabeledFeature]:
                 tag = rec.FeatureTag
                 if not _RE_STYLESET.match(tag):
                     continue
-                key = (table_tag, tag)
-                if key in seen:
-                    continue
-                seen.add(key)
-                if _styleset_has_primary_label(rec):
-                    continue
-                results.append(OTUnlabeledFeature(feature_tag=tag, table=table_tag))
+                grouped.setdefault((table_tag, tag), []).append(rec)
         except AttributeError:
             logger.debug("%s has no FeatureList", table_tag)
         except Exception as e:
             logger.warning("Error scanning %s for unlabeled ss: %s", table_tag, e)
+    for (table_tag, tag), records in grouped.items():
+        if any(_styleset_has_primary_label(rec) for rec in records):
+            continue
+        results.append(OTUnlabeledFeature(feature_tag=tag, table=table_tag))
     results.sort(key=lambda r: (r.table, r.feature_tag))
     return results
 
@@ -231,20 +233,24 @@ def _resolve(font: TTFont, name_id: int) -> str:
     return ""
 
 
-def find_feature_record(font: TTFont, table: str, feature_tag: str):
-    """Return the first FeatureRecord matching table + tag, or None."""
+def iter_feature_records(font: TTFont, table: str, feature_tag: str):
+    """Yield every FeatureRecord matching table + tag (one per script/langsys)."""
     if table not in font:
-        return None
+        return
     try:
         feature_list = font[table].table.FeatureList
         if feature_list is None:
-            return None
+            return
         for rec in feature_list.FeatureRecord:
             if rec.FeatureTag == feature_tag:
-                return rec
+                yield rec
     except Exception:
-        return None
-    return None
+        return
+
+
+def find_feature_record(font: TTFont, table: str, feature_tag: str):
+    """Return the first FeatureRecord matching table + tag, or None."""
+    return next(iter_feature_records(font, table, feature_tag), None)
 
 
 __all__ = [
@@ -253,6 +259,7 @@ __all__ = [
     "analyze_ot_features",
     "analyze_ot_features_from_path",
     "find_feature_record",
+    "iter_feature_records",
     "scan_ot_label_nameids",
     "scan_unlabeled_stylesets",
 ]

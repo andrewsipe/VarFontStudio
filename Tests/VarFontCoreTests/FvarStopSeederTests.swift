@@ -320,6 +320,28 @@ final class FvarStopSeederTests: XCTestCase {
         XCTAssertEqual(report.seededStopCount, 0)
     }
 
+    func testDoesNotConflictWhenFvarResidueOnlyAddsFileLevelItalic() {
+        var font = makeFont(
+            axes: [
+                weightAxis(values: [
+                    AxisValue(id: "w400", value: 400, name: "Regular", elidable: true),
+                ]),
+            ]
+        )
+        let analysis = makeAnalysis(
+            axes: [
+                analyzed(tag: "wght", displayName: "Weight", values: [400], observed: [400]),
+            ],
+            instances: [
+                instance("Regular Italic", ["wght": 400]),
+            ]
+        )
+
+        let report = FvarStopSeeder.seed(into: &font, analysis: analysis)
+        XCTAssertTrue(report.conflicts.isEmpty)
+        XCTAssertEqual(font.axes[0].values[0].name, "Regular")
+    }
+
     func testQuietOrthogonalCatalogDoesNotNeedReview() {
         var font = makeFont(
             axes: [

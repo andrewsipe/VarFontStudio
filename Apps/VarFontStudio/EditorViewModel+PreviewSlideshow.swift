@@ -284,7 +284,7 @@ extension EditorViewModel {
     }
 
     /// Hold on the current instance, then cycle selection to the next and morph into it.
-    /// Frames update the CATextLayer via `glyphBridge` — not `@Published` coords.
+    /// Frames update the glyph canvas via `glyphBridge` — not `@Published` coords.
     private func runSlideshowMorphSegment() async -> Bool {
         guard isPreviewSlideshowPlaying, !Task.isCancelled else { return false }
 

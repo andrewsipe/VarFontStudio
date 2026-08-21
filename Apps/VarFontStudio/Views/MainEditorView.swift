@@ -262,6 +262,20 @@ struct MainEditorView: View {
         } message: {
             Text(editor.pushAxisTreeConfirmationMessage())
         }
+        .confirmationDialog(
+            "Push Names?",
+            isPresented: pushNamesConfirmBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Push", role: .destructive) {
+                editor.confirmPushNamesAction()
+            }
+            Button("Cancel", role: .cancel) {
+                editor.workspace.confirmPushNames = false
+            }
+        } message: {
+            Text(editor.pushNamesConfirmationMessage())
+        }
         .onChange(of: editor.instanceSearchFocusToken) { _, token in
             guard token != nil else { return }
             layout.showInstances = true
@@ -286,6 +300,13 @@ struct MainEditorView: View {
         Binding(
             get: { editor.workspace.confirmPushAxisTree },
             set: { editor.workspace.confirmPushAxisTree = $0 }
+        )
+    }
+
+    private var pushNamesConfirmBinding: Binding<Bool> {
+        Binding(
+            get: { editor.workspace.confirmPushNames },
+            set: { editor.workspace.confirmPushNames = $0 }
         )
     }
 

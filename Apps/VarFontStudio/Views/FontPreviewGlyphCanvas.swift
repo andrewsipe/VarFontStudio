@@ -1,21 +1,18 @@
 import AppKit
 import CoreText
-import QuartzCore
 import SwiftUI
 
 /// Advance vs ink metrics for the preview stage.
 ///
 /// `NSString.size(withAttributes:)` is advance-based; slanted / italic ink often
-/// overhangs that box. Sizing the layer from advances alone + clipping shaves
-/// the ends — pad with `CTLineGetImageBounds` so overhang stays visible.
+/// overhangs that box. The drawable width must span the full ink rect and text
+/// must be drawn with a left offset so negative `ink.minX` is not clipped.
 enum FontPreviewGlyphMeasurement {
     struct Metrics {
-        /// Full intrinsic size (left overhang + advance + right overhang).
+        /// Full intrinsic size (left ink pad + advance + right ink pad).
         var contentSize: CGSize
-        /// Offset of the advance origin inside `contentSize` (left ink pad).
-        var leftInset: CGFloat
-        /// CATextLayer width: advance + right ink pad.
-        var layerWidth: CGFloat
+        /// X offset from the content box origin to the line origin when drawing.
+        var drawOffsetX: CGFloat
     }
 
     private static let hairline: CGFloat = 1
@@ -29,8 +26,7 @@ enum FontPreviewGlyphMeasurement {
         guard !text.isEmpty else {
             return Metrics(
                 contentSize: CGSize(width: 1, height: typographicHeight),
-                leftInset: 0,
-                layerWidth: 1
+                drawOffsetX: 0
             )
         }
 
@@ -44,11 +40,9 @@ enum FontPreviewGlyphMeasurement {
         )
         let ink = CTLineGetImageBounds(line, nil)
 
-        let leftInset = max(0, -ink.minX) + hairline
+        let leftPad = max(0, -ink.minX) + hairline
         let rightPad = max(0, ink.maxX - advanceWidth) + hairline
-        let layerWidth = max(advanceWidth + rightPad, 1)
-        let contentWidth = max(leftInset + layerWidth, 1)
-        // Image bounds are baseline-relative; use ink height when it exceeds typographic.
+        let contentWidth = max(leftPad + advanceWidth + rightPad, ink.width + hairline * 2, 1)
         let height = max(heightFloor, ink.height + hairline * 2, 1)
 
         return Metrics(
@@ -56,13 +50,12 @@ enum FontPreviewGlyphMeasurement {
                 width: contentWidth.rounded(.up),
                 height: height.rounded(.up)
             ),
-            leftInset: leftInset.rounded(.up),
-            layerWidth: layerWidth.rounded(.up)
+            drawOffsetX: leftPad.rounded(.up)
         )
     }
 }
 
-/// Single-line glyph stage backed by `CATextLayer` — avoids SwiftUI `Text` reshaping
+/// Single-line glyph stage using Core Text — avoids SwiftUI `Text` reshaping
 /// on every preview invalidation while keeping horizontal pan via the outer ScrollView.
 struct FontPreviewGlyphCanvas: NSViewRepresentable {
     var text: String
@@ -103,30 +96,21 @@ struct FontPreviewGlyphCanvas: NSViewRepresentable {
 }
 
 final class FontPreviewGlyphNSView: NSView {
-    private let textLayer = CATextLayer()
+    private var displayText = ""
+    private var displayFont = NSFont.systemFont(ofSize: 12)
+    private var displayColor: NSColor = .labelColor
+    private var contentAlignment: NSTextAlignment = .left
+    private var displayOpacity: CGFloat = 1
+
+    private var metrics = FontPreviewGlyphMeasurement.measure(text: " ", font: .systemFont(ofSize: 12))
     private var lastIntrinsic = CGSize.zero
     private var lockedSize: CGSize?
-    private var leftInset: CGFloat = 0
-    private var layerWidth: CGFloat = 1
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         clipsToBounds = false
-        layer?.addSublayer(textLayer)
-        textLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
-        textLayer.isWrapped = false
-        textLayer.truncationMode = .none
-        textLayer.masksToBounds = false
-        textLayer.actions = [
-            "contents": NSNull(),
-            "string": NSNull(),
-            "fontSize": NSNull(),
-            "bounds": NSNull(),
-            "position": NSNull(),
-            "opacity": NSNull(),
-            "font": NSNull(),
-        ]
+        layerContentsRedrawPolicy = .onSetNeedsDisplay
     }
 
     @available(*, unavailable)
@@ -134,33 +118,33 @@ final class FontPreviewGlyphNSView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override var isOpaque: Bool { false }
+
     override var isFlipped: Bool { true }
 
     func lockContentSize(width: CGFloat, height: CGFloat) {
         lockedSize = CGSize(width: width, height: height)
         lastIntrinsic = lockedSize ?? lastIntrinsic
         invalidateIntrinsicContentSize()
+        needsDisplay = true
     }
 
     func unlockContentSize() {
         guard lockedSize != nil else { return }
         lockedSize = nil
         invalidateIntrinsicContentSize()
+        needsDisplay = true
     }
 
     /// Slideshow path: swap variation font without SwiftUI involvement.
     func applyVariationFont(_ font: NSFont, lockWidth: Bool) {
-        textLayer.font = font
-        textLayer.fontSize = font.pointSize
-        let text = (textLayer.string as? String) ?? ""
-        let metrics = FontPreviewGlyphMeasurement.measure(text: text, font: font)
-        leftInset = metrics.leftInset
-        layerWidth = metrics.layerWidth
+        displayFont = font
+        let metrics = FontPreviewGlyphMeasurement.measure(text: displayText, font: font)
+        self.metrics = metrics
 
         let height: CGFloat
         if lockWidth, let locked = lockedSize {
             height = max(metrics.contentSize.height, locked.height)
-            // Intrinsic stays at the precomputed max so morphing doesn't reflow.
             lastIntrinsic = CGSize(
                 width: max(locked.width, metrics.contentSize.width),
                 height: height
@@ -176,8 +160,7 @@ final class FontPreviewGlyphNSView: NSView {
             }
         }
 
-        textLayer.frame = CGRect(x: leftInset, y: 0, width: layerWidth, height: height)
-        needsLayout = true
+        needsDisplay = true
     }
 
     func applyChrome(
@@ -186,13 +169,11 @@ final class FontPreviewGlyphNSView: NSView {
         alignment: NSTextAlignment,
         opacity: CGFloat
     ) {
-        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        textLayer.contentsScale = scale
-        textLayer.string = text
-        textLayer.foregroundColor = textColor.cgColor
-        textLayer.opacity = Float(opacity)
-        textLayer.alignmentMode = alignmentMode(for: alignment)
-        needsLayout = true
+        displayText = text
+        displayColor = textColor
+        contentAlignment = alignment
+        displayOpacity = opacity
+        needsDisplay = true
     }
 
     func apply(
@@ -202,31 +183,38 @@ final class FontPreviewGlyphNSView: NSView {
         alignment: NSTextAlignment,
         opacity: CGFloat
     ) {
-        applyChrome(text: text, textColor: textColor, alignment: alignment, opacity: opacity)
+        displayText = text
+        displayFont = font
+        displayColor = textColor
+        contentAlignment = alignment
+        displayOpacity = opacity
         applyVariationFont(font, lockWidth: false)
     }
 
     override var intrinsicContentSize: NSSize {
         if let lockedSize { return lockedSize }
         if lastIntrinsic != .zero { return lastIntrinsic }
-        let frame = textLayer.frame
         return NSSize(
-            width: max(frame.maxX, 1),
-            height: max(frame.height, 1)
+            width: max(metrics.contentSize.width, 1),
+            height: max(metrics.contentSize.height, 1)
         )
     }
 
-    override func layout() {
-        super.layout()
-        let contentWidth = lockedSize?.width ?? max(lastIntrinsic.width, leftInset + layerWidth)
+    override func draw(_ dirtyRect: NSRect) {
+        guard !displayText.isEmpty,
+              let context = NSGraphicsContext.current?.cgContext else {
+            return
+        }
+
+        let contentWidth = lockedSize?.width ?? max(lastIntrinsic.width, metrics.contentSize.width)
         let contentHeight = max(
             lockedSize?.height ?? lastIntrinsic.height,
-            textLayer.frame.height,
+            metrics.contentSize.height,
             1
         )
 
         let boxX: CGFloat
-        switch textLayer.alignmentMode {
+        switch contentAlignment {
         case .center:
             boxX = max((bounds.width - contentWidth) / 2, 0)
         case .right:
@@ -236,19 +224,22 @@ final class FontPreviewGlyphNSView: NSView {
         }
         let boxY = max((bounds.height - contentHeight) / 2, 0)
 
-        textLayer.frame = CGRect(
-            x: boxX + leftInset,
-            y: boxY,
-            width: layerWidth,
-            height: contentHeight
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: displayFont,
+            .foregroundColor: displayColor.withAlphaComponent(displayOpacity),
+        ]
+        let line = CTLineCreateWithAttributedString(
+            NSAttributedString(string: displayText, attributes: attributes)
         )
-    }
 
-    private func alignmentMode(for alignment: NSTextAlignment) -> CATextLayerAlignmentMode {
-        switch alignment {
-        case .center: .center
-        case .right: .right
-        default: .left
-        }
+        context.saveGState()
+        context.setAllowsAntialiasing(true)
+        context.setShouldAntialias(true)
+        context.textPosition = CGPoint(
+            x: boxX + metrics.drawOffsetX,
+            y: boxY + displayFont.ascender
+        )
+        CTLineDraw(line, context)
+        context.restoreGState()
     }
 }

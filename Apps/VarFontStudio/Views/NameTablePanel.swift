@@ -17,6 +17,7 @@ struct NameTablePanel: View {
     @State private var analysisLoadGeneration = 0
     @State private var otInventoryPending = false
     @State private var otEnrichmentTask: Task<Void, Never>?
+    @FocusState private var isFilterFocused: Bool
 
     /// When hosted under middle-column chrome, the column owns the title header.
     var showsPanelHeader: Bool = true
@@ -37,11 +38,7 @@ struct NameTablePanel: View {
                 }
             }
 
-            toolbar
-                .padding(.horizontal, StudioSpacing.contentInset)
-                .frame(height: StudioChromeBand.context)
-                .background(StudioColors.surfaceMuted)
-                .overlay(alignment: .bottom) { Divider() }
+            filterBar
 
             content
         }
@@ -544,20 +541,102 @@ struct NameTablePanel: View {
         return false
     }
 
-    private var toolbar: some View {
-        HStack(spacing: StudioSpacing.controlGap) {
-            StudioSearchField(text: $filterText, placeholder: "Filter IDs…")
-            StudioFlatButton(
-                title: "Add ID…",
-                size: .compact,
-                isEnabled: !missingIDs.isEmpty
-            ) {
-                showAddPopover = true
-            }
-            .popover(isPresented: $showAddPopover, arrowEdge: .bottom) {
-                addIDPopover
-            }
+    private var wandFillCount: Int {
+        guard analysis != nil else { return 0 }
+        let windows = filteredRows.filter { row in
+            guard let suggestion = policySuggestion(for: row.nameID) else { return false }
+            return suggestion.value != row.value
+        }.count
+        let ot = filteredOTRows.filter { row in
+            row.value.isEmpty && !row.isAddition && !(row.suggestedString ?? "").isEmpty
+        }.count
+        return windows + ot
+    }
+
+    private func applyAllWandSuggestions() {
+        for row in filteredRows {
+            guard let suggestion = policySuggestion(for: row.nameID),
+                  suggestion.value != row.value else { continue }
+            editor.applyWindowsNamePolicy(nameID: row.nameID, value: suggestion.value)
         }
+        for row in filteredOTRows {
+            guard row.value.isEmpty, !row.isAddition,
+                  let suggestion = row.suggestedString,
+                  !suggestion.isEmpty else { continue }
+            editor.addOTFeatureLabel(
+                table: row.table,
+                featureTag: row.featureTag,
+                string: suggestion
+            )
+        }
+    }
+
+    // MARK: - Filter bar
+
+    private var filterBar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: StudioSpacing.controlGap) {
+                Spacer(minLength: 0)
+
+                StudioSearchField(
+                    text: $filterText,
+                    placeholder: "Filter IDs…",
+                    isFocused: $isFilterFocused,
+                    compact: true
+                )
+                .frame(width: NameTableLayout.searchFieldWidth)
+            }
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.top, StudioSpacing.toolbarVertical)
+            .padding(.bottom, StudioSpacing.rowGap - 1)
+
+            HStack(alignment: .center, spacing: StudioSpacing.rowGap + 1) {
+                if editor.isSelectedFontMaster, editor.projectHasMultipleFiles {
+                    StudioCompactToggleButton(title: "Push Names") {
+                        editor.requestPushMasterNames()
+                    }
+                    .help("Copy shared name IDs (0, 7–14) and matching OpenType feature labels from the master onto the other files.")
+                }
+
+                Spacer(minLength: StudioSpacing.controlGap)
+
+                StudioCompactToggleButton(
+                    title: "Add ID…",
+                    isEnabled: !missingIDs.isEmpty
+                ) {
+                    showAddPopover = true
+                }
+                .help(missingIDs.isEmpty ? "All editable name IDs are already on screen" : "Add a missing Windows name ID")
+                .popover(isPresented: $showAddPopover, arrowEdge: .bottom) {
+                    addIDPopover
+                }
+
+                StudioCompactToggleButton(
+                    title: "AutoMagic",
+                    isEnabled: wandFillCount > 0,
+                    systemImage: "wand.and.sparkles.inverse"
+                ) {
+                    applyAllWandSuggestions()
+                }
+                .help(wandFillHelp)
+            }
+            .padding(.horizontal, StudioSpacing.contentInset)
+            .padding(.bottom, StudioSpacing.toolbarVertical)
+            .opacity(analysis == nil ? 0.45 : 1)
+        }
+        .frame(height: StudioChromeBand.context, alignment: .top)
+        .background(StudioColors.surfaceMuted)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private var wandFillHelp: String {
+        if wandFillCount == 0 {
+            return "No suggestions available for the current rows"
+        }
+        if wandFillCount == 1 {
+            return "Apply the visible suggestion from font metadata"
+        }
+        return "Apply \(wandFillCount) visible suggestions from font metadata"
     }
 
     // MARK: - Add ID popover (grouped)
@@ -1024,6 +1103,8 @@ struct NameTableHeaderMeta: Equatable {
 
 /// Name table panel / add-popover column metrics (on-lattice).
 enum NameTableLayout {
+    /// Matches Instances filter search width for a consistent middle-column tools row.
+    static let searchFieldWidth: CGFloat = 200
     /// Used only by the Add ID popover's ID column — the main row list no longer
     /// reserves a fixed-width ID column (see nameRow), since trailing-aligning
     /// 1- and 2-digit IDs in a fixed box made single-digit rows look indented.

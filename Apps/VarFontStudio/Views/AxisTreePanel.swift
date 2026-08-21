@@ -202,7 +202,7 @@ struct AxisTreePanel: View {
                     title: "Push Axis Tree",
                     role: .accent,
                     font: StudioTypography.caption,
-                    help: "Copy matching axis stops from the master onto the other files. Axes the destination does not have are left off."
+                    help: "Copy matching axis stops and combinations from the master onto the other files. Axes the destination does not have are left off."
                 ) {
                     editor.requestPushMasterAxisTree()
                 }
@@ -334,10 +334,10 @@ struct AxisTreePanel: View {
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: StudioSpacing.controlGap)
                                 if warning.code == "duplicate_composed_name" {
-                                    StudioPlainLinkButton(
+                                    StudioFlatButton(
                                         title: "Show in list…",
-                                        role: .accent,
-                                        font: StudioTypography.caption
+                                        role: .warningAction,
+                                        size: .compact
                                     ) {
                                         layout.showInstances = true
                                         if let name = warning.name {

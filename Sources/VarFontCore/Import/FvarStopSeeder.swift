@@ -572,7 +572,10 @@ public enum FvarStopSeeder {
                         axisLabel: axis.displayName ?? axis.tag,
                         value: AxisCoordinateFormat.canonical(value),
                         proposedName: name,
-                        elidable: atDefault,
+                        elidable: AxisStopNamingDefaults.inventedElidable(
+                            for: axis.tag,
+                            atDefault: atDefault
+                        ),
                         classification: preliminary,
                         recommendedDisposition: .stop,
                         sampleInstanceNames: attributed?.samples ?? []
@@ -1189,7 +1192,7 @@ public enum FvarStopSeeder {
                 let atDefault = axis.default.map { AxisCoordinate.valuesEqual(stop.value, $0) } ?? false
                 guard atDefault || stop.elidable else { continue }
                 font.axes[axisIndex].values[stopIndex].name = neutral
-                if atDefault {
+                if atDefault, AxisStopNamingDefaults.inventsElidableAtDefault(for: axis.tag) {
                     font.axes[axisIndex].values[stopIndex].elidable = true
                     repairedDefaultIndex = stopIndex
                 }
@@ -1386,7 +1389,10 @@ public enum FvarStopSeeder {
                 tokens.removeAll { namesEqual($0, stopName) }
             }
 
-            let residue = tokens.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let residue = AxisStyleVocabulary.strippingFileSlopeTokens(
+                tokens.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines),
+                forAxisTag: axisTag
+            )
             guard !residue.isEmpty else { return nil }
             // Numeric-only residue is not a strong attribution.
             if residue == AxisCoordinateFormat.format(value) { return nil }

@@ -203,7 +203,7 @@ struct ProjectInspectorPanel: View {
                     title: "Push Axis Tree",
                     role: .accent,
                     font: StudioTypography.caption,
-                    help: "Copy master axis stops to all other files in this project"
+                    help: "Copy master axis stops and combinations to all other files in this project"
                 ) {
                     editor.selectFont(id: font.id)
                     editor.requestPushMasterAxisTree()

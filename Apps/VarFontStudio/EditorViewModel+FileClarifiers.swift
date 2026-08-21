@@ -73,7 +73,10 @@ extension EditorViewModel {
 
     func promoteFirstFontToMaster(projectIndex: Int) {
         guard let firstID = openProjects[projectIndex].document.fonts.first?.id else { return }
-        guard masterFontID(for: openProjects[projectIndex].id) != firstID else { return }
+        let hasActualMaster = openProjects[projectIndex].document.fonts.contains {
+            $0.fileRole?.kind == .master
+        }
+        if hasActualMaster, masterFontID(for: openProjects[projectIndex].id) == firstID { return }
         applyMasterFont(fontID: firstID, to: &openProjects[projectIndex].document)
         syncProjectNameFromMaster(on: &openProjects[projectIndex].document, masterFontID: firstID)
         openProjects[projectIndex].document.modified = Date()
@@ -187,22 +190,27 @@ extension EditorViewModel {
         font(forProjectID: activeProjectID ?? "", fontID: fontID)?.options.familyPSPrefix ?? ""
     }
 
-    func setFamilyPSPrefix(_ value: String, for fontID: String) {
+    func setFamilyPSPrefix(
+        _ value: String,
+        for fontID: String,
+        undoCoalesceKey: String? = nil
+    ) {
         let resolved = normalizedProjectNaming(value)
         guard var project, let projectID = activeProjectID else { return }
 
+        let coalesceKey = undoCoalesceKey ?? Self.familyPSPrefixUndoKey(fontID)
         // Master is the clean shared stem — edit pushes to every file in the project
         // and stays paired with the project display name.
         let isMaster = isMasterFont(fontID: fontID, projectID: projectID)
         if isMaster {
-            pushUndoSnapshot()
+            pushUndoSnapshot(coalesceKey: coalesceKey)
             syncProjectDisplayNameAndPrefix(resolved, on: &project)
             project.modified = Date()
             self.project = project
             canSave = true
-            regeneratePlan()
+            scheduleSaveReviewPrefetchIfNeeded()
         } else {
-            mutateFont(id: fontID) { font in
+            mutateNameTableCosmetic(undoCoalesceKey: coalesceKey) { font in
                 font.options.familyPSPrefix = resolved
             }
         }
@@ -436,9 +444,9 @@ extension EditorViewModel {
     func pushAxisTreeConfirmationMessage() -> String {
         let count = max((project?.fonts.count ?? 1) - 1, 0)
         if count == 1 {
-            return "This will copy matching axis stops from the master onto 1 file. Axes that only exist on the master are left off."
+            return "This will copy matching axis stops and combinations from the master onto 1 file. Axes that only exist on the master are left off."
         }
-        return "This will copy matching axis stops from the master onto \(count) files. Axes that only exist on the master are left off."
+        return "This will copy matching axis stops and combinations from the master onto \(count) files. Axes that only exist on the master are left off."
     }
 
     func pushMasterAxisTreeToAllFonts() {
@@ -448,12 +456,21 @@ extension EditorViewModel {
         pushUndoSnapshot()
         guard var updated = self.project else { return }
         for index in updated.fonts.indices where updated.fonts[index].id != masterID {
-            updated.fonts[index].axes = AxisTreeMerge.mergeAxesFromMaster(
+            let previousCompounds = updated.fonts[index].compoundStatValues
+            let mergedAxes = AxisTreeMerge.mergeAxesFromMaster(
                 master: masterFont.axes,
                 into: updated.fonts[index].axes,
                 syncRoles: updated.template.syncRoles,
                 targetFileStatRegistration: updated.fonts[index].fileStatRegistration,
                 targetIsItalicFile: RegistrationAxisSupport.isItalicFile(font: updated.fonts[index])
+            )
+            updated.fonts[index].axes = mergedAxes
+            updated.fonts[index].compoundStatValues = AxisTreeMerge.mergeCompoundsFromMaster(
+                master: masterFont.compoundStatValues,
+                into: previousCompounds,
+                masterAxes: masterFont.axes,
+                targetAxes: mergedAxes,
+                targetFileStatRegistration: updated.fonts[index].fileStatRegistration
             )
             updated.fonts[index].dirty = true
         }
@@ -462,7 +479,7 @@ extension EditorViewModel {
         self.project = updated
         canSave = true
         regeneratePlan()
-        postStatusMessage("Pushed axis tree from master to \(updated.fonts.count - 1) file(s)")
+        postStatusMessage("Pushed axis tree and combinations from master to \(updated.fonts.count - 1) file(s)")
     }
 
     func mutateFont(id fontID: String, _ mutate: (inout FontDocument) -> Void) {
@@ -1088,6 +1105,7 @@ extension EditorViewModel {
         recordUndo: Bool = true,
         debouncePlan: Bool = false,
         refreshPendingExport: Bool = true,
+        regeneratePlan: Bool = true,
         undoCoalesceKey: String? = nil,
         _ mutate: (inout FontDocument) -> Void
     ) {
@@ -1100,6 +1118,12 @@ extension EditorViewModel {
         mutate(&project.fonts[fontIndex])
         project.fonts[fontIndex].dirty = true
         project.modified = Date()
+        guard regeneratePlan else {
+            self.project = project
+            canSave = true
+            scheduleSaveReviewPrefetchIfNeeded()
+            return
+        }
         let shouldDebouncePlan = debouncePlan
         let shouldRefreshPendingExport = refreshPendingExport
         Task { @MainActor in
@@ -1114,8 +1138,41 @@ extension EditorViewModel {
         }
     }
 
+    /// Name-table / OT-feature label edits — no instance replan; coalesced undo per field.
+    func mutateNameTableCosmetic(
+        undoCoalesceKey: String,
+        _ mutate: (inout FontDocument) -> Void
+    ) {
+        mutateSelectedFont(
+            refreshPendingExport: false,
+            regeneratePlan: false,
+            undoCoalesceKey: undoCoalesceKey,
+            mutate
+        )
+    }
+
+    /// Completes a pending debounced instance-plan rebuild before save or export.
+    func flushPendingPlanRegeneration() {
+        guard debouncedPlanTask != nil else { return }
+        debouncedPlanTask?.cancel()
+        debouncedPlanTask = nil
+        regeneratePlan(refreshPendingExport: false)
+    }
+
     static func axisStopUndoKey(_ stopID: String) -> String {
         "axisStop:\(stopID)"
+    }
+
+    static func windowsNameUndoKey(_ nameID: Int) -> String {
+        "windowsName:\(nameID)"
+    }
+
+    static func familyPSPrefixUndoKey(_ fontID: String) -> String {
+        "familyPSPrefix:\(fontID)"
+    }
+
+    static func otFeatureLabelUndoKey(table: String, featureTag: String, field: String) -> String {
+        "otFeatureLabel:\(table):\(featureTag):\(field)"
     }
 
     func backfillMissingInferredAxisRoles() {

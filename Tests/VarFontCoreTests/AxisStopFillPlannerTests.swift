@@ -54,10 +54,28 @@ final class AxisStopFillPlannerTests: XCTestCase {
         )
         XCTAssertTrue(plan.snapping)
         XCTAssertEqual(plan.stops.map(\.value), [100, 400, 600, 900])
-        XCTAssertEqual(plan.stops.map(\.name), ["Extrathin", "Regular", "Semibold", "Black"])
+        XCTAssertEqual(plan.stops.map(\.name), ["Thin", "Regular", "Semibold", "Black"])
         XCTAssertEqual(plan.stops.map(\.rangeMin), [100, 250, 500, 750])
         XCTAssertEqual(plan.stops.map(\.rangeMax), [250, 500, 750, 900])
-        XCTAssertEqual(plan.stops.map(\.elidable), [false, true, false, false])
+        XCTAssertEqual(plan.stops.map(\.elidable), [false, false, false, false])
+    }
+
+    func testWeightFillDoesNotAssumeElisionAtDefault() throws {
+        let axis = weightAxis(min: 100, max: 900, default: 400)
+        let plan = try XCTUnwrap(
+            AxisStopFillPlanner.plan(for: axis, count: 9, snap: true, statFormat: 1)
+        )
+        XCTAssertEqual(plan.stops.first { AxisCoordinate.valuesEqual($0.value, 400) }?.name, "Regular")
+        XCTAssertFalse(plan.stops.contains(where: \.elidable))
+    }
+
+    func testWidthFillStillMarksDefaultElidable() throws {
+        let axis = AxisDefinition(tag: "wdth", min: 75, default: 100, max: 125, role: .instance, values: [])
+        let plan = try XCTUnwrap(
+            AxisStopFillPlanner.plan(for: axis, count: 3, snap: true, statFormat: 1)
+        )
+        XCTAssertEqual(plan.stops.map(\.value), [75, 100, 125])
+        XCTAssertEqual(plan.stops.map(\.elidable), [false, true, false])
     }
 
     func testSnapDoesNotApplyWhenCountExceedsTicks() throws {
@@ -77,7 +95,7 @@ final class AxisStopFillPlannerTests: XCTestCase {
         )
         XCTAssertEqual(plan.statFormat, 1)
         XCTAssertEqual(plan.stops.map(\.statFormat), [1, 1, 1, 1])
-        XCTAssertEqual(plan.stops.map(\.name), ["Extrathin", "366.67", "633.33", "Black"])
+        XCTAssertEqual(plan.stops.map(\.name), ["Thin", "366.67", "633.33", "Black"])
     }
 
     func testWidthTypicalStep() throws {

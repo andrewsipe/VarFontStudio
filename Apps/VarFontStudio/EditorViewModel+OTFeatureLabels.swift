@@ -22,10 +22,10 @@ extension EditorViewModel {
     }
 
     func setOTFeatureLabelValue(table: String, featureTag: String, field: String, value: String) {
-        guard let fontID = selectedFontID else { return }
         let key = OTFeatureLabelEditing.overrideKey(table: table, featureTag: featureTag, field: field)
+        let coalesceKey = Self.otFeatureLabelUndoKey(table: table, featureTag: featureTag, field: field)
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        mutateFont(id: fontID) { font in
+        mutateNameTableCosmetic(undoCoalesceKey: coalesceKey) { font in
             // Clearing a pending addition drops the intent (back to unlabeled).
             if trimmed.isEmpty,
                font.otFeatureLabelAdditions.contains(where: {
@@ -43,11 +43,11 @@ extension EditorViewModel {
     }
 
     func addOTFeatureLabel(table: String, featureTag: String, string: String) {
-        guard let fontID = selectedFontID else { return }
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let key = OTFeatureLabelEditing.overrideKey(table: table, featureTag: featureTag, field: "UINameID")
-        mutateFont(id: fontID) { font in
+        let coalesceKey = Self.otFeatureLabelUndoKey(table: table, featureTag: featureTag, field: "UINameID")
+        mutateNameTableCosmetic(undoCoalesceKey: coalesceKey) { font in
             font.otFeatureLabelOverrides[key] = trimmed
             if !font.otFeatureLabelAdditions.contains(where: {
                 $0.table == table && $0.featureTag == featureTag
@@ -90,9 +90,10 @@ extension EditorViewModel {
     }
 
     func revertOTFeatureLabel(table: String, featureTag: String, field: String) {
-        guard let fontID = selectedFontID else { return }
         let key = OTFeatureLabelEditing.overrideKey(table: table, featureTag: featureTag, field: field)
-        mutateFont(id: fontID) { font in
+        mutateNameTableCosmetic(
+            undoCoalesceKey: Self.otFeatureLabelUndoKey(table: table, featureTag: featureTag, field: field)
+        ) { font in
             font.otFeatureLabelOverrides.removeValue(forKey: key)
             font.otFeatureLabelAdditions.removeAll {
                 $0.table == table && $0.featureTag == featureTag

@@ -19,17 +19,22 @@ from vfcommit_lib.nameid_allocator import (
     preserved_design_axis_name_ids,
 )
 from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
+from vfcommit_lib.ot_label_writer import (
+    apply_ot_label_additions,
+    apply_ot_label_patches,
+    sync_styleset_feature_params,
+)
 from vfcommit_lib.ot_label_reflow import (
     apply_ot_reflow,
     build_ot_reflow_diff_entries,
     build_ot_reflow_plan,
     build_reflow_pre_wipe_protected,
     classify_name_ids,
+    dedupe_name_table_records,
     detect_reflow_blockers,
     pre_wipe_for_reflow,
     scan_ot_label_sites,
 )
-from vfcommit_lib.ot_label_writer import apply_ot_label_additions, apply_ot_label_patches
 from vfcommit_lib.request_bridge import (
     axis_defs_from_request,
     compound_stat_values_from_request,
@@ -168,6 +173,11 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
         # Refresh label strings after patch for diff/audit accuracy.
         ot_labels = scan_ot_label_nameids(font)
         ot_label_ids = {rec.name_id for rec in ot_labels}
+
+    # ss## is often registered once per script/langsys. Stamp the same
+    # FeatureParams onto every sibling so lookups aren't left unlabeled.
+    sync_styleset_feature_params(font)
+    dedupe_name_table_records(font)
 
     # New ss## labels extend the OT block; axis/instance allocation must start after them.
     if strategy == "reflow" and ot_label_ids:

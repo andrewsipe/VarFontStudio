@@ -323,7 +323,9 @@ extension EditorViewModel {
               let fontIdx = openProjects[fromIdx].document.fonts.firstIndex(where: { $0.id == fontID }) else { return }
 
         let sourceDoc = openProjects[fromIdx].document
-        let font = openProjects[fromIdx].document.fonts.remove(at: fontIdx)
+        let removedWasMaster = masterFontID(for: fromProjectID) == fontID
+        var font = openProjects[fromIdx].document.fonts.remove(at: fontIdx)
+        font.fileRole = .master()
 
         var naming = sourceDoc.naming
         naming.order = Self.mergedNamingOrder(
@@ -352,6 +354,9 @@ extension EditorViewModel {
 
         if openProjects[fromIdx].selectedFontID == fontID {
             openProjects[fromIdx].selectedFontID = openProjects[fromIdx].document.fonts.first?.id
+        }
+        if removedWasMaster && !openProjects[fromIdx].document.fonts.isEmpty {
+            promoteFirstFontToMaster(projectIndex: fromIdx)
         }
         openProjects[fromIdx].document.modified = Date()
         markProjectFileDirty(projectID: fromProjectID)

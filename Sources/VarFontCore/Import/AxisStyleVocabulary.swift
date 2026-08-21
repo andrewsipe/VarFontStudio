@@ -91,6 +91,18 @@ public enum AxisStyleVocabulary {
         }
     }
 
+    /// Drop Italic / Oblique / etc. tokens from a stop label when the axis is not slope.
+    /// Italic files name instances "Light Italic"; that word is a file-level slope label,
+    /// not a wght/opsz/wdth stop name.
+    public static func strippingFileSlopeTokens(_ name: String, forAxisTag tag: String) -> String {
+        guard tag != "slnt", tag != "ital" else { return name }
+        let tokens = name
+            .split(whereSeparator: { $0.isWhitespace || $0 == "-" })
+            .map(String.init)
+            .filter { family(for: $0) != .slope }
+        return tokens.joined(separator: " ")
+    }
+
     /// Span small enough to treat as positional fuzz (off-by-one Regular / Bold drift),
     /// not opsz-compensated shear. Overlapping neighbor clusters are never fuzz.
     public static func isPositionalFuzz(

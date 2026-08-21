@@ -27,6 +27,7 @@ protocol SaveReviewHost: AnyObject {
     func projectTabLabel(for openProject: OpenProject) -> String
     func registerSourceBookmark(url: URL, fontID: String)
     func publishOpenProjects()
+    func flushPendingPlanRegeneration()
     func refreshCanSave()
     func postSaveFailure(_ message: String)
     func clearPersistentSaveError()

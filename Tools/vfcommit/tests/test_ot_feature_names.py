@@ -252,6 +252,54 @@ class OTFeatureNamesTests(unittest.TestCase):
         self.assertEqual(len(labels), 1)
         self.assertEqual(labels[0].string, "Sharp Serifs")
 
+    def test_add_label_covers_sibling_feature_records(self) -> None:
+        font = _font_with_duplicate_ss_records(5)
+        applied = apply_ot_label_additions(
+            font,
+            [{"table": "GSUB", "feature_tag": "ss01", "string": "High Bars"}],
+        )
+        self.assertEqual(applied[0]["name_id"], 256)
+        ss01 = [
+            rec
+            for rec in font["GSUB"].table.FeatureList.FeatureRecord
+            if rec.FeatureTag == "ss01"
+        ]
+        self.assertEqual(len(ss01), 5)
+        ids = [rec.Feature.FeatureParams.UINameID for rec in ss01]
+        self.assertEqual(ids, [256, 256, 256, 256, 256])
+        windows = [
+            rec
+            for rec in font["name"].names
+            if rec.nameID == 256 and rec.platformID == 3 and rec.platEncID == 1 and rec.langID == 0x409
+        ]
+        self.assertEqual(len(windows), 1)
+        self.assertEqual(windows[0].toUnicode(), "High Bars")
+
+    def test_unlabeled_scan_ignores_sibling_without_params(self) -> None:
+        font = _font_with_duplicate_ss_records(3)
+        first = font["GSUB"].table.FeatureList.FeatureRecord[0]
+        params = otTables.FeatureParamsStylisticSet()
+        params.Version = 0
+        params.UINameID = 256
+        first.Feature.FeatureParams = params
+        font["name"].setName("High Bars", 256, 3, 1, 0x409)
+        self.assertEqual(scan_unlabeled_stylesets(font), [])
+
+
+def _font_with_duplicate_ss_records(count: int) -> TTFont:
+    font = _minimal_font_with_ss(labeled=False)
+    records = font["GSUB"].table.FeatureList.FeatureRecord
+    first = records[0]
+    for _ in range(count - 1):
+        clone = otTables.FeatureRecord()
+        clone.FeatureTag = "ss01"
+        feature = otTables.Feature()
+        feature.FeatureParams = None
+        feature.LookupListIndex = list(first.Feature.LookupListIndex)
+        clone.Feature = feature
+        records.append(clone)
+    return font
+
 
 if __name__ == "__main__":
     unittest.main()

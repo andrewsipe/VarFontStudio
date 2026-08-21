@@ -56,17 +56,19 @@ extension EditorViewModel {
     }
 
     func saveProject() {
+        flushPendingPlanRegeneration()
         guard let projectID = activeProjectID,
-              let open = openProject(for: projectID) else {
-            postStatusMessage("No project selected.")
+              let url = openProject(for: projectID)?.projectFileURL else {
+            if activeProjectID != nil {
+                presentSaveProjectAsPanel()
+            } else {
+                postStatusMessage("No project selected.")
+            }
             return
         }
-        if let url = open.projectFileURL {
-            Task { @MainActor in
-                await self.saveProject(document: open.document, to: url, projectID: projectID)
-            }
-        } else {
-            presentSaveProjectAsPanel()
+        Task { @MainActor in
+            guard let document = self.openProject(for: projectID)?.document else { return }
+            await self.saveProject(document: document, to: url, projectID: projectID)
         }
     }
 

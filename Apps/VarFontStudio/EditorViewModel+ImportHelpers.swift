@@ -142,7 +142,7 @@ extension EditorViewModel {
     }
 
     /// Warm Review dry-run in the background while the font is dirty so open is often a cache hit.
-    private func scheduleSaveReviewPrefetchIfNeeded() {
+    func scheduleSaveReviewPrefetchIfNeeded() {
         guard let projectID = activeProjectID,
               let fontID = selectedFontID,
               let font = selectedFont,

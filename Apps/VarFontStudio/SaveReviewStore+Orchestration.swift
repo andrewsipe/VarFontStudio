@@ -96,7 +96,12 @@ extension SaveReviewStore {
         }
         markExplicitlyOpened(projectID: targetID)
         resetUIState(forProjectID: targetID)
-        requestOpen(projectID: targetID)
+        if !SaveReviewWindowLifecycle.focusExisting(
+            projectID: targetID,
+            title: saveReviewWindowTitle(forProjectID: targetID)
+        ) {
+            requestOpen(projectID: targetID)
+        }
     }
 
     func toggleSaveReviewWindow(forProjectID projectID: String? = nil) {
@@ -114,15 +119,15 @@ extension SaveReviewStore {
 
 
     func isSaveReviewWindowOpen(forProjectID projectID: String) -> Bool {
-        let title = saveReviewWindowTitle(forProjectID: projectID)
-        return NSApplication.shared.windows.contains { window in
-            SaveReviewWindowLifecycle.isSaveReviewWindow(window) && window.title == title
-        }
+        !SaveReviewWindowLifecycle.existingWindows(
+            projectID: projectID,
+            title: saveReviewWindowTitle(forProjectID: projectID)
+        ).isEmpty
     }
 
     func closeSaveReviewWindow(forProjectID projectID: String) {
         let title = saveReviewWindowTitle(forProjectID: projectID)
-        for window in NSApplication.shared.windows where SaveReviewWindowLifecycle.isSaveReviewWindow(window) && window.title == title {
+        for window in SaveReviewWindowLifecycle.existingWindows(projectID: projectID, title: title) {
             window.close()
         }
     }
@@ -229,6 +234,7 @@ extension SaveReviewStore {
 
     /// User-facing: Export — write to `font.outputPath` when set; otherwise open Review (same as Export…).
     func save() {
+        requireHost.flushPendingPlanRegeneration()
         guard requireHost.canSave else {
             requireHost.postStatusMessage("Nothing to export — make an edit first.")
             return
@@ -276,6 +282,7 @@ extension SaveReviewStore {
 
     @MainActor
     private func saveActiveFontUsingRememberedPathOrReview() async {
+        requireHost.flushPendingPlanRegeneration()
         guard let projectID = requireHost.activeProjectID, let fontID = requireHost.selectedFontID else { return }
 
         if let outputURL = rememberedOutputURL(forProjectID: projectID, fontID: fontID),
@@ -644,6 +651,7 @@ extension SaveReviewStore {
 
     @MainActor
     private func save(session: CommitPreflightSession, usingRememberedPath: Bool) async {
+        requireHost.flushPendingPlanRegeneration()
         guard session.preflight.ok else {
             requireHost.postStatusMessage(session.preflight.errors.first?.message ?? "Export preview failed. Check the Review window for details.")
             return
@@ -728,6 +736,7 @@ extension SaveReviewStore {
 
     @MainActor
     private func saveAllFilesAsync(inProjectID projectID: String? = nil) async {
+        requireHost.flushPendingPlanRegeneration()
         guard let prepared = await prepareExportAllTargets(inProjectID: projectID) else { return }
         let projectID = prepared.projectID
         let targets = prepared.fonts
