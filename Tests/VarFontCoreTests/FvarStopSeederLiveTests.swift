@@ -3,7 +3,7 @@ import XCTest
 
 final class FvarStopSeederLiveTests: XCTestCase {
     private var easeURL: URL? {
-        let path = "/Users/skymacbook/Downloads/_Fonts/TTF/Variable/Studiofeixen/converted/Ease-Variable.ttf"
+        let path = NSHomeDirectory() + "/Downloads/_Fonts/TTF/Variable/Studiofeixen/converted/Ease-Variable.ttf"
         let url = URL(fileURLWithPath: path)
         return FileManager.default.fileExists(atPath: path) ? url : nil
     }
@@ -70,7 +70,7 @@ final class FvarStopSeederLiveTests: XCTestCase {
     }
 
     func testInterchangeImportPrunesWrongSpaceSTATAndProjectsCleanGrid() throws {
-        let path = "/Users/skymacbook/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable.ttf"
+        let path = NSHomeDirectory() + "/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable.ttf"
         guard FileManager.default.fileExists(atPath: path) else {
             throw XCTSkip("Interchange-Variable.ttf not present on this machine")
         }
@@ -119,7 +119,7 @@ final class FvarStopSeederLiveTests: XCTestCase {
     }
 
     func testPatchedInterchangeReimportKeepsFormat4WithoutComboReview() throws {
-        let path = "/Users/skymacbook/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable-patched.ttf"
+        let path = NSHomeDirectory() + "/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable-patched.ttf"
         guard FileManager.default.fileExists(atPath: path) else {
             throw XCTSkip("Interchange-Variable-patched.ttf not present on this machine")
         }

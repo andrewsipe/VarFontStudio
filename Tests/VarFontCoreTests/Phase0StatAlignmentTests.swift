@@ -117,7 +117,7 @@ final class StatParserFormat4Tests: XCTestCase {
     }
 
     func testParsesFormat4FromLivePatchedInterchange() throws {
-        let path = "/Users/skymacbook/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable-patched.ttf"
+        let path = NSHomeDirectory() + "/Downloads/_Fonts/WOFF2/New Folder With Items/Motaitalic/converted/Interchange-Variable-patched.ttf"
         guard FileManager.default.fileExists(atPath: path) else {
             throw XCTSkip("patched Interchange not on disk")
         }

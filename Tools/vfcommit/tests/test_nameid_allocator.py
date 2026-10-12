@@ -22,7 +22,7 @@ from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
 from vfcommit_lib.stat_builder import apply_table_edits, build_protected_name_ids
 from vfcommit_lib.request_bridge import axis_defs_from_request
 
-_MILGRAM = Path("/Users/skymacbook/Downloads/~Untitled/Milgram-Variable.ttf")
+_MILGRAM = Path(Path.home() / "Downloads" / "~Untitled" / "Milgram-Variable.ttf")
 
 
 class NameIDAllocatorTests(unittest.TestCase):
@@ -270,7 +270,7 @@ class NameIDAllocatorTests(unittest.TestCase):
         self.assertEqual(check_for_collisions(plan, font), [])
 
     def test_preserves_stat_only_design_axis_name_ids(self) -> None:
-        nouveau = Path("/Users/skymacbook/Downloads/~Untitled/NouveauLED-Variable.ttf")
+        nouveau = Path(Path.home() / "Downloads" / "~Untitled" / "NouveauLED-Variable.ttf")
         if not nouveau.is_file():
             self.skipTest("Nouveau LED test font not on disk")
 

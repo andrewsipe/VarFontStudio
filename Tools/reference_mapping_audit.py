@@ -386,7 +386,7 @@ def audit_file(path: Path) -> None:
 
 
 def main() -> None:
-    folder = Path(sys.argv[1] if len(sys.argv) > 1 else "/Users/skymacbook/Downloads/~Untitled")
+    folder = Path(sys.argv[1] if len(sys.argv) > 1 else Path.home() / "Downloads" / "~Untitled")
     fonts = sorted(
         p for p in folder.iterdir()
         if p.suffix.lower() in {".otf", ".ttf", ".woff", ".woff2"}

@@ -17,8 +17,8 @@ Each file includes five sample `instances_existing` rows; use `instances_existin
 Regenerate after font paths change:
 
 ```bash
-cd "/Users/skymacbook/Documents/Scripting/Good Font Scripts"
-python3 VarFontEditor/fixtures/generate_analysis_fixtures.py
+cd VarFontStudio   # repo root
+python3 fixtures/generate_analysis_fixtures.py
 ```
 
 Edit `FONT_PATHS` at the top of that script if your fonts live elsewhere.
