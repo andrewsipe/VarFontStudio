@@ -4,6 +4,7 @@ import VarFontCore
 /// Middle-column Windows name table editor (platform 3 · encoding 1 · lang 0x409, IDs 0–25).
 struct NameTablePanel: View {
     @EnvironmentObject private var editor: EditorViewModel
+    @EnvironmentObject private var layout: EditorLayoutPreferences
     @State private var analysis: FontAnalysis?
     @State private var loadError: String?
     @State private var filterText = ""
@@ -16,6 +17,7 @@ struct NameTablePanel: View {
     /// Guards overlapping reloads from stomping each other.
     @State private var analysisLoadGeneration = 0
     @State private var otInventoryPending = false
+    @State private var otInventoryError: String?
     @State private var otEnrichmentTask: Task<Void, Never>?
     @FocusState private var isFilterFocused: Bool
 
@@ -132,7 +134,7 @@ struct NameTablePanel: View {
 
     private var nameRowsList: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            VStack(spacing: 0) {
                 ForEach(filteredRows) { row in
                     nameRow(row)
                 }
@@ -172,6 +174,22 @@ struct NameTablePanel: View {
                 Text("Loading OpenType names…")
                     .font(StudioTypography.caption)
                     .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, StudioSpace.x2)
+        } else if rows.isEmpty, let otError = otInventoryError {
+            VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
+                Text("OpenType names could not be read.")
+                    .font(StudioTypography.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(otError)
+                    .font(StudioTypography.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(4)
+                Button("Retry") {
+                    Task { await reloadAnalysis() }
+                }
+                .controlSize(.small)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, StudioSpace.x2)
@@ -268,11 +286,20 @@ struct NameTablePanel: View {
                 }
                 if showFill, let suggestion = row.suggestedString {
                     Button {
-                        editor.addOTFeatureLabel(
-                            table: row.table,
-                            featureTag: row.featureTag,
-                            string: suggestion
-                        )
+                        if row.nameID == nil {
+                            editor.addOTFeatureLabel(
+                                table: row.table,
+                                featureTag: row.featureTag,
+                                string: suggestion
+                            )
+                        } else {
+                            editor.setOTFeatureLabelValue(
+                                table: row.table,
+                                featureTag: row.featureTag,
+                                field: row.field,
+                                value: suggestion
+                            )
+                        }
                         expandedOTSiteID = row.id
                     } label: {
                         Image(systemName: "wand.and.sparkles.inverse")
@@ -304,7 +331,10 @@ struct NameTablePanel: View {
                 )
             },
             set: { newValue in
-                if row.value.isEmpty && !row.isAddition && !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // A FeatureParams site already has a nameID, even when the string
+                // is missing. Writing that as a new addition duplicates the row.
+                if row.nameID == nil,
+                   !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     editor.addOTFeatureLabel(
                         table: row.table,
                         featureTag: row.featureTag,
@@ -323,13 +353,14 @@ struct NameTablePanel: View {
         let isExpanded = expandedOTSiteID == row.id
 
         if isExpanded {
-            ScrollView {
-                wrappingValueEditor(
-                    binding: binding,
-                    placeholder: "Feature label"
-                )
-            }
-            .frame(maxHeight: NameTableLayout.expandedFieldMaxHeight)
+            // Same height as the collapsed row. The shared wrapping editor sits in
+            // the panel scroll view with a 500-line cap, so focusing it opened a
+            // gap under every feature and shoved the last rows out from under the pointer.
+            OTFeatureLabelField(
+                text: binding,
+                onSubmit: { collapseEditor() },
+                onCancel: { collapseEditor() }
+            )
         } else {
             ZStack(alignment: .trailing) {
                 Button {
@@ -411,20 +442,40 @@ struct NameTablePanel: View {
     /// IDs 1/2/4/6 — surfaced as a band because a missing or cleared one has no row to badge.
     private var requiredIssues: [WindowsNameValidation.Issue] { nameIssues.filter(\.isRequired) }
 
+    /// Version, unique ID, typographic family, typographic subfamily. Settings can hide these.
+    private var optionalCoreIssues: [WindowsNameValidation.Issue] {
+        guard layout.offerOptionalCoreNames, let analysis, let font = editor.selectedFont else { return [] }
+        return WindowsNameValidation.optionalCoreIssues(
+            windowsNameTable: analysis.windowsNameTable,
+            overrides: font.windowsNameOverrides,
+            removals: font.windowsNameRemovals,
+            familyPSPrefix: font.options.familyPSPrefix
+        )
+    }
+
+    private var offeredIssues: [WindowsNameValidation.Issue] {
+        var seen = Set(requiredIssues.map(\.nameID))
+        var list = requiredIssues
+        for issue in optionalCoreIssues where seen.insert(issue.nameID).inserted {
+            list.append(issue)
+        }
+        return list
+    }
+
     private func issue(for nameID: Int) -> WindowsNameValidation.Issue? {
         nameIssues.first { $0.nameID == nameID }
     }
 
     @ViewBuilder
     private var requiredIssuesBand: some View {
-        if !requiredIssues.isEmpty {
+        if !offeredIssues.isEmpty {
             VStack(alignment: .leading, spacing: StudioSpacing.tightGap) {
                 StudioConflictAlert(
                     message: requiredIssueSummary,
-                    actionTitle: requiredIssues.count > 1 ? "Fix All" : "Fix",
+                    actionTitle: offeredIssues.count > 1 ? "Fix All" : "Fix",
                     action: fixAllRequiredIssues
                 )
-                ForEach(requiredIssues) { issue in
+                ForEach(offeredIssues) { issue in
                     requiredIssueRow(issue)
                 }
             }
@@ -435,11 +486,25 @@ struct NameTablePanel: View {
     }
 
     private var requiredIssueSummary: String {
-        let ids = requiredIssues.map { "\($0.nameID)" }.joined(separator: ", ")
-        if requiredIssues.count == 1 {
-            return "Required name ID \(ids) needs a value before export."
+        let requiredIDs = requiredIssues.map { "\($0.nameID)" }.joined(separator: ", ")
+        let optional = optionalCoreIssues.filter { issue in
+            !requiredIssues.contains { $0.nameID == issue.nameID }
         }
-        return "\(requiredIssues.count) required name IDs need values before export: \(ids)."
+        let optionalIDs = optional.map { "\($0.nameID)" }.joined(separator: ", ")
+        switch (requiredIssues.count, optional.count) {
+        case (1, 0):
+            return "Required name ID \(requiredIDs) needs a value before export."
+        case (let count, 0) where count > 1:
+            return "\(count) required name IDs need values before export: \(requiredIDs)."
+        case (0, 1):
+            return "Core name ID \(optionalIDs) can be filled."
+        case (0, let count):
+            return "\(count) core name fields can be filled: \(optionalIDs)."
+        case (1, _):
+            return "Required name ID \(requiredIDs) needs a value before export. \(optional.count) more core fields can be filled: \(optionalIDs)."
+        default:
+            return "\(requiredIssues.count) required name IDs need values before export: \(requiredIDs). \(optional.count) more core fields can be filled: \(optionalIDs)."
+        }
     }
 
     private func requiredIssueRow(_ issue: WindowsNameValidation.Issue) -> some View {
@@ -527,11 +592,11 @@ struct NameTablePanel: View {
     }
 
     private func fixAllRequiredIssues() {
-        for issue in requiredIssues where !isEditOnly(fix(for: issue)) {
+        for issue in offeredIssues where !isEditOnly(fix(for: issue)) {
             applyFix(for: issue)
         }
         // Anything left needs typing; focus the first so the user lands in the right field.
-        if let manual = requiredIssues.first(where: { isEditOnly(fix(for: $0)) }) {
+        if let manual = offeredIssues.first(where: { isEditOnly(fix(for: $0)) }) {
             expandedNameID = manual.nameID
         }
     }
@@ -1031,6 +1096,7 @@ struct NameTablePanel: View {
             analysis = nil
             loadError = nil
             otInventoryPending = false
+            otInventoryError = nil
             otEnrichmentTask?.cancel()
             otEnrichmentTask = nil
             return
@@ -1043,6 +1109,7 @@ struct NameTablePanel: View {
         otEnrichmentTask?.cancel()
         otEnrichmentTask = nil
         otInventoryPending = true
+        otInventoryError = nil
         do {
             // Windows names are local/Swift-fast; OT inventory needs vfcommit.
             var next = try editor.analyzeSourceFont(fontID: fontID, sourcePath: sourcePath)
@@ -1064,6 +1131,7 @@ struct NameTablePanel: View {
             next.mergingOTFeatures(ot)
             analysis = next
             otInventoryPending = false
+            otInventoryError = nil
 
             otEnrichmentTask = Task { @MainActor in
                 do {
@@ -1090,6 +1158,10 @@ struct NameTablePanel: View {
             // Keep whatever Swift (+ cached OT) we already published; only hard-fail if empty.
             if analysis == nil {
                 loadError = error.localizedDescription
+            } else {
+                // Windows names loaded but the vfcommit OT inventory failed: say so rather
+                // than showing "No OpenType feature labels in this font."
+                otInventoryError = error.localizedDescription
             }
             otInventoryPending = false
         }
@@ -1130,6 +1202,29 @@ enum NameTableLayout {
     /// Trailing inset reserved in the collapsed field so truncated text stops short of
     /// the hover-revealed remove button instead of running underneath it.
     static let clearButtonReservedWidth: CGFloat = 26
+}
+
+/// One-line OpenType feature label. Fixed row height so focusing it does not
+/// open space between the feature rows.
+private struct OTFeatureLabelField: View {
+    @Binding var text: String
+    var onSubmit: () -> Void
+    var onCancel: () -> Void
+
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        StudioTextField(
+            placeholder: "Feature label",
+            text: $text,
+            font: .system(size: 13, weight: .regular, design: .monospaced),
+            rowHeight: NameTableLayout.valueRowHeight,
+            onSubmit: onSubmit,
+            onCancel: onCancel,
+            focusBinding: $focused
+        )
+        .onAppear { focused = true }
+    }
 }
 
 enum NameTableHeaderMetaKey: PreferenceKey {

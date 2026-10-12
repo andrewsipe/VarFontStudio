@@ -235,6 +235,10 @@ final class FontPreviewGlyphNSView: NSView {
         context.saveGState()
         context.setAllowsAntialiasing(true)
         context.setShouldAntialias(true)
+        // This view is flipped (y down). Core Text treats that negative-determinant
+        // CTM as a mirror and draws the line backwards. Flip the text matrix to match
+        // so glyphs sit upright on the same baseline.
+        context.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
         context.textPosition = CGPoint(
             x: boxX + metrics.drawOffsetX,
             y: boxY + displayFont.ascender

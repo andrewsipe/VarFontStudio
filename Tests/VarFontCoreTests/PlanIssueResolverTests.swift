@@ -443,7 +443,7 @@ final class PlanIssueResolverTests: XCTestCase {
         let plan = AxisStopFillPlanner.plan(for: font.axes[0], count: 5, snap: false, statFormat: 1)!
         PlanIssueResolver.apply(.insertFilledStops(axisTag: "wght", plan: plan), to: &font)
         XCTAssertEqual(font.axes[0].values.map(\.value), [0, 50, 100, 150, 200])
-        XCTAssertEqual(font.axes[0].values.map(\.name), ["Regular", "50", "Extrathin", "150", "Thin"])
+        XCTAssertEqual(font.axes[0].values.map(\.name), ["Regular", "50", "Thin", "150", "Extralight"])
     }
 
     func testEmptyInstanceAxisApplySnappedFormat2Fill() {

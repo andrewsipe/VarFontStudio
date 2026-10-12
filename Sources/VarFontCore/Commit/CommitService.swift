@@ -1,10 +1,23 @@
 import Foundation
 
-public enum CommitServiceError: Error, Equatable, Sendable {
+public enum CommitServiceError: Error, Equatable, Sendable, LocalizedError {
     case helperNotFound
     case helperUnavailable(String)
     case helperFailed(String)
     case invalidHelperOutput(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .helperNotFound:
+            return "The vfcommit helper was not found."
+        case let .helperUnavailable(path):
+            return "The vfcommit helper is unavailable at \(path)."
+        case let .helperFailed(detail):
+            return "The vfcommit helper failed: \(detail)"
+        case let .invalidHelperOutput(detail):
+            return "The vfcommit helper returned unusable output: \(detail)"
+        }
+    }
 }
 
 /// Save-time commit bridge. Shells out to bundled `vfcommit` (Python + vendored FontCore subset).
@@ -24,6 +37,7 @@ public struct CommitService: Sendable {
         }
         let candidates = [
             "/opt/homebrew/bin/python3",
+            "/opt/local/bin/python3", // MacPorts
             "/usr/local/bin/python3",
             "/usr/bin/python3",
         ]

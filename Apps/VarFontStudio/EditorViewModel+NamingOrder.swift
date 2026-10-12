@@ -23,18 +23,28 @@ extension EditorViewModel {
         )
     }
 
-    var namingChainIsReordered: Bool {
-        !inferredNamingChainOrder.isEmpty && namingChainTags != inferredNamingChainOrder
+    /// Axis and PostScript-hyphen order differs from import. Code is ignored, so turning
+    /// Code on does not light up Reset Order.
+    var namingOrderNeedsReset: Bool {
+        let inferred = namingChainIgnoringCode(inferredNamingChainOrder)
+        guard !inferred.isEmpty else { return false }
+        return namingChainIgnoringCode(namingChainTags) != inferred
     }
 
-    /// True when naming order or axis instance-grid roles differ from import-time inference.
-    var namingDefaultsNeedRestore: Bool {
+    /// Naming chain (including Code) or the selected font's axis roles differ from import.
+    var namingOriginalNeedsRestore: Bool {
         guard let font = selectedFont else { return false }
-        if namingChainIsReordered { return true }
+        if !inferredNamingChainOrder.isEmpty, namingChainTags != inferredNamingChainOrder {
+            return true
+        }
         return font.axes.contains { axis in
             guard let inferred = axis.roleInferred else { return false }
             return axis.role != inferred
         }
+    }
+
+    private func namingChainIgnoringCode(_ tags: [String]) -> [String] {
+        tags.filter { !NamingToken.isCode($0) }
     }
 
     var namingChainSummary: String {
@@ -200,14 +210,17 @@ extension EditorViewModel {
             } else {
                 order.insert(NamingPolicy.codeToken, at: 0)
             }
+            setNamingOrder(order)
         } else {
-            order.removeAll { $0 == NamingPolicy.codeToken }
+            // setNamingOrder splices the selected font's chain into the project order and
+            // keeps any token that chain doesn't list, because those are sibling-font axes.
+            // @code is project-wide, so that splice would put it straight back.
+            commitNamingOrder(order.filter { $0 != NamingPolicy.codeToken })
         }
-        setNamingOrder(order)
     }
 
     func setNamingOrder(_ tags: [String]) {
-        guard var project, let font = selectedFont else { return }
+        guard let project, let font = selectedFont else { return }
         // `tags` is the selected font's chain only — splice it into the shared project
         // order so sibling-font axes are not wiped on every drag.
         let visible = SlopeAxisPolicy.namingOrder(
@@ -223,37 +236,32 @@ extension EditorViewModel {
             axes: font.axes,
             forceInclude: Set(project.naming.slopeNamingIncludeTags)
         )
-        let previousOrder = project.naming.order
-        guard normalized != previousOrder else { return }
-
-        pushUndoSnapshot()
-        project.naming.order = normalized
-        project.modified = Date()
-        self.project = project
-        canSave = true
-        realignAxesAfterNamingOrderChange(previousOrder: previousOrder, newOrder: normalized)
-        regeneratePlan()
+        commitNamingOrder(normalized)
     }
 
-    func restoreNamingDefaults() {
+    /// Puts this font's naming chips back to the import order. The PostScript hyphen
+    /// returns to where import placed it. Code stays on, just after the hyphen.
+    /// Axis roles, the Axis Tree, and stop-name order locks are left alone.
+    func resetNamingOrder() {
+        guard let project, let font = selectedFont, namingOrderNeedsReset else { return }
+        commitNamingOrder(
+            orderResetToImport(project: project, font: font, keepCode: true),
+            realignAxisTree: false,
+            clearOrderLocks: false
+        )
+    }
+
+    /// Import-time naming order, selected-font axis roles, Axis Tree order, and
+    /// stop-name order locks. Turns Code off. One undo step.
+    func restoreNamingToOriginal() {
         guard var project,
               let fontIndex = project.fonts.firstIndex(where: { $0.id == selectedFontID }),
-              namingDefaultsNeedRestore else { return }
+              namingOriginalNeedsRestore else { return }
 
         pushUndoSnapshot()
 
         let font = project.fonts[fontIndex]
-        let restoredVisible = SlopeAxisPolicy.namingOrder(
-            projectOrder: project.naming.inferredOrder ?? project.naming.order,
-            axes: font.axes,
-            forceInclude: Set(project.naming.slopeNamingIncludeTags)
-        )
-        project.naming.order = NamingPolicy.resetPostscriptHyphenToDefault(
-            in: NamingPolicy.integratingVisibleOrder(
-                projectOrder: project.naming.order,
-                visibleOrder: restoredVisible
-            )
-        )
+        project.naming.order = orderResetToImport(project: project, font: font, keepCode: false)
 
         for index in project.fonts[fontIndex].axes.indices {
             if let inferred = project.fonts[fontIndex].axes[index].roleInferred {
@@ -261,6 +269,7 @@ extension EditorViewModel {
             }
         }
 
+        _ = project.removeStopNameOrderLocks()
         project.fonts[fontIndex].dirty = true
         project.modified = Date()
         self.project = project
@@ -278,6 +287,59 @@ extension EditorViewModel {
         } else {
             regeneratePlan()
         }
+    }
+
+    /// Visible chain from the import-time order, spliced so sibling-font axes stay.
+    /// Hyphen position comes from that import order (front, when import had none stored).
+    private func orderResetToImport(
+        project: ProjectDocument,
+        font: FontDocument,
+        keepCode: Bool
+    ) -> [String] {
+        var visible = SlopeAxisPolicy.namingOrder(
+            projectOrder: project.naming.inferredOrder ?? project.naming.order,
+            axes: font.axes,
+            forceInclude: Set(project.naming.slopeNamingIncludeTags)
+        )
+        visible.removeAll { NamingToken.isCode($0) }
+        if keepCode, project.naming.order.contains(NamingPolicy.codeToken) {
+            if let hyphenIndex = visible.firstIndex(of: NamingPolicy.postscriptHyphenToken) {
+                visible.insert(NamingPolicy.codeToken, at: hyphenIndex + 1)
+            } else {
+                visible.insert(NamingPolicy.codeToken, at: 0)
+            }
+        }
+        let base = keepCode
+            ? project.naming.order
+            : project.naming.order.filter { !NamingToken.isCode($0) }
+        return NamingPolicy.integratingVisibleOrder(projectOrder: base, visibleOrder: visible)
+    }
+
+    private func commitNamingOrder(
+        _ order: [String],
+        realignAxisTree: Bool = true,
+        clearOrderLocks: Bool = true
+    ) {
+        guard var project else { return }
+        let previousOrder = project.naming.order
+        guard order != previousOrder else { return }
+
+        pushUndoSnapshot()
+        project.naming.order = order
+        project.modified = Date()
+        self.project = project
+        canSave = true
+        if realignAxisTree {
+            realignAxesAfterNamingOrderChange(previousOrder: previousOrder, newOrder: order)
+        }
+        if clearOrderLocks, var current = self.project, current.removeStopNameOrderLocks() > 0 {
+            current.modified = Date()
+            self.project = current
+            if let projectID = activeProjectID {
+                markProjectFileDirty(projectID: projectID)
+            }
+        }
+        regeneratePlan()
     }
 
     /// Moves `draggedTag` so it sits immediately before the item that occupied

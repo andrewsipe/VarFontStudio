@@ -186,4 +186,56 @@ final class OTFeatureLabelEditingTests: XCTestCase {
         )
         XCTAssertEqual(rows.count, 1)
     }
+
+    func testAdditionForExistingEmptyLabelStaysOneRow() {
+        let labels = [
+            OTFeatureLabelRecord(
+                table: "GSUB",
+                featureTag: "ss04",
+                field: "UINameID",
+                nameID: 259,
+                string: ""
+            ),
+            OTFeatureLabelRecord(
+                table: "GSUB",
+                featureTag: "ss01",
+                field: "UINameID",
+                nameID: 256,
+                string: ""
+            ),
+        ]
+        let rows = OTFeatureLabelEditing.populatedRows(
+            labels: labels,
+            unlabeled: [],
+            overrides: ["GSUB|ss01|UINameID": "Alternate a"],
+            additions: [
+                OTFeatureLabelAddition(table: "GSUB", featureTag: "ss01", string: "A")
+            ]
+        )
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(Set(rows.map(\.id)).count, rows.count)
+        let ss01 = rows.first { $0.featureTag == "ss01" }
+        XCTAssertEqual(ss01?.nameID, 256)
+        XCTAssertEqual(ss01?.isProvisionalNameID, false)
+        XCTAssertEqual(ss01?.value, "Alternate a")
+        XCTAssertEqual(ss01?.isAddition, false)
+
+        let patches = OTFeatureLabelEditing.commitPatches(
+            labels: labels,
+            overrides: ["GSUB|ss01|UINameID": "Alternate a"]
+        )
+        XCTAssertEqual(patches.count, 1)
+        XCTAssertEqual(patches[0].nameID, 256)
+        XCTAssertEqual(patches[0].string, "Alternate a")
+
+        let additions = OTFeatureLabelEditing.commitAdditions(
+            additions: [
+                OTFeatureLabelAddition(table: "GSUB", featureTag: "ss01", string: "A"),
+                OTFeatureLabelAddition(table: "GSUB", featureTag: "ss02", string: "New"),
+            ],
+            overrides: ["GSUB|ss01|UINameID": "Alternate a"],
+            existingLabels: labels
+        )
+        XCTAssertEqual(additions.map(\.featureTag), ["ss02"])
+    }
 }

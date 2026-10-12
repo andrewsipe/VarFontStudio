@@ -269,6 +269,43 @@ def _attach_styleset_params(records, name_id: int, source_params=None) -> None:
         rec.Feature.FeatureParams = _new_styleset_params(name_id, template)
 
 
+def drop_unresolved_ot_label_pointers(font: TTFont) -> List[Dict[str, Any]]:
+    """
+    Clear FeatureParams nameIDs (>= 256) that have no Windows English string.
+
+    A stylistic set can point at a nameID that was never written. Export
+    validation treats that as an error even when the label was left blank.
+    Clearing the pointer keeps the feature and its lookups.
+    """
+    seen: Set[tuple] = set()
+    dropped: List[Dict[str, Any]] = []
+    for label in scan_ot_label_nameids(font):
+        if label.name_id < 256 or label.string:
+            continue
+        key = (label.table, label.feature_tag, label.field)
+        if key in seen:
+            continue
+        seen.add(key)
+        # A cv## label run is contiguous. Punching out one ID would shift the rest.
+        if label.field.startswith("FirstParamUILabelNameID+"):
+            continue
+        _clear_feature_params_field(
+            font,
+            table=label.table,
+            feature_tag=label.feature_tag,
+            field=label.field,
+        )
+        dropped.append(
+            {
+                "table": label.table,
+                "feature_tag": label.feature_tag,
+                "field": label.field,
+                "name_id": label.name_id,
+            }
+        )
+    return dropped
+
+
 def sync_styleset_feature_params(font: TTFont) -> int:
     """
     Copy ss## FeatureParams onto sibling FeatureRecords that share the tag.
@@ -316,6 +353,7 @@ def sync_styleset_feature_params(font: TTFont) -> int:
 __all__ = [
     "apply_ot_label_additions",
     "apply_ot_label_patches",
+    "drop_unresolved_ot_label_pointers",
     "resolve_ot_label_name_id",
     "sync_styleset_feature_params",
 ]

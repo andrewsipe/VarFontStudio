@@ -52,6 +52,11 @@ final class EditorLayoutPreferences: ObservableObject {
         didSet { StudioAppPreferences.defaultNameIDStrategy = defaultNameIDStrategy }
     }
 
+    /// Offer fills for optional core name IDs. Required names stay offered either way.
+    @Published var offerOptionalCoreNames: Bool {
+        didSet { StudioAppPreferences.offerOptionalCoreNames = offerOptionalCoreNames }
+    }
+
     var panelVisibilityToken: String {
         "\(showAxisTree)-\(axisTreeCollapsed)-\(showInstances)-\(showInspector)-\(inspectorCollapsed)"
     }
@@ -68,6 +73,7 @@ final class EditorLayoutPreferences: ObservableObject {
         axisTreeWidth = Self.storedCGFloat(forKey: Keys.axisTreeWidth, default: StudioPanelMetrics.axisTreeDefault)
         inspectorWidth = Self.storedCGFloat(forKey: Keys.inspectorWidth, default: StudioPanelMetrics.inspectorDefault)
         defaultNameIDStrategy = StudioAppPreferences.defaultNameIDStrategy
+        offerOptionalCoreNames = StudioAppPreferences.offerOptionalCoreNames
     }
 
     func axisTreeOccupiedWidth() -> CGFloat {

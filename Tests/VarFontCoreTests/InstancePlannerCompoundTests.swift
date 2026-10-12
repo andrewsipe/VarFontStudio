@@ -292,4 +292,63 @@ final class InstancePlannerCompoundTests: XCTestCase {
         XCTAssertTrue(CompoundStatNaming.chainTagCovers("insd+ousd", axisTag: "ousd"))
         XCTAssertFalse(CompoundStatNaming.chainTagCovers("insd+ousd", axisTag: "wght"))
     }
+
+    /// Saved projects keep Format 4 strings. When those strings are only the stop names
+    /// in the old word order, reopening must drop them so the naming chain can rebuild.
+    func testOrderLockCompoundsAreRemovedAndOffGridNamesStay() {
+        let axes = [
+            AxisDefinition(
+                tag: "HGHT",
+                displayName: "Height",
+                min: 700, default: 700, max: 1200, role: .instance,
+                values: [
+                    AxisValue(id: "h1", value: 700, name: "Normal", elidable: true),
+                    AxisValue(id: "h2", value: 950, name: "Tall", elidable: false),
+                    AxisValue(id: "h3", value: 1200, name: "Extra Tall", elidable: false),
+                ]
+            ),
+            AxisDefinition(
+                tag: "wght",
+                displayName: "Weight",
+                min: 200, default: 200, max: 700, role: .instance,
+                values: [
+                    AxisValue(id: "w1", value: 200, name: "Extralight", elidable: false),
+                    AxisValue(id: "w2", value: 300, name: "Light", elidable: false),
+                ]
+            ),
+        ]
+        var project = ProjectDocument(
+            schemaVersion: 1,
+            familyLabel: "Oatmeal",
+            naming: NamingPolicy(order: ["HGHT", "wght"], elidedFallback: "Regular"),
+            template: ProjectTemplate(),
+            fonts: [
+                FontDocument(
+                    id: "font-1",
+                    sourcePath: "/tmp/Oatmeal-Variable.ttf",
+                    axes: axes,
+                    compoundStatValues: [
+                        CompoundStatValue(id: "c1", coords: ["HGHT": 700, "wght": 300], axisIndices: [], axisValues: [], name: "Light", elidable: false),
+                        CompoundStatValue(id: "c2", coords: ["HGHT": 950, "wght": 300], axisIndices: [], axisValues: [], name: "Light Tall", elidable: false),
+                        CompoundStatValue(id: "c3", coords: ["HGHT": 1200, "wght": 300], axisIndices: [], axisValues: [], name: "Light Extra Tall", elidable: false),
+                        CompoundStatValue(id: "c4", coords: ["HGHT": 950, "wght": 15], axisIndices: [], axisValues: [], name: "Tall Hairline", elidable: false),
+                    ]
+                ),
+            ]
+        )
+
+        XCTAssertEqual(project.removeStopNameOrderLocks(), 3)
+        XCTAssertEqual(project.fonts[0].compoundStatValues.map(\.name), ["Tall Hairline"])
+
+        let plan = InstancePlanner.plan(font: project.fonts[0], naming: project.naming)
+        func composedName(height: Double, weight: Double) -> String? {
+            plan.instances.first { instance in
+                AxisCoordinate.valuesEqual(instance.coords["HGHT"] ?? -1, height)
+                    && AxisCoordinate.valuesEqual(instance.coords["wght"] ?? -1, weight)
+            }?.composedName
+        }
+        XCTAssertEqual(composedName(height: 700, weight: 300), "Light")
+        XCTAssertEqual(composedName(height: 950, weight: 300), "Tall Light")
+        XCTAssertEqual(composedName(height: 1200, weight: 300), "Extra Tall Light")
+    }
 }

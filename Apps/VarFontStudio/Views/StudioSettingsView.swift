@@ -27,10 +27,31 @@ struct StudioSettingsView: View {
                 )
                 .foregroundStyle(.secondary)
             }
+
+            Section {
+                Toggle("Offer optional name fields", isOn: optionalNamesBinding)
+                    .help(
+                        "Version, unique ID, typographic family, and typographic subfamily "
+                            + "get a fill action when they are missing. Required names are always offered."
+                    )
+            } footer: {
+                Text(
+                    "Turn this off to leave non-required name fields until you add them yourself. "
+                        + "Family, subfamily, full name, and PostScript name still need a value before export."
+                )
+                .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 180)
+        .frame(width: 440, height: 280)
         .padding(.bottom, StudioSpace.x2)
+    }
+
+    private var optionalNamesBinding: Binding<Bool> {
+        Binding(
+            get: { layout.offerOptionalCoreNames },
+            set: { layout.offerOptionalCoreNames = $0 }
+        )
     }
 
     private var defaultStrategyBinding: Binding<NameIDStrategy> {

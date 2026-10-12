@@ -8,9 +8,10 @@ public enum ProjectImporter {
 
   public static func newProject(from analysis: FontAnalysis, sourceURL: URL) -> (ProjectDocument, FvarStopSeeder.Report) {
     let (font, seedReport) = fontDocument(from: analysis, sourceURL: sourceURL, isMaster: true, masterFontID: nil)
-    let familyLabel = analysis.source.familyName.isEmpty
-      ? sourceURL.deletingPathExtension().lastPathComponent
-      : analysis.source.familyName
+    let familyLabel = FilenameFamily.preferred(
+      filenameOrPath: sourceURL.path,
+      recordedFamily: analysis.source.familyName
+    ) ?? sourceURL.deletingPathExtension().lastPathComponent
 
     let axisOrder = SlopeAxisPolicy.effectiveNamingOrder(
       analysis.inferred.namingOrderSuggested,
@@ -23,7 +24,7 @@ public enum ProjectImporter {
       sourceElidedFallback: analysis.nameAudit.elidedFallbackName,
       fileRole: font.fileRole
     )
-    let project = ProjectDocument(
+    var project = ProjectDocument(
       schemaVersion: 1,
       created: Date(),
       modified: Date(),
@@ -35,6 +36,11 @@ public enum ProjectImporter {
       ),
       template: ProjectTemplate(syncRoles: true, axes: []),
       fonts: [font]
+    )
+    NameIDStrategyInference.applyDanglingReflow(
+      to: &project,
+      analysis: analysis,
+      fontID: font.id
     )
     return (project, seedReport)
   }
@@ -54,6 +60,20 @@ public enum ProjectImporter {
     )
     project.fonts.append(font)
     project.syncNameIDStrategyToFonts()
+    NameIDStrategyInference.applyDanglingReflow(
+      to: &project,
+      analysis: analysis,
+      fontID: font.id
+    )
+    SiblingStopNames.shareEmptyWeightNames(in: &project.fonts)
+    SiblingStopNames.shareFamilyName(
+      in: &project,
+      incomingFamily: FilenameFamily.preferred(
+        filenameOrPath: sourceURL.path,
+        recordedFamily: analysis.source.familyName
+      ),
+      incomingFontID: font.id
+    )
     if project.fonts.count > 1 {
       project.naming.order = NamingPolicy.orderWithDefaultClarifiers(axisOrder: project.naming.order)
     }
@@ -63,7 +83,10 @@ public enum ProjectImporter {
 
   // MARK: - Private
 
-  public static func axisDefinition(from axis: FontAnalysis.AnalyzedAxis) -> AxisDefinition {
+  public static func axisDefinition(
+    from axis: FontAnalysis.AnalyzedAxis,
+    fileIsItalic: Bool = false
+  ) -> AxisDefinition {
     let isDesignRecordOnly = axis.roleInferred == .designRecordOnly
     var definition = AxisDefinition(
       tag: axis.tag,
@@ -74,16 +97,25 @@ public enum ProjectImporter {
       role: axis.roleInferred,
       roleInferred: axis.roleInferred,
       values: axis.valuesExisting.map { stop in
-        AxisValue(
+        let value = resolvedStopValue(stop, axis: axis)
+        let link = axis.tag == "ital"
+          ? ItalicStopNaming.assumedStyleLink(
+              recorded: stop.name,
+              value: value,
+              format: stop.format ?? 1,
+              linkedValue: stop.linkedValue
+            )
+          : (format: stop.format ?? 1, linkedValue: stop.linkedValue)
+        return AxisValue(
           id: "\(axis.tag)-\(UUID().uuidString.prefix(8))",
-          value: resolvedStopValue(stop, axis: axis),
-          name: stop.name,
+          value: value,
+          name: importedStopName(stop, axis: axis, fileIsItalic: fileIsItalic),
           elidable: stop.elidable ?? false,
           olderSibling: stop.olderSibling ?? false,
-          statFormat: stop.format ?? 1,
-          rangeMin: stop.rangeMin,
-          rangeMax: stop.rangeMax,
-          linkedValue: stop.linkedValue
+          statFormat: link.format,
+          rangeMin: link.format == 3 ? nil : stop.rangeMin,
+          rangeMax: link.format == 3 ? nil : stop.rangeMax,
+          linkedValue: link.linkedValue
         )
       }
     )
@@ -106,7 +138,8 @@ public enum ProjectImporter {
     isMaster: Bool,
     masterFontID: String?
   ) -> (FontDocument, FvarStopSeeder.Report) {
-    let axes = analysis.axes.map { axisDefinition(from: $0) }
+    let fileIsItalic = Self.fileIsItalic(analysis: analysis, sourceURL: sourceURL)
+    let axes = analysis.axes.map { axisDefinition(from: $0, fileIsItalic: fileIsItalic) }
 
     let placeholder = FontDocument(
       id: UUID().uuidString,
@@ -123,6 +156,8 @@ public enum ProjectImporter {
       fileRole = .variant(masterFontID: masterFontID ?? "")
     }
 
+    let filenameNaming = FilenameFamily.importNaming(analysis: analysis, sourceURL: sourceURL)
+
     var font = FontDocument(
       id: placeholder.id,
       sourcePath: sourceURL.path,
@@ -131,7 +166,10 @@ public enum ProjectImporter {
       dirty: false,
       fileRole: fileRole,
       axes: axes,
-      options: CommitOptions(familyPSPrefix: analysis.source.familyPSPrefix),
+      options: CommitOptions(
+        familyPSPrefix: filenameNaming.familyPSPrefix,
+        nameidStrategy: NameIDStrategyInference.prefersReflow(analysis: analysis) ? .reflow : .preserve
+      ),
       includedInstanceKeys: [],
       excludedInstanceKeys: [],
       overrides: InstanceOverrides(),
@@ -145,7 +183,8 @@ public enum ProjectImporter {
         sourcePath: sourceURL.path
       ),
       compoundStatValues: compoundStatValues(from: analysis),
-      statDesignAxisTags: analysis.designAxisTags
+      statDesignAxisTags: analysis.designAxisTags,
+      windowsNameOverrides: filenameNaming.overrides
     )
     let seedReport = FvarStopSeeder.seed(into: &font, analysis: analysis)
     // Import preserves STAT formats from source (including ital Format 3). Safe auto-fixes
@@ -162,11 +201,35 @@ public enum ProjectImporter {
         coords: record.coords,
         axisIndices: record.axisIndices,
         axisValues: record.axisValues,
-        name: record.name,
+        name: NameFiller.meaningful(record.name) ?? "",
         elidable: record.elidable,
         olderSibling: record.olderSibling
       )
     }
+  }
+
+  private static func fileIsItalic(analysis: FontAnalysis, sourceURL: URL) -> Bool {
+    if analysis.inferred.isItalicFont { return true }
+    let stem = sourceURL.deletingPathExtension().lastPathComponent
+    return stem.range(of: "italic", options: .caseInsensitive) != nil
+      || stem.range(of: "oblique", options: .caseInsensitive) != nil
+  }
+
+  private static func importedStopName(
+    _ stop: FontAnalysis.StatValueSnapshot,
+    axis: FontAnalysis.AnalyzedAxis,
+    fileIsItalic: Bool
+  ) -> String {
+    let value = resolvedStopValue(stop, axis: axis)
+    if axis.tag == "ital" {
+      return ItalicStopNaming.importedName(
+        recorded: stop.name,
+        value: value,
+        fileIsItalic: fileIsItalic,
+        stopCount: axis.valuesExisting.count
+      )
+    }
+    return WeightStopNaming.importedName(recorded: stop.name, value: value, tag: axis.tag)
   }
 
   private static func resolvedStopValue(

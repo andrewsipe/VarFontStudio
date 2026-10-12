@@ -36,6 +36,49 @@ public enum CompoundStatNaming {
         return true
     }
 
+    /// A combination whose words are exactly the stop names at its coordinates.
+    ///
+    /// Word order belongs to the naming chain. A Format 4 string that only repeats
+    /// those stops ("Light Tall" while the chain says Tall then Light) freezes the
+    /// old order into the project file and survives a naming-order edit.
+    public static func isStopNameOrderLock(
+        _ compound: CompoundStatValue,
+        axes: [AxisDefinition],
+        naming: NamingPolicy,
+        fileRole: FileRole? = nil,
+        fileStatRegistration: [String: Double] = [:]
+    ) -> Bool {
+        guard compound.coords.count >= 2 else { return false }
+        let axisByTag = Dictionary(uniqueKeysWithValues: axes.map { ($0.tag, $0) })
+        for (tag, value) in compound.coords {
+            guard let axis = axisByTag[tag],
+                  AxisCoordinate.matchingStop(in: axis.values, coordinate: value) != nil
+            else { return false }
+        }
+
+        let composed = NamingComposer.compose(
+            coords: compound.coords,
+            axes: axes,
+            naming: naming,
+            fileRole: fileRole,
+            fileStatRegistration: fileStatRegistration,
+            compounds: []
+        ).name
+        let locked = compound.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !composed.isEmpty, !locked.isEmpty else { return false }
+        return styleTokens(composed) == styleTokens(locked)
+    }
+
+    private static func styleTokens(_ name: String) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for token in name.split(whereSeparator: \.isWhitespace) {
+            let key = token.lowercased()
+            guard !key.isEmpty else { continue }
+            counts[key, default: 0] += 1
+        }
+        return counts
+    }
+
     /// Emit each selected compound at the earliest covered tag in `namingOrder`.
     ///
     /// When `splitAtHyphen` is true, a compound that spans `@pshyphen` only claims

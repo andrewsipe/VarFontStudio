@@ -285,6 +285,34 @@ class OTFeatureNamesTests(unittest.TestCase):
         font["name"].setName("High Bars", 256, 3, 1, 0x409)
         self.assertEqual(scan_unlabeled_stylesets(font), [])
 
+    def test_drop_unresolved_styleset_pointer_keeps_written_name(self) -> None:
+        font = _minimal_font_with_ss(labeled=False)
+        feature = font["GSUB"].table.FeatureList.FeatureRecord[0].Feature
+        params = otTables.FeatureParamsStylisticSet()
+        params.Version = 0
+        params.UINameID = 259
+        feature.FeatureParams = params
+
+        from vfcommit_lib.ot_label_writer import drop_unresolved_ot_label_pointers
+
+        dropped = drop_unresolved_ot_label_pointers(font)
+        self.assertEqual(len(dropped), 1)
+        self.assertEqual(dropped[0]["name_id"], 259)
+        self.assertIsNone(feature.FeatureParams)
+        self.assertEqual(scan_ot_label_nameids(font), [])
+
+        params = otTables.FeatureParamsStylisticSet()
+        params.Version = 0
+        params.UINameID = 256
+        feature.FeatureParams = params
+        apply_ot_label_patches(
+            font,
+            [{"table": "GSUB", "feature_tag": "ss01", "field": "UINameID", "string": "Alternate a"}],
+        )
+        self.assertEqual(drop_unresolved_ot_label_pointers(font), [])
+        self.assertEqual(feature.FeatureParams.UINameID, 256)
+        self.assertEqual(font["name"].getDebugName(256), "Alternate a")
+
 
 def _font_with_duplicate_ss_records(count: int) -> TTFont:
     font = _minimal_font_with_ss(labeled=False)

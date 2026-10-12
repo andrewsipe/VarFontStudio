@@ -3299,7 +3299,7 @@ enum StudioCompactControlChrome {
     static var checkboxTitleGap: CGFloat { StudioSpacing.tightGap + checkboxLeadingPadding }
     /// Outer pad inside a Names|Coords-style tray around the segments.
     static let trayInset = StudioSpace.x0_5
-    /// Locked to the text-only control height (Hide elided / Code / Restore).
+    /// Locked to the text-only control height (Hide Pinned Axes / Code / Reset Order).
     static let controlHeight: CGFloat = 22
     /// Search field is allowed to read taller than the button row.
     static let searchHeight: CGFloat = 28

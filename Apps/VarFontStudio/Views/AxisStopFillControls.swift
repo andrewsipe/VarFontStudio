@@ -93,7 +93,9 @@ struct AxisStopFillControls: View {
 
     private var snapButton: some View {
         let enabled = plan.snapFits
-        let step = options.typicalStep.map { AxisStopSuggestions.formatValue($0) } ?? ""
+        let basis = options.snapBasis
+            ?? options.typicalStep.map { "this axis’s \(AxisStopSuggestions.formatValue($0))-unit step" }
+            ?? "this axis’s step"
         return Button {
             snapOn.toggle()
         } label: {
@@ -112,8 +114,8 @@ struct AxisStopFillControls: View {
         .disabled(!enabled)
         .help(
             enabled
-                ? "Snap noms to this axis’s \(step)-unit step"
-                : "Only \(plan.tickCount) ticks on this axis’s \(step)-unit step"
+                ? "Snap noms to \(basis)"
+                : "Only \(plan.tickCount) ticks on \(basis)"
         )
         .studioHoverFill(
             shape: .roundedRect(cornerRadius: StudioRadius.control),

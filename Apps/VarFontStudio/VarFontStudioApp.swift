@@ -283,6 +283,17 @@ struct VarFontStudioApp: App {
                     )
                 )
                 .disabled(editor.project == nil)
+
+                Divider()
+
+                Button("Restore to Original") {
+                    editor.restoreNamingToOriginal()
+                }
+                .disabled(editor.project == nil || !editor.namingOriginalNeedsRestore)
+                .help(
+                    "Put the naming order, this file's axis roles, and the Axis Tree back to import. "
+                        + "Turns Code off and clears stop-name order locks."
+                )
             }
 
             CommandMenu("Review") {

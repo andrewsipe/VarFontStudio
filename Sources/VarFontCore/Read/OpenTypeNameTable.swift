@@ -22,8 +22,9 @@ public enum OpenTypeNameTable {
         let stringOffset = Int(OpenTypeBinary.readUInt16(data, 4))
         let sorted = records.sorted { preferenceScore($0) < preferenceScore($1) }
         for record in sorted {
-            if let value = decode(record: record, in: data, stringOffset: stringOffset), !value.isEmpty {
-                return value
+            if let value = decode(record: record, in: data, stringOffset: stringOffset),
+               let meaningful = NameFiller.meaningful(value) {
+                return meaningful
             }
         }
         return nil
@@ -46,7 +47,8 @@ public enum OpenTypeNameTable {
                   record.encodingID == windowsUnicodeEncodingID,
                   record.languageID == windowsEnglishLanguageID else { continue }
             guard let value = decode(record: record, in: data, stringOffset: stringOffset) else { continue }
-            byID[id] = value
+            // A lone period is filler. Keep the row so the field can be filled, but treat it as empty.
+            byID[id] = NameFiller.meaningful(value) ?? ""
         }
         return byID.keys.sorted().map { WindowsNameRecord(nameID: $0, string: byID[$0] ?? "") }
     }

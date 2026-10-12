@@ -126,7 +126,7 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
     public var `default`: Double?
     public var max: Double?
     public var role: AxisRole
-    /// Role inferred at import; used by Restore in the naming chain footer.
+    /// Role inferred at import; used by Restore to Original.
     public var roleInferred: AxisRole?
     public var values: [AxisValue]
     public var referenceMapping: ReferenceMappingKind?
@@ -202,7 +202,7 @@ public struct AxisDefinition: Codable, Equatable, Sendable, Identifiable {
 
 public struct NamingPolicy: Codable, Equatable, Sendable {
     public var order: [String]
-    /// STAT-inferred order captured at import; used by Restore in the naming chain footer.
+    /// STAT-inferred order captured at import; used by Reset Order and Restore to Original.
     public var inferredOrder: [String]?
     public var elidedFallback: String
     /// Tags forced into naming despite slope ownership (Import Review “include in naming”).

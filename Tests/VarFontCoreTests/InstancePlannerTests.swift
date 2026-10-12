@@ -103,6 +103,44 @@ final class InstancePlannerTests: XCTestCase {
         XCTAssertTrue(plan.warnings.contains { $0.code == "multiple_elidable" })
     }
 
+    func testElisionCoveredByCombinationStylesIsNotFlagged() {
+        func stops(_ prefix: String) -> [AxisValue] {
+            [100, 400, 800].map {
+                AxisValue(id: "\(prefix)\(Int($0))", value: $0, name: "Regular", elidable: true)
+            }
+        }
+        var compounds: [CompoundStatValue] = []
+        for s in [100.0, 400, 800] {
+            for c in [100.0, 400, 800] {
+                compounds.append(CompoundStatValue(
+                    id: "c-\(s)-\(c)",
+                    coords: ["SERF": s, "CNTR": c],
+                    axisIndices: [0, 1],
+                    axisValues: [s, c],
+                    name: "Combo \(Int(s))/\(Int(c))",
+                    elidable: false
+                ))
+            }
+        }
+        var font = FontDocument(
+            id: "altera",
+            sourcePath: "/tmp/altera.ttf",
+            axes: [
+                AxisDefinition(tag: "SERF", role: .instance, values: stops("s")),
+                AxisDefinition(tag: "CNTR", role: .instance, values: stops("c")),
+            ]
+        )
+        font.compoundStatValues = compounds
+        let naming = NamingPolicy(order: ["SERF", "CNTR"], elidedFallback: "Regular")
+        XCTAssertFalse(InstancePlanner.plan(font: font, naming: naming)
+            .warnings.contains { $0.code == "multiple_elidable" })
+
+        // Without combination styles the warning still fires.
+        font.compoundStatValues = []
+        XCTAssertTrue(InstancePlanner.plan(font: font, naming: naming)
+            .warnings.contains { $0.code == "multiple_elidable" })
+    }
+
     func testConflictingInstanceKeysProduceWarning() {
         let font = FontDocument(
             id: "test",

@@ -349,7 +349,7 @@ public enum NamePolicies {
         if ((context.headMacStyle ?? 0) & 0x0002) != 0 {
             return true
         }
-        if let angle = context.postItalicAngle, abs(angle) > 0.01 {
+        if let angle = context.postItalicAngle, ItalicAngle.indicatesItalic(angle) {
             return true
         }
         if context.hasSlopeClarifier {
@@ -375,8 +375,8 @@ public enum NamePolicies {
             return "ID2: head.macStyle italic → Italic"
         }
         if context.italRegistrationValue == nil,
-           let angle = context.postItalicAngle, abs(angle) > 0.01 {
-            return "ID2: post.italicAngle ≠ 0 → Italic"
+           let angle = context.postItalicAngle, ItalicAngle.indicatesItalic(angle) {
+            return "ID2: post.italicAngle outside −2°…2° → Italic"
         }
         if context.italRegistrationValue == nil, context.hasSlopeClarifier {
             return "ID2: Slope registration → Italic"

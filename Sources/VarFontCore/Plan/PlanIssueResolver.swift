@@ -18,6 +18,9 @@ public enum PlanIssueCodes {
         "ital_slnt_coexistence",
         "default_instance_excluded",
         "default_instance_not_in_grid",
+        "weight_name_alias",
+        "weight_scale_gap",
+        "sibling_stop_name",
     ]
 
     public static func issueKey(for warning: PlanWarning) -> String {
@@ -101,6 +104,12 @@ public enum PlanIssueResolver {
             return defaultInstanceNotInGridProposals(for: warning, font: font)
         case "default_instance_excluded":
             return defaultInstanceExcludedProposals(for: warning, font: font)
+        case "weight_name_alias":
+            return weightAliasProposals(for: warning, font: font)
+        case "weight_scale_gap":
+            return weightScaleGapProposals(for: warning, font: font)
+        case "sibling_stop_name":
+            return siblingStopNameProposals(for: warning)
         default:
             return []
         }
@@ -1011,6 +1020,79 @@ public enum PlanIssueResolver {
                 title: "Keep as-is",
                 detail: "Leave elidable flags unchanged.",
                 action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
+            ),
+        ]
+    }
+
+    private static func weightAliasProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        guard let tag = warning.axis,
+              let stopID = warning.stopIDs?.first,
+              let axis = font.axes.first(where: { $0.tag == tag }),
+              let stop = axis.values.first(where: { $0.id == stopID }),
+              let canonical = WeightStopNaming.canonicalSpelling(for: stop.name) else {
+            return []
+        }
+        return [
+            PlanIssueProposal(
+                id: "keep-weight-spelling-\(stopID)",
+                title: "Keep \(stop.name)",
+                detail: "Leave the name that is already in the font.",
+                action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning)),
+                isRecommended: true
+            ),
+            PlanIssueProposal(
+                id: "use-weight-spelling-\(stopID)",
+                title: "Use \(canonical)",
+                detail: "Rename this stop to the usual spelling.",
+                action: .renameStop(axisTag: tag, stopID: stopID, newName: canonical)
+            ),
+        ]
+    }
+
+    private static func weightScaleGapProposals(
+        for warning: PlanWarning,
+        font: FontDocument
+    ) -> [PlanIssueProposal] {
+        guard let tag = warning.axis,
+              let axis = font.axes.first(where: { $0.tag == tag }) else { return [] }
+        let missing = WeightStopNaming.missingScaleStops(on: axis)
+        guard !missing.isEmpty else { return [] }
+        let list = missing.map(\.name).joined(separator: ", ")
+        let actions = missing.map {
+            PlanIssueAction.insertAxisStop(axisTag: tag, value: $0.value, name: $0.name)
+        }
+        return [
+            PlanIssueProposal(
+                id: "add-weight-scale-gap-\(tag)",
+                title: "Add \(list)",
+                detail: "Inserts the missing weight names between the stops this axis already has. The axis range does not change.",
+                action: actions.count == 1 ? actions[0] : .compound(actions),
+                isRecommended: true
+            ),
+            PlanIssueProposal(
+                id: "keep-weight-scale-gap-\(tag)",
+                title: "Leave the stops as they are",
+                detail: "Do not add a weight that this file did not already have.",
+                action: .acknowledgeIssue(issueKey: PlanIssueCodes.issueKey(for: warning))
+            ),
+        ]
+    }
+
+    private static func siblingStopNameProposals(for warning: PlanWarning) -> [PlanIssueProposal] {
+        guard let tag = warning.axis,
+              let stopID = warning.stopIDs?.first,
+              let name = warning.name,
+              !name.isEmpty else { return [] }
+        return [
+            PlanIssueProposal(
+                id: "use-sibling-stop-\(stopID)",
+                title: "Use \(name)",
+                detail: "Copy the name another file in this project already uses at this coordinate.",
+                action: .renameStop(axisTag: tag, stopID: stopID, newName: name),
+                isRecommended: true
             ),
         ]
     }

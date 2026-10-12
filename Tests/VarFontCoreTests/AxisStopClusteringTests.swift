@@ -110,6 +110,52 @@ final class AxisStopClusteringTests: XCTestCase {
         }
     }
 
+    /// "Extra Tall" shares the word "Extra" with "Extra Light". Peeling those as loose
+    /// tokens leaves residue "Light" on the Extra Light coordinate, so Light looks
+    /// entangled and import freezes weight-then-height Format 4 names ("Light Tall")
+    /// that naming-order changes can no longer rebuild.
+    func testSharedModifierWordDoesNotMergeNeighborWeights() {
+        let heights: [(name: String, value: Double)] = [
+            ("", 700),
+            ("Tall", 950),
+            ("Extra Tall", 1200),
+        ]
+        let weights: [(name: String, value: Double)] = [
+            ("Extra Light", 200),
+            ("Light", 300),
+            ("Regular", 400),
+            ("Bold", 700),
+        ]
+        var instances: [FontAnalysis.ExistingInstance] = []
+        for (weightName, wght) in weights {
+            for (heightName, hght) in heights {
+                let composed = heightName.isEmpty ? weightName : "\(weightName) \(heightName)"
+                instances.append(
+                    FontAnalysis.ExistingInstance(
+                        key: InstanceKeyBuilder.makeKey(coords: ["wght": wght, "HGHT": hght]),
+                        composedName: composed,
+                        coords: ["wght": wght, "HGHT": hght],
+                        subfamilyNameID: 0,
+                        postscriptNameID: 0
+                    )
+                )
+            }
+        }
+
+        let analysis = makeAnalysis(instances: instances)
+        let heightLabels = AxisStopClustering.coordinateLabels(for: "HGHT", instances: instances)
+        XCTAssertEqual(heightLabels[950], "Tall")
+        XCTAssertEqual(heightLabels[1200], "Extra Tall")
+
+        let result = try! XCTUnwrap(
+            AxisStopClustering.classify(axisTag: "wght", instanceTags: ["wght", "HGHT"], analysis: analysis)
+        )
+        XCTAssertEqual(result.cluster(named: "Extra Light")?.values, [200])
+        XCTAssertEqual(result.cluster(named: "Light")?.values, [300])
+        XCTAssertTrue(result.promoteNames.contains("Light"))
+        XCTAssertFalse(result.hasEntanglement)
+    }
+
     func testSingleClusterAlwaysPromotes() {
         let instances = [
             FontAnalysis.ExistingInstance(

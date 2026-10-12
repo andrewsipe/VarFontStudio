@@ -37,7 +37,8 @@ public enum CommitRequestBuilder {
             ),
             otLabelAdditions: OTFeatureLabelEditing.commitAdditions(
                 additions: font.otFeatureLabelAdditions,
-                overrides: font.otFeatureLabelOverrides
+                overrides: font.otFeatureLabelOverrides,
+                existingLabels: otFeatureLabels
             )
         )
     }

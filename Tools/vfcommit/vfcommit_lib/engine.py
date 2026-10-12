@@ -22,6 +22,7 @@ from vfcommit_lib.ot_label_scanner import scan_ot_label_nameids
 from vfcommit_lib.ot_label_writer import (
     apply_ot_label_additions,
     apply_ot_label_patches,
+    drop_unresolved_ot_label_pointers,
     sync_styleset_feature_params,
 )
 from vfcommit_lib.ot_label_reflow import (
@@ -177,7 +178,12 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     # ss## is often registered once per script/langsys. Stamp the same
     # FeatureParams onto every sibling so lookups aren't left unlabeled.
     sync_styleset_feature_params(font)
+    # Blank dangling UINameIDs (ss04 → 259 with no name record) fail export
+    # even when the user never named them. Drop the pointer; keep the feature.
+    unresolved_ot_labels = drop_unresolved_ot_label_pointers(font)
     dedupe_name_table_records(font)
+    ot_labels = scan_ot_label_nameids(font)
+    ot_label_ids = {rec.name_id for rec in ot_labels}
 
     # New ss## labels extend the OT block; axis/instance allocation must start after them.
     if strategy == "reflow" and ot_label_ids:
@@ -250,6 +256,21 @@ def run_commit(request: Dict[str, Any]) -> Dict[str, Any]:
     allocated_ids = [nid for nid in allocated_ids if nid]
 
     warnings: List[Dict[str, Any]] = []
+    if unresolved_ot_labels:
+        shown = unresolved_ot_labels[:8]
+        warnings.append(
+            {
+                "code": "unresolved_ot_labels_cleared",
+                "message": (
+                    "Cleared OpenType feature name pointers that did not resolve: "
+                    + ", ".join(
+                        f"{item['table']} {item['feature_tag']} {item['field']} ({item['name_id']})"
+                        for item in shown
+                    )
+                    + ("..." if len(unresolved_ot_labels) > 8 else "")
+                ),
+            }
+        )
     if orphan_ids_dropped:
         warnings.append(
             {

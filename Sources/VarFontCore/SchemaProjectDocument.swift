@@ -76,6 +76,30 @@ public struct ProjectDocument: Codable, Equatable, Sendable {
         syncNameIDStrategyToFonts()
     }
 
+    /// Drops Format 4 styles that only repeat their stop names in a frozen order.
+    /// Returns how many combinations were removed.
+    @discardableResult
+    public mutating func removeStopNameOrderLocks() -> Int {
+        var removed = 0
+        for index in fonts.indices {
+            let font = fonts[index]
+            let kept = font.compoundStatValues.filter { compound in
+                !CompoundStatNaming.isStopNameOrderLock(
+                    compound,
+                    axes: font.axes,
+                    naming: naming,
+                    fileRole: font.fileRole,
+                    fileStatRegistration: font.fileStatRegistration
+                )
+            }
+            let drop = font.compoundStatValues.count - kept.count
+            guard drop > 0 else { continue }
+            removed += drop
+            fonts[index].compoundStatValues = kept
+        }
+        return removed
+    }
+
     /// Keep per-font commit options aligned with the project preference.
     public mutating func syncNameIDStrategyToFonts() {
         for index in fonts.indices where fonts[index].options.nameidStrategy != nameidStrategy {

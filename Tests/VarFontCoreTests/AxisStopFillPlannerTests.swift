@@ -75,6 +75,7 @@ final class AxisStopFillPlannerTests: XCTestCase {
             AxisStopFillPlanner.plan(for: axis, count: 3, snap: true, statFormat: 1)
         )
         XCTAssertEqual(plan.stops.map(\.value), [75, 100, 125])
+        XCTAssertEqual(plan.stops.map(\.name), ["Condensed", "Normal", "Expanded"])
         XCTAssertEqual(plan.stops.map(\.elidable), [false, true, false])
     }
 
@@ -101,12 +102,45 @@ final class AxisStopFillPlannerTests: XCTestCase {
     func testWidthTypicalStep() throws {
         let axis = AxisDefinition(tag: "wdth", min: 75, default: 100, max: 125, role: .instance, values: [])
         let options = try XCTUnwrap(AxisStopFillPlanner.options(for: axis))
-        XCTAssertEqual(options.typicalStep, 25)
-        XCTAssertEqual(options.defaultCount, 3)
+        XCTAssertNil(options.typicalStep)
+        XCTAssertEqual(options.snapLattice, [50, 62.5, 75, 87.5, 100, 112.5, 125, 150, 200])
+        XCTAssertEqual(options.defaultCount, 5)
         XCTAssertEqual(
-            try XCTUnwrap(AxisStopFillPlanner.values(for: axis, count: 3, snap: true)),
-            [75, 100, 125]
+            try XCTUnwrap(AxisStopFillPlanner.values(for: axis, count: 5, snap: true)),
+            [75, 87.5, 100, 112.5, 125]
         )
+        let plan = try XCTUnwrap(AxisStopFillPlanner.plan(for: axis, count: 5, snap: true, statFormat: 1))
+        XCTAssertEqual(plan.stops.map(\.name), [
+            "Condensed", "SemiCondensed", "Normal", "SemiExpanded", "Expanded",
+        ])
+    }
+
+    /// A 0–900 width axis keeps that range. Normal is the midpoint. The other
+    /// usWidthClass names keep their percent-of-Normal spacing, fitted so 50%
+    /// lands on min and 200% lands on max.
+    func testWidthFillOnCustomRangeUsesPercentOfNormal() throws {
+        let axis = AxisDefinition(tag: "wdth", min: 0, default: 0, max: 900, role: .instance, values: [])
+        let options = try XCTUnwrap(AxisStopFillPlanner.options(for: axis))
+        XCTAssertEqual(options.defaultCount, 9)
+        let plan = try XCTUnwrap(
+            AxisStopFillPlanner.plan(for: axis, count: options.defaultCount, snap: true, statFormat: 1)
+        )
+        XCTAssertEqual(plan.stops.map(\.value), [0, 112.5, 225, 337.5, 450, 506.25, 562.5, 675, 900])
+        XCTAssertEqual(plan.stops.map(\.name), [
+            "UltraCondensed", "ExtraCondensed", "Condensed", "SemiCondensed", "Normal",
+            "SemiExpanded", "Expanded", "ExtraExpanded", "UltraExpanded",
+        ])
+        XCTAssertEqual(plan.stops.last?.name, "UltraExpanded")
+        XCTAssertEqual(plan.stops.last?.value, 900)
+
+        // The count slider's even scale skips 506.25 and invents 787.5. Width
+        // fill uses the percentage positions even when Snap is off.
+        let unsnapped = try XCTUnwrap(
+            AxisStopFillPlanner.plan(for: axis, count: 9, snap: false, statFormat: 1)
+        )
+        XCTAssertEqual(unsnapped.stops.map(\.value), plan.stops.map(\.value))
+        XCTAssertEqual(unsnapped.stops.map(\.name), plan.stops.map(\.name))
+        XCTAssertTrue(unsnapped.snapping)
     }
 
     func testNarrowRangeStillOffersCountSlider() throws {

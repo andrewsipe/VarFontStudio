@@ -560,6 +560,7 @@ def _process_instance(
             ps_prefix=ps_prefix,
             family_name=family_name,
         )
+        _apply_us_weight_class(instance_font, display_name, full_coords)
 
         if not postscript_name and not display_name:
             final_ps = _get_name_id(instance_font, NAME_ID_POSTSCRIPT)
@@ -722,6 +723,78 @@ def _resolve_family_name(font: TTFont, explicit: str | None) -> str | None:
     return _strip_variable_tokens(raw) or raw
 
 
+def _as_ribbi_style(display_name: str) -> str | None:
+    """Windows style name. 'Regular Italic' is the Italic face, not its own style."""
+    key = " ".join(display_name.split()).casefold()
+    if key in {"regular italic", "italic regular"}:
+        return "Italic"
+    if key == "regular":
+        return "Regular"
+    if key == "italic":
+        return "Italic"
+    if key == "bold":
+        return "Bold"
+    if key in {"bold italic", "italic bold"}:
+        return "Bold Italic"
+    return None
+
+
+_REGISTERED_WEIGHT_CLASSES = (100, 200, 300, 400, 500, 600, 700, 800, 900)
+_STYLE_WEIGHT_CLASS = {
+    "thin": 100,
+    "hairline": 100,
+    "extralight": 200,
+    "ultralight": 200,
+    "light": 300,
+    "regular": 400,
+    "normal": 400,
+    "medium": 500,
+    "semibold": 600,
+    "demibold": 600,
+    "bold": 700,
+    "extrabold": 800,
+    "ultrabold": 800,
+    "black": 900,
+    "heavy": 900,
+}
+
+
+def _style_weight_class(display_name: str | None) -> int | None:
+    if not display_name:
+        return None
+    parts = [
+        part
+        for part in re.split(r"[\s\-]+", display_name.strip())
+        if part and part.casefold() not in {"italic", "oblique"}
+    ]
+    if parts and parts[0].casefold() == "regular" and len(parts) > 1:
+        parts = parts[1:]
+    key = "".join(parts).casefold()
+    return _STYLE_WEIGHT_CLASS.get(key)
+
+
+def _apply_us_weight_class(font: TTFont, display_name: str | None, coords: dict) -> None:
+    """Off the 100–900 scale, usWeightClass follows the style name, not the axis coordinate."""
+    if "OS/2" not in font:
+        return
+    try:
+        wght = coords.get("wght")
+    except AttributeError:
+        return
+    if wght is None:
+        return
+    try:
+        wght_value = float(wght)
+    except (TypeError, ValueError):
+        return
+    if any(abs(wght_value - registered) < 0.01 for registered in _REGISTERED_WEIGHT_CLASSES):
+        return
+    weight_class = _style_weight_class(display_name)
+    if weight_class is None:
+        return
+    font["OS/2"].usWeightClass = weight_class
+
+
 def _apply_name_overrides(
     font: TTFont,
     *,
@@ -736,22 +809,30 @@ def _apply_name_overrides(
         _set_name_id(font, NAME_ID_TYPO_FAMILY, family)
 
     if display_name:
-        _set_name_id(font, NAME_ID_TYPO_SUBFAMILY, display_name)
-        if display_name in RIBBI_STYLES:
-            _set_name_id(font, NAME_ID_SUBFAMILY, display_name)
+        ribbi = _as_ribbi_style(display_name)
+        if ribbi:
+            _set_name_id(font, NAME_ID_TYPO_SUBFAMILY, ribbi)
+            _set_name_id(font, NAME_ID_SUBFAMILY, ribbi)
             if family:
                 _set_name_id(font, NAME_ID_FAMILY, family)
-                _set_name_id(font, NAME_ID_FULL, f"{family} {display_name}")
-        elif family:
-            # Non-RIBBI: Windows family carries the style; ID 2 stays RIBBI from fontTools.
-            _set_name_id(font, NAME_ID_FAMILY, f"{family} {display_name}")
-            _set_name_id(font, NAME_ID_FULL, f"{family} {display_name}")
+                _set_name_id(font, NAME_ID_FULL, f"{family} {ribbi}")
         else:
-            inherited = _get_name_id(font, NAME_ID_TYPO_FAMILY) or _get_name_id(
-                font, NAME_ID_FAMILY
-            )
-            if inherited:
-                _set_name_id(font, NAME_ID_FULL, f"{inherited} {display_name}")
+            _set_name_id(font, NAME_ID_TYPO_SUBFAMILY, display_name)
+            if display_name in RIBBI_STYLES:
+                _set_name_id(font, NAME_ID_SUBFAMILY, display_name)
+                if family:
+                    _set_name_id(font, NAME_ID_FAMILY, family)
+                    _set_name_id(font, NAME_ID_FULL, f"{family} {display_name}")
+            elif family:
+                # Non-RIBBI: Windows family carries the style; ID 2 stays RIBBI from fontTools.
+                _set_name_id(font, NAME_ID_FAMILY, f"{family} {display_name}")
+                _set_name_id(font, NAME_ID_FULL, f"{family} {display_name}")
+            else:
+                inherited = _get_name_id(font, NAME_ID_TYPO_FAMILY) or _get_name_id(
+                    font, NAME_ID_FAMILY
+                )
+                if inherited:
+                    _set_name_id(font, NAME_ID_FULL, f"{inherited} {display_name}")
     elif family:
         style = _get_name_id(font, NAME_ID_TYPO_SUBFAMILY) or _get_name_id(
             font, NAME_ID_SUBFAMILY

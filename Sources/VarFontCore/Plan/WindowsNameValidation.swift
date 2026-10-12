@@ -10,6 +10,9 @@ public enum WindowsNameValidation {
     /// IDs a shipping font needs; same set the panel protects from removal.
     public static var requiredNameIDs: Set<Int> { WindowsNameTableEditing.protectedFromRemoval }
 
+    /// Core identity that is useful but not required to export.
+    public static var optionalCoreNameIDs: Set<Int> { [3, 5, 16, 17] }
+
     /// Whole-value words that mean "nobody filled this in".
     static let placeholderWords: Set<String> = [
         "?", "n/a", "na", "none", "null", "nil", "unknown", "undefined",
@@ -141,6 +144,33 @@ public enum WindowsNameValidation {
         return issues.sorted { lhs, rhs in
             if lhs.isRequired != rhs.isRequired { return lhs.isRequired }
             return lhs.nameID < rhs.nameID
+        }
+    }
+
+    /// Missing or unusable optional core IDs. Required IDs are left to `issues`.
+    public static func optionalCoreIssues(
+        windowsNameTable: [WindowsNameRecord],
+        overrides: [String: String],
+        removals: [Int],
+        familyPSPrefix: String?
+    ) -> [Issue] {
+        let rows = WindowsNameTableEditing.populatedRows(
+            windowsNameTable: windowsNameTable,
+            overrides: overrides,
+            removals: removals,
+            familyPSPrefix: familyPSPrefix
+        )
+        return optionalCoreNameIDs.sorted().compactMap { nameID in
+            guard !requiredNameIDs.contains(nameID) else { return nil }
+            if let row = rows.first(where: { $0.nameID == nameID }) {
+                guard let problem = classify(row.value) else { return nil }
+                return makeIssue(nameID: nameID, problem: problem, label: row.label)
+            }
+            let wasCleared = WindowsNameTableEditing.analysisString(
+                nameID: nameID,
+                windowsNameTable: windowsNameTable
+            ) != nil
+            return makeIssue(nameID: nameID, problem: wasCleared ? .cleared : .missing)
         }
     }
 

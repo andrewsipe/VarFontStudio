@@ -251,6 +251,11 @@ extension EditorViewModel {
         isBusy = true
         defer { isBusy = false }
         do {
+            var document = openProjects[idx].document
+            if document.removeStopNameOrderLocks() > 0 {
+                openProjects[idx].document = document
+                regeneratePlan()
+            }
             try ProjectDocumentStore.save(openProjects[idx].document, to: url)
             openProjects[idx].projectFileURL = url
             openProjects[idx].projectFileDirty = false
@@ -344,11 +349,12 @@ extension EditorViewModel {
             registerSourceBookmark(url: url, fontID: font.id)
         }
 
+        let removedOrderLocks = document.removeStopNameOrderLocks()
         let open = OpenProject(
             document: document,
             selectedFontID: document.preferredSelectedFontID,
             projectFileURL: projectFileURL,
-            projectFileDirty: false
+            projectFileDirty: removedOrderLocks > 0
         )
         openProjects.append(open)
         activateProject(id: open.id)
@@ -364,8 +370,15 @@ extension EditorViewModel {
             markProjectDirtyIfChanged: false
         )
         regeneratePlan()
-        canSave = document.fonts.contains(where: \.dirty)
-        postStatusMessage("Opened project — \(projectFileURL.lastPathComponent)")
+        canSave = document.fonts.contains(where: \.dirty) || removedOrderLocks > 0
+        if removedOrderLocks > 0 {
+            let styles = removedOrderLocks == 1 ? "style" : "styles"
+            postStatusMessage(
+                "Opened \(projectFileURL.lastPathComponent) — removed \(removedOrderLocks) combination \(styles) that were pinning word order. Save the project to keep that."
+            )
+        } else {
+            postStatusMessage("Opened project — \(projectFileURL.lastPathComponent)")
+        }
     }
 
     func handleApplicationTerminateRequest() -> ApplicationTerminateGate {
@@ -486,6 +499,11 @@ extension EditorViewModel {
             var (imported, seedReport) = ProjectImporter.newProject(from: analysis, sourceURL: url)
             applyDefaultNameIDStrategy(to: &imported)
             if let fontID = imported.fonts.first?.id {
+                NameIDStrategyInference.applyDanglingReflow(
+                    to: &imported,
+                    analysis: analysis,
+                    fontID: fontID
+                )
                 registerSourceBookmark(url: url, fontID: fontID)
             }
             let open = OpenProject(

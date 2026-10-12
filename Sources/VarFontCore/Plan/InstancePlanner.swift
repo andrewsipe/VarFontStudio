@@ -27,7 +27,7 @@ public enum InstancePlanner {
         let excluded = Set(font.excludedInstanceKeys)
         let includedWhitelist = Set(font.includedInstanceKeys)
 
-        var warnings = validateAxes(font.axes)
+        var warnings = validateAxes(font.axes, compounds: font.compoundStatValues)
         warnings.append(contentsOf: AxisStopValidator.validate(axes: font.axes))
         warnings.append(contentsOf: validateInstanceKeySets(font))
         warnings.append(contentsOf: validateClarifiers(font: font))
@@ -189,7 +189,10 @@ public enum InstancePlanner {
 
     public static func plan(project: ProjectDocument, fontID: String, options: Options = Options()) -> InstancePlan? {
         guard let font = project.fonts.first(where: { $0.id == fontID }) else { return nil }
-        return plan(font: font, naming: project.naming, options: options)
+        var result = plan(font: font, naming: project.naming, options: options)
+        let siblings = project.fonts.filter { $0.id != fontID }
+        result.warnings.append(contentsOf: SiblingStopNames.warnings(for: font, siblings: siblings))
+        return result
     }
 
     // MARK: - Private
@@ -268,10 +271,33 @@ public enum InstancePlanner {
         )
     }
 
-    private static func validateAxes(_ axes: [AxisDefinition]) -> [PlanWarning] {
+    /// True when a Format 4 combination style (two or more axes) names this stop's value on
+    /// `axisTag`, so the combination name — not the per-axis label — carries the naming.
+    private static func isCoveredByCompound(
+        axisTag: String,
+        stop: AxisValue,
+        compounds: [CompoundStatValue]
+    ) -> Bool {
+        compounds.contains { compound in
+            guard compound.coords.count >= 2,
+                  let value = compound.coords[axisTag] else { return false }
+            return abs(value - stop.value) < 0.0001
+        }
+    }
+
+    private static func validateAxes(
+        _ axes: [AxisDefinition],
+        compounds: [CompoundStatValue] = []
+    ) -> [PlanWarning] {
         var warnings: [PlanWarning] = []
         for axis in axes {
-            let elidable = axis.values.filter(\.elidable)
+            // Elided stops that are deferred to a combination style (e.g. Serif × Contrast
+            // legs) get a pass: the Format 4 name takes over, so per-axis elision there cannot
+            // produce phantom family combinations. Only the remaining elided stops count.
+            let elidable = axis.values.filter { stop in
+                stop.elidable
+                    && !isCoveredByCompound(axisTag: axis.tag, stop: stop, compounds: compounds)
+            }
             if elidable.count > 1 {
                 warnings.append(
                     PlanWarning(
@@ -292,6 +318,10 @@ public enum InstancePlanner {
                         hint: "This axis needs at least one stop, or it can be switched off as an instance axis."
                     )
                 )
+            }
+            warnings.append(contentsOf: WeightStopNaming.aliasWarnings(on: axis))
+            if let gap = WeightStopNaming.gapWarning(on: axis) {
+                warnings.append(gap)
             }
         }
         return warnings

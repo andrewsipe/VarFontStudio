@@ -217,7 +217,7 @@ struct NamingOrderChainFooter: View {
                 HStack(spacing: StudioSpacing.rowGap) {
                     codeNamingControl
                     hideStatOnlyControl
-                    restoreButton
+                    resetOrderButton
                 }
             }
         }
@@ -313,14 +313,15 @@ struct NamingOrderChainFooter: View {
         }
     }
 
-    private var restoreButton: some View {
+    private var resetOrderButton: some View {
         StudioCompactToggleButton(
-            title: "Restore",
-            isEnabled: editor.namingDefaultsNeedRestore,
-            help: "Restore STAT-inferred naming order and axis instance roles from import"
+            title: "Reset Order",
+            isEnabled: editor.namingOrderNeedsReset,
+            help: "Put the naming chips back to the import order, including the PostScript hyphen. "
+                + "Code stays on if you turned it on. Axis roles and the Axis Tree stay as they are."
         ) {
             session.reset()
-            editor.restoreNamingDefaults()
+            editor.resetNamingOrder()
         }
     }
 
@@ -553,7 +554,7 @@ struct NamingOrderChainFooter: View {
 
     private var chainEmptyMessage: String {
         if hideStatOnly, editor.namingChainInstanceTags.isEmpty, !editor.namingChainTags.isEmpty {
-            return "Only pinned axes remain. Turn off Hide pinned axes to reorder them, or use Restore to reset axis roles."
+            return "Only pinned axes remain. Turn off Hide pinned axes to reorder them."
         }
         return "No axes in naming order."
     }

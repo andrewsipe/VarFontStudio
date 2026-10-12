@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 from vfinstance_lib.engine import (
     NAME_ID_FAMILY,
     NAME_ID_FULL,
+    NAME_ID_POSTSCRIPT,
     NAME_ID_SUBFAMILY,
     NAME_ID_TYPO_FAMILY,
     NAME_ID_TYPO_SUBFAMILY,
@@ -92,6 +93,55 @@ class ApplyFamilyOverridesTests(unittest.TestCase):
         self.assertEqual(names[NAME_ID_TYPO_FAMILY], "Black Pack Niu")
         self.assertEqual(names[NAME_ID_FAMILY], "Black Pack Niu")
         self.assertEqual(names[NAME_ID_FULL], "Black Pack Niu Regular")
+
+    def test_regular_italic_is_the_italic_style(self) -> None:
+        names = {
+            NAME_ID_FAMILY: "Cira Sans Regular Italic",
+            NAME_ID_SUBFAMILY: "Regular Italic",
+            NAME_ID_TYPO_FAMILY: "Cira Sans",
+            NAME_ID_TYPO_SUBFAMILY: "Regular Italic",
+            NAME_ID_FULL: "Cira Sans Regular Italic",
+        }
+        font = self._font(names)
+        _apply_name_overrides(
+            font,
+            display_name="Regular Italic",
+            postscript_name="CiraSans-RegularItalic",
+            ps_prefix="CiraSans",
+            family_name="Cira Sans",
+        )
+        self.assertEqual(names[NAME_ID_FAMILY], "Cira Sans")
+        self.assertEqual(names[NAME_ID_SUBFAMILY], "Italic")
+        self.assertEqual(names[NAME_ID_TYPO_SUBFAMILY], "Italic")
+        self.assertEqual(names[NAME_ID_FULL], "Cira Sans Italic")
+        self.assertEqual(names[NAME_ID_POSTSCRIPT], "CiraSans-RegularItalic")
+
+
+class UsWeightClassTests(unittest.TestCase):
+    def test_off_scale_coordinate_uses_the_style_name(self) -> None:
+        from unittest.mock import MagicMock
+
+        from vfinstance_lib.engine import _apply_us_weight_class
+
+        font = MagicMock()
+        os2 = MagicMock()
+        os2.usWeightClass = 250
+        def getitem(key: str):
+            if key == "OS/2":
+                return os2
+            raise KeyError(key)
+
+        font.__contains__.side_effect = lambda key: key == "OS/2"
+        font.__getitem__.side_effect = getitem
+
+        _apply_us_weight_class(font, "Thin", {"wght": 250})
+        self.assertEqual(os2.usWeightClass, 100)
+        _apply_us_weight_class(font, "Extralight", {"wght": 275})
+        self.assertEqual(os2.usWeightClass, 200)
+
+        os2.usWeightClass = 300
+        _apply_us_weight_class(font, "Light", {"wght": 300})
+        self.assertEqual(os2.usWeightClass, 300)
 
 
 if __name__ == "__main__":

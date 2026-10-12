@@ -94,13 +94,21 @@ public enum OTFeatureLabelEditing {
             }
         }
 
+        // An ss## that already has FeatureParams is an existing site, even when its
+        // name string is missing. A pending addition for that same site would share
+        // the row id and SwiftUI would drop clicks on the later rows.
+        let pendingAdditions = additions.filter { addition in
+            let key = overrideKey(table: addition.table, featureTag: addition.featureTag, field: "UINameID")
+            return !seenSites.contains(key)
+        }
+
         let provisional = provisionalNameIDs(
             existingLabels: uniqueExistingSites,
-            additions: additions,
+            additions: pendingAdditions,
             nameidStrategy: nameidStrategy
         )
 
-        for addition in additions {
+        for addition in pendingAdditions {
             let tagKey = "\(addition.table)|\(addition.featureTag)"
             coveredTags.insert(tagKey)
             let field = "UINameID"
@@ -248,9 +256,15 @@ public enum OTFeatureLabelEditing {
     /// Additions whose string is non-empty (export-ready).
     public static func commitAdditions(
         additions: [OTFeatureLabelAddition],
-        overrides: [String: String]
+        overrides: [String: String],
+        existingLabels: [OTFeatureLabelRecord] = []
     ) -> [OTFeatureLabelAddition] {
-        additions.compactMap { addition in
+        let labeledTags = Set(existingLabels.map { "\($0.table)|\($0.featureTag)" })
+        return additions.compactMap { addition in
+            // The string for an existing FeatureParams site is a patch, not a new label.
+            if labeledTags.contains("\(addition.table)|\(addition.featureTag)") {
+                return nil
+            }
             let key = overrideKey(table: addition.table, featureTag: addition.featureTag, field: "UINameID")
             let value = (overrides[key] ?? addition.string)
                 .trimmingCharacters(in: .whitespacesAndNewlines)

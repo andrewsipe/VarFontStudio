@@ -26,18 +26,13 @@ extension EditorViewModel {
         let coalesceKey = Self.otFeatureLabelUndoKey(table: table, featureTag: featureTag, field: field)
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         mutateNameTableCosmetic(undoCoalesceKey: coalesceKey) { font in
-            // Clearing a pending addition drops the intent (back to unlabeled).
-            if trimmed.isEmpty,
-               font.otFeatureLabelAdditions.contains(where: {
-                   $0.table == table && $0.featureTag == featureTag
-               }) {
-                font.otFeatureLabelOverrides.removeValue(forKey: key)
+            // A blank field drops any pending addition. An existing FeatureParams
+            // site still keeps the empty override so export clears that name.
+            if trimmed.isEmpty {
                 font.otFeatureLabelAdditions.removeAll {
                     $0.table == table && $0.featureTag == featureTag
                 }
-                return
             }
-            // Empty string on an existing label → name-table delete on save (feature stays).
             font.otFeatureLabelOverrides[key] = value
         }
     }

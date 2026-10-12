@@ -97,11 +97,15 @@ public enum FontAnalysisReader {
         if let postData, postData.count >= 8 {
             let angle = OpenTypeBinary.readFixed(postData, 4)
             postItalicAngle = angle
-            isItalicFont = abs(angle) > 0.5
+            isItalicFont = ItalicAngle.indicatesItalic(angle)
         }
         isItalicFont = isItalicFont
             || ((fsSelection ?? 0) & 0x0001) != 0
             || ((headMacStyle ?? 0) & 0x0002) != 0
+        // Glyph lean only when post has no angle. A measured angle inside (−2, 2) stays upright.
+        if !isItalicFont, postItalicAngle == nil {
+            isItalicFont = GlyphSlantProbe.looksItalic(font)
+        }
 
         var blockers: [String] = []
         let hasFvar = fvarData != nil
@@ -234,9 +238,10 @@ public enum FontAnalysisReader {
             axes.append(
                 FontAnalysis.AnalyzedAxis(
                     tag: axis.tag,
-                    displayName: lightweight
-                        ? axis.tag
-                        : (OpenTypeNameTable.name(id: axis.nameID, from: font) ?? axis.tag),
+                    displayName: RegisteredAxisNames.displayName(
+                        tag: axis.tag,
+                        recorded: OpenTypeNameTable.name(id: axis.nameID, from: font)
+                    ),
                     min: axis.min,
                     default: axis.defaultValue,
                     max: axis.max,
@@ -282,7 +287,10 @@ public enum FontAnalysisReader {
             axes.append(
                 FontAnalysis.AnalyzedAxis(
                     tag: designAxis.tag,
-                    displayName: OpenTypeNameTable.name(id: designAxis.nameID, from: font) ?? designAxis.tag,
+                    displayName: RegisteredAxisNames.displayName(
+                        tag: designAxis.tag,
+                        recorded: OpenTypeNameTable.name(id: designAxis.nameID, from: font)
+                    ),
                     min: registrationDefault,
                     default: registrationDefault,
                     max: registrationDefault,

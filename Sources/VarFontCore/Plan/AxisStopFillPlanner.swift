@@ -9,6 +9,10 @@ public struct AxisStopFillOptions: Sendable, Equatable {
     public var countRange: ClosedRange<Int>
     public var defaultCount: Int
     public var typicalStep: Double?
+    /// Snap lattice that is not a uniform step — named width stops. Nil for step-based axes.
+    public var snapLattice: [Double]?
+    /// Caption phrase for the lattice, e.g. "named width steps".
+    public var snapBasis: String?
 
     public init(
         axisTag: String,
@@ -18,7 +22,9 @@ public struct AxisStopFillOptions: Sendable, Equatable {
         defaultValue: Double?,
         countRange: ClosedRange<Int>,
         defaultCount: Int,
-        typicalStep: Double?
+        typicalStep: Double?,
+        snapLattice: [Double]? = nil,
+        snapBasis: String? = nil
     ) {
         self.axisTag = axisTag
         self.displayName = displayName
@@ -28,6 +34,8 @@ public struct AxisStopFillOptions: Sendable, Equatable {
         self.countRange = countRange
         self.defaultCount = defaultCount
         self.typicalStep = typicalStep
+        self.snapLattice = snapLattice
+        self.snapBasis = snapBasis
     }
 }
 
@@ -36,6 +44,7 @@ public struct AxisStopFillPlan: Sendable, Equatable {
     public var step: Double
     public var snapping: Bool
     public var typicalStep: Double?
+    public var snapBasis: String?
     public var onSuggestedCount: Bool
     public var snapFits: Bool
     public var tickCount: Int
@@ -113,8 +122,12 @@ public enum AxisStopFillPlanner {
               let maxV = axis.max else { return nil }
 
         let countRange = evenCountRange(min: minV, max: maxV)
-        let step = typicalStep(for: axis.tag)
-        let defaultCount = suggestedCount(min: minV, max: maxV, typicalStep: step, within: countRange)
+        let lattice = namedLattice(for: axis.tag, min: minV, max: maxV)
+        let step = lattice == nil ? typicalStep(for: axis.tag) : nil
+        let latticeTickCount = lattice.map { latticeTicks(min: minV, max: maxV, lattice: $0).count } ?? 0
+        let defaultCount = lattice == nil
+            ? suggestedCount(min: minV, max: maxV, typicalStep: step, within: countRange)
+            : min(max(latticeTickCount, countRange.lowerBound), countRange.upperBound)
 
         return AxisStopFillOptions(
             axisTag: axis.tag,
@@ -124,7 +137,9 @@ public enum AxisStopFillPlanner {
             defaultValue: axis.default,
             countRange: countRange,
             defaultCount: defaultCount,
-            typicalStep: step
+            typicalStep: step,
+            snapLattice: lattice,
+            snapBasis: lattice == nil ? nil : "named width steps"
         )
     }
 
@@ -158,9 +173,13 @@ public enum AxisStopFillPlanner {
         statFormat: Int
     ) -> AxisStopFillPlan {
         let clamped = min(max(count, options.countRange.lowerBound), options.countRange.upperBound)
-        let ticks = typicalTicks(min: options.minValue, max: options.maxValue, step: options.typicalStep)
+        let ticks = snapTicks(for: options)
         let snapFits = ticks.count >= max(minStopCount, clamped)
-        let snapping = snap && snapFits
+        // Width percentages are not an even scale. A width axis uses those positions
+        // directly, so a count of 9 includes SemiExpanded instead of an unnamed
+        // even step such as 787.5.
+        let usesWidthScale = options.axisTag == "wdth" && options.snapLattice != nil && ticks.count >= clamped
+        let snapping = (snap && snapFits) || usesWidthScale
         let noms = noms(count: clamped, options: options, snap: snapping)
         let format = statFormat == 2 ? 2 : 1
         let tiled = AxisStopRangeGeometry.tile(
@@ -172,16 +191,20 @@ public enum AxisStopFillPlanner {
             guard noms.count >= 2 else { return 0 }
             return (noms[noms.count - 1] - noms[0]) / Double(noms.count - 1)
         }()
-        let suggested = suggestedCount(
+        let stretchedNames = stretchedWidthNames(
+            for: noms,
+            axisTag: options.axisTag,
             min: options.minValue,
-            max: options.maxValue,
-            typicalStep: options.typicalStep,
-            within: options.countRange
+            max: options.maxValue
         )
-        let stops = tiled.map { row in
+        let stops = tiled.enumerated().map { index, row in
             AxisStopFillPlan.PlannedStop(
                 value: row.nom,
-                name: fillName(for: row.nom, axisTag: options.axisTag, axisDefault: options.defaultValue),
+                name: stretchedNames?[index] ?? fillName(
+                    for: row.nom,
+                    axisTag: options.axisTag,
+                    axisDefault: options.defaultValue
+                ),
                 rangeMin: row.min,
                 rangeMax: row.max,
                 elidable: AxisStopNamingDefaults.inventedElidable(
@@ -196,7 +219,8 @@ public enum AxisStopFillPlanner {
             step: step,
             snapping: snapping,
             typicalStep: options.typicalStep,
-            onSuggestedCount: !snapping && clamped == suggested && options.typicalStep != nil,
+            snapBasis: options.snapBasis,
+            onSuggestedCount: !snapping && clamped == options.defaultCount && (options.typicalStep != nil || options.snapLattice != nil),
             snapFits: snapFits,
             tickCount: ticks.count,
             statFormat: format
@@ -207,7 +231,10 @@ public enum AxisStopFillPlanner {
         if let named = namedStop(for: value, axisTag: axisTag) {
             return named
         }
-        if let axisDefault, AxisCoordinate.valuesEqual(value, axisDefault),
+        // Width's neutral name is the registered 100 stop, already in the width ladder.
+        // A custom default (0 on a 0–900 axis) must not be labeled Normal.
+        if axisTag != "wdth",
+           let axisDefault, AxisCoordinate.valuesEqual(value, axisDefault),
            let elidable = AxisStopNamingDefaults.defaultElidableName(for: axisTag) {
             return elidable
         }
@@ -220,15 +247,24 @@ public enum AxisStopFillPlanner {
 
     public static func caption(for plan: AxisStopFillPlan) -> String {
         let count = plan.stops.count
+        if plan.snapping, let basis = plan.snapBasis {
+            return "Snapped to \(basis). \(count) noms."
+        }
         if plan.snapping, let step = plan.typicalStep {
             return "Snapped to this axis’s \(AxisStopSuggestions.formatValue(step))-unit step. \(count) noms."
+        }
+        if plan.onSuggestedCount, let basis = plan.snapBasis {
+            return "Suggested count \(count) from \(basis). \(count) noms."
         }
         if plan.onSuggestedCount, let step = plan.typicalStep {
             return "Suggested count \(count) from this axis’s \(AxisStopSuggestions.formatValue(step))-unit step. \(count) noms."
         }
         let stepText = AxisStopSuggestions.formatValue(plan.step)
         var text = "\(count) noms, evenly spaced (step \(stepText))."
-        if !plan.snapFits, let step = plan.typicalStep {
+        if !plan.snapFits, let basis = plan.snapBasis {
+            let label = basis.prefix(1).uppercased() + basis.dropFirst()
+            text += " \(label) only have \(plan.tickCount) ticks."
+        } else if !plan.snapFits, let step = plan.typicalStep {
             text += " This axis’s \(AxisStopSuggestions.formatValue(step))-unit step only has \(plan.tickCount) ticks."
         }
         return text
@@ -248,17 +284,133 @@ public enum AxisStopFillPlanner {
         900: "Black",
     ]
 
+    /// usWidthClass, as a percent of Normal. Compounds stay title case.
+    /// Used as coordinates only when the axis range is already this percentage scale.
+    private static let widthNames: [(percent: Double, name: String)] = [
+        (50, "UltraCondensed"),
+        (62.5, "ExtraCondensed"),
+        (75, "Condensed"),
+        (87.5, "SemiCondensed"),
+        (100, "Normal"),
+        (112.5, "SemiExpanded"),
+        (125, "Expanded"),
+        (150, "ExtraExpanded"),
+        (200, "UltraExpanded"),
+    ]
+
+    /// True when min/max already sit on the usWidthClass percentage ladder.
+    /// A 0–900 axis is a designer scale — Normal is the midpoint, and the other
+    /// classes keep their percent-of-Normal spacing out to the ends.
+    private static func usesRegisteredWidthScale(min minV: Double, max maxV: Double) -> Bool {
+        minV + AxisCoordinate.tolerance >= 50 && maxV - AxisCoordinate.tolerance <= 200
+    }
+
+    private static func namedLattice(for tag: String, min minV: Double, max maxV: Double) -> [Double]? {
+        guard tag == "wdth" else { return nil }
+        if usesRegisteredWidthScale(min: minV, max: maxV) {
+            return widthNames.map(\.percent)
+        }
+        return stretchedWidthSlots(min: minV, max: maxV).map(\.value)
+    }
+
+    /// usWidthClass percentages, with Normal at the axis midpoint.
+    /// 50% of Normal maps to min, 200% of Normal maps to max, and the steps in
+    /// between keep the spec's spacing on each side (even on the condensed side,
+    /// widening on the expanded side).
+    private static func stretchedWidthSlots(min minV: Double, max maxV: Double) -> [(value: Double, name: String)] {
+        let normal = (minV + maxV) / 2
+        let condensedSpan = normal - minV
+        let expandedSpan = maxV - normal
+        return widthNames.map { entry in
+            let value: Double
+            if entry.percent <= 100 {
+                let fraction = (100 - entry.percent) / 50
+                value = normal - fraction * condensedSpan
+            } else {
+                let fraction = (entry.percent - 100) / 100
+                value = normal + fraction * expandedSpan
+            }
+            return (AxisCoordinateFormat.canonical(value), entry.name)
+        }
+    }
+
+    /// Names for a width axis whose range is not the 25–200 percentage scale.
+    /// Exact spectrum positions win; other stops take the nearest unused name.
+    /// Nil when this axis should use registered coordinates instead.
+    private static func stretchedWidthNames(
+        for values: [Double],
+        axisTag: String,
+        min minV: Double,
+        max maxV: Double
+    ) -> [String]? {
+        guard axisTag == "wdth", !usesRegisteredWidthScale(min: minV, max: maxV) else { return nil }
+        let slots = stretchedWidthSlots(min: minV, max: maxV)
+        var names = Array(repeating: "", count: values.count)
+        var usedSlots = Set<Int>()
+
+        for (valueIndex, value) in values.enumerated() {
+            guard let slotIndex = slots.firstIndex(where: { AxisCoordinate.valuesEqual($0.value, value) }),
+                  !usedSlots.contains(slotIndex) else { continue }
+            names[valueIndex] = slots[slotIndex].name
+            usedSlots.insert(slotIndex)
+        }
+
+        var pending: [(valueIndex: Int, slotIndex: Int, distance: Double)] = []
+        for (valueIndex, value) in values.enumerated() where names[valueIndex].isEmpty {
+            let slotIndex = slots.enumerated().min { lhs, rhs in
+                abs(lhs.element.value - value) < abs(rhs.element.value - value)
+            }?.offset ?? 0
+            pending.append((valueIndex, slotIndex, abs(slots[slotIndex].value - value)))
+        }
+        pending.sort { $0.distance < $1.distance }
+        for item in pending {
+            if usedSlots.contains(item.slotIndex) {
+                names[item.valueIndex] = AxisStopSuggestions.formatValue(values[item.valueIndex])
+            } else {
+                names[item.valueIndex] = slots[item.slotIndex].name
+                usedSlots.insert(item.slotIndex)
+            }
+        }
+        return names
+    }
+
     private static func namedStop(for value: Double, axisTag: String) -> String? {
-        let key = Int(value.rounded())
-        guard abs(value - Double(key)) < AxisCoordinate.tolerance else { return nil }
         switch axisTag {
         case "wght":
+            let key = Int(value.rounded())
+            guard abs(value - Double(key)) < AxisCoordinate.tolerance else { return nil }
             return weightNames[key]
-        case "wdth" where key == 100:
-            return "Normal"
+        case "wdth":
+            return widthNames.first { AxisCoordinate.valuesEqual($0.percent, value) }?.name
         default:
             return nil
         }
+    }
+
+    private static func snapTicks(for options: AxisStopFillOptions) -> [Double] {
+        if let lattice = options.snapLattice {
+            return latticeTicks(min: options.minValue, max: options.maxValue, lattice: lattice)
+        }
+        return typicalTicks(min: options.minValue, max: options.maxValue, step: options.typicalStep)
+    }
+
+    /// Named stops that fall inside the axis, with the axis ends kept so a fill still
+    /// covers min and max when those ends are not themselves named widths.
+    private static func latticeTicks(min minV: Double, max maxV: Double, lattice: [Double]) -> [Double] {
+        var ticks = [AxisCoordinateFormat.canonical(minV)]
+        for value in lattice {
+            let canonical = AxisCoordinateFormat.canonical(value)
+            guard canonical > minV + AxisCoordinate.tolerance,
+                  canonical < maxV - AxisCoordinate.tolerance else { continue }
+            if ticks.contains(where: { AxisCoordinate.valuesEqual($0, canonical) }) == false {
+                ticks.append(canonical)
+            }
+        }
+        let maxCanonical = AxisCoordinateFormat.canonical(maxV)
+        if ticks.contains(where: { AxisCoordinate.valuesEqual($0, maxCanonical) }) == false {
+            ticks.append(maxCanonical)
+        }
+        return ticks
     }
 
     private static func suggestedCount(
@@ -292,11 +444,10 @@ public enum AxisStopFillPlanner {
     }
 
     private static func noms(count: Int, options: AxisStopFillOptions, snap: Bool) -> [Double] {
-        if snap {
-            let ticks = typicalTicks(min: options.minValue, max: options.maxValue, step: options.typicalStep)
-            if ticks.count >= count {
-                return evenOnTicks(count: count, ticks: ticks)
-            }
+        let ticks = snapTicks(for: options)
+        let widthScale = options.axisTag == "wdth" && options.snapLattice != nil && ticks.count >= count
+        if (snap || widthScale), ticks.count >= count {
+            return evenOnTicks(count: count, ticks: ticks)
         }
         return evenNoms(min: options.minValue, max: options.maxValue, count: count)
     }

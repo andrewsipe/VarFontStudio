@@ -201,10 +201,11 @@ public enum AxisStopClustering {
         return clusters.sorted { ($0.values.first ?? 0) < ($1.values.first ?? 0) }
     }
 
-    /// For every distinct coordinate on `tag`, the set of composed-name tokens shared by every
-    /// instance that sits at that exact coordinate (regardless of any other axis's value).
-    /// Requires at least two instances at a coordinate to call anything "shared" — a coordinate
-    /// visited once has nothing to intersect against and gets no label here.
+    /// For every distinct coordinate on `tag`, the shared phrase across every instance that
+    /// sits at that coordinate. Counts are the minimum per token, so a word that repeats in
+    /// only one name ("Extra Light Extra Tall") does not survive as "Extra Extra Tall".
+    /// Requires at least two instances at a coordinate — a coordinate visited once has
+    /// nothing to intersect against and gets no label here.
     static func coordinateLabels(
         for tag: String,
         instances: [FontAnalysis.ExistingInstance]
@@ -221,25 +222,72 @@ public enum AxisStopClustering {
         var labels: [Double: String] = [:]
         for (value, tokenLists) in tokenListsByValue {
             guard tokenLists.count >= 2, let first = tokenLists.first else { continue }
-            var common = Set(first.map { $0.lowercased() })
+            var counts = tokenCounts(first)
             for tokens in tokenLists.dropFirst() {
-                common.formIntersection(Set(tokens.map { $0.lowercased() }))
+                let local = tokenCounts(tokens)
+                for key in Array(counts.keys) {
+                    let next = min(counts[key] ?? 0, local[key] ?? 0)
+                    if next == 0 {
+                        counts.removeValue(forKey: key)
+                    } else {
+                        counts[key] = next
+                    }
+                }
             }
-            guard !common.isEmpty else { continue }
-            let ordered = first.filter { common.contains($0.lowercased()) }
+            guard !counts.isEmpty else { continue }
+            var ordered: [String] = []
+            for token in first {
+                let key = token.lowercased()
+                guard let remaining = counts[key], remaining > 0 else { continue }
+                ordered.append(token)
+                if remaining == 1 {
+                    counts.removeValue(forKey: key)
+                } else {
+                    counts[key] = remaining - 1
+                }
+            }
             guard !ordered.isEmpty else { continue }
             labels[value] = ordered.joined(separator: " ")
         }
         return labels
     }
 
+    private static func tokenCounts(_ tokens: [String]) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for token in tokens {
+            counts[token.lowercased(), default: 0] += 1
+        }
+        return counts
+    }
+
+    /// Peel a companion-axis phrase as one span. "Extra Tall" must not steal the leading
+    /// "Extra" out of "Extra Light Extra Tall" — that residue is "Light", and import then
+    /// treats the neighboring weight as entangled.
     private static func removeTokens(matching label: String, from tokens: inout [String]) {
         let labelTokens = label.split(separator: " ").map { $0.lowercased() }
+        guard !labelTokens.isEmpty else { return }
+        if let range = lastContiguousRange(of: labelTokens, in: tokens) {
+            tokens.removeSubrange(range)
+            return
+        }
         for labelToken in labelTokens {
-            if let index = tokens.firstIndex(where: { $0.lowercased() == labelToken }) {
+            if let index = tokens.lastIndex(where: { $0.lowercased() == labelToken }) {
                 tokens.remove(at: index)
             }
         }
+    }
+
+    private static func lastContiguousRange(of label: [String], in tokens: [String]) -> Range<Int>? {
+        guard !label.isEmpty, label.count <= tokens.count else { return nil }
+        let lowered = tokens.map { $0.lowercased() }
+        var start = tokens.count - label.count
+        while start >= 0 {
+            if lowered[start..<(start + label.count)].elementsEqual(label) {
+                return start..<(start + label.count)
+            }
+            start -= 1
+        }
+        return nil
     }
 
     // MARK: - Gap-based split (no fixed threshold)
