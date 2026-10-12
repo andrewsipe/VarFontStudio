@@ -19,7 +19,7 @@ Captured during the 2026-08-21 declutter pass. Use for a later product/release p
 | `Tools/` | `vfcommit` / `vfinstance` Python helpers |
 | `Package.swift`, `VarFontStudio.xcworkspace` | Build |
 | `scripts/`, `packaging/` | Release |
-| `SCHEMA.md` | App ↔ vfcommit JSON contract (gitignored from remote push; keep locally) |
+| `SCHEMA.md` | App ↔ vfcommit JSON contract (committed) |
 | `docs/` | Short living notes (e.g. axis-naming) |
 | `README.md` | Install / build |
 
@@ -27,7 +27,7 @@ Captured during the 2026-08-21 declutter pass. Use for a later product/release p
 
 1. **Notarization / signing** — alpha 0.1.5; required for polished distribution.
 2. **HANDOFF location** — now under `_misc/_archive/VarFontStudio/`; either restore a short `docs/HANDOFF.md` pointer in-repo for contributors, or keep archive-only.
-3. **SCHEMA.md** — gitignored today; decide if schema is public contract (commit it) or private.
+3. **SCHEMA.md** — now committed (public contract).
 4. **Overlap with Variable_Instancer** — CLI batch vs Studio GUI; shared naming policies via FontCore / Tools.
 5. **`raw_github_urls.txt`** — PushCore noise.
 
@@ -36,7 +36,6 @@ Captured during the 2026-08-21 declutter pass. Use for a later product/release p
 - `swift test`: all pass except 2 **live-font** tests (`testRobotoFlexLiveImportProducesInstances`, `testRobotoFlexWriteRoundTrip`). They hard-code the grid for one Roboto Flex build (`[9, 1]` / 9 instances); the Roboto Flex found on the dev machine yields `[10, 2]` / 20. Pin a specific font version (or relax assertions) before relying on them. On a new machine they skip if no Roboto Flex is found (`fixtures/fonts/README.md`).
 - `fixtures/` (JSON examples used by most tests) was accidentally removed in the declutter commit `6dc5ead`; restored.
 - Fresh-machine build: `swift test` / `swift build` from repo root; Python helpers under `Tools/` are exercised via their own pytest paths in README. No FontCore dependency.
-- `SCHEMA.md` is referenced above as gitignored — decide whether to commit it (see item 3).
 - Not started: signing/notarization, DMG pipeline beyond `scripts/build-release.sh`.
 
 ## Do not lose

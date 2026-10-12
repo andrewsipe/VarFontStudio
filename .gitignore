@@ -11,9 +11,7 @@ xcuserdata/
 
 # Local-only — schema scratch (optional). Design/handoff archive moved to
 # ../_misc/_archive/VarFontStudio/ (2026-08 declutter).
-SCHEMA.md
 raw_github_urls.txt
-Apps/VarFontStudio/COLOR_OUTLINE.md
 
 # macOS
 .DS_Store
